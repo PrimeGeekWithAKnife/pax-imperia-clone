@@ -1679,6 +1679,8 @@
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   pointer-events: auto;
   min-width: 0;
+  overflow: hidden;
+  padding: 2px;
 }
 
 .bsg-slot--empty {
@@ -1713,6 +1715,13 @@
   background: rgba(0, 55, 80, 0.8);
   border-color: var(--color-accent-dim);
   box-shadow: 0 0 10px rgba(0, 212, 255, 0.12), inset 0 0 6px rgba(0, 212, 255, 0.06);
+}
+
+.bsg-slot__icon-img {
+  width: 85%;
+  height: 85%;
+  object-fit: contain;
+  border-radius: 2px;
 }
 
 .bsg-slot__icon {
@@ -6326,4 +6335,107 @@
 
 .colonise-enemy-name {
   font-style: italic;
+}
+
+/* ================================================================
+   SHIPYARD SECTION  (within planet management screen)
+================================================================ */
+
+.pm-shipyard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pm-shipyard__build-btn {
+  align-self: flex-start;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.pm-shipyard__build-btn:hover {
+  background: rgba(0, 212, 255, 0.18);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+
+.pm-shipyard__idle {
+  font-size: 11px;
+  color: var(--color-text-muted, #6b7a8d);
+  font-style: italic;
+}
+
+.pm-shipyard__queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pm-shipyard__queue-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 2px;
+  padding: 6px 8px;
+}
+
+.pm-shipyard__queue-name {
+  font-size: 11px;
+  color: var(--color-text);
+  letter-spacing: 0.04em;
+}
+
+.pm-shipyard__progress-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pm-shipyard__progress-fill {
+  height: 100%;
+  background: var(--color-accent, #00d4ff);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.pm-shipyard__turns-left {
+  font-size: 10px;
+  color: var(--color-text-muted, #6b7a8d);
+}
+
+/* ================================================================
+   SHIP DESIGN PICKER — empty state
+================================================================ */
+
+.bpicker__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--color-text-muted, #6b7a8d);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Ship icon in the design picker header */
+.bpicker-item__ship-icon {
+  font-size: 20px;
+  line-height: 1;
+  margin-right: 4px;
+}
+
+/* Ship produced notification — offset above the build notification */
+.build-notification--ship {
+  bottom: 116px;
+  border-color: rgba(68, 204, 136, 0.5);
+  box-shadow: 0 0 16px rgba(68, 204, 136, 0.15);
 }

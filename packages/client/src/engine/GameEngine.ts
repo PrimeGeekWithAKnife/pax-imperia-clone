@@ -23,6 +23,7 @@
  *  'engine:game_over'         { winnerId?: string; reason?: string }
  *  'engine:galaxy_updated'    Galaxy   (emitted every tick so minimap can refresh)
  *  'engine:planet_colonised'  { planetName: string; systemId: string; planetId: string }
+ *  'engine:ship_produced'     { shipName: string; systemId: string }
  */
 
 import type Phaser from 'phaser';
@@ -35,10 +36,12 @@ import {
   establishColony,
   addBuildingToQueue,
   BUILDING_DEFINITIONS,
+  HULL_TEMPLATE_BY_CLASS,
+  startShipProduction,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
-import type { BuildingType } from '@nova-imperia/shared';
+import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -125,6 +128,7 @@ export class GameEngine {
 
   /** Process exactly one tick and emit events.  Called by the interval. */
   tick(): void {
+    const prevShipIds = new Set(this.tickState.gameState.ships.map(s => s.id));
     const { newState, events } = processGameTick(this.tickState);
     this.tickState = newState;
 
@@ -142,6 +146,17 @@ export class GameEngine {
           break;
         default:
           break;
+      }
+    }
+
+    // ── Emit ship-produced notifications for each newly spawned ship ────────
+    for (const ship of this.tickState.gameState.ships) {
+      if (!prevShipIds.has(ship.id)) {
+        const systemId = ship.position.systemId;
+        this.game.events.emit('engine:ship_produced', {
+          shipName: ship.name,
+          systemId,
+        });
       }
     }
 
@@ -283,6 +298,147 @@ export class GameEngine {
     };
 
     // Notify listeners
+    this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
+
+    return true;
+  }
+
+  /**
+   * Queue a ship for production on a planet that has a shipyard.
+   *
+   * Validates that:
+   *  - The system and planet exist.
+   *  - The planet has a shipyard building.
+   *  - The provided design is known (passed in by the caller).
+   *  - The empire can afford the hull's base cost in credits.
+   *
+   * Deducts the hull cost from the empire's resource stockpile and adds a
+   * ShipProductionOrder to the tick state so the game loop can complete it.
+   *
+   * Build time = Math.max(1, Math.round(hull.baseCost / 100)) turns.
+   *
+   * Emits `engine:planet_updated` with the planet (unchanged, so the UI knows
+   * the order was accepted).
+   *
+   * @returns true if the order was accepted, false otherwise.
+   */
+  produceShip(systemId: string, planetId: string, design: ShipDesign): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.produceShip] System "${systemId}" not found`);
+      return false;
+    }
+
+    const planet = system.planets.find(p => p.id === planetId);
+    if (!planet) {
+      console.warn(`[GameEngine.produceShip] Planet "${planetId}" not found in system "${systemId}"`);
+      return false;
+    }
+
+    // Validate planet is owned
+    const empire = this.tickState.gameState.empires.find(e => e.id === planet.ownerId);
+    if (!empire) {
+      console.warn(`[GameEngine.produceShip] Planet "${planetId}" has no owning empire`);
+      return false;
+    }
+
+    // Validate shipyard exists
+    const hasShipyard = planet.buildings.some(b => b.type === 'shipyard');
+    if (!hasShipyard) {
+      console.warn(`[GameEngine.produceShip] Planet "${planetId}" has no shipyard`);
+      return false;
+    }
+
+    // Look up hull template
+    const hull = HULL_TEMPLATE_BY_CLASS[design.hull];
+    if (!hull) {
+      console.warn(`[GameEngine.produceShip] Unknown hull class "${design.hull}"`);
+      return false;
+    }
+
+    // Check affordability
+    const currentResources = this.tickState.empireResourcesMap.get(empire.id);
+    if (!currentResources) {
+      console.warn(`[GameEngine.produceShip] No resource stockpile for empire "${empire.id}"`);
+      return false;
+    }
+    if (currentResources.credits < hull.baseCost) {
+      console.warn(
+        `[GameEngine.produceShip] Cannot afford ship: need ${hull.baseCost} credits, have ${currentResources.credits}`,
+      );
+      return false;
+    }
+
+    // Deduct hull cost
+    const updatedResources = { ...currentResources, credits: currentResources.credits - hull.baseCost };
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(empire.id, updatedResources);
+
+    const updatedEmpire = { ...empire, credits: updatedResources.credits };
+    const updatedEmpires = this.tickState.gameState.empires.map(e =>
+      e.id === empire.id ? updatedEmpire : e,
+    );
+
+    // Build time: baseCost / 100, minimum 1 turn
+    const buildTime = Math.max(1, Math.round(hull.baseCost / 100));
+
+    // Create production order (drives actual ship creation via the game loop)
+    const order = startShipProduction(design.id, planetId, buildTime);
+
+    // Also add a 'ship' entry to the planet's productionQueue so the
+    // management screen can display progress alongside building items.
+    const updatedPlanet = {
+      ...planet,
+      productionQueue: [
+        ...planet.productionQueue,
+        { type: 'ship' as const, templateId: design.id, turnsRemaining: buildTime },
+      ],
+    };
+
+    const updatedSystems = galaxy.systems.map(s => {
+      if (s.id !== systemId) return s;
+      return {
+        ...s,
+        planets: s.planets.map(p => (p.id === planetId ? updatedPlanet : p)),
+      };
+    });
+
+    // Register the design in the tick state's shipDesigns map so the game loop
+    // can look up hull points when the ship completes
+    const updatedDesigns = new Map(this.tickState.shipDesigns ?? []);
+    updatedDesigns.set(design.id, design);
+
+    // Commit new state
+    this.tickState = {
+      ...this.tickState,
+      empireResourcesMap: updatedResourcesMap,
+      productionOrders: [...this.tickState.productionOrders, order],
+      shipDesigns: updatedDesigns,
+      gameState: {
+        ...this.tickState.gameState,
+        empires: updatedEmpires,
+        galaxy: { ...galaxy, systems: updatedSystems },
+      },
+    };
+
+    // Notify listeners — emit resources update so TopBar refreshes
+    const resourceUpdates = this.tickState.gameState.empires.map(e => {
+      const full = this.tickState.empireResourcesMap.get(e.id);
+      return {
+        empireId: e.id,
+        credits: full?.credits ?? e.credits,
+        minerals: full?.minerals ?? 0,
+        energy: full?.energy ?? 0,
+        organics: full?.organics ?? 0,
+        rareElements: full?.rareElements ?? 0,
+        exoticMaterials: full?.exoticMaterials ?? 0,
+        faith: full?.faith ?? 0,
+        researchPoints: full?.researchPoints ?? e.researchPoints,
+      };
+    });
+    this.game.events.emit('engine:resources_updated', resourceUpdates);
     this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
 
     return true;

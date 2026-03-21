@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import type { Planet, Building, BuildingType } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet } from '@nova-imperia/shared';
+import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import { BuildingSlotGrid } from '../components/BuildingSlotGrid';
 import { ResourceBar } from '../components/ResourceBar';
@@ -260,6 +260,114 @@ function getBuildingDisplayName(type: BuildingType): string {
   return UK_BUILDING_NAME_OVERRIDES[type] ?? BUILDING_DEFINITIONS[type].name;
 }
 
+// ── Hull class display helpers ─────────────────────────────────────────────────
+
+const HULL_CLASS_LABELS: Record<HullClass, string> = {
+  scout: 'Scout',
+  destroyer: 'Destroyer',
+  transport: 'Transport',
+  cruiser: 'Cruiser',
+  carrier: 'Carrier',
+  battleship: 'Battleship',
+};
+
+const HULL_CLASS_ICONS: Record<HullClass, string> = {
+  scout:      '🛸',
+  destroyer:  '⚔️',
+  transport:  '📦',
+  cruiser:    '🚀',
+  carrier:    '🛩️',
+  battleship: '💥',
+};
+
+function getShipBuildTime(design: ShipDesign): number {
+  const hull = HULL_TEMPLATE_BY_CLASS[design.hull];
+  if (!hull) return 1;
+  return Math.max(1, Math.round(hull.baseCost / 100));
+}
+
+function getShipCost(design: ShipDesign): number {
+  const hull = HULL_TEMPLATE_BY_CLASS[design.hull];
+  return hull?.baseCost ?? 0;
+}
+
+// ── Ship Design Picker Modal ───────────────────────────────────────────────────
+
+interface ShipDesignPickerProps {
+  designs: ShipDesign[];
+  empireResources: EmpireResources;
+  onSelect: (design: ShipDesign) => void;
+  onClose: () => void;
+}
+
+function ShipDesignPicker({
+  designs,
+  empireResources,
+  onSelect,
+  onClose,
+}: ShipDesignPickerProps): React.ReactElement {
+  return (
+    <div className="bpicker-overlay" onClick={onClose}>
+      <div
+        className="bpicker"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Choose a ship design to build"
+      >
+        <div className="bpicker__header">
+          <span className="bpicker__title">SELECT SHIP DESIGN</span>
+          <button className="panel-close-btn" onClick={onClose} aria-label="Close ship design picker">
+            ✕
+          </button>
+        </div>
+
+        <div className="bpicker__list">
+          {designs.length === 0 ? (
+            <div className="bpicker__empty">
+              No ship designs — open Ship Designer to create one
+            </div>
+          ) : (
+            designs.map((design) => {
+              const cost = getShipCost(design);
+              const buildTime = getShipBuildTime(design);
+              const canAfford = empireResources.credits >= cost;
+              const hull = HULL_TEMPLATE_BY_CLASS[design.hull];
+              return (
+                <button
+                  key={design.id}
+                  className={`bpicker-item${!canAfford ? ' bpicker-item--disabled' : ''}`}
+                  onClick={() => canAfford && onSelect(design)}
+                  disabled={!canAfford}
+                  title={!canAfford ? `Cannot afford — need ${cost} CR, have ${Math.floor(empireResources.credits)} CR` : undefined}
+                >
+                  <div className="bpicker-item__header">
+                    <span className="bpicker-item__ship-icon" aria-hidden="true">
+                      {HULL_CLASS_ICONS[design.hull] ?? '🚀'}
+                    </span>
+                    <span className="bpicker-item__name">{design.name}</span>
+                    <span className="bpicker-item__turns">{buildTime} turn{buildTime !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="bpicker-item__desc">
+                    {HULL_CLASS_LABELS[design.hull] ?? design.hull}
+                    {hull ? ` · ${hull.baseHullPoints} HP · Speed ${hull.baseSpeed}` : ''}
+                  </div>
+                  <div className="bpicker-item__costs">
+                    <span
+                      className={`bpicker-item__cost ${!canAfford ? 'bpicker-item__cost--unaffordable' : ''}`}
+                    >
+                      CR: {cost}
+                    </span>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 interface PlanetManagementScreenProps {
@@ -267,20 +375,26 @@ interface PlanetManagementScreenProps {
   /** The star system that contains this planet — required to route build actions. */
   systemId: string;
   empireResources: EmpireResources;
+  /** All saved ship designs available for production. */
+  savedDesigns: ShipDesign[];
   onClose: () => void;
   onBuild: (planetId: string, buildingType: BuildingType) => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
+  onProduceShip: (planetId: string, design: ShipDesign) => void;
 }
 
 export function PlanetManagementScreen({
   planet,
   systemId: _systemId,
   empireResources,
+  savedDesigns,
   onClose,
   onBuild,
   onCancelQueue,
+  onProduceShip,
 }: PlanetManagementScreenProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [shipPickerOpen, setShipPickerOpen] = useState(false);
 
   const totalSlots = PLANET_BUILDING_SLOTS[planet.type];
   const usedSlots = planet.buildings.length;
@@ -310,6 +424,20 @@ export function PlanetManagementScreen({
     },
     [planet.id, onCancelQueue],
   );
+
+  const handleSelectShipDesign = useCallback(
+    (design: ShipDesign) => {
+      setShipPickerOpen(false);
+      onProduceShip(planet.id, design);
+    },
+    [planet.id, onProduceShip],
+  );
+
+  // Check whether the planet has a shipyard
+  const hasShipyard = planet.buildings.some(b => b.type === 'shipyard');
+
+  // Ship production queue entries (type === 'ship')
+  const shipQueue = planet.productionQueue.filter(item => item.type === 'ship');
 
   // Rough habitability score — show as natural resources proxy since we don't
   // have species here; use a simplified 0–100 bar based on temp + gravity heuristic.
@@ -469,6 +597,54 @@ export function PlanetManagementScreen({
               queue={planet.productionQueue}
               onCancel={handleCancelQueue}
             />
+
+            {hasShipyard && (
+              <>
+                <div className="pm-divider" />
+                <div className="pm-section-label">SHIPYARD</div>
+                <div className="pm-shipyard">
+                  <button
+                    className="pm-shipyard__build-btn"
+                    onClick={() => setShipPickerOpen(true)}
+                  >
+                    Build Ship
+                  </button>
+                  {shipQueue.length > 0 ? (
+                    <div className="pm-shipyard__queue">
+                      {shipQueue.map((item, idx) => {
+                        // Look up the design name from savedDesigns; fall back
+                        // to showing the design ID prefix.
+                        const design = savedDesigns.find(d => d.id === item.templateId);
+                        const hull = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : null;
+                        const totalTurns = hull ? Math.max(1, Math.round(hull.baseCost / 100)) : item.turnsRemaining;
+                        const elapsed = Math.max(0, totalTurns - item.turnsRemaining);
+                        const progressPct = Math.min(100, Math.round((elapsed / totalTurns) * 100));
+                        return (
+                          <div key={idx} className="pm-shipyard__queue-item">
+                            <span className="pm-shipyard__queue-name">
+                              {design
+                                ? `${HULL_CLASS_ICONS[design.hull] ?? '🚀'} ${design.name}`
+                                : `🚀 Ship (${item.templateId.slice(0, 8)}…)`}
+                            </span>
+                            <div className="pm-shipyard__progress-track">
+                              <div
+                                className="pm-shipyard__progress-fill"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                            <span className="pm-shipyard__turns-left">
+                              {item.turnsRemaining} turn{item.turnsRemaining !== 1 ? 's' : ''} remaining
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="pm-shipyard__idle">No ships in production</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right column: Production summary */}
@@ -566,6 +742,16 @@ export function PlanetManagementScreen({
           empireResources={empireResources}
           onSelect={handleSelectBuilding}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {/* Ship design picker modal */}
+      {shipPickerOpen && (
+        <ShipDesignPicker
+          designs={savedDesigns}
+          empireResources={empireResources}
+          onSelect={handleSelectShipDesign}
+          onClose={() => setShipPickerOpen(false)}
         />
       )}
     </div>

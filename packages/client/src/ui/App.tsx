@@ -168,6 +168,7 @@ export function App(): React.ReactElement {
   const [managedSystemId, setManagedSystemId] = useState<string | null>(null);
   const [empireResources, setEmpireResources] = useState<EmpireResources>(EMPTY_RESOURCES);
   const [buildNotification, setBuildNotification] = useState<string | null>(null);
+  const [shipProducedNotification, setShipProducedNotification] = useState<string | null>(null);
   const [coloniseNotification, setColoniseNotification] = useState<string | null>(null);
   const [researchState, setResearchState] = useState<ResearchState>(MOCK_RESEARCH_STATE);
   const [allTechs, setAllTechs] = useState<Technology[]>(UNIVERSAL_TECHNOLOGIES);
@@ -456,6 +457,16 @@ export function App(): React.ReactElement {
     setFleetShips([]);
   }, []);
 
+  // Engine emits 'engine:ship_produced' when a ship completes construction
+  const handleShipProduced = useCallback(
+    (payload: { shipName: string; systemId: string }) => {
+      const message = `Ship produced: ${payload.shipName}`;
+      setShipProducedNotification(message);
+      setTimeout(() => setShipProducedNotification(null), 4000);
+    },
+    [],
+  );
+
   useGameEvent<StarSystem>('system:selected', handleSystemSelected);
   useGameEvent<Planet>('planet:selected', handlePlanetSelected);
   useGameEvent<void>('system:deselected', handleSystemDeselected);
@@ -482,6 +493,7 @@ export function App(): React.ReactElement {
   useGameEvent<{ systemId: string; planet: Planet }>('engine:planet_updated', handlePlanetUpdated);
   useGameEvent<{ tick: number }>('engine:tick', handleEngineTick);
   useGameEvent<{ planetName: string; systemId: string; planetId: string }>('engine:planet_colonised', handlePlanetColonised);
+  useGameEvent<{ shipName: string; systemId: string }>('engine:ship_produced', handleShipProduced);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -523,6 +535,25 @@ export function App(): React.ReactElement {
         return;
       }
       engine.cancelConstruction(managedSystemId, planetId, queueIndex);
+    },
+    [managedSystemId],
+  );
+
+  const handleProduceShip = useCallback(
+    (planetId: string, design: import('@nova-imperia/shared').ShipDesign) => {
+      if (!managedSystemId) {
+        console.warn('[App.handleProduceShip] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleProduceShip] GameEngine not available');
+        return;
+      }
+      const success = engine.produceShip(managedSystemId, planetId, design);
+      if (!success) {
+        console.warn(`[App.handleProduceShip] produceShip returned false for design ${design.id}`);
+      }
     },
     [managedSystemId],
   );
@@ -746,15 +777,23 @@ export function App(): React.ReactElement {
           planet={managedPlanet}
           systemId={managedSystemId}
           empireResources={empireResources}
+          savedDesigns={savedDesigns}
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
+          onProduceShip={handleProduceShip}
         />
       )}
 
       {buildNotification && (
         <div className="build-notification" role="status" aria-live="polite">
           {buildNotification}
+        </div>
+      )}
+
+      {shipProducedNotification && (
+        <div className="build-notification build-notification--ship" role="status" aria-live="polite">
+          {shipProducedNotification}
         </div>
       )}
 
