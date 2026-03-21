@@ -42,7 +42,7 @@ const MOCK_PLAYER_EMPIRE: Empire = {
     description: 'Adaptable and resourceful.',
     portrait: 'human',
     traits: { construction: 5, reproduction: 5, research: 6, espionage: 5, economy: 6, combat: 5, diplomacy: 7 },
-    environmentPreference: { idealTemperature: 293, temperatureTolerance: 50, idealGravity: 1.0, gravityTolerance: 0.4, preferredAtmospheres: ['oxygen'] },
+    environmentPreference: { idealTemperature: 293, temperatureTolerance: 50, idealGravity: 1.0, gravityTolerance: 0.4, preferredAtmospheres: ['oxygen_nitrogen'] },
     specialAbilities: [],
     isPrebuilt: true,
   },
@@ -85,7 +85,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
     empire: {
       id: 'veth_republic',
       name: 'Veth Republic',
-      species: { id: 'veth', name: 'Veth', description: 'Aquatic philosophers and traders.', portrait: 'veth', traits: { construction: 4, reproduction: 5, research: 8, espionage: 5, economy: 8, combat: 3, diplomacy: 9 }, environmentPreference: { idealTemperature: 285, temperatureTolerance: 40, idealGravity: 0.9, gravityTolerance: 0.5, preferredAtmospheres: ['oxygen'] }, specialAbilities: ['aquatic'], isPrebuilt: true },
+      species: { id: 'veth', name: 'Veth', description: 'Aquatic philosophers and traders.', portrait: 'veth', traits: { construction: 4, reproduction: 5, research: 8, espionage: 5, economy: 8, combat: 3, diplomacy: 9 }, environmentPreference: { idealTemperature: 285, temperatureTolerance: 40, idealGravity: 0.9, gravityTolerance: 0.5, preferredAtmospheres: ['oxygen_nitrogen'] }, specialAbilities: ['aquatic'], isPrebuilt: true },
       color: '#00e676',
       credits: 3100,
       researchPoints: 0,

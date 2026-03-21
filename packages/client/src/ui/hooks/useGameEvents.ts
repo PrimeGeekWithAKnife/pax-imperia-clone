@@ -38,16 +38,22 @@ export function useGameEvent<T = unknown>(
 
     if (!game) {
       let cancelled = false;
+      let registeredGame: PhaserGameBridge | null = null;
       const interval = setInterval(() => {
         const g = getGame();
         if (g && !cancelled) {
           clearInterval(interval);
+          registeredGame = g;
           g.events.on(eventName, cb);
         }
       }, 100);
       return () => {
         cancelled = true;
         clearInterval(interval);
+        // Remove the listener if it was registered during polling
+        if (registeredGame) {
+          registeredGame.events.off(eventName, cb);
+        }
       };
     }
 

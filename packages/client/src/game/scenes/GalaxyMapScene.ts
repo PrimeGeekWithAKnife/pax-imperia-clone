@@ -89,6 +89,17 @@ export class GalaxyMapScene extends Phaser.Scene {
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
   create(data?: { knownSystemIds?: string[] }): void {
+    // Reset state from any previous run of this scene
+    this.parallaxStars = [];
+    this.starHitAreas.clear();
+    this.pulseTweens.clear();
+    this.selectedSystemId = null;
+    this.lastPointerDownTime = 0;
+    this.lastPointerDownSystemId = null;
+    this.currentZoom = 1.0;
+    this.targetZoom = 1.0;
+    this.isDragging = false;
+
     // Generate galaxy
     this.galaxy = generateGalaxy({
       seed: 42,
@@ -327,7 +338,8 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     const sys = this.galaxy.systems.find(s => s.id === id);
     if (sys) {
-      this.events.emit('system:selected', sys);
+      // Emit on game-level emitter so React's useGameEvent hook receives it
+      this.game.events.emit('system:selected', sys);
     }
   }
 

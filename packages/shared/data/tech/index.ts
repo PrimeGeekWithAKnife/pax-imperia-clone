@@ -1,6 +1,6 @@
 import type { TechTree } from '../../src/types/technology.js';
 
-import universalTree from './universal-tree.json' assert { type: 'json' };
+import universalTree from './universal-tree.json' with { type: 'json' };
 
 /** The universal technology tree available to all empires. */
 export const UNIVERSAL_TECH_TREE: TechTree = universalTree as TechTree;

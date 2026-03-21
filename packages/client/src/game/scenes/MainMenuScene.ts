@@ -11,6 +11,11 @@ export class MainMenuScene extends Phaser.Scene {
     super({ key: 'MainMenuScene' });
   }
 
+  private onGameStart = (data: { species: unknown; government: unknown }): void => {
+    console.log('[MainMenuScene] game:start received – launching galaxy map', data);
+    this.scene.start('GalaxyMapScene');
+  };
+
   create(): void {
     const { width, height } = this.scale;
 
@@ -18,12 +23,14 @@ export class MainMenuScene extends Phaser.Scene {
     this.createTitle(width, height);
     this.createMenuButtons(width, height);
 
+    // Remove any stale listener from a previous create() before re-registering.
+    // This prevents duplicate handlers if the scene is re-started without
+    // the event having fired.
+    this.game.events.off('game:start', this.onGameStart);
+
     // React emits 'game:start' with the created species when the player
     // confirms their species in the species creator screen.
-    this.game.events.once('game:start', (data: { species: unknown; government: unknown }) => {
-      console.log('[MainMenuScene] game:start received – launching galaxy map', data);
-      this.scene.start('GalaxyMapScene');
-    });
+    this.game.events.once('game:start', this.onGameStart);
   }
 
   private createStarfield(width: number, height: number): void {

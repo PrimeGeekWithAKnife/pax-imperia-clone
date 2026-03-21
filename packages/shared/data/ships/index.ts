@@ -1,7 +1,7 @@
 import type { HullTemplate, ShipComponent } from '../../src/types/ships.js';
 
-import hullTemplatesData from './hull-templates.json' assert { type: 'json' };
-import componentsData from './components.json' assert { type: 'json' };
+import hullTemplatesData from './hull-templates.json' with { type: 'json' };
+import componentsData from './components.json' with { type: 'json' };
 
 /** All hull templates as a typed array. */
 export const HULL_TEMPLATES: HullTemplate[] = hullTemplatesData as HullTemplate[];

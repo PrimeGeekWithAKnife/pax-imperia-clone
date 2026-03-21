@@ -38,12 +38,12 @@ const TRAIT_DESCRIPTIONS: Record<keyof SpeciesTraits, string> = {
 };
 
 const ATMOSPHERE_TYPES = [
-  'nitrogen_oxygen',
+  'oxygen_nitrogen',
   'carbon_dioxide',
   'methane',
   'ammonia',
   'hydrogen',
-  'noble_gas',
+  'hydrogen_helium',
   'sulfur_dioxide',
   'none',
 ] as const;
@@ -51,12 +51,12 @@ const ATMOSPHERE_TYPES = [
 type AtmosphereType = (typeof ATMOSPHERE_TYPES)[number];
 
 const ATMOSPHERE_LABELS: Record<AtmosphereType, string> = {
-  nitrogen_oxygen: 'N₂/O₂ (Earth-like)',
+  oxygen_nitrogen: 'N₂/O₂ (Earth-like)',
   carbon_dioxide: 'CO₂',
   methane: 'Methane',
   ammonia: 'Ammonia',
   hydrogen: 'Hydrogen',
-  noble_gas: 'Noble Gas',
+  hydrogen_helium: 'H₂/He (Gas Giant)',
   sulfur_dioxide: 'SO₂',
   none: 'None/Vacuum',
 };
@@ -220,7 +220,7 @@ function defaultEnv(): EnvironmentPreference {
     temperatureTolerance: 40,
     idealGravity: 1.0,
     gravityTolerance: 0.3,
-    preferredAtmospheres: ['nitrogen_oxygen'],
+    preferredAtmospheres: ['oxygen_nitrogen'],
   };
 }
 
@@ -327,7 +327,7 @@ export function SpeciesCreatorScreen({
       temperatureTolerance: Math.round(10 + Math.random() * 90),
       idealGravity: Math.round((0.1 + Math.random() * 2.9) * 10) / 10,
       gravityTolerance: Math.round((0.1 + Math.random() * 0.9) * 10) / 10,
-      preferredAtmospheres: [ATMOSPHERE_TYPES[Math.floor(Math.random() * ATMOSPHERE_TYPES.length)] ?? 'nitrogen_oxygen'],
+      preferredAtmospheres: [ATMOSPHERE_TYPES[Math.floor(Math.random() * ATMOSPHERE_TYPES.length)] ?? 'oxygen_nitrogen'],
     });
   }, []);
 

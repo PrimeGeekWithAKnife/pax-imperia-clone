@@ -71,6 +71,11 @@ export class SystemViewScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
   create(data: { system: StarSystem }): void {
+    if (!data?.system) {
+      console.error('[SystemViewScene] No system data provided — returning to galaxy map');
+      this.scene.start('GalaxyMapScene');
+      return;
+    }
     this.system = data.system;
     this.orbitEntries = [];
 
@@ -247,7 +252,8 @@ export class SystemViewScene extends Phaser.Scene {
       this.hideTooltip();
     });
     hitArea.on('pointerdown', () => {
-      this.events.emit('planet:selected', planet);
+      // Emit on game-level emitter so React's useGameEvent hook receives it
+      this.game.events.emit('planet:selected', planet);
     });
 
     container.add([circle, hitArea]);

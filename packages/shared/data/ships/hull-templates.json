@@ -73,12 +73,12 @@
         "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor"]
       },
       {
-        "id": "destroyer_starboard_1",
-        "x": 1,
-        "y": 1,
-        "facing": "starboard",
+        "id": "destroyer_aft_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
         "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor"]
+        "allowedTypes": ["engine", "warp_drive"]
       }
     ],
     "baseCost": 250,

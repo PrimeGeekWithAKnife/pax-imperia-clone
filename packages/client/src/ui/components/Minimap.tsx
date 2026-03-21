@@ -80,8 +80,10 @@ export function Minimap({
       // Glow
       ctx.beginPath();
       ctx.arc(mx, my, 3, 0, Math.PI * 2);
-      ctx.fillStyle = color.replace(')', ', 0.25)').replace('rgb', 'rgba');
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = color;
       ctx.fill();
+      ctx.globalAlpha = 1.0;
 
       // Dot
       ctx.beginPath();

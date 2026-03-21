@@ -220,7 +220,7 @@
       "cost": 260,
       "prerequisites": ["pulse_lasers"],
       "effects": [
-        { "type": "unlock_component", "componentId": "phased_array_cannon" },
+        { "type": "unlock_component", "componentId": "phased_array" },
         { "type": "stat_bonus", "stat": "beam_damage", "value": 15 }
       ],
       "icon": "tech_phased_arrays"
@@ -234,7 +234,7 @@
       "cost": 280,
       "prerequisites": ["proximity_rockets"],
       "effects": [
-        { "type": "unlock_component", "componentId": "guided_torpedo_launcher" },
+        { "type": "unlock_component", "componentId": "guided_torpedo" },
         { "type": "stat_bonus", "stat": "missile_damage", "value": 20 }
       ],
       "icon": "tech_guided_torpedoes"
@@ -262,7 +262,7 @@
       "cost": 260,
       "prerequisites": ["composite_armor"],
       "effects": [
-        { "type": "unlock_component", "componentId": "reactive_plating_mk1" },
+        { "type": "unlock_component", "componentId": "reactive_armor" },
         { "type": "stat_bonus", "stat": "hull_points", "value": 20 }
       ],
       "icon": "tech_reactive_plating"
@@ -276,7 +276,7 @@
       "cost": 280,
       "prerequisites": ["deflector_fields"],
       "effects": [
-        { "type": "unlock_component", "componentId": "harmonic_shield_mk1" },
+        { "type": "unlock_component", "componentId": "shield_harmonics" },
         { "type": "stat_bonus", "stat": "shield_recharge_rate", "value": 20 }
       ],
       "icon": "tech_shield_harmonics"
@@ -290,7 +290,7 @@
       "cost": 300,
       "prerequisites": ["ion_drives"],
       "effects": [
-        { "type": "unlock_component", "componentId": "fusion_drive_mk1" },
+        { "type": "unlock_component", "componentId": "fusion_drive" },
         { "type": "stat_bonus", "stat": "fleet_speed", "value": 2 }
       ],
       "icon": "tech_fusion_drives"
@@ -419,7 +419,7 @@
       "cost": 600,
       "prerequisites": ["phased_arrays"],
       "effects": [
-        { "type": "unlock_component", "componentId": "disruptor_beam_mk1" },
+        { "type": "unlock_component", "componentId": "disruptor_beam" },
         { "type": "stat_bonus", "stat": "beam_damage", "value": 25 },
         { "type": "stat_bonus", "stat": "shield_penetration", "value": 15 }
       ],
@@ -463,7 +463,7 @@
       "cost": 650,
       "prerequisites": ["reactive_plating"],
       "effects": [
-        { "type": "unlock_component", "componentId": "neutronium_armor_plating" },
+        { "type": "unlock_component", "componentId": "neutronium_barrier" },
         { "type": "stat_bonus", "stat": "hull_points", "value": 40 }
       ],
       "icon": "tech_neutronium_barriers"
@@ -492,7 +492,7 @@
       "cost": 700,
       "prerequisites": ["fusion_drives"],
       "effects": [
-        { "type": "unlock_component", "componentId": "antimatter_drive_mk1" },
+        { "type": "unlock_component", "componentId": "antimatter_drive" },
         { "type": "stat_bonus", "stat": "fleet_speed", "value": 3 }
       ],
       "icon": "tech_antimatter_drives"
@@ -622,7 +622,7 @@
       "cost": 1100,
       "prerequisites": ["disruptor_beams"],
       "effects": [
-        { "type": "unlock_component", "componentId": "plasma_lance_mk1" },
+        { "type": "unlock_component", "componentId": "plasma_lance" },
         { "type": "stat_bonus", "stat": "beam_damage", "value": 40 },
         { "type": "stat_bonus", "stat": "armor_penetration", "value": 20 }
       ],
@@ -666,7 +666,7 @@
       "cost": 1200,
       "prerequisites": ["adaptive_shielding"],
       "effects": [
-        { "type": "unlock_component", "componentId": "phase_shield_mk1" },
+        { "type": "unlock_component", "componentId": "phase_shield" },
         { "type": "stat_bonus", "stat": "shield_capacity", "value": 50 },
         { "type": "enable_ability", "ability": "phase_dodge" }
       ],

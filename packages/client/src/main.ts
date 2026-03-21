@@ -14,7 +14,8 @@ const game = new Phaser.Game(config);
 // Mount the React UI overlay on top of the Phaser canvas
 mountUI();
 
-// Expose game instance for debugging in development
-if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__NOVA_GAME__ = game;
-}
+// Expose game instance for React ↔ Phaser event bridging.
+// This must always be set (not just in DEV) because useGameEvent hooks
+// and manual event emitters in React rely on window.__NOVA_GAME__ to
+// communicate with Phaser scenes.
+(window as unknown as Record<string, unknown>).__NOVA_GAME__ = game;
