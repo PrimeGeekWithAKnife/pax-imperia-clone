@@ -412,17 +412,24 @@ export function App(): React.ReactElement {
     [],
   );
 
-  // Engine emits 'engine:resources_updated' each tick with per-empire resource snapshots
+  // Engine emits 'engine:resources_updated' each tick with full per-empire resource stockpiles
   const handleEngineResourcesUpdated = useCallback(
-    (updates: Array<{ empireId: string; credits: number; researchPoints: number }>) => {
-      // Apply the first non-AI empire's resources to the TopBar display.
-      // We identify the player empire by looking for the entry we already know
-      // about via MOCK_PLAYER_EMPIRE ('player') OR by taking the first entry
-      // (the player is always first in initializeGame's output).
+    (updates: Array<{ empireId: string; credits: number; researchPoints: number; minerals: number; energy: number; organics: number; rareElements: number; exoticMaterials: number; faith: number }>) => {
       if (updates.length > 0) {
         const playerEntry = updates[0]!;
         setLiveCredits(playerEntry.credits);
         setLiveResearchPoints(playerEntry.researchPoints);
+        // Sync full resource stockpile for building picker affordability
+        setEmpireResources({
+          credits: playerEntry.credits,
+          minerals: playerEntry.minerals,
+          energy: playerEntry.energy,
+          organics: playerEntry.organics,
+          rareElements: playerEntry.rareElements,
+          exoticMaterials: playerEntry.exoticMaterials,
+          faith: playerEntry.faith,
+          researchPoints: playerEntry.researchPoints,
+        });
       }
     },
     [],
@@ -471,7 +478,7 @@ export function App(): React.ReactElement {
   // Engine events
   useGameEvent<Galaxy>('engine:galaxy_updated', handleGalaxyUpdated);
   useGameEvent<{ x: number; y: number; width: number; height: number }>('engine:viewport_changed', handleViewportChanged);
-  useGameEvent<Array<{ empireId: string; credits: number; researchPoints: number }>>('engine:resources_updated', handleEngineResourcesUpdated);
+  useGameEvent<Array<{ empireId: string; credits: number; researchPoints: number; minerals: number; energy: number; organics: number; rareElements: number; exoticMaterials: number; faith: number }>>('engine:resources_updated', handleEngineResourcesUpdated);
   useGameEvent<{ systemId: string; planet: Planet }>('engine:planet_updated', handlePlanetUpdated);
   useGameEvent<{ tick: number }>('engine:tick', handleEngineTick);
   useGameEvent<{ planetName: string; systemId: string; planetId: string }>('engine:planet_colonised', handlePlanetColonised);

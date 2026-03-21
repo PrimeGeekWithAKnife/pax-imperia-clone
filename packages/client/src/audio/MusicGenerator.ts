@@ -277,19 +277,19 @@ export class MusicGenerator {
   private _createShimmer(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.04;
+    gain.gain.value = 0.015;  // Much quieter — subtle background presence
     gain.connect(this.masterFade);
 
-    // Slowly modulate between 800 and 2000 Hz over a long period
+    // Lower frequency range: 200-500 Hz for a deeper, less whistly shimmer
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.value = 1200;
+    osc.frequency.value = 350;
 
     const freqLfo = ctx.createOscillator();
     freqLfo.type = 'sine';
-    freqLfo.frequency.value = 1 / 37; // 37-second cycle
+    freqLfo.frequency.value = 1 / 50; // 50-second cycle (slower)
     const freqLfoGain = ctx.createGain();
-    freqLfoGain.gain.value = 600; // ±600 Hz around 1200
+    freqLfoGain.gain.value = 150; // ±150 Hz around 350 (range: 200-500 Hz)
     freqLfo.connect(freqLfoGain);
     freqLfoGain.connect(osc.frequency);
 

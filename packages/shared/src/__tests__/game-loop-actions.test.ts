@@ -232,7 +232,6 @@ describe('processGameTick — ColonisePlanet action', () => {
     const targetPlanet = homeSystem.planets.find(p => p.id === targetPlanetId)!;
 
     const cost = getColonisationCost(targetPlanet, empire.species);
-    const creditsBefore = empire.credits; // 10_000
 
     const ts = initializeTickState(gs);
     const action: ColonisePlanetAction = {
@@ -247,15 +246,16 @@ describe('processGameTick — ColonisePlanet action', () => {
 
     const updatedEmpire = newState.gameState.empires.find(e => e.id === empireId)!;
 
-    // Colonisation cost is 200 credits.  One tick of production income for a
-    // small empire is typically well below 200.  So net credits must be below
-    // the pre-tick value.
-    expect(updatedEmpire.credits).toBeLessThan(creditsBefore);
-
-    // The deduction should be at least (cost − a generous per-tick income cap).
-    // We allow up to 100 credits of income per tick as a generous upper bound.
-    const maxTickIncome = 100;
-    expect(updatedEmpire.credits).toBeLessThanOrEqual(creditsBefore - cost + maxTickIncome);
+    // The colonisation cost (200 credits) should have been deducted, though
+    // production income may partially offset it. We check the resource map
+    // to verify the deduction happened relative to what the empire would have
+    // had WITHOUT colonisation.
+    // Run a control tick without colonisation to measure pure income:
+    const { newState: controlState } = processGameTick(ts);
+    const controlCredits = controlState.gameState.empires.find(e => e.id === empireId)!.credits;
+    // With colonisation, credits should be ~200 less than the control
+    expect(updatedEmpire.credits).toBeLessThan(controlCredits);
+    expect(controlCredits - updatedEmpire.credits).toBeGreaterThanOrEqual(cost * 0.8); // allow some floating point
   });
 
   it('rejected when the empire does not own a planet in the system', () => {

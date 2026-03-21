@@ -17,22 +17,22 @@ export interface BuildingDefinition {
 export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
   research_lab: {
     name: 'Research Lab',
-    baseCost: { credits: 150, minerals: 50 },
+    baseCost: { credits: 120 },
     baseProduction: { researchPoints: 5 },
     buildTime: 4,
-    maintenanceCost: { credits: 2, energy: 1 },
+    maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Generates research points each tick. Output is amplified by the species research trait.',
   },
 
   factory: {
     name: 'Factory',
-    baseCost: { credits: 100, minerals: 80 },
+    baseCost: { credits: 80 },
     baseProduction: { minerals: 4, energy: -1 },
     buildTime: 3,
-    maintenanceCost: { credits: 1, energy: 1 },
+    maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Processes raw resources into refined minerals. Amplified by the species construction trait.',
+    description: 'Processes raw resources into refined minerals. Amplified by the species construction trait. Credit-only cost to allow early construction.',
   },
 
   shipyard: {
@@ -47,7 +47,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
 
   trade_hub: {
     name: 'Trade Hub',
-    baseCost: { credits: 200, minerals: 30 },
+    baseCost: { credits: 150 },
     baseProduction: { credits: 8 },
     buildTime: 4,
     maintenanceCost: { credits: 1 },
@@ -66,33 +66,33 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
   },
 
   population_center: {
-    name: 'Population Center',
-    baseCost: { credits: 120, minerals: 60, organics: 20 },
+    name: 'Population Centre',
+    baseCost: { credits: 100 },
     baseProduction: { organics: 2 },
-    buildTime: 5,
-    maintenanceCost: { credits: 1, organics: 1 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Increases the tax base and organics output by housing more colonists.',
+    description: 'Increases the tax base and organics output by housing more colonists. Essential for population growth.',
   },
 
   mining_facility: {
     name: 'Mining Facility',
-    baseCost: { credits: 80, minerals: 40 },
+    baseCost: { credits: 60 },
     baseProduction: { minerals: 6, rareElements: 1 },
     buildTime: 3,
-    maintenanceCost: { credits: 1, energy: 1 },
+    maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description:
-      'Extracts minerals and rare elements. Output scales with the planet natural resources rating.',
+      'Extracts minerals and rare elements. Output scales with the planet natural resources rating. Cheap to build — essential for bootstrapping your economy.',
   },
 
   spaceport: {
     name: 'Spaceport',
-    baseCost: { credits: 180, minerals: 70 },
+    baseCost: { credits: 150, minerals: 50 },
     baseProduction: { credits: 4, energy: -1 },
     buildTime: 5,
     maintenanceCost: { credits: 2 },
     maxLevel: 3,
-    description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes.',
+    description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
   },
 };

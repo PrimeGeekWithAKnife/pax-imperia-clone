@@ -22,7 +22,6 @@
 
 import type { GameState } from '../types/game-state.js';
 import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
-import type { Empire } from '../types/species.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
 import type {
@@ -125,6 +124,11 @@ export interface GameTickState {
    * Use submitAction to add actions; the game loop drains this list each tick.
    */
   pendingActions: PlayerAction[];
+  /**
+   * Full resource stockpile per empire (credits, minerals, energy, etc.).
+   * Persisted between ticks. Key = empireId.
+   */
+  empireResourcesMap: Map<string, EmpireResources>;
 }
 
 /** The result returned by processGameTick. */
@@ -138,33 +142,42 @@ export interface TickResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a Map from empire ID to EmpireResources, extracting credits and
- * researchPoints from the Empire object.  All other resources start at 0
- * (they accumulate via production ticks).
- *
- * In the current Empire type, only `credits` and `researchPoints` are stored;
- * the remaining EmpireResources fields represent per-tick stockpiles tracked
- * externally.  We seed them from whatever the game-loop state holds.
+ * Get an empire's full resource stockpile from the tick state.
+ * Falls back to extracting credits/researchPoints from the Empire object
+ * if the resource map hasn't been populated yet.
  */
-function extractEmpireResources(empire: Empire): EmpireResources {
+function getEmpireResources(state: GameTickState, empireId: string): EmpireResources {
+  const stored = state.empireResourcesMap.get(empireId);
+  if (stored) return { ...stored };
+  // Fallback for older save data
+  const empire = state.gameState.empires.find(e => e.id === empireId);
   return {
-    credits: empire.credits,
+    credits: empire?.credits ?? 0,
     minerals: 0,
     rareElements: 0,
     energy: 0,
     organics: 0,
     exoticMaterials: 0,
     faith: 0,
-    researchPoints: empire.researchPoints,
+    researchPoints: empire?.researchPoints ?? 0,
   };
 }
 
-/** Write an EmpireResources snapshot back onto a (mutable copy of) Empire. */
-function applyResourcesToEmpire(empire: Empire, resources: EmpireResources): Empire {
+/** Write an EmpireResources snapshot back to both the map and the Empire object. */
+function applyResources(state: GameTickState, empireId: string, resources: EmpireResources): GameTickState {
+  const newMap = new Map(state.empireResourcesMap);
+  newMap.set(empireId, resources);
   return {
-    ...empire,
-    credits: resources.credits,
-    researchPoints: resources.researchPoints,
+    ...state,
+    empireResourcesMap: newMap,
+    gameState: {
+      ...state.gameState,
+      empires: state.gameState.empires.map(e =>
+        e.id === empireId
+          ? { ...e, credits: resources.credits, researchPoints: resources.researchPoints }
+          : e,
+      ),
+    },
   };
 }
 
@@ -298,9 +311,17 @@ function processPlayerActions(
           continue;
         }
 
-        // Deduct the colonisation cost.
+        // Deduct the colonisation cost from both empire and resource map.
         const updatedEmpire = { ...empire, credits: empire.credits - check.cost };
         empires = empires.map(e => (e.id === empireId ? updatedEmpire : e));
+        // Also deduct from the persistent resource map
+        const resMap = state.empireResourcesMap;
+        const empRes = resMap.get(empireId);
+        if (empRes) {
+          const newMap = new Map(resMap);
+          newMap.set(empireId, { ...empRes, credits: empRes.credits - check.cost });
+          state = { ...state, empireResourcesMap: newMap };
+        }
 
         // Apply colonisation to the system.
         const updatedSystem = coloniseInSystem(system, planetId, empireId);
@@ -674,8 +695,6 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
 // ---------------------------------------------------------------------------
 
 function stepResourceProduction(state: GameTickState): GameTickState {
-  let empires = state.gameState.empires;
-
   for (const empire of state.gameState.empires) {
     const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
     const { total: production } = calculateEmpireProduction(
@@ -692,17 +711,14 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     const buildingCount = countBuildings(ownedPlanets);
     const upkeep = calculateUpkeep(empire, shipCount, buildingCount);
 
-    const currentResources = extractEmpireResources(empire);
+    const currentResources = getEmpireResources(state, empire.id);
     const newResources = applyResourceTick(currentResources, production, upkeep);
 
-    const updatedEmpire = applyResourcesToEmpire(empire, newResources);
-    empires = empires.map(e => (e.id === empire.id ? updatedEmpire : e));
+    // Update both the resource map and empire credits/researchPoints
+    state = applyResources(state, empire.id, newResources);
   }
 
-  return {
-    ...state,
-    gameState: { ...state.gameState, empires },
-  };
+  return state;
 }
 
 // ---------------------------------------------------------------------------
@@ -1067,6 +1083,21 @@ export function initializeTickState(gameState: GameState): GameTickState {
     });
   }
 
+  // Seed per-empire resource stockpiles from starting values
+  const empireResourcesMap = new Map<string, EmpireResources>();
+  for (const empire of gameState.empires) {
+    empireResourcesMap.set(empire.id, {
+      credits: empire.credits,
+      minerals: 200,
+      rareElements: 0,
+      energy: 50,
+      organics: 50,
+      exoticMaterials: 0,
+      faith: 0,
+      researchPoints: empire.researchPoints,
+    });
+  }
+
   return {
     gameState,
     researchStates,
@@ -1074,6 +1105,7 @@ export function initializeTickState(gameState: GameState): GameTickState {
     productionOrders: [],
     pendingCombats: [],
     pendingActions: [],
+    empireResourcesMap,
   };
 }
 

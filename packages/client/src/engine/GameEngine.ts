@@ -148,12 +148,21 @@ export class GameEngine {
     // ── Emit aggregate tick notification ────────────────────────────────────
     this.game.events.emit('engine:tick', { tick: this.tickState.gameState.currentTick });
 
-    // ── Emit per-empire resource updates ────────────────────────────────────
-    const resourceUpdates = this.tickState.gameState.empires.map(e => ({
-      empireId: e.id,
-      credits: e.credits,
-      researchPoints: e.researchPoints,
-    }));
+    // ── Emit per-empire resource updates (full stockpile) ─────────────────
+    const resourceUpdates = this.tickState.gameState.empires.map(e => {
+      const full = this.tickState.empireResourcesMap.get(e.id);
+      return {
+        empireId: e.id,
+        credits: full?.credits ?? e.credits,
+        minerals: full?.minerals ?? 0,
+        energy: full?.energy ?? 0,
+        organics: full?.organics ?? 0,
+        rareElements: full?.rareElements ?? 0,
+        exoticMaterials: full?.exoticMaterials ?? 0,
+        faith: full?.faith ?? 0,
+        researchPoints: full?.researchPoints ?? e.researchPoints,
+      };
+    });
     this.game.events.emit('engine:resources_updated', resourceUpdates);
 
     // ── Emit galaxy snapshot so the minimap can refresh ─────────────────────
@@ -214,29 +223,36 @@ export class GameEngine {
       return false;
     }
 
-    // Check affordability
+    // Check affordability against full resource stockpile
     const def = BUILDING_DEFINITIONS[buildingType];
+    const currentResources = this.tickState.empireResourcesMap.get(empire.id);
+    if (!currentResources) {
+      console.warn(`[GameEngine.buildOnPlanet] No resource stockpile for empire "${empire.id}"`);
+      return false;
+    }
     for (const [resource, required] of Object.entries(def.baseCost)) {
-      const key = resource as keyof typeof empire;
-      const available = (empire[key] as number | undefined) ?? 0;
+      const available = currentResources[resource as keyof typeof currentResources] ?? 0;
       if (available < (required ?? 0)) {
-        console.warn(`[GameEngine.buildOnPlanet] Cannot afford ${buildingType}: insufficient ${resource}`);
+        console.warn(`[GameEngine.buildOnPlanet] Cannot afford ${buildingType}: need ${required} ${resource}, have ${available}`);
         return false;
       }
     }
 
-    // Deduct costs from empire
-    let updatedEmpire = { ...empire };
+    // Deduct costs from resource stockpile
+    const updatedResources = { ...currentResources };
     for (const [resource, required] of Object.entries(def.baseCost)) {
-      if (resource === 'credits') {
-        updatedEmpire = { ...updatedEmpire, credits: updatedEmpire.credits - (required ?? 0) };
-      } else if (resource === 'researchPoints') {
-        updatedEmpire = { ...updatedEmpire, researchPoints: updatedEmpire.researchPoints - (required ?? 0) };
-      }
-      // Other resources (minerals, energy, etc.) are not yet tracked on the Empire
-      // object directly — this is an acknowledged limitation of the current
-      // game-state model where only credits and researchPoints persist on Empire.
+      const key = resource as keyof typeof updatedResources;
+      updatedResources[key] = (updatedResources[key] ?? 0) - (required ?? 0);
     }
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(empire.id, updatedResources);
+
+    // Also update empire credits/researchPoints for consistency
+    const updatedEmpire = {
+      ...empire,
+      credits: updatedResources.credits,
+      researchPoints: updatedResources.researchPoints,
+    };
 
     // Add building to the planet's production queue (pure — returns new Planet)
     const updatedPlanet = addBuildingToQueue(planet, buildingType);
@@ -258,6 +274,7 @@ export class GameEngine {
     // Commit new state
     this.tickState = {
       ...this.tickState,
+      empireResourcesMap: updatedResourcesMap,
       gameState: {
         ...this.tickState.gameState,
         galaxy: { ...galaxy, systems: updatedSystems },
