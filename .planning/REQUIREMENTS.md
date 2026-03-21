@@ -88,13 +88,40 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| *(populated during roadmap creation)* | | |
+| MONO-01 | Phase 1 | Pending |
+| MONO-02 | Phase 1 | Pending |
+| MONO-03 | Phase 1 | Pending |
+| MONO-04 | Phase 1 | Pending |
+| MONO-05 | Phase 1 | Pending |
+| MONO-06 | Phase 1 | Pending |
+| SHRD-01 | Phase 2 | Pending |
+| SHRD-02 | Phase 2 | Pending |
+| SHRD-03 | Phase 2 | Pending |
+| SHRD-04 | Phase 2 | Pending |
+| PHAS-01 | Phase 3 | Pending |
+| PHAS-02 | Phase 3 | Pending |
+| PHAS-03 | Phase 3 | Pending |
+| PHAS-04 | Phase 3 | Pending |
+| PHAS-05 | Phase 3 | Pending |
+| PHAS-06 | Phase 3 | Pending |
+| REAC-01 | Phase 4 | Pending |
+| REAC-02 | Phase 4 | Pending |
+| REAC-03 | Phase 4 | Pending |
+| REAC-04 | Phase 4 | Pending |
+| REAC-05 | Phase 4 | Pending |
+| SERV-01 | Phase 5 | Pending |
+| SERV-02 | Phase 5 | Pending |
+| SERV-03 | Phase 5 | Pending |
+| SERV-04 | Phase 5 | Pending |
+| DB-01 | Phase 6 | Pending |
+| DB-02 | Phase 6 | Pending |
+| DB-03 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation*
