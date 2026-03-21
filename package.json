@@ -2,6 +2,7 @@
   "name": "nova-imperia",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "A modern clone of Pax Imperia: Eminent Domain - Real-time 4X space strategy game",
   "workspaces": [
     "packages/*"
@@ -9,9 +10,10 @@
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "eslint packages/*/src --ext .ts,.tsx",
-    "typecheck": "tsc --build"
+    "test": "vitest run",
+    "lint": "eslint packages/*/src",
+    "typecheck": "tsc --build",
+    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -20,5 +22,14 @@
     "type": "git",
     "url": "https://github.com/PrimeGeekWithAKnife/pax-imperia-clone.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^20.11.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
 }
