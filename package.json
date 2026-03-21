@@ -7,11 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "eslint packages/*/src --ext .ts,.tsx",
-    "typecheck": "tsc --build"
+    "dev": "concurrently --kill-others-on-fail --names CLIENT,SERVER,SHARED --prefix-colors blue,green,yellow \"npm run dev -w packages/client\" \"npm run dev -w packages/server\" \"npm run dev -w packages/shared\"",
+    "build": "tsc --build && npm run build --workspaces --if-present",
+    "typecheck": "tsc --build",
+    "lint": "eslint packages/*/src/",
+    "lint:fix": "eslint packages/*/src/ --fix",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx}\""
   },
   "engines": {
     "node": ">=20.0.0"
@@ -20,5 +22,9 @@
     "type": "git",
     "url": "https://github.com/PrimeGeekWithAKnife/pax-imperia-clone.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
 }

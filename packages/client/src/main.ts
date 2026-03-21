@@ -3,7 +3,13 @@
  * A modern clone of Pax Imperia: Eminent Domain
  */
 
-console.log('Nova Imperia - Initializing...');
+import type { Galaxy } from '@nova-imperia/shared';
 
-// Phaser and React bootstrapping will go here
-// See PROJECT.md Milestone 0 for setup tasks
+const config: Pick<Galaxy, 'seed'> & { name: string } = {
+  name: 'Nova Imperia Galaxy',
+  seed: 42,
+};
+
+console.log('Nova Imperia - Initializing...', config.name);
+
+// Phaser and React bootstrapping will be added in Phase 3-4

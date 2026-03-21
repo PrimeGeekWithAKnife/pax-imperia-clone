@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@nova-imperia/shared": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

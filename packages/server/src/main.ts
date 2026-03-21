@@ -3,7 +3,13 @@
  * Fastify + Socket.io game server
  */
 
-console.log('Nova Imperia Server - Initializing...');
+import type { Galaxy } from '@nova-imperia/shared';
 
-// Fastify and Socket.io bootstrapping will go here
-// See PROJECT.md Milestone 0 for setup tasks
+const config: Pick<Galaxy, 'seed'> & { name: string } = {
+  name: 'Nova Imperia Server',
+  seed: 1,
+};
+
+console.log('Nova Imperia Server - Initializing...', config.name);
+
+// Fastify and Socket.io bootstrapping will be added in Phase 5
