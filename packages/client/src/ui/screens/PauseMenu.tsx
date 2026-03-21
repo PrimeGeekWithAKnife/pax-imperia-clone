@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { getAudioEngine } from '../../audio';
+import type { MusicTrack } from '../../audio';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,48 @@ function emitToPhaser(eventName: string, data?: unknown): void {
   game?.events.emit(eventName, data ?? null);
 }
 
+/** Persist the selected music track in the session (stored alongside the audio engine). */
+function getSessionTrack(): MusicTrack {
+  const win = window as unknown as Record<string, unknown>;
+  return (win.__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined) ?? 'deep_space';
+}
+
+function setSessionTrack(track: MusicTrack): void {
+  (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ = track;
+}
+
 let toastCounter = 0;
+
+// ── Music track metadata ───────────────────────────────────────────────────────
+
+interface TrackOption {
+  id: MusicTrack;
+  label: string;
+  description: string;
+}
+
+const TRACK_OPTIONS: TrackOption[] = [
+  {
+    id: 'deep_space',
+    label: 'Deep Space',
+    description: 'Eerie ambient drones and slow modulation. Atmospheric and unsettling.',
+  },
+  {
+    id: 'exploration',
+    label: 'Exploration',
+    description: 'Warm pentatonic arpeggio with gentle pad chords. Hopeful and melodic.',
+  },
+  {
+    id: 'tension',
+    label: 'Tension',
+    description: 'Low drones, dissonant intervals and percussive stabs. Urgent and dark.',
+  },
+  {
+    id: 'serenity',
+    label: 'Serenity',
+    description: 'Minimal sustained pad with very slow filter sweeps. Calm and meditative.',
+  },
+];
 
 // ── Sub-panels ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +74,7 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
   const [masterVolume, setMasterVolume] = useState(30);
   const [musicVolume, setMusicVolume] = useState(40);
   const [sfxVolume, setSfxVolume] = useState(50);
+  const [musicTrack, setMusicTrack] = useState<MusicTrack>(getSessionTrack);
 
   const handleMasterVolume = useCallback((v: number) => {
     setMasterVolume(v);
@@ -47,6 +90,15 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
     setSfxVolume(v);
     getAudioEngine()?.setSfxVolume(v / 100);
   }, []);
+
+  const handleTrackChange = useCallback((track: MusicTrack) => {
+    setMusicTrack(track);
+    setSessionTrack(track);
+    // Dispatch to the active Phaser scene which owns the MusicGenerator
+    emitToPhaser('music:set_track', track);
+  }, []);
+
+  const selectedTrackOption = TRACK_OPTIONS.find((t) => t.id === musicTrack) ?? TRACK_OPTIONS[0]!;
 
   return (
     <div className="pm-settings-panel">
@@ -101,6 +153,24 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
             />
             <span className="pm-settings-val">{sfxVolume}%</span>
           </div>
+        </div>
+
+        <div className="pm-settings-row">
+          <span className="pm-settings-label">Music Track</span>
+          <div className="pm-track-selector">
+            {TRACK_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`pm-track-btn ${musicTrack === opt.id ? 'pm-track-btn--active' : ''}`}
+                onClick={() => handleTrackChange(opt.id)}
+                title={opt.description}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="pm-track-desc">{selectedTrackOption.description}</p>
         </div>
       </div>
 

@@ -42,9 +42,9 @@ const FACING_ARROW: Record<SlotPosition['facing'], string> = {
 };
 
 const SIZE_PX: Record<SlotPosition['size'], number> = {
-  small:  26,
-  medium: 34,
-  large:  44,
+  small:  34,
+  medium: 44,
+  large:  56,
 };
 
 // ── Slot abbreviation ──────────────────────────────────────────────────────────
@@ -56,6 +56,14 @@ function componentAbbrev(name: string): string {
     return (words[0]!.charAt(0) + words[1]!.charAt(0) + (words[2]?.charAt(0) ?? '')).toUpperCase();
   }
   return name.slice(0, 3).toUpperCase();
+}
+
+// ── Hull class label ───────────────────────────────────────────────────────────
+
+function hullClassLabel(hull: HullTemplate): string {
+  // Derive a display class name from the hull's class or name field
+  const raw = (hull.class ?? hull.name ?? '').toUpperCase();
+  return raw.length > 0 ? raw : 'VESSEL';
 }
 
 // ── ShipSlotView ───────────────────────────────────────────────────────────────
@@ -81,14 +89,15 @@ export function ShipSlotView({
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  const SLOT_CELL = 56; // px per grid unit
-  const PADDING = 36;
+  const SLOT_CELL = 68; // px per grid unit — larger than before for visibility
+  const PADDING = 44;
 
   const cols = maxX - minX + 1;
   const rows = maxY - minY + 1;
 
-  const canvasW = cols * SLOT_CELL + PADDING * 2;
-  const canvasH = rows * SLOT_CELL + PADDING * 2;
+  // Ensure the canvas is at least 300×250 even for very small hulls
+  const canvasW = Math.max(300, cols * SLOT_CELL + PADDING * 2);
+  const canvasH = Math.max(180, rows * SLOT_CELL + PADDING * 2);
 
   const slotToPixel = (sx: number, sy: number) => ({
     px: (sx - minX) * SLOT_CELL + PADDING,
@@ -102,6 +111,9 @@ export function ShipSlotView({
 
   return (
     <div className="ship-slot-view">
+      {/* Ship class silhouette label */}
+      <div className="ssv__class-label">{hullClassLabel(hull)}</div>
+
       {/* Direction legend */}
       <div className="ssv__legend">
         <span className="ssv__legend-item ssv__legend-item--fore">N = Fore</span>
@@ -136,7 +148,26 @@ export function ShipSlotView({
 
           // Determine color from filled component type or primary allowed type
           const displayType = component?.type ?? slot.allowedTypes[0] ?? 'special';
-          const color = COMPONENT_TYPE_COLOR[displayType as ComponentType] ?? 'rgba(100,100,120,0.6)';
+          const color = COMPONENT_TYPE_COLOR[displayType as ComponentType] ?? 'rgba(160,180,210,0.7)';
+
+          // Brighter body fill for filled slots; lighter empty slot background
+          const bgColor = component
+            ? `${color}44`
+            : isSelected
+              ? 'rgba(0,212,255,0.18)'
+              : 'rgba(15,40,75,0.75)';
+
+          const borderColor = isSelected
+            ? 'var(--color-accent)'
+            : component
+              ? color
+              : 'rgba(80,140,200,0.55)';
+
+          const shadow = isSelected
+            ? `0 0 12px var(--color-accent), 0 0 20px rgba(0,212,255,0.3), inset 0 0 8px rgba(0,212,255,0.15)`
+            : component
+              ? `0 0 8px ${color}88, inset 0 0 4px ${color}22`
+              : `0 0 4px rgba(0,120,180,0.3)`;
 
           return (
             <div
@@ -147,17 +178,9 @@ export function ShipSlotView({
                 top: py + offset,
                 width: slotSize,
                 height: slotSize,
-                borderColor: isSelected ? 'var(--color-accent)' : color,
-                background: component
-                  ? `${color}33`
-                  : isSelected
-                    ? 'rgba(0,212,255,0.12)'
-                    : 'rgba(10,10,26,0.7)',
-                boxShadow: isSelected
-                  ? `0 0 10px var(--color-accent), inset 0 0 8px rgba(0,212,255,0.15)`
-                  : component
-                    ? `0 0 6px ${color}55`
-                    : 'none',
+                borderColor,
+                background: bgColor,
+                boxShadow: shadow,
               }}
               onClick={() => onSlotClick(slot.id)}
               onMouseEnter={() => setHoveredSlotId(slot.id)}

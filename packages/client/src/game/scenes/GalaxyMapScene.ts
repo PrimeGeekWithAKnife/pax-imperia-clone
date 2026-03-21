@@ -4,6 +4,7 @@ import type { Galaxy, StarSystem, StarType, Species, GalaxyShape, AIPersonality 
 import { createGameEngine, getGameEngine, initializeTickState } from '../../engine/GameEngine';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
+import type { MusicTrack } from '../../audio';
 
 /** Galaxy size key → system count */
 const GALAXY_SIZE_MAP: Record<string, 'small' | 'medium' | 'large' | 'huge'> = {
@@ -303,6 +304,10 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.sfx = new SfxGenerator(audioEngine);
       }
 
+      // Apply the player's chosen track before starting
+      const sessionTrack = (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined;
+      if (sessionTrack) this.music.setTrack(sessionTrack);
+
       this.music.crossfadeTo('galaxy');
       this.ambient.startGalaxyAmbient();
     }
@@ -385,6 +390,11 @@ export class GalaxyMapScene extends Phaser.Scene {
       }
     });
     this.game.events.on('minimap:navigate', this.handleMinimapNavigate);
+
+    // Music track change — player selects a new mood from the Settings panel
+    this.game.events.on('music:set_track', (track: unknown) => {
+      this.music?.setTrack(track as MusicTrack);
+    });
 
     // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
     this.game.events.on('ui:exit_to_menu', () => {

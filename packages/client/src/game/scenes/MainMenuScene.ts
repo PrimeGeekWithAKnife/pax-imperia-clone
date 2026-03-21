@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
+import type { MusicTrack } from '../../audio';
 
 const STAR_COUNT = 200;
 
@@ -47,7 +48,15 @@ export class MainMenuScene extends Phaser.Scene {
       // AudioContext and start the menu music.
       this.input.once('pointerdown', () => {
         engine.resume();
+        // Apply the player's chosen track (if set from a previous session)
+        const sessionTrack = (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined;
+        if (sessionTrack) this.music?.setTrack(sessionTrack);
         this.music?.startMusic('menu');
+      });
+
+      // Music track change — player selects a new mood from the Settings panel
+      this.game.events.on('music:set_track', (track: unknown) => {
+        this.music?.setTrack(track as MusicTrack);
       });
     }
   }

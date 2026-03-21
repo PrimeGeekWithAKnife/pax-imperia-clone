@@ -3044,14 +3044,26 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 10px 0;
+  min-width: 300px;
+  min-height: 250px;
+}
+
+/* Ship class label */
+.ssv__class-label {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  opacity: 0.85;
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
 }
 
 /* Direction legend */
 .ssv__legend {
   display: flex;
-  gap: 10px;
-  font-size: 9px;
+  gap: 12px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -3067,20 +3079,21 @@
   position: relative;
 }
 
-/* Ship body silhouette */
+/* Ship body silhouette — brighter blue-gray background */
 .ssv__ship-body {
   position: absolute;
-  background: rgba(0, 30, 60, 0.35);
-  border: 1px solid rgba(0, 180, 220, 0.12);
-  border-radius: 2px;
+  background: rgba(20, 55, 90, 0.65);
+  border: 1px solid rgba(0, 180, 220, 0.35);
+  border-radius: 4px;
   pointer-events: none;
+  box-shadow: 0 0 20px rgba(0, 120, 180, 0.2), inset 0 0 30px rgba(0, 80, 140, 0.25);
 }
 
-/* Slot cells */
+/* Slot cells — larger and brighter */
 .ssv__slot {
   position: absolute;
-  border: 1px solid;
-  border-radius: 2px;
+  border: 2px solid;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3092,23 +3105,23 @@
 }
 
 .ssv__slot:hover {
-  transform: scale(1.08);
+  transform: scale(1.1);
   z-index: 10;
 }
 
 .ssv__slot-facing {
   position: absolute;
-  top: 1px;
+  top: 2px;
   right: 3px;
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 0;
-  color: rgba(200, 220, 240, 0.5);
+  color: rgba(200, 230, 255, 0.7);
   line-height: 1;
   pointer-events: none;
 }
 
 .ssv__slot-label {
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.06em;
   font-weight: bold;
   line-height: 1;
@@ -3116,8 +3129,8 @@
 }
 
 .ssv__slot-empty-icon {
-  font-size: 14px;
-  color: rgba(0, 180, 220, 0.25);
+  font-size: 16px;
+  color: rgba(0, 180, 220, 0.5);
   line-height: 1;
   pointer-events: none;
 }
@@ -5861,6 +5874,51 @@
   width: 36px;
   text-align: right;
   flex-shrink: 0;
+}
+
+/* ── Music track selector ── */
+
+.pm-track-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pm-track-btn {
+  background: rgba(0, 180, 220, 0.04);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-align: center;
+}
+
+.pm-track-btn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--color-text);
+  border-color: var(--color-accent-dim);
+}
+
+.pm-track-btn--active {
+  background: rgba(0, 212, 255, 0.14);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.18);
+}
+
+.pm-track-desc {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  font-style: italic;
 }
 
 .pm-controls-grid {

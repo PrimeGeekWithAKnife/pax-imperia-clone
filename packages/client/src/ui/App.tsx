@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StarSystem, Planet, BuildingType, Galaxy, ProductionItem } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
 import type { GameEngine } from '../engine/GameEngine';
 import { getGameEngine } from '../engine/GameEngine';
 import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
@@ -28,9 +28,6 @@ import { DiplomacyScreen } from './screens/DiplomacyScreen';
 import type { KnownEmpire } from './screens/DiplomacyScreen';
 
 type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy';
-
-/** Mock tech data for initial research screen display before real game data is wired up. */
-const MOCK_ALL_TECHS: Technology[] = [];
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -172,7 +169,12 @@ export function App(): React.ReactElement {
   const [buildNotification, setBuildNotification] = useState<string | null>(null);
   const [coloniseNotification, setColoniseNotification] = useState<string | null>(null);
   const [researchState, setResearchState] = useState<ResearchState>(MOCK_RESEARCH_STATE);
-  const [allTechs, setAllTechs] = useState<Technology[]>(MOCK_ALL_TECHS);
+  const [allTechs, setAllTechs] = useState<Technology[]>(UNIVERSAL_TECHNOLOGIES);
+
+  // ── Active system ID (set when SystemViewScene is active) ──
+  // selectedSystem is only set on the galaxy map; activeSystemId covers the
+  // system-view scene where selectedSystem is null.
+  const [activeSystemId, setActiveSystemId] = useState<string | null>(null);
 
   // ── Galaxy state (for minimap) ──
   const [galaxy, setGalaxy] = useState<Galaxy | null>(null);
@@ -315,6 +317,16 @@ export function App(): React.ReactElement {
     setPlayerEmpire(empire);
   }, []);
 
+  // SystemViewScene emits 'system:entered' so we know which system is active
+  // even when the galaxy-map selectedSystem is null.
+  const handleSystemEntered = useCallback((payload: { systemId: string }) => {
+    setActiveSystemId(payload.systemId);
+  }, []);
+
+  const handleSystemExited = useCallback(() => {
+    setActiveSystemId(null);
+  }, []);
+
   // Engine emits 'engine:galaxy_updated' with the Galaxy object each tick
   const handleGalaxyUpdated = useCallback((g: Galaxy) => {
     setGalaxy(g);
@@ -345,13 +357,21 @@ export function App(): React.ReactElement {
 
   // Detect building completion by watching queue length transitions via engine:tick
   // We track the previous queue state to detect when an item completes.
+  // Also keeps playerEmpire in sync with the engine's authoritative state.
   const handleEngineTick = useCallback(() => {
+    // Sync player empire from engine state so credits/species are always accurate
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const playerEmp = engine.getState().gameState.empires.find(e => !e.isAI);
+      if (playerEmp) setPlayerEmpire(playerEmp);
+    }
+
     setManagedPlanet((prev) => {
       if (!prev || !managedSystemId) return prev;
       // Fetch the latest planet state from the engine
-      const engine: GameEngine | undefined = getGameEngine();
-      if (!engine) return prev;
-      const state = engine.getState();
+      const eng: GameEngine | undefined = getGameEngine();
+      if (!eng) return prev;
+      const state = eng.getState();
       const system = state.gameState.galaxy.systems.find(s => s.id === managedSystemId);
       if (!system) return prev;
       const latestPlanet = system.planets.find(p => p.id === prev.id);
@@ -423,6 +443,8 @@ export function App(): React.ReactElement {
   useGameEvent<Planet>('planet:selected', handlePlanetSelected);
   useGameEvent<void>('system:deselected', handleSystemDeselected);
   useGameEvent<void>('planet:deselected', handlePlanetDeselected);
+  useGameEvent<{ systemId: string }>('system:entered', handleSystemEntered);
+  useGameEvent<void>('system:exited', handleSystemExited);
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
   useGameEvent<void>('ui:research', handleOpenResearch);
@@ -674,7 +696,7 @@ export function App(): React.ReactElement {
         onClose={handleClosePlanet}
         playerEmpire={playerEmpire}
         knownEmpireMap={knownEmpireMap}
-        systemId={selectedSystem?.id ?? null}
+        systemId={activeSystemId ?? selectedSystem?.id ?? null}
       />
 
       <Minimap

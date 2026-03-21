@@ -3,6 +3,7 @@ import type { StarSystem, Planet, PlanetType } from '@nova-imperia/shared';
 import { StarRenderer } from '../rendering/StarRenderer';
 import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
+import type { MusicTrack } from '../../audio';
 import { getGameEngine } from '../../engine/GameEngine';
 
 // ── Planet label data (kept local — not part of shared types) ─────────────────
@@ -118,6 +119,10 @@ export class SystemViewScene extends Phaser.Scene {
         this.sfx = new SfxGenerator(audioEngine);
       }
 
+      // Apply the player's chosen track before starting
+      const sessionTrack = (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined;
+      if (sessionTrack) this.music.setTrack(sessionTrack);
+
       this.music.crossfadeTo('system');
       this.ambient.startSystemAmbient(this.system.starType);
     }
@@ -127,9 +132,19 @@ export class SystemViewScene extends Phaser.Scene {
     // clicks the Colonise button in PlanetDetailPanel.
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
 
-    // Clean up listener when the scene shuts down
+    // Music track change — player selects a new mood from the Settings panel
+    this.game.events.on('music:set_track', (track: unknown) => {
+      this.music?.setTrack(track as MusicTrack);
+    });
+
+    // Notify React which system is currently being viewed so PlanetDetailPanel
+    // receives a valid systemId even when the galaxy-map selectedSystem is null.
+    this.game.events.emit('system:entered', { systemId: this.system.id });
+
+    // Clean up listener and notify React when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
+      this.game.events.emit('system:exited');
     });
   }
 
