@@ -1,7 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { Species, SpeciesTraits, EnvironmentPreference, SpecialAbility } from '@nova-imperia/shared';
 import { TraitSlider } from '../components/TraitSlider';
 import { AbilityPicker, ABILITY_INFO } from '../components/AbilityPicker';
+import { portraitCache } from '../../game/rendering/portraitCache';
+import { ORIGIN_TO_BASE_SHAPE } from '../../game/rendering/PortraitRenderer';
+import type { PortraitOptions } from '../../game/rendering/PortraitRenderer';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -197,17 +200,6 @@ function habitabilityDescription(env: EnvironmentPreference): string {
   return `${temp} worlds with ${grav} gravity and ${atm}.`;
 }
 
-// Portrait colors by initial
-const PORTRAIT_COLORS = [
-  '#1a4a6e', '#2d6b4a', '#6e1a4a', '#4a3d1a', '#1a4a4a',
-  '#6e4a1a', '#2d2d6b', '#6b2d2d',
-];
-
-function portraitColor(name: string): string {
-  const idx = name.charCodeAt(0) % PORTRAIT_COLORS.length;
-  return PORTRAIT_COLORS[isNaN(idx) ? 0 : idx];
-}
-
 // ── Default state ──────────────────────────────────────────────────────────────
 
 function defaultTraits(): SpeciesTraits {
@@ -251,6 +243,15 @@ export function SpeciesCreatorScreen({
   const [abilities, setAbilities] = useState<SpecialAbility[]>([]);
   const [government, setGovernment] = useState<GovernmentType>('Federation');
 
+  // Portrait color customization
+  const [primaryColor, setPrimaryColor] = useState('#2d6b8a');
+  const [secondaryColor, setSecondaryColor] = useState('#4aa8cc');
+  const [accentColor, setAccentColor] = useState('#00d4ff');
+
+  // Portrait data URL (re-rendered when portrait options change)
+  const [portraitUrl, setPortraitUrl] = useState<string>('');
+  const portraitDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Derived
   const traitTotal = useMemo(
     () => TRAIT_KEYS.reduce((sum, k) => sum + traits[k], 0),
@@ -259,6 +260,27 @@ export function SpeciesCreatorScreen({
   const pointsRemaining = TRAIT_BUDGET - traitTotal;
   const overBudget = pointsRemaining < 0;
   const isValid = name.trim().length > 0 && !overBudget;
+
+  // Build portrait options from current state
+  const portraitOptions = useMemo<PortraitOptions>(() => ({
+    baseShape: ORIGIN_TO_BASE_SHAPE[origin] ?? 'humanoid',
+    primaryColor,
+    secondaryColor,
+    accentColor,
+    features: [],
+  }), [origin, primaryColor, secondaryColor, accentColor]);
+
+  // Re-render portrait when options change (debounced so color pickers don't thrash)
+  useEffect(() => {
+    if (portraitDebounceRef.current) clearTimeout(portraitDebounceRef.current);
+    portraitDebounceRef.current = setTimeout(() => {
+      const url = portraitCache.getCustomPortrait(portraitOptions, 128);
+      setPortraitUrl(url);
+    }, 80);
+    return () => {
+      if (portraitDebounceRef.current) clearTimeout(portraitDebounceRef.current);
+    };
+  }, [portraitOptions]);
 
   // Trait change handler
   const handleTraitChange = useCallback((key: keyof SpeciesTraits, value: number) => {
@@ -579,17 +601,56 @@ export function SpeciesCreatorScreen({
 
               {/* Portrait */}
               <div className="sc-preview__portrait-area">
-                <div
-                  className="sc-preview__portrait"
-                  style={{ background: `radial-gradient(circle at 35% 35%, ${portraitColor(name || 'A')}cc, #05050f)` }}
-                >
-                  <span className="sc-preview__portrait-initial">
-                    {name.trim().charAt(0).toUpperCase() || '?'}
-                  </span>
+                <div className="sc-preview__portrait sc-preview__portrait--canvas">
+                  {portraitUrl ? (
+                    <img
+                      src={portraitUrl}
+                      alt={name.trim() || 'Species portrait'}
+                      className="sc-preview__portrait-img"
+                    />
+                  ) : (
+                    <div className="sc-preview__portrait-placeholder">
+                      <span>{name.trim().charAt(0).toUpperCase() || '?'}</span>
+                    </div>
+                  )}
                   <div className="sc-preview__portrait-ring" />
                 </div>
                 <div className="sc-preview__name">{name.trim() || 'Unnamed Species'}</div>
                 <div className="sc-preview__gov-badge">{government}</div>
+
+                {/* Color customization pickers */}
+                <div className="sc-portrait-colors">
+                  <label className="sc-color-picker" title="Primary Color">
+                    <span className="sc-color-picker__label">Primary</span>
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="sc-color-picker__input"
+                    />
+                    <span className="sc-color-picker__swatch" style={{ background: primaryColor }} />
+                  </label>
+                  <label className="sc-color-picker" title="Secondary Color">
+                    <span className="sc-color-picker__label">Secondary</span>
+                    <input
+                      type="color"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="sc-color-picker__input"
+                    />
+                    <span className="sc-color-picker__swatch" style={{ background: secondaryColor }} />
+                  </label>
+                  <label className="sc-color-picker" title="Accent Color">
+                    <span className="sc-color-picker__label">Accent</span>
+                    <input
+                      type="color"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      className="sc-color-picker__input"
+                    />
+                    <span className="sc-color-picker__swatch" style={{ background: accentColor }} />
+                  </label>
+                </div>
               </div>
 
               {/* Trait chart */}

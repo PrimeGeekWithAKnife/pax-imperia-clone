@@ -9,6 +9,7 @@ import type {
 } from '@nova-imperia/shared';
 import { RelationshipMeter } from '../components/RelationshipMeter';
 import { TreatyCard } from '../components/TreatyCard';
+import { portraitCache } from '../../game/rendering/portraitCache';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -465,24 +466,42 @@ export function DiplomacyScreen({
       );
     }
     const color = getEmpireColor(ke.empire);
+    const portraitUrl = portraitCache.getPortrait(ke.empire.species.id, 48);
     return (
       <div
         className="diplo-portrait diplo-portrait--small"
-        style={{ borderColor: color, background: `${color}22` }}
+        style={{ borderColor: color }}
       >
-        <span style={{ color }}>{getSpeciesInitial(ke.empire.species.name)}</span>
+        {portraitUrl ? (
+          <img
+            src={portraitUrl}
+            alt={ke.empire.species.name}
+            className="diplo-portrait__img"
+          />
+        ) : (
+          <span style={{ color }}>{getSpeciesInitial(ke.empire.species.name)}</span>
+        )}
       </div>
     );
   }
 
   function renderPortraitLarge(ke: KnownEmpire): React.ReactElement {
     const color = getEmpireColor(ke.empire);
+    const portraitUrl = portraitCache.getPortrait(ke.empire.species.id, 96);
     return (
       <div
         className="diplo-portrait diplo-portrait--large"
-        style={{ borderColor: color, background: `${color}22` }}
+        style={{ borderColor: color }}
       >
-        <span style={{ color }}>{getSpeciesInitial(ke.empire.species.name)}</span>
+        {portraitUrl ? (
+          <img
+            src={portraitUrl}
+            alt={ke.empire.species.name}
+            className="diplo-portrait__img"
+          />
+        ) : (
+          <span style={{ color }}>{getSpeciesInitial(ke.empire.species.name)}</span>
+        )}
       </div>
     );
   }
