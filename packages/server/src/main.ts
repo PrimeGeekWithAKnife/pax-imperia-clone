@@ -14,7 +14,6 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { GameSessionManager } from './game/GameSessionManager.js';
 import { SocketManager } from './network/socketManager.js';
-import { registerRoutes } from './api/routes.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,14 +22,13 @@ import { registerRoutes } from './api/routes.js';
 const PORT = Number(process.env['PORT'] ?? 3001);
 const HOST = process.env['HOST'] ?? '0.0.0.0';
 const VERSION = process.env['npm_package_version'] ?? '0.1.0';
+const SERVER_NAME = 'Nova Imperia Game Server';
 
 // ---------------------------------------------------------------------------
 // Server bootstrap
 // ---------------------------------------------------------------------------
 
 async function bootstrap(): Promise<void> {
-  // -- Fastify ---------------------------------------------------------------
-
   const fastify = Fastify({
     logger: {
       level: process.env['LOG_LEVEL'] ?? 'info',
@@ -41,65 +39,49 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  // -- CORS ------------------------------------------------------------------
-
   await fastify.register(cors, {
-    // Allow all origins in development; tighten in production via env config.
     origin: process.env['CORS_ORIGIN'] ?? true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
-  // -- Game layer ------------------------------------------------------------
-
   const sessionManager = new GameSessionManager();
+  let socketManager: SocketManager | null = null;
 
-  // Socket.io attaches itself to the underlying Node.js HTTP server that
-  // Fastify wraps.  We must access it AFTER Fastify has bound to the port,
-  // so we defer SocketManager construction until after listen().
+  // -- Routes (registered before listen) ------------------------------------
 
-  // -- Routes ----------------------------------------------------------------
+  fastify.get('/health', async () => ({
+    status: 'ok',
+    version: VERSION,
+    uptime: process.uptime(),
+  }));
 
-  // Placeholder – socketManager will be passed in after server starts.
-  // We register routes lazily so the socketManager reference is available.
-  let socketManager: SocketManager;
+  fastify.get('/api/info', async () => ({
+    name: SERVER_NAME,
+    version: VERSION,
+    playerCount: socketManager?.connectedCount ?? 0,
+    activeSessions: sessionManager.activeSessionCount,
+  }));
 
-  fastify.addHook('onReady', async () => {
-    // At this point the HTTP server is listening; it's safe to attach Socket.io.
-    socketManager = new SocketManager(fastify.server, sessionManager);
-
-    await registerRoutes(fastify, {
-      version: VERSION,
-      sessionManager,
-      socketManager,
-    });
-
-    fastify.log.info('Socket.io initialised and routes registered.');
-  });
-
-  // -- Start -----------------------------------------------------------------
+  // -- Start ----------------------------------------------------------------
 
   await fastify.listen({ port: PORT, host: HOST });
+
+  // Attach Socket.io after the HTTP server is listening
+  socketManager = new SocketManager(fastify.server, sessionManager);
 
   fastify.log.info(
     `Nova Imperia server running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`,
   );
 
-  // -- Graceful shutdown -----------------------------------------------------
+  // -- Graceful shutdown ----------------------------------------------------
 
   const shutdown = async (signal: string): Promise<void> => {
     fastify.log.info(`Received ${signal} – shutting down gracefully…`);
-
     try {
-      // Stop accepting new Socket.io connections and close existing ones.
       if (socketManager) {
         await socketManager.close();
-        fastify.log.info('Socket.io server closed.');
       }
-
-      // Stop the Fastify / HTTP server.
       await fastify.close();
-      fastify.log.info('Fastify server closed.');
-
       process.exit(0);
     } catch (err) {
       fastify.log.error({ err }, 'Error during shutdown');
@@ -110,10 +92,6 @@ async function bootstrap(): Promise<void> {
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
 }
-
-// ---------------------------------------------------------------------------
-// Run
-// ---------------------------------------------------------------------------
 
 bootstrap().catch((err: unknown) => {
   console.error('Fatal error during server bootstrap:', err);
