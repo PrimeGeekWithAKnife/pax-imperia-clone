@@ -1,0 +1,538 @@
+import React, { useState, useCallback } from 'react';
+import type { Planet, Building, BuildingType } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet } from '@nova-imperia/shared';
+import type { EmpireResources } from '@nova-imperia/shared';
+import { BuildingSlotGrid } from '../components/BuildingSlotGrid';
+import { ResourceBar } from '../components/ResourceBar';
+import { ConstructionQueue } from '../components/ConstructionQueue';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const PLANET_TYPE_LABELS: Record<string, string> = {
+  terran: 'Terran',
+  ocean: 'Ocean World',
+  desert: 'Desert',
+  ice: 'Ice World',
+  volcanic: 'Volcanic',
+  gas_giant: 'Gas Giant',
+  barren: 'Barren Rock',
+  toxic: 'Toxic World',
+};
+
+const PLANET_TYPE_COLORS: Record<string, string> = {
+  terran: '#4a9e5c',
+  ocean: '#2b7abf',
+  desert: '#c9852a',
+  ice: '#88ccee',
+  volcanic: '#cc4422',
+  gas_giant: '#9966cc',
+  barren: '#888888',
+  toxic: '#6b9e1a',
+};
+
+const ATMOSPHERE_LABELS: Record<string, string> = {
+  oxygen_nitrogen: 'Oxygen-Nitrogen',
+  nitrogen: 'Nitrogen',
+  carbon_dioxide: 'Carbon Dioxide',
+  methane: 'Methane',
+  ammonia: 'Ammonia',
+  sulfur_dioxide: 'Sulfur Dioxide',
+  hydrogen: 'Hydrogen',
+  hydrogen_helium: 'Hydrogen-Helium',
+  none: 'None (Vacuum)',
+  toxic: 'Toxic',
+  vacuum: 'Vacuum',
+};
+
+const RESOURCE_ICONS: Record<string, string> = {
+  credits: 'CR',
+  minerals: 'MN',
+  rareElements: 'RE',
+  energy: 'EN',
+  organics: 'OR',
+  exoticMaterials: 'EX',
+  faith: 'FT',
+  researchPoints: 'RP',
+};
+
+const RESOURCE_LABELS: Record<string, string> = {
+  credits: 'Credits',
+  minerals: 'Minerals',
+  rareElements: 'Rare Elements',
+  energy: 'Energy',
+  organics: 'Organics',
+  exoticMaterials: 'Exotic Materials',
+  faith: 'Faith',
+  researchPoints: 'Research',
+};
+
+const ALL_BUILDING_TYPES: BuildingType[] = [
+  'population_center',
+  'factory',
+  'mining_facility',
+  'trade_hub',
+  'spaceport',
+  'research_lab',
+  'shipyard',
+  'defense_grid',
+];
+
+function kelvinToCelsius(k: number): number {
+  return Math.round(k - 273.15);
+}
+
+function formatPopulation(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function getHabitabilityColor(score: number): string {
+  if (score >= 70) return '#4a9e5c';
+  if (score >= 40) return '#c9852a';
+  return '#cc4422';
+}
+
+/** Rough per-turn production estimate based purely on buildings (no species data in UI layer) */
+function estimatePlanetProduction(planet: Planet): Record<string, number> {
+  const totals: Record<string, number> = {
+    credits: 0,
+    minerals: 0,
+    rareElements: 0,
+    energy: 0,
+    organics: 0,
+    exoticMaterials: 0,
+    faith: 0,
+    researchPoints: 0,
+  };
+
+  // Base tax estimate: population * 0.5 credits/turn
+  totals.credits += planet.currentPopulation * 0.5;
+
+  for (const building of planet.buildings) {
+    const def = BUILDING_DEFINITIONS[building.type];
+    if (!def) continue;
+    const multiplier = Math.pow(1.25, building.level - 1);
+    for (const [key, val] of Object.entries(def.baseProduction)) {
+      if (val !== undefined && key in totals) {
+        totals[key] = (totals[key] ?? 0) + val * multiplier;
+      }
+    }
+  }
+
+  return totals;
+}
+
+/** Rough per-turn maintenance from buildings */
+function estimateMaintenance(planet: Planet): Record<string, number> {
+  const totals: Record<string, number> = {
+    credits: 0,
+    energy: 0,
+    organics: 0,
+  };
+
+  for (const building of planet.buildings) {
+    const def = BUILDING_DEFINITIONS[building.type];
+    if (!def) continue;
+    for (const [key, val] of Object.entries(def.maintenanceCost)) {
+      if (val !== undefined && key in totals) {
+        totals[key] = (totals[key] ?? 0) + val;
+      }
+    }
+  }
+
+  return totals;
+}
+
+// ── Building Picker Modal ─────────────────────────────────────────────────────
+
+interface BuildingPickerProps {
+  planet: Planet;
+  empireResources: EmpireResources;
+  onSelect: (type: BuildingType) => void;
+  onClose: () => void;
+}
+
+function BuildingPicker({
+  planet,
+  empireResources,
+  onSelect,
+  onClose,
+}: BuildingPickerProps): React.ReactElement {
+  return (
+    <div className="bpicker-overlay" onClick={onClose}>
+      <div
+        className="bpicker"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Choose a building to construct"
+      >
+        <div className="bpicker__header">
+          <span className="bpicker__title">SELECT BUILDING</span>
+          <button className="panel-close-btn" onClick={onClose} aria-label="Close building picker">
+            ✕
+          </button>
+        </div>
+
+        <div className="bpicker__list">
+          {ALL_BUILDING_TYPES.map((type) => {
+            const def = BUILDING_DEFINITIONS[type];
+            const check = canBuildOnPlanet(planet, type);
+            const canAffordBuilding = Object.entries(def.baseCost).every(
+              ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
+            );
+            const disabled = !check.allowed || !canAffordBuilding;
+            const reason = !check.allowed
+              ? check.reason
+              : !canAffordBuilding
+                ? 'Cannot afford'
+                : undefined;
+
+            return (
+              <button
+                key={type}
+                className={`bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`}
+                onClick={() => !disabled && onSelect(type)}
+                disabled={disabled}
+                title={reason}
+              >
+                <div className="bpicker-item__header">
+                  <span className="bpicker-item__name">{def.name}</span>
+                  <span className="bpicker-item__turns">{def.buildTime}t</span>
+                </div>
+                <div className="bpicker-item__desc">{def.description}</div>
+                <div className="bpicker-item__costs">
+                  {Object.entries(def.baseCost).map(([res, val]) => (
+                    <span
+                      key={res}
+                      className={`bpicker-item__cost ${
+                        (empireResources[res as keyof EmpireResources] ?? 0) < (val ?? 0)
+                          ? 'bpicker-item__cost--unaffordable'
+                          : ''
+                      }`}
+                    >
+                      {RESOURCE_ICONS[res] ?? res}: {val}
+                    </span>
+                  ))}
+                </div>
+                {!check.allowed && (
+                  <div className="bpicker-item__reason">{check.reason}</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
+
+interface PlanetManagementScreenProps {
+  planet: Planet;
+  empireResources: EmpireResources;
+  onClose: () => void;
+  onBuild: (planetId: string, buildingType: BuildingType) => void;
+  onCancelQueue: (planetId: string, queueIndex: number) => void;
+}
+
+export function PlanetManagementScreen({
+  planet,
+  empireResources,
+  onClose,
+  onBuild,
+  onCancelQueue,
+}: PlanetManagementScreenProps): React.ReactElement {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const totalSlots = PLANET_BUILDING_SLOTS[planet.type];
+  const usedSlots = planet.buildings.length;
+
+  const production = estimatePlanetProduction(planet);
+  const maintenance = estimateMaintenance(planet);
+
+  const handleEmptySlotClick = useCallback(() => {
+    setPickerOpen(true);
+  }, []);
+
+  const handleBuildingClick = useCallback((_building: Building, _index: number) => {
+    // Future: show building details / upgrade options
+  }, []);
+
+  const handleSelectBuilding = useCallback(
+    (type: BuildingType) => {
+      setPickerOpen(false);
+      onBuild(planet.id, type);
+    },
+    [planet.id, onBuild],
+  );
+
+  const handleCancelQueue = useCallback(
+    (index: number) => {
+      onCancelQueue(planet.id, index);
+    },
+    [planet.id, onCancelQueue],
+  );
+
+  // Rough habitability score — show as natural resources proxy since we don't
+  // have species here; use a simplified 0–100 bar based on temp + gravity heuristic.
+  const habitabilityEstimate = Math.round(
+    Math.min(100,
+      (planet.naturalResources * 0.4) +
+      Math.max(0, 40 - Math.abs(planet.gravity - 1.0) * 40) +
+      Math.max(0, 30 - Math.abs(planet.temperature - 288) * 0.1),
+    ),
+  );
+  const habitabilityColor = getHabitabilityColor(habitabilityEstimate);
+
+  const planetColor = PLANET_TYPE_COLORS[planet.type] ?? '#888888';
+
+  // Net production = production - maintenance (for keys that overlap)
+  const netProduction: Record<string, number> = { ...production };
+  for (const [key, val] of Object.entries(maintenance)) {
+    netProduction[key] = (netProduction[key] ?? 0) - val;
+  }
+
+  const RESOURCE_KEYS = ['credits', 'minerals', 'rareElements', 'energy', 'organics', 'exoticMaterials', 'faith', 'researchPoints'] as const;
+
+  return (
+    <div className="pm-overlay">
+      <div className="pm-screen">
+
+        {/* ── Header ── */}
+        <div className="pm-header">
+          <div
+            className="pm-header__planet-icon"
+            style={{ background: planetColor }}
+            aria-hidden="true"
+          />
+          <div className="pm-header__info">
+            <h2 className="pm-header__name">{planet.name}</h2>
+            <div className="pm-header__type">
+              {PLANET_TYPE_LABELS[planet.type] ?? planet.type}
+            </div>
+          </div>
+          {planet.ownerId && (
+            <div className="pm-header__owner">
+              OWNED
+            </div>
+          )}
+          <button
+            className="panel-close-btn pm-header__close"
+            onClick={onClose}
+            aria-label="Close planet management"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* ── Body: three columns ── */}
+        <div className="pm-body">
+
+          {/* Left column: Planet info */}
+          <div className="pm-col pm-col--info">
+            <div className="pm-section-label">PLANET INFO</div>
+
+            {/* Visual representation */}
+            <div className="pm-planet-visual">
+              <div
+                className="pm-planet-circle"
+                style={{ background: `radial-gradient(circle at 35% 35%, ${planetColor}cc, ${planetColor}55 60%, #111 100%)` }}
+                aria-hidden="true"
+              />
+            </div>
+
+            <div className="pm-stat-group">
+              <div className="panel-section-label">ENVIRONMENT</div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Type</span>
+                <span className="pm-stat-value">{PLANET_TYPE_LABELS[planet.type] ?? planet.type}</span>
+              </div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Atmosphere</span>
+                <span className="pm-stat-value">{ATMOSPHERE_LABELS[planet.atmosphere] ?? planet.atmosphere}</span>
+              </div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Gravity</span>
+                <span className="pm-stat-value">{planet.gravity.toFixed(2)}g</span>
+              </div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Temperature</span>
+                <span className="pm-stat-value">
+                  {planet.temperature}K
+                  <span className="pm-stat-value--muted"> ({kelvinToCelsius(planet.temperature)}°C)</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="pm-stat-group">
+              <div className="panel-section-label">HABITABILITY</div>
+              <div className="pm-hab-bar-track">
+                <div
+                  className="pm-hab-bar-fill"
+                  style={{ width: `${habitabilityEstimate}%`, background: habitabilityColor }}
+                />
+                <span className="pm-hab-bar-label" style={{ color: habitabilityColor }}>
+                  {habitabilityEstimate}/100
+                </span>
+              </div>
+            </div>
+
+            <div className="pm-stat-group">
+              <div className="panel-section-label">POPULATION</div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Current</span>
+                <span className="pm-stat-value">
+                  {planet.currentPopulation > 0
+                    ? formatPopulation(planet.currentPopulation)
+                    : <span className="pm-stat-value--muted">None</span>}
+                </span>
+              </div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Capacity</span>
+                <span className="pm-stat-value">{formatPopulation(planet.maxPopulation)}</span>
+              </div>
+              {planet.currentPopulation > 0 && planet.currentPopulation < planet.maxPopulation && (
+                <div className="pm-stat-row">
+                  <span className="pm-stat-label">Growth</span>
+                  <span className="pm-stat-value pm-stat-value--positive">Growing</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pm-stat-group">
+              <div className="panel-section-label">NATURAL RESOURCES</div>
+              <div className="pm-res-rating-track">
+                <div
+                  className="pm-res-rating-fill"
+                  style={{ width: `${planet.naturalResources}%` }}
+                />
+                <span className="pm-res-rating-label">{planet.naturalResources}/100</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Center column: Building slots + queue */}
+          <div className="pm-col pm-col--buildings">
+            <div className="pm-section-label">
+              BUILDING SLOTS
+              <span className="pm-section-label__count">{usedSlots}/{totalSlots}</span>
+            </div>
+
+            <BuildingSlotGrid
+              totalSlots={totalSlots}
+              buildings={planet.buildings}
+              onEmptySlotClick={handleEmptySlotClick}
+              onBuildingClick={handleBuildingClick}
+            />
+
+            <div className="pm-divider" />
+            <div className="pm-section-label">CONSTRUCTION QUEUE</div>
+            <ConstructionQueue
+              queue={planet.productionQueue}
+              onCancel={handleCancelQueue}
+            />
+          </div>
+
+          {/* Right column: Production summary */}
+          <div className="pm-col pm-col--production">
+            <div className="pm-section-label">PRODUCTION / TURN</div>
+
+            <div className="pm-prod-group">
+              {RESOURCE_KEYS.map((key) => {
+                const val = production[key] ?? 0;
+                if (val === 0) return null;
+                return (
+                  <ResourceBar
+                    key={key}
+                    label={RESOURCE_LABELS[key] ?? key}
+                    icon={RESOURCE_ICONS[key] ?? '?'}
+                    value={val}
+                    showSign
+                  />
+                );
+              })}
+            </div>
+
+            <div className="pm-divider" />
+            <div className="pm-section-label">MAINTENANCE</div>
+
+            <div className="pm-prod-group">
+              {Object.entries(maintenance).map(([key, val]) => {
+                if (val === 0) return null;
+                return (
+                  <ResourceBar
+                    key={key}
+                    label={RESOURCE_LABELS[key] ?? key}
+                    icon={RESOURCE_ICONS[key] ?? '?'}
+                    value={-val}
+                    showSign
+                  />
+                );
+              })}
+              {Object.values(maintenance).every((v) => v === 0) && (
+                <div className="pm-prod-empty">No maintenance costs</div>
+              )}
+            </div>
+
+            <div className="pm-divider" />
+            <div className="pm-section-label">NET OUTPUT</div>
+
+            <div className="pm-prod-group pm-prod-group--net">
+              {RESOURCE_KEYS.map((key) => {
+                const net = netProduction[key] ?? 0;
+                if (net === 0) return null;
+                return (
+                  <ResourceBar
+                    key={key}
+                    label={RESOURCE_LABELS[key] ?? key}
+                    icon={RESOURCE_ICONS[key] ?? '?'}
+                    value={net}
+                    showSign
+                  />
+                );
+              })}
+              {RESOURCE_KEYS.every((k) => (netProduction[k] ?? 0) === 0) && (
+                <div className="pm-prod-empty">No output — build something</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Bottom bar ── */}
+        <div className="pm-footer">
+          <button className="pm-footer__btn pm-footer__btn--disabled" disabled>
+            SPECIALIZE
+          </button>
+          <div className="pm-footer__totals">
+            <span className="pm-footer__total-label">NET/TURN:</span>
+            {RESOURCE_KEYS.map((key) => {
+              const net = Math.round((netProduction[key] ?? 0) * 10) / 10;
+              if (net === 0) return null;
+              return (
+                <span
+                  key={key}
+                  className={`pm-footer__total-item ${net > 0 ? 'pm-footer__total-item--pos' : 'pm-footer__total-item--neg'}`}
+                >
+                  {RESOURCE_ICONS[key]}: {net > 0 ? '+' : ''}{net}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Building picker modal */}
+      {pickerOpen && (
+        <BuildingPicker
+          planet={planet}
+          empireResources={empireResources}
+          onSelect={handleSelectBuilding}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}

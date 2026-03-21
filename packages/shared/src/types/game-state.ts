@@ -2,6 +2,7 @@
 
 import type { Galaxy } from './galaxy.js';
 import type { Empire } from './species.js';
+import type { Fleet, Ship } from './ships.js';
 import type { GameSpeedName, GalaxySize } from '../constants/game.js';
 
 export type GameStatus = 'lobby' | 'playing' | 'paused' | 'finished';
@@ -10,6 +11,8 @@ export interface GameState {
   id: string;
   galaxy: Galaxy;
   empires: Empire[];
+  fleets: Fleet[];
+  ships: Ship[];
   currentTick: number;
   speed: GameSpeedName;
   status: GameStatus;
