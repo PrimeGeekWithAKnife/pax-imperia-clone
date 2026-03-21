@@ -1,6 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import type { StarSystem, Planet, BuildingType, Galaxy } from '@nova-imperia/shared';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import type { StarSystem, Planet, BuildingType, Galaxy, ProductionItem } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
+import type { GameEngine } from '../engine/GameEngine';
+import { getGameEngine } from '../engine/GameEngine';
 import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
@@ -11,6 +14,7 @@ import { useGameEvent } from './hooks/useGameEvents';
 import { TopBar } from './components/TopBar';
 import { SystemInfoPanel } from './components/SystemInfoPanel';
 import { PlanetDetailPanel } from './components/PlanetDetailPanel';
+import { ColoniseNotification } from './components/ColoniseNotification';
 import { Minimap } from './components/Minimap';
 import { FleetPanel } from './components/FleetPanel';
 import { SpeciesCreatorScreen } from './screens/SpeciesCreatorScreen';
@@ -163,7 +167,10 @@ export function App(): React.ReactElement {
   const [isPaused, setIsPaused] = useState(false);
   const [creatorData, setCreatorData] = useState<SpeciesCreatorContinueData | null>(null);
   const [managedPlanet, setManagedPlanet] = useState<Planet | null>(null);
+  const [managedSystemId, setManagedSystemId] = useState<string | null>(null);
   const [empireResources, setEmpireResources] = useState<EmpireResources>(EMPTY_RESOURCES);
+  const [buildNotification, setBuildNotification] = useState<string | null>(null);
+  const [coloniseNotification, setColoniseNotification] = useState<string | null>(null);
   const [researchState, setResearchState] = useState<ResearchState>(MOCK_RESEARCH_STATE);
   const [allTechs, setAllTechs] = useState<Technology[]>(MOCK_ALL_TECHS);
 
@@ -187,6 +194,15 @@ export function App(): React.ReactElement {
   // ── Fleet state ──
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
+
+  // ── Known empire map (id → { name, color }) for PlanetDetailPanel ──
+  const knownEmpireMap = useMemo((): Map<string, { name: string; color: string }> => {
+    const map = new Map<string, { name: string; color: string }>();
+    for (const ke of knownEmpires) {
+      map.set(ke.empire.id, { name: ke.empire.name, color: ke.empire.color });
+    }
+    return map;
+  }, [knownEmpires]);
 
   // ── Escape key: toggle pause menu during gameplay ──
   useEffect(() => {
@@ -231,10 +247,12 @@ export function App(): React.ReactElement {
     [setCurrentScene],
   );
 
-  // Phaser emits this when "Manage" is clicked on a colonized planet
+  // Phaser emits this when an owned planet is clicked in SystemViewScene.
+  // Payload is { planet, systemId } (see SystemViewScene.ts).
   const handleManagePlanet = useCallback(
-    (planet: Planet) => {
-      setManagedPlanet(planet);
+    (payload: { planet: Planet; systemId: string }) => {
+      setManagedPlanet(payload.planet);
+      setManagedSystemId(payload.systemId);
     },
     [],
   );
@@ -302,6 +320,60 @@ export function App(): React.ReactElement {
     setGalaxy(g);
   }, []);
 
+  // Engine emits 'engine:planet_colonised' after a colonisation action succeeds
+  const handlePlanetColonised = useCallback(
+    (payload: { planetName: string; systemId: string; planetId: string }) => {
+      setColoniseNotification(payload.planetName);
+    },
+    [],
+  );
+
+  // Engine emits 'engine:planet_updated' after buildOnPlanet / cancelConstruction
+  // and at the end of each tick when a construction queue item completes.
+  const handlePlanetUpdated = useCallback(
+    (payload: { systemId: string; planet: Planet }) => {
+      // If this planet is the one currently open in the management screen, refresh it.
+      setManagedPlanet((prev) => {
+        if (prev && prev.id === payload.planet.id) {
+          return payload.planet;
+        }
+        return prev;
+      });
+    },
+    [],
+  );
+
+  // Detect building completion by watching queue length transitions via engine:tick
+  // We track the previous queue state to detect when an item completes.
+  const handleEngineTick = useCallback(() => {
+    setManagedPlanet((prev) => {
+      if (!prev || !managedSystemId) return prev;
+      // Fetch the latest planet state from the engine
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) return prev;
+      const state = engine.getState();
+      const system = state.gameState.galaxy.systems.find(s => s.id === managedSystemId);
+      if (!system) return prev;
+      const latestPlanet = system.planets.find(p => p.id === prev.id);
+      if (!latestPlanet) return prev;
+
+      // Detect if the front-of-queue item just completed (queue shrank + new building appeared)
+      if (prev.productionQueue.length > 0 && latestPlanet.productionQueue.length < prev.productionQueue.length) {
+        const completedItem = prev.productionQueue[0] as ProductionItem | undefined;
+        if (completedItem?.type === 'building') {
+          const def = BUILDING_DEFINITIONS[completedItem.templateId as import('@nova-imperia/shared').BuildingType];
+          if (def) {
+            setBuildNotification(`Construction complete: ${def.name} on ${latestPlanet.name}`);
+            // Auto-dismiss after 4 seconds
+            setTimeout(() => setBuildNotification(null), 4000);
+          }
+        }
+      }
+
+      return latestPlanet;
+    });
+  }, [managedSystemId]);
+
   // Engine emits 'engine:viewport_changed' each frame from GalaxyMapScene
   const handleViewportChanged = useCallback(
     (vp: { x: number; y: number; width: number; height: number }) => {
@@ -357,7 +429,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<void>('ui:diplomacy', handleOpenDiplomacy);
   useGameEvent<Empire>('empire:updated', handleEmpireUpdate);
-  useGameEvent<Planet>('planet:manage', handleManagePlanet);
+  useGameEvent<{ planet: Planet; systemId: string }>('planet:manage', handleManagePlanet);
   useGameEvent<EmpireResources>('empire:resources_updated', handleResourcesUpdate);
   useGameEvent<ResearchState>('research:state_updated', handleResearchStateUpdate);
   useGameEvent<Technology[]>('research:techs_loaded', handleTechsLoaded);
@@ -367,6 +439,9 @@ export function App(): React.ReactElement {
   useGameEvent<Galaxy>('engine:galaxy_updated', handleGalaxyUpdated);
   useGameEvent<{ x: number; y: number; width: number; height: number }>('engine:viewport_changed', handleViewportChanged);
   useGameEvent<Array<{ empireId: string; credits: number; researchPoints: number }>>('engine:resources_updated', handleEngineResourcesUpdated);
+  useGameEvent<{ systemId: string; planet: Planet }>('engine:planet_updated', handlePlanetUpdated);
+  useGameEvent<{ tick: number }>('engine:tick', handleEngineTick);
+  useGameEvent<{ planetName: string; systemId: string; planetId: string }>('engine:planet_colonised', handlePlanetColonised);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -374,26 +449,42 @@ export function App(): React.ReactElement {
 
   const handleCloseManagedPlanet = useCallback(() => {
     setManagedPlanet(null);
+    setManagedSystemId(null);
   }, []);
 
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
-      const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-        | { events: { emit: (e: string, d: unknown) => void } }
-        | undefined;
-      game?.events.emit('planet:build', { planetId, buildingType });
+      if (!managedSystemId) {
+        console.warn('[App.handleBuild] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleBuild] GameEngine not available');
+        return;
+      }
+      const success = engine.buildOnPlanet(managedSystemId, planetId, buildingType);
+      if (!success) {
+        console.warn(`[App.handleBuild] buildOnPlanet returned false for ${buildingType}`);
+      }
     },
-    [],
+    [managedSystemId],
   );
 
   const handleCancelQueue = useCallback(
     (planetId: string, queueIndex: number) => {
-      const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-        | { events: { emit: (e: string, d: unknown) => void } }
-        | undefined;
-      game?.events.emit('planet:cancel_queue', { planetId, queueIndex });
+      if (!managedSystemId) {
+        console.warn('[App.handleCancelQueue] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleCancelQueue] GameEngine not available');
+        return;
+      }
+      engine.cancelConstruction(managedSystemId, planetId, queueIndex);
     },
-    [],
+    [managedSystemId],
   );
 
   const handleBackFromCreator = useCallback(() => {
@@ -581,6 +672,9 @@ export function App(): React.ReactElement {
       <PlanetDetailPanel
         planet={selectedPlanet}
         onClose={handleClosePlanet}
+        playerEmpire={playerEmpire}
+        knownEmpireMap={knownEmpireMap}
+        systemId={selectedSystem?.id ?? null}
       />
 
       <Minimap
@@ -590,13 +684,27 @@ export function App(): React.ReactElement {
         viewport={viewport}
       />
 
-      {managedPlanet && (
+      {managedPlanet && managedSystemId && (
         <PlanetManagementScreen
           planet={managedPlanet}
+          systemId={managedSystemId}
           empireResources={empireResources}
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
+        />
+      )}
+
+      {buildNotification && (
+        <div className="build-notification" role="status" aria-live="polite">
+          {buildNotification}
+        </div>
+      )}
+
+      {coloniseNotification && (
+        <ColoniseNotification
+          planetName={coloniseNotification}
+          onDismiss={() => setColoniseNotification(null)}
         />
       )}
 

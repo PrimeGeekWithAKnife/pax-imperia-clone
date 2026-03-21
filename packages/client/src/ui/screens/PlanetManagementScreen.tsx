@@ -198,7 +198,7 @@ function BuildingPicker({
                 title={reason}
               >
                 <div className="bpicker-item__header">
-                  <span className="bpicker-item__name">{def.name}</span>
+                  <span className="bpicker-item__name">{getBuildingDisplayName(type)}</span>
                   <span className="bpicker-item__turns">{def.buildTime}t</span>
                 </div>
                 <div className="bpicker-item__desc">{def.description}</div>
@@ -228,10 +228,22 @@ function BuildingPicker({
   );
 }
 
+// ── UK English overrides for building names ───────────────────────────────────
+// The shared constants use American English; override display names here.
+const UK_BUILDING_NAME_OVERRIDES: Partial<Record<BuildingType, string>> = {
+  defense_grid: 'Defence Grid',
+};
+
+function getBuildingDisplayName(type: BuildingType): string {
+  return UK_BUILDING_NAME_OVERRIDES[type] ?? BUILDING_DEFINITIONS[type].name;
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 interface PlanetManagementScreenProps {
   planet: Planet;
+  /** The star system that contains this planet — required to route build actions. */
+  systemId: string;
   empireResources: EmpireResources;
   onClose: () => void;
   onBuild: (planetId: string, buildingType: BuildingType) => void;
@@ -240,6 +252,7 @@ interface PlanetManagementScreenProps {
 
 export function PlanetManagementScreen({
   planet,
+  systemId: _systemId,
   empireResources,
   onClose,
   onBuild,

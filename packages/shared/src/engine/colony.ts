@@ -6,7 +6,7 @@
  * mutating their inputs.
  */
 
-import type { Planet, Building, BuildingType } from '../types/galaxy.js';
+import type { Planet, Building, BuildingType, StarSystem } from '../types/galaxy.js';
 import type { Species } from '../types/species.js';
 import {
   PLANET_BUILDING_SLOTS,
@@ -275,6 +275,159 @@ export function establishColony(
     currentPopulation: initialPopulation,
     buildings: [...planet.buildings, starterBuilding],
   };
+}
+
+// ── In-system colonisation ──────────────────────────────────────────────────
+
+/**
+ * Base credit cost for in-system colonisation.
+ * Applies when habitability is at maximum (100).
+ */
+const BASE_COLONISATION_COST = 200;
+
+/**
+ * Calculate the credit cost to colonise a planet based on its habitability.
+ *
+ * Lower habitability = higher cost.  The formula scales the base cost
+ * inversely with habitability, clamped so that a score of 100 yields exactly
+ * the base cost and a score approaching zero cannot exceed 10× the base cost.
+ *
+ *   cost = BASE_COLONISATION_COST * (100 / max(habitability, 10))
+ *
+ * Result is always a positive integer (rounded up).
+ */
+export function getColonisationCost(planet: Planet, species: Species): number {
+  const report = calculateHabitability(planet, species);
+  const effectiveScore = Math.max(report.score, 10);
+  return Math.ceil(BASE_COLONISATION_COST * (100 / effectiveScore));
+}
+
+/**
+ * Check whether an empire can colonise a planet within the same star system
+ * without a transport ship.
+ *
+ * Requirements (all must be satisfied):
+ * - Empire owns at least one other planet in the same system.
+ * - Target planet is unowned (ownerId === null).
+ * - Target planet is not already populated (currentPopulation === 0).
+ * - Target planet is not a gas giant (use the orbital-platform path for those).
+ * - Habitability for the empire's species is >= MIN_COLONIZE_HABITABILITY (10).
+ * - Empire can afford the colonisation cost.
+ *
+ * Returns the colonisation cost even when the action is not allowed, so
+ * callers can display the cost in the UI regardless.
+ */
+export function canColoniseInSystem(
+  system: StarSystem,
+  targetPlanetId: string,
+  empireId: string,
+  species: Species,
+  empireCredits: number,
+): { allowed: boolean; reason?: string; cost: number } {
+  const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+
+  if (!targetPlanet) {
+    return { allowed: false, reason: 'Planet not found in this system', cost: 0 };
+  }
+
+  // The cost is always calculated so callers can show it even on rejection.
+  const cost = getColonisationCost(targetPlanet, species);
+
+  // Must own at least one planet in the same system.
+  const ownsSystemPlanet = system.planets.some(
+    p => p.id !== targetPlanetId && p.ownerId === empireId,
+  );
+  if (!ownsSystemPlanet) {
+    return {
+      allowed: false,
+      reason: 'Empire does not control any planets in this system',
+      cost,
+    };
+  }
+
+  // Target must be unowned.
+  if (targetPlanet.ownerId !== null) {
+    return { allowed: false, reason: 'Planet is already owned', cost };
+  }
+
+  // Target must be unpopulated.
+  if (targetPlanet.currentPopulation > 0) {
+    return { allowed: false, reason: 'Planet already has a population', cost };
+  }
+
+  // Gas giants require the orbital-platform path.
+  if (targetPlanet.type === 'gas_giant') {
+    return {
+      allowed: false,
+      reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
+      cost,
+    };
+  }
+
+  // Habitability check.
+  const report = calculateHabitability(targetPlanet, species);
+  if (report.score < MIN_COLONIZE_HABITABILITY) {
+    return {
+      allowed: false,
+      reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
+      cost,
+    };
+  }
+
+  // Affordability check.
+  if (empireCredits < cost) {
+    return {
+      allowed: false,
+      reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
+      cost,
+    };
+  }
+
+  return { allowed: true, cost };
+}
+
+/**
+ * Execute in-system colonisation on a star system.
+ *
+ * Sets `ownerId` on the target planet, places `initialPopulation` colonists
+ * there, and adds a level-1 `population_center` building.
+ *
+ * Returns a new StarSystem — does not mutate the original.
+ *
+ * @throws if the planet is not found in the system.
+ */
+export function coloniseInSystem(
+  system: StarSystem,
+  targetPlanetId: string,
+  empireId: string,
+  initialPopulation = 1000,
+): StarSystem {
+  const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
+  if (planetIndex === -1) {
+    throw new Error(
+      `Planet "${targetPlanetId}" not found in system "${system.id}"`,
+    );
+  }
+
+  const planet = system.planets[planetIndex]!;
+
+  const starterBuilding: Building = {
+    id: generateId(),
+    type: 'population_center',
+    level: 1,
+  };
+
+  const colonisedPlanet: Planet = {
+    ...planet,
+    ownerId: empireId,
+    currentPopulation: initialPopulation,
+    buildings: [...planet.buildings, starterBuilding],
+  };
+
+  const updatedPlanets = [...system.planets];
+  updatedPlanets[planetIndex] = colonisedPlanet;
+
+  return { ...system, planets: updatedPlanets };
 }
 
 // ── Building slot management ────────────────────────────────────────────────

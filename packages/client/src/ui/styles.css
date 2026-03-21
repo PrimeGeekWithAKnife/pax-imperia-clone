@@ -6106,3 +6106,166 @@
   font-size: 10px; background: rgba(255,255,255,0.06); padding: 2px 5px;
   border-radius: 3px; color: #aaa;
 }
+
+/* ================================================================
+   BUILD NOTIFICATION  (toast — bottom centre)
+================================================================ */
+
+.build-notification {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-accent-dim);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 16px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 150;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.15);
+}
+
+/* ================================================================
+   COLONISE NOTIFICATION  (toast — slides in from top)
+================================================================ */
+
+.colonise-notification {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translate(-50%, -80px);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(8, 8, 22, 0.96);
+  border: 1px solid rgba(68, 204, 136, 0.6);
+  box-shadow: 0 0 20px rgba(68, 204, 136, 0.18), 0 4px 24px rgba(0, 0, 0, 0.7);
+  padding: 10px 16px;
+  pointer-events: none;
+  z-index: 150;
+  font-family: var(--font-mono);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+  min-width: 260px;
+}
+
+.colonise-notification--visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.colonise-notification__icon {
+  font-size: 18px;
+  color: #44cc88;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(68, 204, 136, 0.6);
+}
+
+.colonise-notification__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.colonise-notification__title {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: #44cc88;
+  text-transform: uppercase;
+}
+
+.colonise-notification__planet {
+  font-size: 13px;
+  color: var(--color-text);
+  letter-spacing: 0.08em;
+}
+
+/* ================================================================
+   COLONISE SECTION  (within PlanetDetailPanel)
+================================================================ */
+
+.colonise-warnings {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.colonise-warning-item {
+  font-size: 10px;
+  color: #ffaa44;
+  padding: 2px 6px;
+  border-left: 2px solid rgba(255, 170, 68, 0.5);
+  letter-spacing: 0.04em;
+}
+
+.colonise-reason {
+  font-size: 10px;
+  color: #ff6644;
+  padding: 4px 6px;
+  border-left: 2px solid rgba(255, 102, 68, 0.5);
+  margin: 4px 0;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.colonise-status {
+  font-size: 11px;
+}
+
+.colonise-status--danger {
+  color: #ff4444;
+}
+
+.colonise-action {
+  margin-top: 8px;
+}
+
+.colonise-btn {
+  width: 100%;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid var(--color-accent-dim);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+  border-radius: 2px;
+}
+
+.colonise-btn:hover:not(.colonise-btn--disabled) {
+  background: rgba(0, 212, 255, 0.18);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.18);
+}
+
+.colonise-btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: rgba(0, 180, 220, 0.15);
+}
+
+.colonise-btn--manage {
+  background: rgba(68, 204, 136, 0.08);
+  border-color: rgba(68, 204, 136, 0.5);
+  color: #44cc88;
+}
+
+.colonise-btn--manage:hover {
+  background: rgba(68, 204, 136, 0.16);
+  border-color: #44cc88;
+  box-shadow: 0 0 10px rgba(68, 204, 136, 0.15);
+}
+
+.colonise-enemy-name {
+  font-style: italic;
+}

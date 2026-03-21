@@ -3,6 +3,7 @@ import type { StarSystem, Planet, PlanetType } from '@nova-imperia/shared';
 import { StarRenderer } from '../rendering/StarRenderer';
 import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
+import { getGameEngine } from '../../engine/GameEngine';
 
 // ── Planet label data (kept local — not part of shared types) ─────────────────
 
@@ -120,6 +121,16 @@ export class SystemViewScene extends Phaser.Scene {
       this.music.crossfadeTo('system');
       this.ambient.startSystemAmbient(this.system.starType);
     }
+
+    // ── Colonise action listener ───────────────────────────────────────────────
+    // React emits 'colony:colonise' on the Phaser game events when the player
+    // clicks the Colonise button in PlanetDetailPanel.
+    this.game.events.on('colony:colonise', this.handleColoniseAction, this);
+
+    // Clean up listener when the scene shuts down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('colony:colonise', this.handleColoniseAction, this);
+    });
   }
 
   update(_time: number, delta: number): void {
@@ -130,6 +141,27 @@ export class SystemViewScene extends Phaser.Scene {
       entry.container.setPosition(cx, cy);
     }
   }
+
+  // ── Colonise action ───────────────────────────────────────────────────────────
+
+  private handleColoniseAction = (payload: unknown): void => {
+    const { systemId, planetId, empireId } = payload as {
+      systemId: string;
+      planetId: string;
+      empireId: string;
+    };
+
+    // Only handle events for this scene's system
+    if (systemId !== this.system?.id) return;
+
+    const engine = getGameEngine();
+    if (!engine) {
+      console.warn('[SystemViewScene] Colonise action received but GameEngine is not available');
+      return;
+    }
+
+    engine.executeAction({ type: 'ColonisePlanet', empireId, systemId, planetId });
+  };
 
   // ── Starfield backdrop ────────────────────────────────────────────────────────
 
@@ -206,6 +238,36 @@ export class SystemViewScene extends Phaser.Scene {
     const container = result.container;
     const radius = result.radius;
 
+    // ── Ownership / colonisation visual indicators ──────────────────────────
+    // Colonised (has population) but not owned: slightly dimmed opacity
+    if (planet.currentPopulation === 0 && planet.maxPopulation === 0) {
+      // Uninhabitable — render at reduced opacity
+      container.setAlpha(0.55);
+    }
+
+    if (planet.ownerId !== null) {
+      // Owned planet: draw a coloured ownership ring around it
+      const ownerRing = this.add.graphics();
+      // Player-owned planets glow cyan; AI-owned planets would differ in a full game
+      ownerRing.lineStyle(2, 0x00d4ff, 0.75);
+      ownerRing.strokeCircle(0, 0, radius + 4);
+      container.add(ownerRing);
+
+      // Small flag marker above the planet
+      const flag = this.add.graphics();
+      flag.fillStyle(0x00d4ff, 0.9);
+      flag.fillRect(-4, -(radius + 14), 8, 6);
+      flag.lineStyle(1, 0x00d4ff, 1);
+      flag.lineBetween(0, -(radius + 14), 0, -(radius + 4));
+      container.add(flag);
+    } else if (planet.currentPopulation > 0) {
+      // Colonised but not owned by player — neutral marker
+      const colonyRing = this.add.graphics();
+      colonyRing.lineStyle(1.5, 0x888888, 0.55);
+      colonyRing.strokeCircle(0, 0, radius + 4);
+      container.add(colonyRing);
+    }
+
     // Interactive hit area (invisible circle slightly larger than planet)
     const hitArea = this.add.circle(0, 0, radius + 7, 0xffffff, 0);
     hitArea.setInteractive({ useHandCursor: true });
@@ -235,6 +297,10 @@ export class SystemViewScene extends Phaser.Scene {
     hitArea.on('pointerdown', () => {
       this.sfx?.playClick();
       this.game.events.emit('planet:selected', planet);
+      // If the player owns this planet, also open the management screen
+      if (planet.ownerId !== null) {
+        this.game.events.emit('planet:manage', { planet, systemId: this.system.id });
+      }
     });
 
     container.add([highlight, hitArea]);

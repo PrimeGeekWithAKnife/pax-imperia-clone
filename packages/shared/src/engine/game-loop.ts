@@ -6,6 +6,7 @@
  * callers must persist the returned state.
  *
  * Processing order per tick:
+ *  0.  Player Actions       (colonise, build, speed change)
  *  1.  Fleet Movement
  *  2.  Combat Resolution
  *  3.  Population Growth
@@ -20,16 +21,18 @@
  */
 
 import type { GameState } from '../types/game-state.js';
-import type { StarSystem, Planet } from '../types/galaxy.js';
+import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
 import type { Empire } from '../types/species.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
 import type {
+  GameAction,
   GameEvent,
   FleetMovedEvent,
   CombatStartedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
+  PlanetColonisedEvent,
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
@@ -41,6 +44,10 @@ import {
   calculateHabitability,
   calculatePopulationGrowth,
   processConstructionQueue,
+  canColoniseInSystem,
+  coloniseInSystem,
+  canBuildOnPlanet,
+  addBuildingToQueue,
 } from './colony.js';
 import {
   processResearchTick,
@@ -72,6 +79,22 @@ export interface CombatPending {
 }
 
 /**
+ * A player action submitted for processing on the next game tick.
+ *
+ * Wrapping GameAction with the submitting empire's identity and the tick number
+ * means the game loop always has full context when validating actions, even for
+ * action types that do not carry an empireId themselves.
+ */
+export interface PlayerAction {
+  /** The empire that submitted this action. */
+  empireId: string;
+  /** The action payload. */
+  action: GameAction;
+  /** The tick counter at which this action was submitted. */
+  tick: number;
+}
+
+/**
  * Complete snapshot of mutable game-loop state.
  * GameState carries the canonical galaxy/empires/fleets/ships.
  * The remaining fields are auxiliary structures managed by the game loop.
@@ -97,6 +120,11 @@ export interface GameTickState {
    * Same provenance as shipDesigns.
    */
   shipComponents?: ShipComponent[];
+  /**
+   * Player actions queued for processing on the next tick.
+   * Use submitAction to add actions; the game loop drains this list each tick.
+   */
+  pendingActions: PlayerAction[];
 }
 
 /** The result returned by processGameTick. */
@@ -204,6 +232,149 @@ function replacePlanet(
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Step 0: Process Pending Actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Drain the pendingActions queue and apply each action to the game state.
+ *
+ * Handles:
+ *  - ColonisePlanet / ColonizePlanet: in-system colonisation without a transport.
+ *  - ConstructBuilding: add a building to a planet's production queue.
+ *  - SetGameSpeed: update the game speed.
+ *
+ * Unknown or unhandled action types are logged and skipped gracefully so that
+ * new action types can be introduced without crashing the game loop.
+ */
+function processPlayerActions(
+  state: GameTickState,
+  events: GameEvent[],
+): GameTickState {
+  if (state.pendingActions.length === 0) return state;
+
+  const tick = state.gameState.currentTick;
+  let systems = state.gameState.galaxy.systems;
+  let empires = state.gameState.empires;
+  let gameSpeed = state.gameState.speed;
+
+  for (const playerAction of state.pendingActions) {
+    const { empireId, action } = playerAction;
+
+    try {
+      // ── ColonisePlanet / ColonizePlanet ────────────────────────────────────
+      if (action.type === 'ColonisePlanet' || action.type === 'ColonizePlanet') {
+        // Both spellings are supported; extract fields depending on variant.
+        const systemId = action.type === 'ColonisePlanet' ? action.systemId : null;
+        const planetId = action.planetId;
+
+        if (!systemId) {
+          // ColonizePlanet (US spelling) uses a fleetId rather than a systemId —
+          // the fleet-based path is not yet implemented.
+          console.warn(`[game-loop] ColonizePlanet (fleet-based) is not yet implemented — skipping`);
+          continue;
+        }
+
+        // Look up empire.
+        const empire = empires.find(e => e.id === empireId);
+        if (!empire) {
+          console.warn(`[game-loop] ColonisePlanet action references unknown empire "${empireId}" — skipping`);
+          continue;
+        }
+
+        const systemIndex = systems.findIndex(s => s.id === systemId);
+        if (systemIndex === -1) {
+          console.warn(`[game-loop] ColonisePlanet action references unknown system "${systemId}" — skipping`);
+          continue;
+        }
+
+        const system = systems[systemIndex]!;
+
+        // Validate using canColoniseInSystem.
+        const check = canColoniseInSystem(system, planetId, empireId, empire.species, empire.credits);
+        if (!check.allowed) {
+          console.warn(`[game-loop] ColonisePlanet rejected for empire "${empireId}": ${check.reason}`);
+          continue;
+        }
+
+        // Deduct the colonisation cost.
+        const updatedEmpire = { ...empire, credits: empire.credits - check.cost };
+        empires = empires.map(e => (e.id === empireId ? updatedEmpire : e));
+
+        // Apply colonisation to the system.
+        const updatedSystem = coloniseInSystem(system, planetId, empireId);
+        systems = systems.map(s => (s.id === systemId ? updatedSystem : s));
+
+        // Emit event.
+        const colonisedPlanet = updatedSystem.planets.find(p => p.id === planetId);
+        const planetName = colonisedPlanet?.name ?? planetId;
+
+        const colonisedEvent: PlanetColonisedEvent = {
+          type: 'PlanetColonised',
+          empireId,
+          systemId,
+          planetId,
+          planetName,
+          tick,
+        };
+        events.push(colonisedEvent);
+
+      // ── ConstructBuilding ────────────────────────────────────────────────
+      } else if (action.type === 'ConstructBuilding') {
+        const { systemId, planetId, buildingType } = action;
+
+        const systemData = systems.find(s => s.id === systemId);
+        if (!systemData) {
+          console.warn(`[game-loop] ConstructBuilding references unknown system "${systemId}" — skipping`);
+          continue;
+        }
+
+        const planet = systemData.planets.find(p => p.id === planetId);
+        if (!planet) {
+          console.warn(`[game-loop] ConstructBuilding references unknown planet "${planetId}" — skipping`);
+          continue;
+        }
+
+        if (planet.ownerId !== empireId) {
+          console.warn(`[game-loop] ConstructBuilding rejected — empire "${empireId}" does not own planet "${planetId}"`);
+          continue;
+        }
+
+        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType);
+        if (!buildCheck.allowed) {
+          console.warn(`[game-loop] ConstructBuilding rejected for planet "${planetId}": ${buildCheck.reason}`);
+          continue;
+        }
+
+        const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType);
+        systems = replacePlanet(systems, updatedPlanet);
+
+      // ── SetGameSpeed ─────────────────────────────────────────────────────
+      } else if (action.type === 'SetGameSpeed') {
+        gameSpeed = action.speed;
+
+      } else {
+        // Action type recognised but not handled yet — log and continue.
+        console.warn(`[game-loop] Unhandled action type "${(action as GameAction).type}" — skipping`);
+      }
+    } catch (err) {
+      // Defensive: an invalid action must not crash the game loop.
+      console.error(`[game-loop] Error processing action "${(action as GameAction).type}" for empire "${empireId}":`, err);
+    }
+  }
+
+  return {
+    ...state,
+    pendingActions: [],
+    gameState: {
+      ...state.gameState,
+      speed: gameSpeed,
+      empires,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Step 1: Fleet Movement
@@ -823,6 +994,9 @@ export function processGameTick(
 
   let s = state;
 
+  // 0. Process Pending Actions (colonisation, building construction, speed changes)
+  s = processPlayerActions(s, events);
+
   // 1. Fleet Movement
   s = stepFleetMovement(s, events);
 
@@ -899,6 +1073,7 @@ export function initializeTickState(gameState: GameState): GameTickState {
     movementOrders: [],
     productionOrders: [],
     pendingCombats: [],
+    pendingActions: [],
   };
 }
 
@@ -928,4 +1103,36 @@ export function getTickRate(speed: keyof typeof GAME_SPEEDS): number {
       return 1000;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// submitAction
+// ---------------------------------------------------------------------------
+
+/**
+ * Pure helper that appends a player action to the pending queue.
+ *
+ * The GameEngine on the client (or server-side command handler) calls this
+ * whenever a player submits an order.  The action is processed at the
+ * beginning of the next call to processGameTick.
+ *
+ * @param state     Current tick state snapshot.
+ * @param empireId  The empire submitting the action.
+ * @param action    The action payload.
+ * @returns         A new GameTickState with the action appended.
+ */
+export function submitAction(
+  state: GameTickState,
+  empireId: string,
+  action: GameAction,
+): GameTickState {
+  const playerAction: PlayerAction = {
+    empireId,
+    action,
+    tick: state.gameState.currentTick,
+  };
+  return {
+    ...state,
+    pendingActions: [...state.pendingActions, playerAction],
+  };
 }

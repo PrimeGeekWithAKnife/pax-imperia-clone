@@ -45,6 +45,14 @@ export interface ColonizePlanetAction {
   planetId: string;
 }
 
+/** UK-spelling variant: colonise a planet within a system the empire already controls. */
+export interface ColonisePlanetAction {
+  type: 'ColonisePlanet';
+  empireId: string;
+  systemId: string;
+  planetId: string;
+}
+
 export interface ProposeTreatyAction {
   type: 'ProposeTreaty';
   targetEmpireId: string;
@@ -80,6 +88,7 @@ export type GameAction =
   | SetFleetStanceAction
   | ConstructBuildingAction
   | ColonizePlanetAction
+  | ColonisePlanetAction
   | ProposeTreatyAction
   | AcceptTreatyAction
   | RejectTreatyAction
@@ -126,6 +135,16 @@ export interface PlanetColonizedEvent {
   empireId: string;
   systemId: string;
   planetId: string;
+  tick: number;
+}
+
+/** UK-spelling variant emitted when in-system colonisation completes. */
+export interface PlanetColonisedEvent {
+  type: 'PlanetColonised';
+  empireId: string;
+  systemId: string;
+  planetId: string;
+  planetName: string;
   tick: number;
 }
 
@@ -181,6 +200,7 @@ export type GameEvent =
   | CombatResolvedEvent
   | TechResearchedEvent
   | PlanetColonizedEvent
+  | PlanetColonisedEvent
   | TreatyProposedEvent
   | TreatyAcceptedEvent
   | TreatyRejectedEvent
