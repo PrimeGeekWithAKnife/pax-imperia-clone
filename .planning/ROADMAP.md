@@ -31,11 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. ESLint and Prettier report clean across all packages with a single command
   4. Running `npm run dev` starts both client and server with hot reload active
   5. Importing from client or server inside the shared package produces a TypeScript compile error
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Install dependencies, configure Vite and TypeScript build, wire concurrent dev command, verify package boundaries
+- [ ] 01-02-PLAN.md — Configure ESLint flat config with typescript-eslint and Prettier, fix all existing source files
 
 ### Phase 2: Shared Types Package
 **Goal**: Types defined once in the shared package are consumed by both client and server with compile-time enforcement
@@ -119,7 +119,7 @@ Note: Phase 5 (Server) depends only on Phase 2, so it can be built in parallel w
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffolding | 0/2 | Not started | - |
+| 1. Monorepo Scaffolding | 0/2 | Planning complete | - |
 | 2. Shared Types Package | 0/1 | Not started | - |
 | 3. Phaser Bootstrap | 0/2 | Not started | - |
 | 4. React Integration | 0/2 | Not started | - |
