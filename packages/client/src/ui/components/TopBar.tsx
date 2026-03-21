@@ -39,7 +39,7 @@ export function TopBar({
   return (
     <div className="top-bar">
       {/* Title */}
-      <div className="top-bar__title">NOVA IMPERIA</div>
+      <div className="top-bar__title">EX NIHILO</div>
 
       {/* Speed controls */}
       <div className="top-bar__speed-controls" role="group" aria-label="Game speed">

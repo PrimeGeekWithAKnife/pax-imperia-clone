@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
-import { generateGalaxy } from '@nova-imperia/shared';
+import { initializeGame } from '@nova-imperia/shared';
 import type { Galaxy, StarSystem, StarType } from '@nova-imperia/shared';
+import { createGameEngine, getGameEngine, initializeTickState } from '../../engine/GameEngine';
+import type { GameSpeedName } from '@nova-imperia/shared';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,12 @@ export class GalaxyMapScene extends Phaser.Scene {
   private lastPointerDownTime = 0;
   private lastPointerDownSystemId: string | null = null;
 
+  // Home system of the player empire (used for centering + highlight)
+  private homeSystemId: string | null = null;
+
+  // Home-world ring graphics (drawn above normal selection ring)
+  private homeRing!: Phaser.GameObjects.Graphics;
+
   constructor() {
     super({ key: 'GalaxyMapScene' });
   }
@@ -94,28 +102,119 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.starHitAreas.clear();
     this.pulseTweens.clear();
     this.selectedSystemId = null;
+    this.homeSystemId = null;
     this.lastPointerDownTime = 0;
     this.lastPointerDownSystemId = null;
     this.currentZoom = 1.0;
     this.targetZoom = 1.0;
     this.isDragging = false;
 
-    // Generate galaxy
-    this.galaxy = generateGalaxy({
-      seed: 42,
-      size: 'medium',
-      shape: 'spiral',
-      playerCount: 2,
-    });
+    // ── Initialise or reuse game state ────────────────────────────────────────
+    //
+    // If a GameEngine is already running (e.g., the player already started a
+    // game via SpeciesCreatorScreen), reuse its galaxy.  Otherwise fall back to
+    // a default game so the scene can be previewed/tested standalone.
 
-    // Set up fog of war — default: reveal all
-    const revealAll = !data?.knownSystemIds;
-    if (revealAll) {
-      for (const sys of this.galaxy.systems) {
-        this.knownSystemIds.add(sys.id);
+    const existingEngine = getGameEngine();
+    if (existingEngine) {
+      this.galaxy = existingEngine.getState().gameState.galaxy;
+      // Find the player empire home system (first non-AI empire)
+      const playerEmpire = existingEngine.getState().gameState.empires.find(e => !e.isAI);
+      if (playerEmpire) {
+        const homeSystem = this.galaxy.systems.find(s => s.ownerId === playerEmpire.id);
+        this.homeSystemId = homeSystem?.id ?? null;
+        this.knownSystemIds = new Set(playerEmpire.knownSystems);
+      } else {
+        // Reveal all as a fallback
+        for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
       }
     } else {
-      this.knownSystemIds = new Set(data!.knownSystemIds!);
+      // Standalone / first load: spin up a default game and create the engine
+      const gameState = initializeGame({
+        galaxyConfig: { seed: 42, size: 'medium', shape: 'spiral', playerCount: 2 },
+        players: [
+          {
+            species: {
+              id: 'human',
+              name: 'Human',
+              description: 'Adaptable and resourceful.',
+              portrait: 'human',
+              traits: {
+                construction: 5,
+                reproduction: 5,
+                research: 6,
+                espionage: 5,
+                economy: 6,
+                combat: 5,
+                diplomacy: 7,
+              },
+              environmentPreference: {
+                idealTemperature: 293,
+                temperatureTolerance: 50,
+                idealGravity: 1.0,
+                gravityTolerance: 0.4,
+                preferredAtmospheres: ['oxygen_nitrogen'],
+              },
+              specialAbilities: [],
+              isPrebuilt: true,
+            },
+            empireName: 'Terran Federation',
+            color: '#00d4ff',
+            isAI: false,
+          },
+          {
+            species: {
+              id: 'nkthari',
+              name: "Nk'thari",
+              description: 'Insectoid hive-mind collective.',
+              portrait: 'nkthari',
+              traits: {
+                construction: 8,
+                reproduction: 9,
+                research: 5,
+                espionage: 6,
+                economy: 4,
+                combat: 7,
+                diplomacy: 3,
+              },
+              environmentPreference: {
+                idealTemperature: 310,
+                temperatureTolerance: 30,
+                idealGravity: 1.2,
+                gravityTolerance: 0.3,
+                preferredAtmospheres: ['nitrogen'],
+              },
+              specialAbilities: ['hive_mind'],
+              isPrebuilt: true,
+            },
+            empireName: "Nk'thari Hegemony",
+            color: '#ff6d00',
+            isAI: true,
+            aiPersonality: 'aggressive',
+          },
+        ],
+      });
+
+      this.galaxy = gameState.galaxy;
+
+      const playerEmpire = gameState.empires.find(e => !e.isAI);
+      if (playerEmpire) {
+        const homeSystem = gameState.galaxy.systems.find(s => s.ownerId === playerEmpire.id);
+        this.homeSystemId = homeSystem?.id ?? null;
+        this.knownSystemIds = new Set(playerEmpire.knownSystems);
+      } else {
+        for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
+      }
+
+      // Create and start the engine
+      const tickState = initializeTickState(gameState);
+      const engine = createGameEngine(this.game, tickState);
+      engine.start();
+    }
+
+    // If knownSystemIds came in via scene data, override
+    if (data?.knownSystemIds) {
+      this.knownSystemIds = new Set(data.knownSystemIds);
     }
 
     // Background
@@ -132,20 +231,33 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Build content
     this.createParallaxBackground();
-    this.centerGalaxy();
     this.drawWormholes(null);
     this.createStars();
     this.createSelectionRing();
+    this.createHomeRing();
     this.createTooltip();
     this.createBackButton();
 
+    // Center on home system (or galaxy center as fallback)
+    this.centerOnHomeSystem();
+
+    // Auto-select home system so SystemInfoPanel shows details immediately
+    if (this.homeSystemId) {
+      this.selectSystem(this.homeSystemId);
+    }
+
+    // Emit galaxy data for minimap
+    this.game.events.emit('engine:galaxy_updated', this.galaxy);
+
     // Input
     this.setupInput();
+    this.setupEngineEvents();
   }
 
   update(): void {
     this.updateZoomLerp();
     this.updateParallax();
+    this.emitViewport();
   }
 
   // ── Galaxy layout ─────────────────────────────────────────────────────────────
@@ -166,6 +278,75 @@ export class GalaxyMapScene extends Phaser.Scene {
   private applyWorldTransform(): void {
     this.worldContainer.setPosition(this.cameraOffset.x, this.cameraOffset.y);
     this.worldContainer.setScale(this.currentZoom);
+  }
+
+  /**
+   * Center the camera on the player's home system, falling back to the galaxy
+   * center if no home system is known.
+   */
+  private centerOnHomeSystem(): void {
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+
+    if (this.homeSystemId) {
+      const homeSys = this.galaxy.systems.find(s => s.id === this.homeSystemId);
+      if (homeSys) {
+        this.cameraOffset.x = cx - homeSys.position.x * this.currentZoom;
+        this.cameraOffset.y = cy - homeSys.position.y * this.currentZoom;
+        this.applyWorldTransform();
+        return;
+      }
+    }
+
+    // Fallback: center the whole galaxy
+    this.cameraOffset.x = cx - (this.galaxy.width / 2) * this.currentZoom;
+    this.cameraOffset.y = cy - (this.galaxy.height / 2) * this.currentZoom;
+    this.applyWorldTransform();
+  }
+
+  /**
+   * Emit the current camera viewport in galaxy-space coordinates so the
+   * minimap can draw the viewport rectangle.  Called every frame from update().
+   */
+  private emitViewport(): void {
+    if (!this.game) return;
+    const w = this.scale.width / this.currentZoom;
+    const h = this.scale.height / this.currentZoom;
+    const x = -this.cameraOffset.x / this.currentZoom;
+    const y = -this.cameraOffset.y / this.currentZoom;
+    this.game.events.emit('engine:viewport_changed', { x, y, width: w, height: h });
+  }
+
+  /**
+   * Handle 'minimap:navigate' events: pan the camera so that the clicked
+   * normalised coordinate sits at screen centre.
+   */
+  private handleMinimapNavigate = (data: unknown): void => {
+    const { normX, normY } = data as { normX: number; normY: number };
+    const worldX = normX * this.galaxy.width;
+    const worldY = normY * this.galaxy.height;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    this.cameraOffset.x = cx - worldX * this.currentZoom;
+    this.cameraOffset.y = cy - worldY * this.currentZoom;
+    this.applyWorldTransform();
+  };
+
+  /**
+   * Wire up Phaser-game-level events that the engine or React can emit.
+   * Called once from create().
+   */
+  private setupEngineEvents(): void {
+    // Speed changes from the React TopBar
+    this.game.events.on('ui:speed_change', (speed: unknown) => {
+      const engine = getGameEngine();
+      if (engine) {
+        engine.setSpeed(speed as GameSpeedName);
+      }
+    });
+
+    // Minimap click navigation
+    this.game.events.on('minimap:navigate', this.handleMinimapNavigate);
   }
 
   /** Convert galaxy-space coords to screen coords (accounting for pan+zoom). */
@@ -322,6 +503,34 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.selectSystem(sys.id);
       }
     });
+  }
+
+  // ── Home ring ──────────────────────────────────────────────────────────────
+
+  private createHomeRing(): void {
+    this.homeRing = this.add.graphics();
+    this.starLayer.add(this.homeRing);
+    this.drawHomeRing();
+  }
+
+  /** Draw a permanent colored ring around the player's home system. */
+  private drawHomeRing(): void {
+    this.homeRing.clear();
+    if (!this.homeSystemId) return;
+
+    const sys = this.galaxy.systems.find(s => s.id === this.homeSystemId);
+    if (!sys) return;
+
+    const visuals = STAR_VISUALS[sys.starType];
+    const ringRadius = visuals.radius + 9;
+
+    // Outer cyan glow ring
+    this.homeRing.lineStyle(2 / this.currentZoom, 0x00d4ff, 0.6);
+    this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius);
+
+    // Inner dashed-style ring (drawn as a slightly smaller arc)
+    this.homeRing.lineStyle(1 / this.currentZoom, 0x00d4ff, 0.35);
+    this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius + 5);
   }
 
   // ── Selection ─────────────────────────────────────────────────────────────────
@@ -505,5 +714,6 @@ export class GalaxyMapScene extends Phaser.Scene {
     if (this.selectedSystemId) {
       this.drawSelectionRing(this.selectedSystemId);
     }
+    this.drawHomeRing();
   }
 }

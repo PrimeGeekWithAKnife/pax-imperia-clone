@@ -1,5 +1,5 @@
 /**
- * Nova Imperia – Game Server Entry Point
+ * Ex Nihilo – Game Server Entry Point
  *
  * Creates and configures:
  *   - Fastify HTTP server (with CORS and JSON logging)
@@ -22,7 +22,7 @@ import { SocketManager } from './network/socketManager.js';
 const PORT = Number(process.env['PORT'] ?? 3001);
 const HOST = process.env['HOST'] ?? '0.0.0.0';
 const VERSION = process.env['npm_package_version'] ?? '0.1.0';
-const SERVER_NAME = 'Nova Imperia Game Server';
+const SERVER_NAME = 'Ex Nihilo Game Server';
 
 // ---------------------------------------------------------------------------
 // Server bootstrap
@@ -70,7 +70,7 @@ async function bootstrap(): Promise<void> {
   socketManager = new SocketManager(fastify.server, sessionManager);
 
   fastify.log.info(
-    `Nova Imperia server running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`,
+    `Ex Nihilo server running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`,
   );
 
   // -- Graceful shutdown ----------------------------------------------------

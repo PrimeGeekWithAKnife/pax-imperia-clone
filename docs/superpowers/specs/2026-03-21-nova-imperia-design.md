@@ -1,8 +1,8 @@
-# Nova Imperia - Game Design Specification
+# Ex Nihilo - Game Design Specification
 
 ## 1. Core Identity
 
-**Nova Imperia** is a modern, web-based real-time-with-pause 4X space strategy game. A reimagining of Pax Imperia: Eminent Domain (1997) that preserves its best qualities while fixing its documented flaws and adding significant new systems.
+**Ex Nihilo** is a modern, web-based real-time-with-pause 4X space strategy game. It preserves the best qualities of classic real-time 4X space strategy games while fixing documented flaws and adding significant new systems.
 
 **Core philosophy:** Species origin stories determine unique branching tech trees. This is not cosmetic -- a race that reached space through bioengineering plays fundamentally differently from one that industrialized through metallurgy.
 
@@ -223,7 +223,7 @@ Unlocked through tech age progression:
 ## 11. Combat System
 
 ### Two-Layer Warfare
-The original had no ground combat -- once orbital defenses fell, you instantly captured the planet. Nova Imperia adds a ground invasion phase.
+The original had no ground combat -- once orbital defenses fell, you instantly captured the planet. Ex Nihilo adds a ground invasion phase.
 
 ### Space Combat
 - **Real-time with pause** (single-player) or real-time (multiplayer) on a 2D tactical battle screen.

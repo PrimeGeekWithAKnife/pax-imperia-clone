@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import type { StarSystem, Planet, BuildingType } from '@nova-imperia/shared';
-import type { Species, EmpireResources } from '@nova-imperia/shared';
+import React, { useCallback, useEffect, useState } from 'react';
+import type { StarSystem, Planet, BuildingType, Galaxy } from '@nova-imperia/shared';
+import type { EmpireResources } from '@nova-imperia/shared';
+import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
 import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
@@ -13,13 +14,16 @@ import { PlanetDetailPanel } from './components/PlanetDetailPanel';
 import { Minimap } from './components/Minimap';
 import { FleetPanel } from './components/FleetPanel';
 import { SpeciesCreatorScreen } from './screens/SpeciesCreatorScreen';
+import { GameSetupScreen } from './screens/GameSetupScreen';
+import type { GameConfig } from './screens/GameSetupScreen';
+import { PauseMenu } from './screens/PauseMenu';
 import { PlanetManagementScreen } from './screens/PlanetManagementScreen';
 import { ResearchScreen } from './screens/ResearchScreen';
 import { ShipDesignerScreen } from './screens/ShipDesignerScreen';
 import { DiplomacyScreen } from './screens/DiplomacyScreen';
 import type { KnownEmpire } from './screens/DiplomacyScreen';
 
-type AppScreen = 'game' | 'species-creator' | 'research' | 'ship-designer' | 'diplomacy';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy';
 
 /** Mock tech data for initial research screen display before real game data is wired up. */
 const MOCK_ALL_TECHS: Technology[] = [];
@@ -156,10 +160,22 @@ export function App(): React.ReactElement {
   } = useGameState();
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('game');
+  const [isPaused, setIsPaused] = useState(false);
+  const [creatorData, setCreatorData] = useState<SpeciesCreatorContinueData | null>(null);
   const [managedPlanet, setManagedPlanet] = useState<Planet | null>(null);
   const [empireResources, setEmpireResources] = useState<EmpireResources>(EMPTY_RESOURCES);
   const [researchState, setResearchState] = useState<ResearchState>(MOCK_RESEARCH_STATE);
   const [allTechs, setAllTechs] = useState<Technology[]>(MOCK_ALL_TECHS);
+
+  // ── Galaxy state (for minimap) ──
+  const [galaxy, setGalaxy] = useState<Galaxy | null>(null);
+
+  // ── Viewport state (camera rect in galaxy coords, for minimap) ──
+  const [viewport, setViewport] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // ── Live resource state (updated by engine ticks) ──
+  const [liveCredits, setLiveCredits] = useState<number | undefined>(undefined);
+  const [liveResearchPoints, setLiveResearchPoints] = useState<number | undefined>(undefined);
 
   // ── Ship Designer state ──
   const [savedDesigns, setSavedDesigns] = useState<ShipDesign[]>([]);
@@ -171,6 +187,18 @@ export function App(): React.ReactElement {
   // ── Fleet state ──
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
+
+  // ── Escape key: toggle pause menu during gameplay ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && currentScreen === 'game') {
+        setIsPaused((prev) => !prev);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentScreen]);
 
   // ── Phaser → React event bridges ──
 
@@ -222,6 +250,7 @@ export function App(): React.ReactElement {
   // Phaser emits this when "New Game" is clicked
   const handleNewGame = useCallback(() => {
     setCurrentScreen('species-creator');
+    setIsPaused(false);
   }, []);
 
   // Phaser emits this to open the research screen
@@ -268,6 +297,35 @@ export function App(): React.ReactElement {
     setPlayerEmpire(empire);
   }, []);
 
+  // Engine emits 'engine:galaxy_updated' with the Galaxy object each tick
+  const handleGalaxyUpdated = useCallback((g: Galaxy) => {
+    setGalaxy(g);
+  }, []);
+
+  // Engine emits 'engine:viewport_changed' each frame from GalaxyMapScene
+  const handleViewportChanged = useCallback(
+    (vp: { x: number; y: number; width: number; height: number }) => {
+      setViewport(vp);
+    },
+    [],
+  );
+
+  // Engine emits 'engine:resources_updated' each tick with per-empire resource snapshots
+  const handleEngineResourcesUpdated = useCallback(
+    (updates: Array<{ empireId: string; credits: number; researchPoints: number }>) => {
+      // Apply the first non-AI empire's resources to the TopBar display.
+      // We identify the player empire by looking for the entry we already know
+      // about via MOCK_PLAYER_EMPIRE ('player') OR by taking the first entry
+      // (the player is always first in initializeGame's output).
+      if (updates.length > 0) {
+        const playerEntry = updates[0]!;
+        setLiveCredits(playerEntry.credits);
+        setLiveResearchPoints(playerEntry.researchPoints);
+      }
+    },
+    [],
+  );
+
   const handleSaveDesign = useCallback((design: ShipDesign) => {
     setSavedDesigns((prev) => {
       const withoutOld = prev.filter((d) => d.id !== design.id);
@@ -305,6 +363,10 @@ export function App(): React.ReactElement {
   useGameEvent<Technology[]>('research:techs_loaded', handleTechsLoaded);
   useGameEvent<{ fleet: Fleet; ships: Ship[] }>('fleet:selected', handleFleetSelected);
   useGameEvent<void>('fleet:deselected', handleFleetDeselected);
+  // Engine events
+  useGameEvent<Galaxy>('engine:galaxy_updated', handleGalaxyUpdated);
+  useGameEvent<{ x: number; y: number; width: number; height: number }>('engine:viewport_changed', handleViewportChanged);
+  useGameEvent<Array<{ empireId: string; credits: number; researchPoints: number }>>('engine:resources_updated', handleEngineResourcesUpdated);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -316,7 +378,7 @@ export function App(): React.ReactElement {
 
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
-      const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+      const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
         | { events: { emit: (e: string, d: unknown) => void } }
         | undefined;
       game?.events.emit('planet:build', { planetId, buildingType });
@@ -326,7 +388,7 @@ export function App(): React.ReactElement {
 
   const handleCancelQueue = useCallback(
     (planetId: string, queueIndex: number) => {
-      const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+      const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
         | { events: { emit: (e: string, d: unknown) => void } }
         | undefined;
       game?.events.emit('planet:cancel_queue', { planetId, queueIndex });
@@ -357,7 +419,7 @@ export function App(): React.ReactElement {
       };
     });
     // Also notify Phaser
-    const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
     game?.events.emit('research:start', { techId, allocation });
@@ -368,7 +430,7 @@ export function App(): React.ReactElement {
       ...prev,
       activeResearch: prev.activeResearch.filter((r) => r.techId !== techId),
     }));
-    const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
     game?.events.emit('research:cancel', { techId });
@@ -387,14 +449,36 @@ export function App(): React.ReactElement {
         ),
       };
     });
-    const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
     game?.events.emit('research:allocate', { techId, allocation });
   }, []);
 
-  const handleStartGame = useCallback((_species: Species) => {
-    // Species was already emitted to Phaser via 'game:start' event inside SpeciesCreatorScreen
+  // Species creator → game setup
+  const handleSpeciesCreatorContinue = useCallback((data: SpeciesCreatorContinueData) => {
+    setCreatorData(data);
+    setCurrentScreen('game-setup');
+  }, []);
+
+  // Game setup → back to species creator
+  const handleBackFromSetup = useCallback(() => {
+    setCurrentScreen('species-creator');
+  }, []);
+
+  // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
+  const handleStartGame = useCallback((_config: GameConfig) => {
+    setCurrentScreen('game');
+    setIsPaused(false);
+  }, []);
+
+  // Pause menu
+  const handleResume = useCallback(() => {
+    setIsPaused(false);
+  }, []);
+
+  const handleExitToMainMenu = useCallback(() => {
+    setIsPaused(false);
     setCurrentScreen('game');
   }, []);
 
@@ -404,6 +488,21 @@ export function App(): React.ReactElement {
       <div className="ui-overlay">
         <SpeciesCreatorScreen
           onBack={handleBackFromCreator}
+          onContinue={handleSpeciesCreatorContinue}
+        />
+      </div>
+    );
+  }
+
+  // Render game setup as full-screen overlay
+  if (currentScreen === 'game-setup' && creatorData) {
+    return (
+      <div className="ui-overlay">
+        <GameSetupScreen
+          species={creatorData.species}
+          originStory={creatorData.originStory}
+          governmentType={creatorData.governmentType}
+          onBack={handleBackFromSetup}
           onStartGame={handleStartGame}
         />
       </div>
@@ -462,6 +561,8 @@ export function App(): React.ReactElement {
       <TopBar
         gameSpeed={gameSpeed}
         onSpeedChange={setGameSpeed}
+        credits={liveCredits}
+        researchPoints={liveResearchPoints}
       />
 
       <SystemInfoPanel system={selectedSystem} />
@@ -472,9 +573,10 @@ export function App(): React.ReactElement {
       />
 
       <Minimap
-        systems={selectedSystem ? [] : []}
-        galaxyWidth={1000}
-        galaxyHeight={1000}
+        systems={galaxy?.systems ?? []}
+        galaxyWidth={galaxy?.width ?? 1000}
+        galaxyHeight={galaxy?.height ?? 1000}
+        viewport={viewport}
       />
 
       {managedPlanet && (
@@ -492,6 +594,13 @@ export function App(): React.ReactElement {
           fleet={selectedFleet}
           ships={fleetShips}
           onClose={handleFleetDeselected}
+        />
+      )}
+
+      {isPaused && (
+        <PauseMenu
+          onResume={handleResume}
+          onExitToMainMenu={handleExitToMainMenu}
         />
       )}
     </div>

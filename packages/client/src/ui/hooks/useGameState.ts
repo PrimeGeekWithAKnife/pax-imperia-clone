@@ -45,7 +45,7 @@ export function useGameState(): GameState & GameStateActions {
   const setGameSpeed = useCallback((speed: GameSpeedName) => {
     setGameSpeedRaw(speed);
     // Emit to Phaser so the engine picks up the change
-    const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
     game?.events.emit('ui:speed_change', speed);

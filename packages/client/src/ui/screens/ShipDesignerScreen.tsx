@@ -18,7 +18,7 @@ function generateId(): string {
 }
 
 function emitToPhaser(eventName: string, data: unknown): void {
-  const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+  const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
     | { events: { emit: (e: string, d: unknown) => void } }
     | undefined;
   game?.events.emit(eventName, data);

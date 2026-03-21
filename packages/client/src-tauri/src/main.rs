@@ -5,5 +5,5 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .run(tauri::generate_context!())
-        .expect("error while running Nova Imperia");
+        .expect("error while running Ex Nihilo");
 }

@@ -1,5 +1,5 @@
 /**
- * REST API route registrations for Nova Imperia.
+ * REST API route registrations for Ex Nihilo.
  *
  * Routes:
  *   GET /health       – liveness probe used by load balancers / orchestrators
@@ -10,7 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import type { GameSessionManager } from '../game/GameSessionManager.js';
 import type { SocketManager } from '../network/socketManager.js';
 
-const SERVER_NAME = 'Nova Imperia Game Server';
+const SERVER_NAME = 'Ex Nihilo Game Server';
 
 interface RouteOptions {
   version: string;

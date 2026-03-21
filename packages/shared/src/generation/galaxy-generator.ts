@@ -1,5 +1,5 @@
 /**
- * Galaxy generation algorithm for Nova Imperia.
+ * Galaxy generation algorithm for Ex Nihilo.
  *
  * Entry point: generateGalaxy(config)
  *

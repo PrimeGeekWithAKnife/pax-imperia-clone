@@ -9,7 +9,7 @@ interface PhaserGameBridge {
 }
 
 function getGame(): PhaserGameBridge | undefined {
-  return (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
+  return (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
     | PhaserGameBridge
     | undefined;
 }
@@ -21,7 +21,7 @@ function getGame(): PhaserGameBridge | undefined {
  *   game.events.emit(eventName, payload)
  *
  * This hook attaches a listener to the Phaser game exposed on
- * window.__NOVA_GAME__ and removes it on unmount.
+ * window.__EX_NIHILO_GAME__ and removes it on unmount.
  *
  * If the game is not yet mounted when the hook runs, it polls every 100ms
  * until the game appears, then registers the listener.

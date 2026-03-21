@@ -1,5 +1,5 @@
 /**
- * Socket.io event type definitions for Nova Imperia.
+ * Socket.io event type definitions for Ex Nihilo.
  * Provides typed interfaces for all client↔server communication.
  */
 

@@ -224,25 +224,23 @@ function defaultEnv(): EnvironmentPreference {
   };
 }
 
-// ── Helper to emit to Phaser ───────────────────────────────────────────────────
-
-function emitToPhaser(eventName: string, data: unknown): void {
-  const game = (window as unknown as Record<string, unknown>).__NOVA_GAME__ as
-    | { events: { emit: (e: string, d: unknown) => void } }
-    | undefined;
-  game?.events.emit(eventName, data);
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
+
+export interface SpeciesCreatorContinueData {
+  species: Species;
+  originStory: string;
+  governmentType: string;
+}
 
 interface SpeciesCreatorScreenProps {
   onBack: () => void;
-  onStartGame: (species: Species) => void;
+  /** Called when the player clicks "Continue" to proceed to game setup. */
+  onContinue: (data: SpeciesCreatorContinueData) => void;
 }
 
 export function SpeciesCreatorScreen({
   onBack,
-  onStartGame,
+  onContinue,
 }: SpeciesCreatorScreenProps): React.ReactElement {
   // Form state
   const [name, setName] = useState('');
@@ -342,7 +340,7 @@ export function SpeciesCreatorScreen({
     setOrigin(template.origin);
   }, []);
 
-  // Start game
+  // Continue to game setup
   const handleStartGame = useCallback(() => {
     if (!isValid) return;
 
@@ -357,9 +355,8 @@ export function SpeciesCreatorScreen({
       isPrebuilt: false,
     };
 
-    emitToPhaser('game:start', { species, government });
-    onStartGame(species);
-  }, [isValid, name, description, origin, traits, env, abilities, government, onStartGame]);
+    onContinue({ species, originStory: origin, governmentType: government });
+  }, [isValid, name, description, origin, traits, env, abilities, government, onContinue]);
 
   // Preview: trait bar chart
   const maxTraitVal = Math.max(...TRAIT_KEYS.map((k) => traits[k]));
@@ -723,7 +720,7 @@ export function SpeciesCreatorScreen({
             disabled={!isValid}
             title={!name.trim() ? 'Enter a species name' : overBudget ? 'Reduce trait points to fit budget' : ''}
           >
-            Start Game →
+            Continue →
           </button>
         </div>
       </div>

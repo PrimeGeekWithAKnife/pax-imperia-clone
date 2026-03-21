@@ -1,9 +1,9 @@
 {
-  "name": "nova-imperia",
+  "name": "ex-nihilo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A modern clone of Pax Imperia: Eminent Domain - Real-time 4X space strategy game",
+  "description": "Ex Nihilo - Real-time 4X space strategy game",
   "workspaces": [
     "packages/*"
   ],

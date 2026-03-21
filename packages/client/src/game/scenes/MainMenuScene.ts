@@ -53,7 +53,7 @@ export class MainMenuScene extends Phaser.Scene {
   private createTitle(width: number, height: number): void {
     // Subtitle
     this.add
-      .text(width / 2, height * 0.28, 'EMINENT DOMAIN', {
+      .text(width / 2, height * 0.28, '4X SPACE STRATEGY', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#6688aa',
@@ -63,7 +63,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Main title
     this.add
-      .text(width / 2, height * 0.38, 'NOVA IMPERIA', {
+      .text(width / 2, height * 0.38, 'EX NIHILO', {
         fontFamily: 'serif',
         fontSize: '72px',
         color: '#d4af6a',

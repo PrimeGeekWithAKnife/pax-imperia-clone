@@ -1,6 +1,5 @@
 /**
- * Nova Imperia - Game Client Entry Point
- * A modern clone of Pax Imperia: Eminent Domain
+ * Ex Nihilo - Game Client Entry Point
  */
 
 import Phaser from 'phaser';
@@ -16,6 +15,6 @@ mountUI();
 
 // Expose game instance for React ↔ Phaser event bridging.
 // This must always be set (not just in DEV) because useGameEvent hooks
-// and manual event emitters in React rely on window.__NOVA_GAME__ to
+// and manual event emitters in React rely on window.__EX_NIHILO_GAME__ to
 // communicate with Phaser scenes.
-(window as unknown as Record<string, unknown>).__NOVA_GAME__ = game;
+(window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ = game;

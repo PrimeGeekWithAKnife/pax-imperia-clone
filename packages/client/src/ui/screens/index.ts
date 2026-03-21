@@ -1,4 +1,9 @@
 export { SpeciesCreatorScreen } from './SpeciesCreatorScreen';
+export type { SpeciesCreatorContinueData } from './SpeciesCreatorScreen';
+export { GameSetupScreen } from './GameSetupScreen';
+export type { GameSetupScreenProps, GameConfig } from './GameSetupScreen';
+export { PauseMenu } from './PauseMenu';
+export type { PauseMenuProps } from './PauseMenu';
 export { ResearchScreen } from './ResearchScreen';
 export type { ResearchScreenProps, TechCardStatus } from './ResearchScreen';
 export { ShipDesignerScreen } from './ShipDesignerScreen';

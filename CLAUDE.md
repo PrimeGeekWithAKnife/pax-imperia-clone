@@ -1,7 +1,7 @@
-# Nova Imperia - Development Instructions
+# Ex Nihilo - Development Instructions
 
 ## Project Overview
-Modern web-based clone of Pax Imperia: Eminent Domain (1997 4X space strategy game).
+Modern web-based real-time 4X space strategy game.
 Monorepo with npm workspaces: `packages/client`, `packages/server`, `packages/shared`.
 
 ## Tech Stack

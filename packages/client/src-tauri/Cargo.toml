@@ -1,7 +1,7 @@
 [package]
-name = "nova-imperia"
+name = "ex-nihilo"
 version = "0.1.0"
-description = "Nova Imperia - A modern 4X space strategy game"
+description = "Ex Nihilo - A modern 4X space strategy game"
 authors = ["PrimeGeekWithAKnife"]
 edition = "2021"
 

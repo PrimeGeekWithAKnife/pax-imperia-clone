@@ -1,6 +1,6 @@
 /**
  * SocketManager – wraps the Socket.io Server instance and wires up all
- * real-time event handlers for Nova Imperia.
+ * real-time event handlers for Ex Nihilo.
  *
  * Responsibilities:
  *  - Log connections and disconnections

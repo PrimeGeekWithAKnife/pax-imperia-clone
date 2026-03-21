@@ -1,5 +1,5 @@
 /**
- * Empire initialisation and game start logic for Nova Imperia.
+ * Empire initialisation and game start logic for Ex Nihilo.
  *
  * Entry point: initializeGame(config) → GameState
  *
