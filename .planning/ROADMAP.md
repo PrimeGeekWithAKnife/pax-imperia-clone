@@ -12,7 +12,7 @@ This milestone proves the core architectural bet: Phaser 3 game rendering with R
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Monorepo Scaffolding** - npm workspaces, TypeScript, linting, formatting, and dev scripts
+- [x] **Phase 1: Monorepo Scaffolding** - npm workspaces, TypeScript, linting, formatting, and dev scripts
 - [ ] **Phase 2: Shared Types Package** - Cross-package type exports, compile-time safety, and typed EventBus
 - [ ] **Phase 3: Phaser Bootstrap** - Game canvas renders with scene management and lifecycle patterns
 - [ ] **Phase 4: React Integration** - React overlays on Phaser canvas with bidirectional EventBus communication
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Install dependencies, configure Vite and TypeScript build, wire concurrent dev command, verify package boundaries
-- [ ] 01-02-PLAN.md — Configure ESLint flat config with typescript-eslint and Prettier, fix all existing source files
+- [x] 01-02-PLAN.md — Configure ESLint flat config with typescript-eslint and Prettier, fix all existing source files
 
 ### Phase 2: Shared Types Package
 **Goal**: Types defined once in the shared package are consumed by both client and server with compile-time enforcement
@@ -119,7 +119,7 @@ Note: Phase 5 (Server) depends only on Phase 2, so it can be built in parallel w
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffolding | 1/2 | Executing | - |
+| 1. Monorepo Scaffolding | 2/2 | Complete | 2026-03-21 |
 | 2. Shared Types Package | 0/1 | Not started | - |
 | 3. Phaser Bootstrap | 0/2 | Not started | - |
 | 4. React Integration | 0/2 | Not started | - |
