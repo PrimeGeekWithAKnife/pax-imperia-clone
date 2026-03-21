@@ -1,12 +1,6 @@
 /** Ship design and fleet types */
 
-export type HullClass =
-  | 'scout'
-  | 'destroyer'
-  | 'transport'
-  | 'cruiser'
-  | 'carrier'
-  | 'battleship';
+export type HullClass = 'scout' | 'destroyer' | 'transport' | 'cruiser' | 'carrier' | 'battleship';
 
 export interface HullTemplate {
   class: HullClass;
@@ -72,7 +66,7 @@ export interface Ship {
 }
 
 export interface SystemDamage {
-  engines: number;    // 0-1 (0 = undamaged, 1 = destroyed)
+  engines: number; // 0-1 (0 = undamaged, 1 = destroyed)
   weapons: number;
   shields: number;
   sensors: number;
@@ -82,7 +76,7 @@ export interface SystemDamage {
 export interface Fleet {
   id: string;
   name: string;
-  ships: string[];    // Ship IDs
+  ships: string[]; // Ship IDs
   empireId: string;
   position: { systemId: string };
   destination: string | null; // Target system ID
@@ -90,8 +84,4 @@ export interface Fleet {
   stance: FleetStance;
 }
 
-export type FleetStance =
-  | 'aggressive'
-  | 'defensive'
-  | 'evasive'
-  | 'patrol';
+export type FleetStance = 'aggressive' | 'defensive' | 'evasive' | 'patrol';

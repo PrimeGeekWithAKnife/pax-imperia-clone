@@ -12,20 +12,20 @@ export interface Species {
 }
 
 export interface SpeciesTraits {
-  construction: number;   // 1-10: Building and ship production speed
-  reproduction: number;   // 1-10: Population growth rate
-  research: number;       // 1-10: Technology research speed
-  espionage: number;      // 1-10: Spy effectiveness
-  economy: number;        // 1-10: Credit generation multiplier
-  combat: number;         // 1-10: Ship combat effectiveness
-  diplomacy: number;      // 1-10: Diplomatic relationship bonuses
+  construction: number; // 1-10: Building and ship production speed
+  reproduction: number; // 1-10: Population growth rate
+  research: number; // 1-10: Technology research speed
+  espionage: number; // 1-10: Spy effectiveness
+  economy: number; // 1-10: Credit generation multiplier
+  combat: number; // 1-10: Ship combat effectiveness
+  diplomacy: number; // 1-10: Diplomatic relationship bonuses
 }
 
 export interface EnvironmentPreference {
-  idealTemperature: number;     // Kelvin
+  idealTemperature: number; // Kelvin
   temperatureTolerance: number; // +/- range
-  idealGravity: number;         // Earth = 1.0
-  gravityTolerance: number;     // +/- range
+  idealGravity: number; // Earth = 1.0
+  gravityTolerance: number; // +/- range
   preferredAtmospheres: string[]; // AtmosphereType[]
 }
 
@@ -43,7 +43,7 @@ export interface Empire {
   id: string;
   name: string;
   species: Species;
-  color: string;        // Hex color for map display
+  color: string; // Hex color for map display
   credits: number;
   researchPoints: number;
   knownSystems: string[];
@@ -73,17 +73,11 @@ export interface DiplomaticRelation {
   empireId: string;
   status: DiplomaticStatus;
   treaties: Treaty[];
-  attitude: number;      // -100 to 100
+  attitude: number; // -100 to 100
   tradeRoutes: number;
 }
 
-export type DiplomaticStatus =
-  | 'unknown'
-  | 'neutral'
-  | 'friendly'
-  | 'allied'
-  | 'hostile'
-  | 'at_war';
+export type DiplomaticStatus = 'unknown' | 'neutral' | 'friendly' | 'allied' | 'hostile' | 'at_war';
 
 export interface Treaty {
   type: TreatyType;
