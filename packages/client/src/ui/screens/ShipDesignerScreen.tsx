@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import type { ShipComponent, ShipDesign, ComponentType, HullClass } from '@nova-imperia/shared';
+import { renderShipIcon } from '../../assets/graphics';
 import {
   validateDesign,
   calculateDesignStats,
@@ -84,6 +85,61 @@ function keyStat(component: ShipComponent): string {
     case 'special':
       return `cost ${component.cost}`;
   }
+}
+
+// ── Hull icon with text fallback ───────────────────────────────────────────────
+
+interface HullIconProps {
+  hullClass: HullClass;
+}
+
+/**
+ * Renders the ship icon produced by `renderShipIcon`.
+ * Falls back to the ASCII text representation when the data URI is empty
+ * (stub not yet replaced) or the image fails to load.
+ */
+function HullIcon({ hullClass }: HullIconProps): React.ReactElement {
+  const src = renderShipIcon(hullClass, 64);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!src || imgFailed) {
+    return <span className="sd-hull-icon-text">{HULL_CLASS_ICON[hullClass]}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={hullClass}
+      className="sd-hull-icon-img"
+      width={64}
+      height={64}
+      onError={() => setImgFailed(true)}
+    />
+  );
+}
+
+/**
+ * Smaller ship icon (32 px) used in the saved-designs strip at the bottom.
+ * Falls back to the ASCII text representation on failure.
+ */
+function SavedDesignIcon({ hullClass }: HullIconProps): React.ReactElement {
+  const src = renderShipIcon(hullClass, 32);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!src || imgFailed) {
+    return <>{HULL_CLASS_ICON[hullClass]}</>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={hullClass}
+      className="sd-saved-item-icon-img"
+      width={32}
+      height={32}
+      onError={() => setImgFailed(true)}
+    />
+  );
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────────
@@ -313,7 +369,9 @@ export function ShipDesignerScreen({
                     disabled={!unlocked}
                     title={!unlocked ? `Requires: ${AGE_DISPLAY[h.requiredAge] ?? h.requiredAge}` : h.name}
                   >
-                    <div className="sd-hull-icon">{HULL_CLASS_ICON[h.class]}</div>
+                    <div className="sd-hull-icon">
+                      <HullIcon hullClass={h.class} />
+                    </div>
                     <div className="sd-hull-info">
                       <div className="sd-hull-name">{h.name}</div>
                       <div className="sd-hull-stats">
@@ -623,7 +681,7 @@ export function ShipDesignerScreen({
                     title={`Load design: ${d.name}`}
                   >
                     <span className="sd-saved-item-icon">
-                      {dHull ? HULL_CLASS_ICON[dHull.class] : '?'}
+                      {dHull ? <SavedDesignIcon hullClass={dHull.class} /> : '?'}
                     </span>
                     <span className="sd-saved-item-name">{d.name}</span>
                     <span className="sd-saved-item-hull">{dHull?.name ?? d.hull}</span>

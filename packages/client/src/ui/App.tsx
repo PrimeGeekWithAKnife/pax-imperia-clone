@@ -457,6 +457,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('system:exited', handleSystemExited);
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
+  useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<void>('ui:diplomacy', handleOpenDiplomacy);
@@ -690,8 +691,18 @@ export function App(): React.ReactElement {
   }
 
   // Don't render game HUD until a game is actually running
+  // But still allow the settings/pause menu overlay from the main menu
   if (!gameStarted) {
-    return <div className="ui-overlay" />;
+    return (
+      <div className="ui-overlay">
+        {isPaused && (
+          <PauseMenu
+            onResume={() => setIsPaused(false)}
+            onExitToMainMenu={() => setIsPaused(false)}
+          />
+        )}
+      </div>
+    );
   }
 
   return (

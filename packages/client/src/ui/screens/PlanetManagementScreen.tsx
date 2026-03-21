@@ -5,6 +5,7 @@ import type { EmpireResources } from '@nova-imperia/shared';
 import { BuildingSlotGrid } from '../components/BuildingSlotGrid';
 import { ResourceBar } from '../components/ResourceBar';
 import { ConstructionQueue } from '../components/ConstructionQueue';
+import { renderBuildingIcon } from '../../assets/graphics';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,8 @@ function BuildingPicker({
                 ? `Cannot afford — ${missingResources}`
                 : undefined;
 
+            const iconSrc = renderBuildingIcon(type, 48);
+
             return (
               <button
                 key={type}
@@ -207,6 +210,16 @@ function BuildingPicker({
                 title={reason}
               >
                 <div className="bpicker-item__header">
+                  {iconSrc && (
+                    <img
+                      src={iconSrc}
+                      alt=""
+                      aria-hidden="true"
+                      className="bpicker-item__icon"
+                      width={48}
+                      height={48}
+                    />
+                  )}
                   <span className="bpicker-item__name">{getBuildingDisplayName(type)}</span>
                   <span className="bpicker-item__turns">{def.buildTime} turns</span>
                 </div>

@@ -143,8 +143,8 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     settingsButton.on('pointerdown', () => {
-      console.log('[MainMenuScene] Settings clicked – not yet implemented');
       this.sfx?.playClick();
+      this.game.events.emit('ui:settings');
     });
   }
 

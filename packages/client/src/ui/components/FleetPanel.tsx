@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import type { Fleet, Ship, FleetStance } from '@nova-imperia/shared';
+import type { Fleet, Ship, FleetStance, ShipDesign } from '@nova-imperia/shared';
+import { renderShipThumbnail } from '../../assets/graphics';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -39,17 +40,30 @@ const STANCE_LABELS: Record<FleetStance, string> = {
 
 const STANCES: FleetStance[] = ['aggressive', 'defensive', 'evasive', 'patrol'];
 
+// ── Helpers ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the hull class for a ship by looking up its design.
+ * Returns 'scout' as a safe fallback when the design cannot be found.
+ */
+function resolveHullClass(ship: Ship, designs: ShipDesign[]): import('@nova-imperia/shared').HullClass {
+  return designs.find((d) => d.id === ship.designId)?.hull ?? 'scout';
+}
+
 // ── FleetPanel ─────────────────────────────────────────────────────────────────
 
 export interface FleetPanelProps {
   fleet: Fleet;
   ships: Ship[];
+  /** Known ship designs, used to look up hull class for thumbnail rendering. */
+  designs?: ShipDesign[];
   onClose: () => void;
 }
 
 export function FleetPanel({
   fleet,
   ships,
+  designs = [],
   onClose,
 }: FleetPanelProps): React.ReactElement {
   const [fleetName, setFleetName] = useState(fleet.name);
@@ -233,6 +247,20 @@ export function FleetPanel({
                       {isInSplit ? '[x]' : '[ ]'}
                     </span>
                   )}
+                  {(() => {
+                    const hullClass = resolveHullClass(ship, designs);
+                    const thumbSrc = renderShipThumbnail(hullClass, 24);
+                    return thumbSrc ? (
+                      <img
+                        src={thumbSrc}
+                        alt={hullClass}
+                        className="fleet-panel__ship-thumb"
+                        width={24}
+                        height={24}
+                        aria-hidden="true"
+                      />
+                    ) : null;
+                  })()}
                   <span className="fleet-panel__ship-name">{ship.name}</span>
                   <span className="fleet-panel__ship-hp" style={{ color: hpColor(shipHpPct) }}>
                     {ship.hullPoints}/{ship.maxHullPoints}

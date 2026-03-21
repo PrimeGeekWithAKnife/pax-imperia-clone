@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Building, BuildingType } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
+import { renderBuildingSlotIcon } from '../../assets/graphics';
 
 interface BuildingSlotGridProps {
   totalSlots: number;
@@ -11,19 +12,55 @@ interface BuildingSlotGridProps {
   onBuildingClick: (building: Building, slotIndex: number) => void;
 }
 
-const BUILDING_ICONS: Record<BuildingType, string> = {
-  research_lab: 'R',
-  factory: 'F',
-  shipyard: 'S',
-  trade_hub: 'T',
-  defense_grid: 'D',
-  population_center: 'P',
-  mining_facility: 'M',
-  spaceport: 'O',
+const BUILDING_ABBREV: Record<BuildingType, string> = {
+  research_lab: 'RL',
+  factory: 'FA',
+  shipyard: 'SY',
+  trade_hub: 'TH',
+  defense_grid: 'DG',
+  population_center: 'PC',
+  mining_facility: 'MF',
+  spaceport: 'SP',
 };
+
+/** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */
+const CELL_SIZE = 64;
 
 function getBuildingDef(type: BuildingType) {
   return BUILDING_DEFINITIONS[type];
+}
+
+// ── Building slot icon with text fallback ─────────────────────────────────────
+
+interface SlotIconProps {
+  buildingType: BuildingType;
+  level: number;
+}
+
+/**
+ * Renders the building slot icon produced by `renderBuildingSlotIcon`.
+ * Falls back to the two-letter abbreviation if the data URI is empty
+ * (stub not yet replaced) or if the image fails to load.
+ */
+function SlotIcon({ buildingType, level }: SlotIconProps): React.ReactElement {
+  const src = renderBuildingSlotIcon(buildingType, level, CELL_SIZE);
+  const abbrev = BUILDING_ABBREV[buildingType] ?? '??';
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!src || imgFailed) {
+    return <span className="bsg-slot__icon">{abbrev}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={abbrev}
+      className="bsg-slot__icon-img"
+      width={CELL_SIZE}
+      height={CELL_SIZE}
+      onError={() => setImgFailed(true)}
+    />
+  );
 }
 
 /**
@@ -57,7 +94,6 @@ export function BuildingSlotGrid({
         }
 
         const def = getBuildingDef(building.type);
-        const icon = BUILDING_ICONS[building.type] ?? '?';
 
         return (
           <button
@@ -67,7 +103,7 @@ export function BuildingSlotGrid({
             aria-label={`${def?.name ?? building.type} level ${building.level}`}
             title={`${def?.name ?? building.type} (Lv.${building.level})`}
           >
-            <span className="bsg-slot__icon">{icon}</span>
+            <SlotIcon buildingType={building.type} level={building.level} />
             <span className="bsg-slot__level">Lv.{building.level}</span>
           </button>
         );
