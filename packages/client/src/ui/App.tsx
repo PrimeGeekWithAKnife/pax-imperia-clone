@@ -161,6 +161,7 @@ export function App(): React.ReactElement {
   } = useGameState();
 
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('game');
+  const [gameStarted, setGameStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [creatorData, setCreatorData] = useState<SpeciesCreatorContinueData | null>(null);
   const [managedPlanet, setManagedPlanet] = useState<Planet | null>(null);
@@ -582,6 +583,7 @@ export function App(): React.ReactElement {
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
   const handleStartGame = useCallback((_config: GameConfig) => {
     setCurrentScreen('game');
+    setGameStarted(true);
     setIsPaused(false);
   }, []);
 
@@ -592,6 +594,7 @@ export function App(): React.ReactElement {
 
   const handleExitToMainMenu = useCallback(() => {
     setIsPaused(false);
+    setGameStarted(false);
     setCurrentScreen('game');
     // Tell Phaser to go back to the main menu scene
     const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
@@ -675,6 +678,11 @@ export function App(): React.ReactElement {
         />
       </div>
     );
+  }
+
+  // Don't render game HUD until a game is actually running
+  if (!gameStarted) {
+    return <div className="ui-overlay" />;
   }
 
   return (
