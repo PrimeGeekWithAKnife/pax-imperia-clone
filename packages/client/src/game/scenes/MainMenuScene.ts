@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 
 const STAR_COUNT = 200;
 
@@ -7,6 +8,9 @@ const STAR_COUNT = 200;
  * interactive text buttons for the player's first actions.
  */
 export class MainMenuScene extends Phaser.Scene {
+  private music: MusicGenerator | null = null;
+  private sfx: SfxGenerator | null = null;
+
   constructor() {
     super({ key: 'MainMenuScene' });
   }
@@ -31,6 +35,23 @@ export class MainMenuScene extends Phaser.Scene {
     // React emits 'game:start' with the created species when the player
     // confirms their species in the species creator screen.
     this.game.events.once('game:start', this.onGameStart);
+
+    // ── Audio ─────────────────────────────────────────────────────────────────
+    // Initialise audio generators (AudioEngine singleton already exists from
+    // BootScene).  Music actually starts on the first user interaction so we
+    // satisfy the browser autoplay policy.
+    const engine = getAudioEngine();
+    if (engine) {
+      this.music = new MusicGenerator(engine);
+      this.sfx = new SfxGenerator(engine);
+
+      // Listen for the first pointer-down on the canvas to resume the
+      // AudioContext and start the menu music.
+      this.input.once('pointerdown', () => {
+        engine.resume();
+        this.music?.startMusic('menu');
+      });
+    }
   }
 
   private createStarfield(width: number, height: number): void {
@@ -108,6 +129,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     newGameButton.on('pointerdown', () => {
       console.log('[MainMenuScene] New Game clicked – opening species creator');
+      this.sfx?.playClick();
       // Emit to React UI so the species creator screen is shown.
       // React will emit 'game:start' back with the created species when ready.
       this.game.events.emit('ui:new_game');
@@ -115,6 +137,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     settingsButton.on('pointerdown', () => {
       console.log('[MainMenuScene] Settings clicked – not yet implemented');
+      this.sfx?.playClick();
     });
   }
 
@@ -123,7 +146,10 @@ export class MainMenuScene extends Phaser.Scene {
     normal: Phaser.Types.GameObjects.Text.TextStyle,
     hover: Phaser.Types.GameObjects.Text.TextStyle,
   ): void {
-    button.on('pointerover', () => button.setStyle(hover));
+    button.on('pointerover', () => {
+      button.setStyle(hover);
+      this.sfx?.playHover();
+    });
     button.on('pointerout', () => button.setStyle(normal));
   }
 }

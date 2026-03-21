@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { getAudioEngine } from '../../audio';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -27,9 +28,25 @@ interface SettingsPanelProps {
 }
 
 function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
-  const [masterVolume, setMasterVolume] = useState(80);
-  const [musicVolume, setMusicVolume] = useState(60);
-  const [sfxVolume, setSfxVolume] = useState(80);
+  // Initialise sliders from current AudioEngine values (defaults: master 30%, music 40%, sfx 50%)
+  const [masterVolume, setMasterVolume] = useState(30);
+  const [musicVolume, setMusicVolume] = useState(40);
+  const [sfxVolume, setSfxVolume] = useState(50);
+
+  const handleMasterVolume = useCallback((v: number) => {
+    setMasterVolume(v);
+    getAudioEngine()?.setMasterVolume(v / 100);
+  }, []);
+
+  const handleMusicVolume = useCallback((v: number) => {
+    setMusicVolume(v);
+    getAudioEngine()?.setMusicVolume(v / 100);
+  }, []);
+
+  const handleSfxVolume = useCallback((v: number) => {
+    setSfxVolume(v);
+    getAudioEngine()?.setSfxVolume(v / 100);
+  }, []);
 
   return (
     <div className="pm-settings-panel">
@@ -49,7 +66,7 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
               min={0}
               max={100}
               value={masterVolume}
-              onChange={(e) => setMasterVolume(Number(e.target.value))}
+              onChange={(e) => handleMasterVolume(Number(e.target.value))}
               className="sc-range pm-range"
             />
             <span className="pm-settings-val">{masterVolume}%</span>
@@ -64,7 +81,7 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
               min={0}
               max={100}
               value={musicVolume}
-              onChange={(e) => setMusicVolume(Number(e.target.value))}
+              onChange={(e) => handleMusicVolume(Number(e.target.value))}
               className="sc-range pm-range"
             />
             <span className="pm-settings-val">{musicVolume}%</span>
@@ -79,7 +96,7 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
               min={0}
               max={100}
               value={sfxVolume}
-              onChange={(e) => setSfxVolume(Number(e.target.value))}
+              onChange={(e) => handleSfxVolume(Number(e.target.value))}
               className="sc-range pm-range"
             />
             <span className="pm-settings-val">{sfxVolume}%</span>

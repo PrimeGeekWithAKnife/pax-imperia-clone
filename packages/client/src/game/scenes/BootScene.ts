@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { initAudioEngine } from '../../audio';
 
 /**
  * BootScene is the first scene loaded. It displays a loading indicator
@@ -15,6 +16,11 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+
+    // Initialise the audio engine singleton so all subsequent scenes can use it.
+    // The AudioContext starts suspended; it will be resumed on the first user
+    // interaction (handled in MainMenuScene).
+    initAudioEngine();
 
     const loadingText = this.add.text(width / 2, height / 2, 'Loading...', {
       fontFamily: 'monospace',
