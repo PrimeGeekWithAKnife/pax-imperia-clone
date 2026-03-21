@@ -3,17 +3,20 @@ import type { StarSystem, Planet, BuildingType } from '@nova-imperia/shared';
 import type { Species, EmpireResources } from '@nova-imperia/shared';
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
+import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
 import { useGameEvent } from './hooks/useGameEvents';
 import { TopBar } from './components/TopBar';
 import { SystemInfoPanel } from './components/SystemInfoPanel';
 import { PlanetDetailPanel } from './components/PlanetDetailPanel';
 import { Minimap } from './components/Minimap';
+import { FleetPanel } from './components/FleetPanel';
 import { SpeciesCreatorScreen } from './screens/SpeciesCreatorScreen';
 import { PlanetManagementScreen } from './screens/PlanetManagementScreen';
 import { ResearchScreen } from './screens/ResearchScreen';
+import { ShipDesignerScreen } from './screens/ShipDesignerScreen';
 
-type AppScreen = 'game' | 'species-creator' | 'research';
+type AppScreen = 'game' | 'species-creator' | 'research' | 'ship-designer';
 
 /** Mock tech data for initial research screen display before real game data is wired up. */
 const MOCK_ALL_TECHS: Technology[] = [];
@@ -60,6 +63,13 @@ export function App(): React.ReactElement {
   const [empireResources, setEmpireResources] = useState<EmpireResources>(EMPTY_RESOURCES);
   const [researchState, setResearchState] = useState<ResearchState>(MOCK_RESEARCH_STATE);
   const [allTechs, setAllTechs] = useState<Technology[]>(MOCK_ALL_TECHS);
+
+  // ── Ship Designer state ──
+  const [savedDesigns, setSavedDesigns] = useState<ShipDesign[]>([]);
+
+  // ── Fleet state ──
+  const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
+  const [fleetShips, setFleetShips] = useState<Ship[]>([]);
 
   // ── Phaser → React event bridges ──
 
@@ -134,6 +144,36 @@ export function App(): React.ReactElement {
     [],
   );
 
+  // Phaser emits this to open the ship designer
+  const handleOpenShipDesigner = useCallback(() => {
+    setCurrentScreen('ship-designer');
+  }, []);
+
+  const handleCloseShipDesigner = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleSaveDesign = useCallback((design: ShipDesign) => {
+    setSavedDesigns((prev) => {
+      const withoutOld = prev.filter((d) => d.id !== design.id);
+      return [...withoutOld, design];
+    });
+  }, []);
+
+  // Phaser emits when a fleet is clicked on the galaxy map
+  const handleFleetSelected = useCallback(
+    (data: { fleet: Fleet; ships: Ship[] }) => {
+      setSelectedFleet(data.fleet);
+      setFleetShips(data.ships);
+    },
+    [],
+  );
+
+  const handleFleetDeselected = useCallback(() => {
+    setSelectedFleet(null);
+    setFleetShips([]);
+  }, []);
+
   useGameEvent<StarSystem>('system:selected', handleSystemSelected);
   useGameEvent<Planet>('planet:selected', handlePlanetSelected);
   useGameEvent<void>('system:deselected', handleSystemDeselected);
@@ -141,10 +181,13 @@ export function App(): React.ReactElement {
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
   useGameEvent<void>('ui:research', handleOpenResearch);
+  useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<Planet>('planet:manage', handleManagePlanet);
   useGameEvent<EmpireResources>('empire:resources_updated', handleResourcesUpdate);
   useGameEvent<ResearchState>('research:state_updated', handleResearchStateUpdate);
   useGameEvent<Technology[]>('research:techs_loaded', handleTechsLoaded);
+  useGameEvent<{ fleet: Fleet; ships: Ship[] }>('fleet:selected', handleFleetSelected);
+  useGameEvent<void>('fleet:deselected', handleFleetDeselected);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -268,6 +311,21 @@ export function App(): React.ReactElement {
     );
   }
 
+  // Render ship designer as full-screen overlay
+  if (currentScreen === 'ship-designer') {
+    return (
+      <div className="ui-overlay">
+        <ShipDesignerScreen
+          researchedTechs={researchState.completedTechs}
+          empireId="player"
+          savedDesigns={savedDesigns}
+          onSaveDesign={handleSaveDesign}
+          onClose={handleCloseShipDesigner}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="ui-overlay">
       <TopBar
@@ -295,6 +353,14 @@ export function App(): React.ReactElement {
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
+        />
+      )}
+
+      {selectedFleet && (
+        <FleetPanel
+          fleet={selectedFleet}
+          ships={fleetShips}
+          onClose={handleFleetDeselected}
         />
       )}
     </div>

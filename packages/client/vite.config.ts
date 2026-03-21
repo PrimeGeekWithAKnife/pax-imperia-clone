@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@nova-imperia/shared': resolve(__dirname, '../shared/src'),
+      '@nova-imperia/shared-data': resolve(__dirname, '../shared/data'),
     },
   },
   // Prevent Vite from obscuring Rust errors
