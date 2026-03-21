@@ -47,6 +47,10 @@ test-results/
 *.log
 npm-debug.log*
 
+# Tauri / Rust
+packages/client/src-tauri/target/
+packages/client/src-tauri/gen/
+
 # Docker
 .docker/
 

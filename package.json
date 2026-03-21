@@ -13,7 +13,9 @@
     "test": "vitest run",
     "lint": "eslint packages/*/src",
     "typecheck": "tsc --build",
-    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'"
+    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
+    "tauri:dev": "npm run tauri:dev --workspace=packages/client",
+    "tauri:build": "npm run tauri:build --workspace=packages/client"
   },
   "engines": {
     "node": ">=20.0.0"
