@@ -12,16 +12,15 @@ A Phaser 3 game canvas renders in the browser with React UI overlays integrated 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Monorepo setup with npm workspaces, TypeScript, Vite, ESLint — *Validated in Phase 01: monorepo-scaffolding*
+- [x] Shared types package compiling and usable by client and server — *Validated in Phase 01: monorepo-scaffolding*
+- [x] Basic dev environment (hot reload, concurrent dev scripts) — *Validated in Phase 01: monorepo-scaffolding*
 
 ### Active
 
-- [ ] Monorepo setup with npm workspaces, TypeScript, Vite, ESLint
 - [ ] Phaser 3 client bootstrap with basic scene management
 - [ ] React UI overlay integration (React components rendered over Phaser canvas)
 - [ ] Node.js server bootstrap with Fastify + Socket.io
-- [ ] Shared types package compiling and usable by client and server
-- [ ] Basic dev environment (hot reload, concurrent dev scripts)
 - [ ] PostgreSQL connection setup (VM at 192.168.1.3 available)
 
 ### Out of Scope
@@ -57,9 +56,9 @@ A Phaser 3 game canvas renders in the browser with React UI overlays integrated 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Phaser 3 + React hybrid | Phaser for game rendering, React for UI (menus, HUD, dialogs) | — Pending |
-| npm workspaces monorepo | Shared types between client/server, single repo | — Pending |
-| Vite for bundling | Fast HMR, good Phaser/React support | — Pending |
+| npm workspaces monorepo | Shared types between client/server, single repo | ✓ Phase 01 |
+| Vite for bundling | Fast HMR, good Phaser/React support | ✓ Phase 01 |
 | PostgreSQL from start | Available infrastructure, needed for accounts/sessions eventually | — Pending |
 
 ---
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-03-21 — Phase 01 (monorepo-scaffolding) complete*
