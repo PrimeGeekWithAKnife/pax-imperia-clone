@@ -183,10 +183,19 @@ function BuildingPicker({
               ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
             );
             const disabled = !check.allowed || !canAffordBuilding;
+            const missingResources = !canAffordBuilding
+              ? Object.entries(def.baseCost)
+                  .filter(([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) < (needed ?? 0))
+                  .map(([res, needed]) => {
+                    const have = empireResources[res as keyof EmpireResources] ?? 0;
+                    return `${res}: need ${needed}, have ${have}`;
+                  })
+                  .join('; ')
+              : '';
             const reason = !check.allowed
               ? check.reason
               : !canAffordBuilding
-                ? 'Cannot afford'
+                ? `Cannot afford — ${missingResources}`
                 : undefined;
 
             return (
@@ -199,7 +208,7 @@ function BuildingPicker({
               >
                 <div className="bpicker-item__header">
                   <span className="bpicker-item__name">{getBuildingDisplayName(type)}</span>
-                  <span className="bpicker-item__turns">{def.buildTime}t</span>
+                  <span className="bpicker-item__turns">{def.buildTime} turns</span>
                 </div>
                 <div className="bpicker-item__desc">{def.description}</div>
                 <div className="bpicker-item__costs">

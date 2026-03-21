@@ -275,6 +275,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       'factory',
       'population_center',
       'spaceport',
+      'mining_facility',
     ];
 
     const startingBuildings: Building[] = startingBuildingTypes.map(type => ({
@@ -318,10 +319,10 @@ export function initializeGame(config: GameSetupConfig): GameState {
     // 5. Starting resources
     const startingResources: EmpireResources = {
       credits: STARTING_CREDITS,
-      minerals: 0,
+      minerals: 200,
       rareElements: 0,
-      energy: 0,
-      organics: 0,
+      energy: 50,
+      organics: 50,
       exoticMaterials: 0,
       faith: 0,
       researchPoints: STARTING_RESEARCH_POINTS,

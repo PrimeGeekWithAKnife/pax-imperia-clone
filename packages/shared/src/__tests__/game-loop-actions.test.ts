@@ -417,7 +417,7 @@ describe('processGameTick — ConstructBuilding action', () => {
       type: 'ConstructBuilding',
       systemId: systemB.id,
       planetId: planetB.id,
-      buildingType: 'mining_facility',
+      buildingType: 'trade_hub',
     };
 
     // Submit the action as empire A trying to build on empire B's planet.
@@ -430,14 +430,14 @@ describe('processGameTick — ConstructBuilding action', () => {
 
     // Queue should not have grown (rejected action).
     // Note: the construction tick itself processes existing items, so we
-    // only check that no mining_facility item was inserted.
-    const hasMiningInQueue = updatedPlanet.productionQueue.some(
-      item => item.type === 'building' && item.templateId === 'mining_facility',
+    // only check that no trade_hub item was inserted.
+    const hasTradeHubInQueue = updatedPlanet.productionQueue.some(
+      item => item.type === 'building' && item.templateId === 'trade_hub',
     );
-    const hasMiningBuilt = updatedPlanet.buildings.some(b => b.type === 'mining_facility');
+    const hasTradeHubBuilt = updatedPlanet.buildings.some(b => b.type === 'trade_hub');
 
     void queueBefore;
-    expect(hasMiningInQueue || hasMiningBuilt).toBe(false);
+    expect(hasTradeHubInQueue || hasTradeHubBuilt).toBe(false);
   });
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface ColoniseNotificationProps {
   planetName: string;
@@ -14,21 +14,20 @@ export function ColoniseNotification({
   onDismiss,
 }: ColoniseNotificationProps): React.ReactElement {
   const [visible, setVisible] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
-    // Trigger slide-in on mount
     const showTimer = setTimeout(() => setVisible(true), 10);
-
-    // Begin slide-out before calling onDismiss
     const hideTimer = setTimeout(() => setVisible(false), 2700);
-    const dismissTimer = setTimeout(() => onDismiss(), 3000);
+    const dismissTimer = setTimeout(() => onDismissRef.current(), 3000);
 
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
       clearTimeout(dismissTimer);
     };
-  }, [onDismiss]);
+  }, []); // Run once on mount — no deps to avoid timer reset
 
   return (
     <div className={`colonise-notification${visible ? ' colonise-notification--visible' : ''}`}>

@@ -337,8 +337,17 @@ export function App(): React.ReactElement {
   const handlePlanetColonised = useCallback(
     (payload: { planetName: string; systemId: string; planetId: string }) => {
       setColoniseNotification(payload.planetName);
+      // Refresh the selected planet from engine state so the panel updates
+      const engine = getGameEngine();
+      if (engine) {
+        const system = engine.getState().gameState.galaxy.systems.find(s => s.id === payload.systemId);
+        const updatedPlanet = system?.planets.find(p => p.id === payload.planetId);
+        if (updatedPlanet) {
+          setSelectedPlanet(updatedPlanet);
+        }
+      }
     },
-    [],
+    [setSelectedPlanet],
   );
 
   // Engine emits 'engine:planet_updated' after buildOnPlanet / cancelConstruction
