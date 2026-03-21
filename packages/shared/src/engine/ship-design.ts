@@ -1,0 +1,394 @@
+/**
+ * Ship design engine — pure functions for designing, validating, and
+ * instantiating ships from hull templates and components.
+ *
+ * All functions are side-effect free. Callers are responsible for persisting
+ * any state changes returned from these functions.
+ */
+
+import type { HullTemplate, ShipComponent, ShipDesign, Ship, ComponentType, SlotPosition } from '../types/ships.js';
+import { generateId } from '../utils/id.js';
+
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
+
+export interface DesignStats {
+  totalDamage: number;
+  totalShields: number;
+  totalArmor: number;
+  speed: number;
+  sensorRange: number;
+  repairRate: number;
+  cost: number;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Size ordering: small < medium < large */
+const SIZE_ORDER: Record<SlotPosition['size'], number> = {
+  small: 1,
+  medium: 2,
+  large: 3,
+};
+
+/**
+ * Returns true if a component of the given size fits in a slot of slotSize.
+ * Components can only fit in slots of their exact size or larger.
+ */
+function componentFitsSize(
+  componentSize: SlotPosition['size'],
+  slotSize: SlotPosition['size'],
+): boolean {
+  return SIZE_ORDER[componentSize] <= SIZE_ORDER[slotSize];
+}
+
+/**
+ * Infer the minimum required slot size for a component based on its type and
+ * stats. This is a heuristic used by autoEquipDesign.
+ *
+ * The rules are kept simple:
+ *  - fighter_bay → large
+ *  - engine/warp_drive with speed > 5 → medium
+ *  - everything else → small
+ */
+function inferComponentSize(component: ShipComponent): SlotPosition['size'] {
+  if (component.type === 'fighter_bay') return 'large';
+  if (
+    (component.type === 'engine' || component.type === 'warp_drive') &&
+    (component.stats['speed'] ?? 0) > 5
+  ) {
+    return 'medium';
+  }
+  return 'small';
+}
+
+// ---------------------------------------------------------------------------
+// validateDesign
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates a ShipDesign against its hull template and the set of components
+ * assigned to it.
+ *
+ * Checks:
+ *  1. Every slot assignment references a valid slot on the hull.
+ *  2. No slot is assigned more than once.
+ *  3. Each component type is allowed in its assigned slot.
+ *  4. The design contains at least one engine component.
+ *  5. All component IDs can be resolved in the provided components array.
+ */
+export function validateDesign(
+  design: ShipDesign,
+  hull: HullTemplate,
+  components: ShipComponent[],
+): ValidationResult {
+  const errors: string[] = [];
+
+  const componentById = new Map(components.map((c) => [c.id, c]));
+  const slotById = new Map(hull.slotLayout.map((s) => [s.id, s]));
+
+  const usedSlotIds = new Set<string>();
+  let hasEngine = false;
+
+  for (const assignment of design.components) {
+    const slot = slotById.get(assignment.slotId);
+    if (!slot) {
+      errors.push(
+        `Slot "${assignment.slotId}" does not exist on hull "${hull.class}".`,
+      );
+      continue;
+    }
+
+    if (usedSlotIds.has(assignment.slotId)) {
+      errors.push(`Slot "${assignment.slotId}" is assigned more than once.`);
+    }
+    usedSlotIds.add(assignment.slotId);
+
+    const component = componentById.get(assignment.componentId);
+    if (!component) {
+      errors.push(
+        `Component "${assignment.componentId}" not found in the provided component list.`,
+      );
+      continue;
+    }
+
+    if (!(slot.allowedTypes as ComponentType[]).includes(component.type)) {
+      errors.push(
+        `Component "${component.name}" (type: ${component.type}) is not allowed in slot "${slot.id}" (allowed: ${slot.allowedTypes.join(', ')}).`,
+      );
+    }
+
+    const requiredSize = inferComponentSize(component);
+    if (!componentFitsSize(requiredSize, slot.size)) {
+      errors.push(
+        `Component "${component.name}" requires at least a ${requiredSize} slot, but slot "${slot.id}" is ${slot.size}.`,
+      );
+    }
+
+    if (component.type === 'engine' || component.type === 'warp_drive') {
+      hasEngine = true;
+    }
+  }
+
+  if (!hasEngine) {
+    errors.push('Design has no engine or warp drive — the ship cannot move.');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ---------------------------------------------------------------------------
+// calculateDesignStats
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggregate combat and utility statistics across all components in a design.
+ *
+ * Speed is the maximum speed value found across all engine components.
+ * Sensor range is the maximum range across all sensor components.
+ * All damage, shield, armor, and repair values are summed.
+ * Cost includes the hull base cost plus all component costs.
+ */
+export function calculateDesignStats(
+  design: ShipDesign,
+  hull: HullTemplate,
+  components: ShipComponent[],
+): DesignStats {
+  const componentById = new Map(components.map((c) => [c.id, c]));
+
+  const stats: DesignStats = {
+    totalDamage: 0,
+    totalShields: 0,
+    totalArmor: 0,
+    speed: 0,
+    sensorRange: 0,
+    repairRate: 0,
+    cost: hull.baseCost,
+  };
+
+  for (const assignment of design.components) {
+    const component = componentById.get(assignment.componentId);
+    if (!component) continue;
+
+    stats.cost += component.cost;
+
+    switch (component.type) {
+      case 'weapon_beam':
+      case 'weapon_projectile':
+      case 'weapon_missile':
+      case 'weapon_point_defense':
+        stats.totalDamage += component.stats['damage'] ?? 0;
+        break;
+
+      case 'fighter_bay':
+        // Each fighter contributes its damage multiplied by the fighter count
+        stats.totalDamage +=
+          (component.stats['fighterCount'] ?? 0) * (component.stats['damage'] ?? 0);
+        break;
+
+      case 'shield':
+        stats.totalShields += component.stats['shieldStrength'] ?? 0;
+        break;
+
+      case 'armor':
+        stats.totalArmor += component.stats['armorRating'] ?? 0;
+        break;
+
+      case 'engine':
+        stats.speed = Math.max(stats.speed, component.stats['speed'] ?? 0);
+        break;
+
+      case 'warp_drive':
+        // warp_drive contributes to movement speed as a fallback if no engine
+        if (stats.speed === 0) {
+          stats.speed = Math.max(stats.speed, component.stats['warpSpeed'] ?? 0);
+        }
+        break;
+
+      case 'sensor':
+        stats.sensorRange = Math.max(stats.sensorRange, component.stats['sensorRange'] ?? 0);
+        break;
+
+      case 'repair_drone':
+        stats.repairRate += component.stats['repairRate'] ?? 0;
+        break;
+
+      case 'special':
+        // special components may provide a variety of stats; aggregate generically
+        break;
+    }
+  }
+
+  // Apply hull base speed as a floor if no engine was fitted
+  if (stats.speed === 0) {
+    stats.speed = hull.baseSpeed;
+  }
+
+  return stats;
+}
+
+// ---------------------------------------------------------------------------
+// createShipFromDesign
+// ---------------------------------------------------------------------------
+
+/**
+ * Instantiate a new Ship from a completed ShipDesign.
+ * The ship starts undamaged, not assigned to a fleet, at the given system.
+ */
+export function createShipFromDesign(
+  design: ShipDesign,
+  hull: HullTemplate,
+  empireId: string,
+  systemId: string,
+): Ship {
+  return {
+    id: generateId(),
+    designId: design.id,
+    name: design.name,
+    hullPoints: hull.baseHullPoints,
+    maxHullPoints: hull.baseHullPoints,
+    systemDamage: {
+      engines: 0,
+      weapons: 0,
+      shields: 0,
+      sensors: 0,
+      warpDrive: 0,
+    },
+    position: { systemId },
+    fleetId: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// getAvailableComponents
+// ---------------------------------------------------------------------------
+
+/**
+ * Filter the full component list to those available to an empire given the
+ * set of technology IDs it has researched.
+ *
+ * Components with requiredTech === null are always available.
+ */
+export function getAvailableComponents(
+  allComponents: ShipComponent[],
+  researchedTechs: string[],
+): ShipComponent[] {
+  const techSet = new Set(researchedTechs);
+  return allComponents.filter(
+    (c) => c.requiredTech === null || techSet.has(c.requiredTech),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// autoEquipDesign
+// ---------------------------------------------------------------------------
+
+/**
+ * Automatically fill all slots on a hull with the best available components.
+ *
+ * Priority per slot (first allowedType wins):
+ *  1. If only one allowed type, pick the best component of that type.
+ *  2. Weapon slots prefer the highest-damage component.
+ *  3. Engine/warp_drive slots prefer the highest-speed component.
+ *  4. Shield slots prefer the highest shieldStrength.
+ *  5. Armor slots prefer the highest armorRating.
+ *  6. Sensor slots prefer the highest sensorRange.
+ *  7. repair_drone, fighter_bay, special — best by cost as a proxy.
+ *
+ * The returned ShipDesign has a generated ID, uses the hull's class, and
+ * starts with an empty empireId (caller should override before persisting).
+ */
+export function autoEquipDesign(
+  hull: HullTemplate,
+  availableComponents: ShipComponent[],
+): ShipDesign {
+  const assignments: { slotId: string; componentId: string }[] = [];
+
+  for (const slot of hull.slotLayout) {
+    // Collect components that are allowed in this slot and physically fit
+    const candidates = availableComponents.filter((c) => {
+      if (!(slot.allowedTypes as ComponentType[]).includes(c.type)) return false;
+      return componentFitsSize(inferComponentSize(c), slot.size);
+    });
+
+    if (candidates.length === 0) continue;
+
+    // Determine the priority type from the slot's allowed types
+    const priorityType = slot.allowedTypes[0] as ComponentType;
+
+    // Pick best component by priority type, then fall back to any candidate
+    const best = pickBestComponent(candidates, priorityType);
+    if (best) {
+      assignments.push({ slotId: slot.id, componentId: best.id });
+    }
+  }
+
+  return {
+    id: generateId(),
+    name: `Auto-${hull.name}`,
+    hull: hull.class,
+    components: assignments,
+    totalCost: 0, // caller should recalculate with calculateDesignStats
+    empireId: '',
+  };
+}
+
+/** Pick the single best component from a list, biased toward the given type. */
+function pickBestComponent(
+  candidates: ShipComponent[],
+  preferredType: ComponentType,
+): ShipComponent | undefined {
+  // Prefer components of the preferred type; fall back to all candidates
+  const typed = candidates.filter((c) => c.type === preferredType);
+  const pool = typed.length > 0 ? typed : candidates;
+
+  return pool.reduce<ShipComponent | undefined>((best, c) => {
+    if (!best) return c;
+    return scoreComponent(c, preferredType) > scoreComponent(best, preferredType) ? c : best;
+  }, undefined);
+}
+
+/** Assign a numeric score to a component for auto-equip sorting. */
+function scoreComponent(component: ShipComponent, forType: ComponentType): number {
+  const s = component.stats;
+  switch (forType) {
+    case 'weapon_beam':
+    case 'weapon_projectile':
+    case 'weapon_missile':
+    case 'weapon_point_defense':
+      return (s['damage'] ?? 0) + (s['range'] ?? 0) * 0.5;
+
+    case 'fighter_bay':
+      return (s['fighterCount'] ?? 0) * (s['damage'] ?? 0);
+
+    case 'shield':
+      return (s['shieldStrength'] ?? 0) + (s['rechargeRate'] ?? 0) * 2;
+
+    case 'armor':
+      return s['armorRating'] ?? 0;
+
+    case 'engine':
+      return s['speed'] ?? 0;
+
+    case 'warp_drive':
+      return (s['warpSpeed'] ?? 0) + (s['warpRange'] ?? 0) * 0.5;
+
+    case 'sensor':
+      return (s['sensorRange'] ?? 0) + (s['detectionBonus'] ?? 0) * 0.3;
+
+    case 'repair_drone':
+      return s['repairRate'] ?? 0;
+
+    case 'special':
+      // No dominant stat for 'special'; fall back to cost as a quality proxy
+      return component.cost;
+  }
+}

@@ -1,0 +1,277 @@
+[
+  {
+    "id": "pulse_laser",
+    "name": "Pulse Laser",
+    "type": "weapon_beam",
+    "stats": {
+      "damage": 10,
+      "range": 5,
+      "accuracy": 85
+    },
+    "cost": 50,
+    "requiredTech": null
+  },
+  {
+    "id": "kinetic_cannon",
+    "name": "Kinetic Cannon",
+    "type": "weapon_projectile",
+    "stats": {
+      "damage": 15,
+      "range": 3,
+      "accuracy": 90
+    },
+    "cost": 60,
+    "requiredTech": null
+  },
+  {
+    "id": "basic_missile",
+    "name": "Basic Missile",
+    "type": "weapon_missile",
+    "stats": {
+      "damage": 20,
+      "range": 8,
+      "accuracy": 70
+    },
+    "cost": 80,
+    "requiredTech": null
+  },
+  {
+    "id": "point_defense_turret",
+    "name": "Point Defense Turret",
+    "type": "weapon_point_defense",
+    "stats": {
+      "damage": 5,
+      "range": 2,
+      "interceptRate": 60
+    },
+    "cost": 45,
+    "requiredTech": null
+  },
+  {
+    "id": "light_fighter_bay",
+    "name": "Light Fighter Bay",
+    "type": "fighter_bay",
+    "stats": {
+      "fighterCount": 4,
+      "damage": 8,
+      "range": 6
+    },
+    "cost": 120,
+    "requiredTech": null
+  },
+  {
+    "id": "deflector_shield",
+    "name": "Deflector Shield",
+    "type": "shield",
+    "stats": {
+      "shieldStrength": 30,
+      "rechargeRate": 3
+    },
+    "cost": 70,
+    "requiredTech": null
+  },
+  {
+    "id": "composite_plate",
+    "name": "Composite Plate",
+    "type": "armor",
+    "stats": {
+      "armorRating": 20,
+      "massIncrease": 5
+    },
+    "cost": 55,
+    "requiredTech": null
+  },
+  {
+    "id": "ion_engine",
+    "name": "Ion Engine",
+    "type": "engine",
+    "stats": {
+      "speed": 3,
+      "energyConsumption": 2
+    },
+    "cost": 65,
+    "requiredTech": null
+  },
+  {
+    "id": "basic_warp_drive",
+    "name": "Basic Warp Drive",
+    "type": "warp_drive",
+    "stats": {
+      "warpSpeed": 2,
+      "warpRange": 3
+    },
+    "cost": 90,
+    "requiredTech": null
+  },
+  {
+    "id": "short_range_scanner",
+    "name": "Short-Range Scanner",
+    "type": "sensor",
+    "stats": {
+      "sensorRange": 3,
+      "detectionBonus": 5
+    },
+    "cost": 40,
+    "requiredTech": null
+  },
+  {
+    "id": "field_repair_unit",
+    "name": "Field Repair Unit",
+    "type": "repair_drone",
+    "stats": {
+      "repairRate": 5,
+      "repairRange": 1
+    },
+    "cost": 85,
+    "requiredTech": null
+  },
+  {
+    "id": "phased_array",
+    "name": "Phased Array",
+    "type": "weapon_beam",
+    "stats": {
+      "damage": 20,
+      "range": 6,
+      "accuracy": 90,
+      "piercingBonus": 5
+    },
+    "cost": 120,
+    "requiredTech": "phased_arrays"
+  },
+  {
+    "id": "guided_torpedo",
+    "name": "Guided Torpedo",
+    "type": "weapon_missile",
+    "stats": {
+      "damage": 35,
+      "range": 10,
+      "accuracy": 80,
+      "blastRadius": 2
+    },
+    "cost": 150,
+    "requiredTech": "guided_torpedoes"
+  },
+  {
+    "id": "reactive_armor",
+    "name": "Reactive Armor",
+    "type": "armor",
+    "stats": {
+      "armorRating": 40,
+      "massIncrease": 8,
+      "explosiveResistance": 15
+    },
+    "cost": 130,
+    "requiredTech": "reactive_plating"
+  },
+  {
+    "id": "shield_harmonics",
+    "name": "Shield Harmonics",
+    "type": "shield",
+    "stats": {
+      "shieldStrength": 60,
+      "rechargeRate": 6,
+      "resonanceBonus": 10
+    },
+    "cost": 160,
+    "requiredTech": "shield_harmonics"
+  },
+  {
+    "id": "fusion_drive",
+    "name": "Fusion Drive",
+    "type": "engine",
+    "stats": {
+      "speed": 5,
+      "energyConsumption": 4,
+      "thrustEfficiency": 15
+    },
+    "cost": 175,
+    "requiredTech": "fusion_drives"
+  },
+  {
+    "id": "heavy_fighter_bay",
+    "name": "Heavy Fighter Bay",
+    "type": "fighter_bay",
+    "stats": {
+      "fighterCount": 8,
+      "damage": 15,
+      "range": 8,
+      "armorRating": 5
+    },
+    "cost": 280,
+    "requiredTech": "heavy_fighter_wings"
+  },
+  {
+    "id": "disruptor_beam",
+    "name": "Disruptor Beam",
+    "type": "weapon_beam",
+    "stats": {
+      "damage": 35,
+      "range": 7,
+      "accuracy": 88,
+      "shieldPenetration": 20
+    },
+    "cost": 210,
+    "requiredTech": "disruptor_beams"
+  },
+  {
+    "id": "neutronium_barrier",
+    "name": "Neutronium Barrier",
+    "type": "shield",
+    "stats": {
+      "shieldStrength": 100,
+      "rechargeRate": 8,
+      "kineticAbsorption": 25
+    },
+    "cost": 300,
+    "requiredTech": "neutronium_barriers"
+  },
+  {
+    "id": "antimatter_drive",
+    "name": "Antimatter Drive",
+    "type": "engine",
+    "stats": {
+      "speed": 7,
+      "energyConsumption": 7,
+      "thrustEfficiency": 30
+    },
+    "cost": 350,
+    "requiredTech": "antimatter_drives"
+  },
+  {
+    "id": "plasma_lance",
+    "name": "Plasma Lance",
+    "type": "weapon_beam",
+    "stats": {
+      "damage": 50,
+      "range": 8,
+      "accuracy": 82,
+      "armorPenetration": 30
+    },
+    "cost": 400,
+    "requiredTech": "plasma_lances"
+  },
+  {
+    "id": "phase_shield",
+    "name": "Phase Shield",
+    "type": "shield",
+    "stats": {
+      "shieldStrength": 150,
+      "rechargeRate": 12,
+      "phaseShift": 40
+    },
+    "cost": 500,
+    "requiredTech": "phase_shields"
+  },
+  {
+    "id": "deep_space_scanner",
+    "name": "Deep Space Scanner",
+    "type": "sensor",
+    "stats": {
+      "sensorRange": 8,
+      "detectionBonus": 20,
+      "deepScanBonus": 15
+    },
+    "cost": 200,
+    "requiredTech": "dimensional_scanning"
+  }
+]
