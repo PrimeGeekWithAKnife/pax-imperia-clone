@@ -7,6 +7,9 @@ interface TopBarProps {
   onSpeedChange: (speed: GameSpeedName) => void;
   credits?: number;
   researchPoints?: number;
+  onOpenResearch?: () => void;
+  onOpenShipDesigner?: () => void;
+  onOpenDiplomacy?: () => void;
 }
 
 interface SpeedButton {
@@ -28,6 +31,9 @@ export function TopBar({
   onSpeedChange,
   credits = STARTING_CREDITS,
   researchPoints = STARTING_RESEARCH_POINTS,
+  onOpenResearch,
+  onOpenShipDesigner,
+  onOpenDiplomacy,
 }: TopBarProps): React.ReactElement {
   const handleSpeedClick = useCallback(
     (speed: GameSpeedName) => {
@@ -57,7 +63,20 @@ export function TopBar({
         <span className="speed-label">{gameSpeed.toUpperCase()}</span>
       </div>
 
-      {/* Resources placeholder */}
+      {/* Action buttons */}
+      <div className="top-bar__actions" style={{ display: 'flex', gap: '4px', pointerEvents: 'auto' }}>
+        {onOpenResearch && (
+          <button className="speed-btn" onClick={onOpenResearch} title="Research">⚗ Research</button>
+        )}
+        {onOpenShipDesigner && (
+          <button className="speed-btn" onClick={onOpenShipDesigner} title="Ship Designer">⚙ Ships</button>
+        )}
+        {onOpenDiplomacy && (
+          <button className="speed-btn" onClick={onOpenDiplomacy} title="Diplomacy">☮ Diplomacy</button>
+        )}
+      </div>
+
+      {/* Resources */}
       <div className="top-bar__resources">
         <span className="resource-item">
           <span className="resource-icon">₵</span>

@@ -150,36 +150,29 @@ const ORIGIN_PRESETS: Record<OriginStory, OriginPreset> = {
   },
 };
 
-// Predefined template species
-const TEMPLATE_SPECIES: Array<{
-  name: string;
-  traits: SpeciesTraits;
-  abilities: SpecialAbility[];
-  government: GovernmentType;
-  origin: OriginStory;
-}> = [
-  {
-    name: 'Terrans',
-    traits: { construction: 6, reproduction: 6, research: 7, espionage: 5, economy: 6, combat: 6, diplomacy: 6 },
-    abilities: [],
-    government: 'Federation',
-    origin: 'Balanced',
-  },
-  {
-    name: 'Keth Ascendancy',
-    traits: { construction: 4, reproduction: 5, research: 10, espionage: 8, economy: 5, combat: 4, diplomacy: 6 },
-    abilities: ['psychic'],
-    government: 'Technocracy',
-    origin: 'Psionic',
-  },
-  {
-    name: 'Vreth Dominion',
-    traits: { construction: 9, reproduction: 5, research: 4, espionage: 4, economy: 8, combat: 8, diplomacy: 4 },
-    abilities: ['cybernetic'],
-    government: 'Military Junta',
-    origin: 'Industrial',
-  },
-];
+// Map pre-built species to template format for the species creator
+import { PREBUILT_SPECIES } from '@nova-imperia/shared';
+
+const ORIGIN_MAP: Record<string, OriginStory> = {
+  vaelori: 'Psionic', khazari: 'Industrial', sylvani: 'Bioengineering',
+  nexari: 'Cybernetic', drakmari: 'Aquatic', teranos: 'Balanced',
+  zorvathi: 'Subterranean', ashkari: 'Nomadic',
+};
+const GOVT_MAP: Record<string, GovernmentType> = {
+  vaelori: 'Technocracy', khazari: 'Military Junta', sylvani: 'Federation',
+  nexari: 'Hive Mind', drakmari: 'Autocracy', teranos: 'Democracy',
+  zorvathi: 'Hive Mind', ashkari: 'Oligarchy',
+};
+
+const TEMPLATE_SPECIES = PREBUILT_SPECIES.map(s => ({
+  name: s.name,
+  traits: s.traits,
+  abilities: s.specialAbilities,
+  government: GOVT_MAP[s.id] ?? 'Democracy' as GovernmentType,
+  origin: ORIGIN_MAP[s.id] ?? 'Balanced' as OriginStory,
+  description: s.description,
+  id: s.id,
+}));
 
 // Temperature labels
 function temperatureLabel(k: number): string {
@@ -351,15 +344,16 @@ export function SpeciesCreatorScreen({
     });
   }, []);
 
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+
   // Load template
-  const handleLoadTemplate = useCallback(() => {
-    const template = TEMPLATE_SPECIES[Math.floor(Math.random() * TEMPLATE_SPECIES.length)];
-    if (!template) return;
+  const handleLoadTemplate = useCallback((template: typeof TEMPLATE_SPECIES[0]) => {
     setName(template.name);
     setTraits(template.traits);
     setAbilities(template.abilities);
     setGovernment(template.government);
     setOrigin(template.origin);
+    setShowTemplatePicker(false);
   }, []);
 
   // Continue to game setup
@@ -770,8 +764,8 @@ export function SpeciesCreatorScreen({
             <button type="button" className="sc-btn sc-btn--ghost" onClick={handleRandomize}>
               ⚄ Randomize
             </button>
-            <button type="button" className="sc-btn sc-btn--ghost" onClick={handleLoadTemplate}>
-              ▤ Load Template
+            <button type="button" className="sc-btn sc-btn--ghost" onClick={() => setShowTemplatePicker(true)}>
+              ▤ Choose Race
             </button>
           </div>
           <button
@@ -785,6 +779,38 @@ export function SpeciesCreatorScreen({
           </button>
         </div>
       </div>
+
+      {/* Template / Race picker modal */}
+      {showTemplatePicker && (
+        <div className="sc-template-overlay" onClick={() => setShowTemplatePicker(false)}>
+          <div className="sc-template-modal" onClick={e => e.stopPropagation()}>
+            <div className="sc-template-modal__header">
+              <h2>Choose a Race</h2>
+              <button className="sc-btn sc-btn--ghost" onClick={() => setShowTemplatePicker(false)}>✕</button>
+            </div>
+            <div className="sc-template-grid">
+              {TEMPLATE_SPECIES.map(t => (
+                <button
+                  key={t.id}
+                  className="sc-template-card"
+                  onClick={() => handleLoadTemplate(t)}
+                >
+                  <div className="sc-template-card__name">{t.name}</div>
+                  <div className="sc-template-card__origin">{t.origin}</div>
+                  <div className="sc-template-card__desc">{t.description}</div>
+                  <div className="sc-template-card__traits">
+                    {Object.entries(t.traits).map(([k, v]) => (
+                      <span key={k} className="sc-template-card__trait">
+                        {k.slice(0, 3).toUpperCase()} {v}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

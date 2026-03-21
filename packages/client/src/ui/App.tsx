@@ -480,6 +480,14 @@ export function App(): React.ReactElement {
   const handleExitToMainMenu = useCallback(() => {
     setIsPaused(false);
     setCurrentScreen('game');
+    // Tell Phaser to go back to the main menu scene
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+      | { scene: { start: (key: string) => void }; events: { emit: (e: string) => void } }
+      | undefined;
+    if (game) {
+      // Stop all scenes and restart main menu
+      game.events.emit('ui:exit_to_menu');
+    }
   }, []);
 
   // Render species creator as full-screen overlay
@@ -563,6 +571,9 @@ export function App(): React.ReactElement {
         onSpeedChange={setGameSpeed}
         credits={liveCredits}
         researchPoints={liveResearchPoints}
+        onOpenResearch={handleOpenResearch}
+        onOpenShipDesigner={handleOpenShipDesigner}
+        onOpenDiplomacy={handleOpenDiplomacy}
       />
 
       <SystemInfoPanel system={selectedSystem} />

@@ -385,6 +385,16 @@ export class GalaxyMapScene extends Phaser.Scene {
       }
     });
     this.game.events.on('minimap:navigate', this.handleMinimapNavigate);
+
+    // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
+    this.game.events.on('ui:exit_to_menu', () => {
+      const engine = getGameEngine();
+      if (engine) engine.pause();
+      // Clear the engine reference so a new game can be started
+      (window as unknown as Record<string, unknown>).__GAME_ENGINE__ = undefined;
+      this.ambient?.stopAll();
+      this.scene.start('MainMenuScene');
+    });
   }
 
   private galaxyToScreen(gx: number, gy: number): { x: number; y: number } {
