@@ -12,6 +12,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { GameSessionManager } from './game/GameSessionManager.js';
 import { SocketManager } from './network/socketManager.js';
 
@@ -39,9 +40,17 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  // CORS: restrict to same-origin in production, allow all in development
+  const isDev = process.env['NODE_ENV'] !== 'production';
   await fastify.register(cors, {
-    origin: process.env['CORS_ORIGIN'] ?? true,
+    origin: process.env['CORS_ORIGIN'] ?? (isDev ? true : false),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  });
+
+  // Rate limiting: 100 requests per minute per IP
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
   });
 
   const sessionManager = new GameSessionManager();

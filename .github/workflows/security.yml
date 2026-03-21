@@ -1,0 +1,244 @@
+name: Security
+
+on:
+  push:
+    branches: [main, 'worktree-*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  # ── SCA: Software Composition Analysis ───────────────────────────────────────
+  sca:
+    name: SCA - Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: npm audit (production)
+        run: npm audit --omit=dev
+
+      - name: npm audit (all - informational)
+        run: npm audit || true
+        continue-on-error: true
+
+  # ── SAST: Static Application Security Testing ───────────────────────────────
+  sast-codeql:
+    name: SAST - CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  sast-semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        run: semgrep scan --config auto --config p/owasp-top-ten --config p/typescript --json --output semgrep-results.json . || true
+
+      - name: Display results
+        run: |
+          echo "=== Semgrep Findings ==="
+          cat semgrep-results.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          results = data.get('results', [])
+          if not results:
+              print('No findings!')
+              sys.exit(0)
+          for r in results:
+              sev = r.get('extra', {}).get('severity', 'UNKNOWN')
+              msg = r.get('extra', {}).get('message', 'No message')
+              path = r.get('path', '?')
+              line = r.get('start', {}).get('line', '?')
+              print(f'[{sev}] {path}:{line} - {msg[:120]}')
+          print(f'\nTotal: {len(results)} findings')
+          "
+
+      - name: Upload Semgrep results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+
+  # ── DAST: Dynamic Application Security Testing ──────────────────────────────
+  dast-zap:
+    name: DAST - OWASP ZAP Baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build --workspace=packages/client
+          npm run build --workspace=packages/server
+
+      - name: Start server
+        run: |
+          cd packages/server
+          node --import tsx src/main.ts &
+          sleep 3
+          # Serve client build
+          npx serve packages/client/dist -l 5173 -s &
+          sleep 2
+        env:
+          PORT: 3001
+          NODE_ENV: production
+
+      - name: Verify services
+        run: |
+          curl -f http://localhost:3001/health
+          curl -f http://localhost:5173/
+
+      - name: OWASP ZAP Baseline Scan - API
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:3001/'
+          rules_file_name: '.github/zap-rules.tsv'
+          allow_issue_writing: false
+          fail_action: false
+        continue-on-error: true
+
+      - name: OWASP ZAP Baseline Scan - Client
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:5173/'
+          rules_file_name: '.github/zap-rules.tsv'
+          allow_issue_writing: false
+          fail_action: false
+        continue-on-error: true
+
+  # ── Custom security checks ──────────────────────────────────────────────────
+  custom-checks:
+    name: Custom Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "=== Checking for potential secrets ==="
+          # Check for common secret patterns
+          FOUND=0
+          for pattern in "password\s*=" "secret\s*=" "api_key\s*=" "token\s*=" "private_key" "BEGIN RSA" "BEGIN PRIVATE"; do
+            MATCHES=$(grep -rn --include="*.ts" --include="*.tsx" --include="*.json" "$pattern" packages/ --ignore-case | grep -v node_modules | grep -v "package-lock" | grep -v ".test." | grep -v "// " || true)
+            if [ -n "$MATCHES" ]; then
+              echo "⚠ Potential secret pattern '$pattern':"
+              echo "$MATCHES"
+              FOUND=1
+            fi
+          done
+          if [ $FOUND -eq 0 ]; then
+            echo "✓ No hardcoded secrets found"
+          fi
+
+      - name: Check for dangerous patterns
+        run: |
+          echo "=== Checking for dangerous code patterns ==="
+          FOUND=0
+
+          # eval() usage
+          EVAL=$(grep -rn "eval(" packages/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".test." || true)
+          if [ -n "$EVAL" ]; then
+            echo "⚠ eval() usage found:"
+            echo "$EVAL"
+            FOUND=1
+          fi
+
+          # innerHTML assignment
+          INNER=$(grep -rn "innerHTML\s*=" packages/ --include="*.ts" --include="*.tsx" | grep -v node_modules || true)
+          if [ -n "$INNER" ]; then
+            echo "⚠ innerHTML assignment found:"
+            echo "$INNER"
+            FOUND=1
+          fi
+
+          # dangerouslySetInnerHTML
+          DANGER=$(grep -rn "dangerouslySetInnerHTML" packages/ --include="*.ts" --include="*.tsx" | grep -v node_modules || true)
+          if [ -n "$DANGER" ]; then
+            echo "⚠ dangerouslySetInnerHTML found:"
+            echo "$DANGER"
+            FOUND=1
+          fi
+
+          # SQL injection vectors (raw queries)
+          SQL=$(grep -rn "query\s*(" packages/ --include="*.ts" | grep -v node_modules | grep "\${" || true)
+          if [ -n "$SQL" ]; then
+            echo "⚠ Potential SQL injection:"
+            echo "$SQL"
+            FOUND=1
+          fi
+
+          # Command injection
+          CMD=$(grep -rn "exec\s*(" packages/ --include="*.ts" | grep -v node_modules | grep -v "pct exec" || true)
+          if [ -n "$CMD" ]; then
+            echo "⚠ Potential command injection:"
+            echo "$CMD"
+            FOUND=1
+          fi
+
+          if [ $FOUND -eq 0 ]; then
+            echo "✓ No dangerous patterns found"
+          fi
+
+      - name: Check CSP and security headers
+        run: |
+          echo "=== Checking security configuration ==="
+          # Check Tauri CSP config
+          echo "Tauri CSP setting:"
+          grep -A2 "csp" packages/client/src-tauri/tauri.conf.json || echo "No CSP configured"
+
+          # Check CORS config
+          echo ""
+          echo "CORS configuration:"
+          grep -A3 "cors\|origin" packages/server/src/main.ts || echo "No CORS found"
+
+      - name: Check for sensitive files
+        run: |
+          echo "=== Checking for sensitive files ==="
+          FOUND=0
+          for f in .env .env.local .env.production credentials.json service-account.json id_rsa id_ed25519; do
+            if find . -name "$f" -not -path "*/node_modules/*" | grep -q .; then
+              echo "⚠ Sensitive file found: $f"
+              FOUND=1
+            fi
+          done
+          if [ $FOUND -eq 0 ]; then
+            echo "✓ No sensitive files found"
+          fi
