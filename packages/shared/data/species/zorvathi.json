@@ -1,0 +1,24 @@
+{
+  "id": "zorvathi",
+  "name": "Zorvathi",
+  "description": "The Zorvathi are a multi-legged insectoid hive species that spent most of their evolutionary history building vast underground tunnel networks, eventually hollowing out the entire lithosphere of their homeworld into a planet-spanning colony. Their mastery of boring, bracing, and pressurized construction made orbital engineering feel intuitive — a space station is simply a tunnel with no planet around it. The Zorvathi hive-mind coordinates millions of workers without friction or debate, making their infrastructure projects terrifyingly efficient.",
+  "portrait": "portrait_zorvathi",
+  "traits": {
+    "construction": 9,
+    "reproduction": 8,
+    "research": 3,
+    "espionage": 4,
+    "economy": 5,
+    "combat": 6,
+    "diplomacy": 2
+  },
+  "environmentPreference": {
+    "idealTemperature": 260,
+    "temperatureTolerance": 80,
+    "idealGravity": 1.6,
+    "gravityTolerance": 0.6,
+    "preferredAtmospheres": ["nitrogen", "carbon_dioxide", "oxygen_nitrogen", "methane"]
+  },
+  "specialAbilities": ["subterranean", "hive_mind"],
+  "isPrebuilt": true
+}

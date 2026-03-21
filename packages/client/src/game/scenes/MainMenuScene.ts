@@ -17,6 +17,13 @@ export class MainMenuScene extends Phaser.Scene {
     this.createStarfield(width, height);
     this.createTitle(width, height);
     this.createMenuButtons(width, height);
+
+    // React emits 'game:start' with the created species when the player
+    // confirms their species in the species creator screen.
+    this.game.events.once('game:start', (data: { species: unknown; government: unknown }) => {
+      console.log('[MainMenuScene] game:start received – launching galaxy map', data);
+      this.scene.start('GalaxyMapScene');
+    });
   }
 
   private createStarfield(width: number, height: number): void {
@@ -93,8 +100,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.applyButtonHover(settingsButton, buttonStyle, hoverStyle);
 
     newGameButton.on('pointerdown', () => {
-      console.log('[MainMenuScene] New Game clicked – starting galaxy map');
-      this.scene.start('GalaxyMapScene');
+      console.log('[MainMenuScene] New Game clicked – opening species creator');
+      // Emit to React UI so the species creator screen is shown.
+      // React will emit 'game:start' back with the created species when ready.
+      this.game.events.emit('ui:new_game');
     });
 
     settingsButton.on('pointerdown', () => {

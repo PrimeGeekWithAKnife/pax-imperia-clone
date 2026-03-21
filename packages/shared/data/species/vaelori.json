@@ -1,0 +1,24 @@
+{
+  "id": "vaelori",
+  "name": "Vaelori",
+  "description": "The Vaelori are crystalline psionic beings born from silicon lattices on a tidally-locked world, where eternal twilight and low gravity shaped minds that resonate across vast distances. Their civilization arose not through toolmaking but through collective thought-shaping, sculpting matter and energy with focused psionic projection. Though fragile in body and slow to construct physical works, their command of psychic intelligence networks makes them the most formidable gatherers of hidden knowledge in the galaxy.",
+  "portrait": "portrait_vaelori",
+  "traits": {
+    "construction": 2,
+    "reproduction": 3,
+    "research": 9,
+    "espionage": 8,
+    "economy": 5,
+    "combat": 3,
+    "diplomacy": 6
+  },
+  "environmentPreference": {
+    "idealTemperature": 180,
+    "temperatureTolerance": 40,
+    "idealGravity": 0.4,
+    "gravityTolerance": 0.2,
+    "preferredAtmospheres": ["methane", "nitrogen"]
+  },
+  "specialAbilities": ["psychic"],
+  "isPrebuilt": true
+}

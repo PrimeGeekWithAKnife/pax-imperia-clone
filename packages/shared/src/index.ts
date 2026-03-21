@@ -3,3 +3,5 @@ export * from './constants/index.js';
 export * from './utils/index.js';
 export * from './pathfinding/index.js';
 export * from './generation/index.js';
+export * from './validation/index.js';
+export * from './engine/index.js';

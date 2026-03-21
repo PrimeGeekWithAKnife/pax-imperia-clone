@@ -54,12 +54,16 @@ export type PlanetType =
 
 export type AtmosphereType =
   | 'oxygen_nitrogen'
+  | 'nitrogen'
   | 'carbon_dioxide'
   | 'methane'
   | 'ammonia'
+  | 'sulfur_dioxide'
+  | 'hydrogen'
+  | 'hydrogen_helium'
   | 'none'
   | 'toxic'
-  | 'hydrogen_helium';
+  | 'vacuum';
 
 export interface Building {
   id: string;

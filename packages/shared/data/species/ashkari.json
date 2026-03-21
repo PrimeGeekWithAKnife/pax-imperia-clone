@@ -1,0 +1,24 @@
+{
+  "id": "ashkari",
+  "name": "Ashkari",
+  "description": "The Ashkari lost their homeworld three thousand years ago when their star expanded unexpectedly, scattering survivors across the stars in generation ships that became permanent homes. Millennia of fleet-dwelling turned them into the galaxy's foremost scavengers and reverse-engineers — they can disassemble any technology they encounter, understand it, and often improve it within a few generations. Their economy runs on information brokerage, salvage operations, and deals made in the margins of other empires' ledgers, and they are rarely found where anyone expects them to be.",
+  "portrait": "portrait_ashkari",
+  "traits": {
+    "construction": 3,
+    "reproduction": 3,
+    "research": 6,
+    "espionage": 9,
+    "economy": 8,
+    "combat": 5,
+    "diplomacy": 7
+  },
+  "environmentPreference": {
+    "idealTemperature": 285,
+    "temperatureTolerance": 120,
+    "idealGravity": 1.0,
+    "gravityTolerance": 0.7,
+    "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen", "carbon_dioxide", "methane", "sulfur_dioxide"]
+  },
+  "specialAbilities": ["nomadic"],
+  "isPrebuilt": true
+}
