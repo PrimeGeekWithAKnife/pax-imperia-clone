@@ -270,31 +270,110 @@ Seven distinct paths to galactic supremacy:
 
 ## 13. Planet Management
 
+### Planet Physical Properties
+
+Every planet has physical properties that determine what can be built, how many people can live there, and what resources are available.
+
+**Planet Size:**
+
+| Size | Building Slots | Max Population Base | Notes |
+|------|---------------|-------------------|-------|
+| Tiny | 4-6 | 5,000 | Moons, asteroids. Specialist outposts only. |
+| Small | 8-12 | 25,000 | Limited but defensible. Good for military bases or research stations. |
+| Medium | 14-20 | 100,000 | Balanced. Can support a full colony. |
+| Large | 22-30 | 500,000 | Major worlds. Room for specialization + diversity. |
+| Massive | 32-40 | 2,000,000 | Rare. Empire capitals, breadbasket worlds. |
+
+Building slots are the hard cap -- you cannot build more structures than the planet has slots. This forces meaningful choices about what to build where.
+
+**Planet Types & Inherent Resources:**
+
+| Type | Common Resources | Rare Resources | Typical Conditions |
+|------|-----------------|----------------|-------------------|
+| Terran | Organics, Minerals | -- | Most habitable. Few harmful conditions. |
+| Ocean | Organics, Energy | Rare Elements | Aquatic species bonus. Limited land-based building types. |
+| Desert | Minerals, Energy | Rare Elements | Extreme heat, low organics. Hardy species thrive. |
+| Ice | Minerals, Energy | Exotic Materials | Extreme cold, subsurface resources. |
+| Volcanic | Minerals, Rare Elements | Exotic Materials | Seismic instability, extreme heat. Rich but dangerous. |
+| Gas Giant | Energy, Exotic Materials | -- | Cannot be colonized on surface. Orbital platforms only (fewer slots). |
+| Barren | Minerals | Rare Elements | No atmosphere. Requires sealed habitats. Low population cap. |
+| Toxic | Rare Elements, Exotic Materials | -- | Hazardous atmosphere. Expensive to colonize. Rich in rare resources. |
+
+**Planetary Conditions:**
+
+Each planet rolls 0-3 conditions at galaxy generation. Conditions are persistent traits that affect gameplay.
+
+*Beneficial Conditions:*
+
+| Condition | Effect |
+|-----------|--------|
+| Fertile Biosphere | +50% organics output, +25% population growth |
+| Rich Deposits | +50% minerals output |
+| Ancient Ruins | One-time research bonus on colonization; chance of unique tech |
+| Stable Tectonics | +2 bonus building slots, reduced disaster risk |
+| Natural Fortress | +50% ground defense bonus from terrain |
+| Rare Element Veins | Guaranteed rare element deposits regardless of planet type |
+| Temperate Climate | +25% habitability for all species |
+| Strategic Position | +25% sensor range; fleet staging bonus |
+
+*Harmful Conditions:*
+
+| Condition | Effect |
+|-----------|--------|
+| Seismic Instability | Random building damage events. -2 building slots. |
+| Toxic Atmosphere | -25% habitability, population growth penalty unless species is adapted |
+| Extreme Radiation | -25% population growth, research lab bonus (+radiation-hardened research) |
+| Hostile Fauna | Ground combat penalty for invaders, population attrition until Military Academy built |
+| Resource Depletion | Resources decline over time. Early bonanza, late-game dry-up. |
+| Gravitational Anomaly | Ship construction penalty, but +bonus to exotic material extraction |
+| Corrosive Environment | Building maintenance costs +50%. Structures degrade without repair. |
+| Unstable Core | Risk of catastrophic event destroying buildings. High energy output as trade-off. |
+
+*Mixed/Exotic Conditions:*
+
+| Condition | Effect |
+|-----------|--------|
+| Precursor Artifacts | Random events: can be beneficial (tech discovery) or harmful (defense system activation) |
+| Psionic Resonance | Bonus for psionic species. Penalty or strange events for non-psionic. |
+| Wormhole Nexus | Natural wormhole endpoint nearby. Strategic value but attracts attention. |
+
 ### Buildings
-| Building | Function | Special |
-|----------|----------|---------|
-| Research Lab | Generates research points | Higher tiers unlock species-specific research |
-| Factory | Produces construction capacity | Required for ship building and infrastructure |
-| Shipyard | Builds and repairs ships | Larger yards build larger ships |
-| Trade Hub | Generates credits from trade | Bonus when connected to trade routes |
-| Defense Grid | Orbital defense platforms | Minefields, gun emplacements, shields |
-| Population Center | Increases max population | Required for growth |
-| Mining Facility | Extracts planet resources | Output depends on resource richness |
-| Spaceport | Enables colonization and transport | Required for troop deployment |
-| Temple | Generates faith | Required for religious victory path |
-| Government Center | Administrative functions | One per planet; government bonuses |
-| Military Academy | Produces ground troops | Required for ground invasion capability |
-| Terraforming Station | Modifies planet environment | Slowly changes atmosphere/temperature toward species preference |
+
+Buildings occupy planet slots. Some have size prerequisites (Shipyard requires Medium+, Military Academy requires Small+).
+
+| Building | Function | Size Req | Special |
+|----------|----------|----------|---------|
+| Research Lab | Generates research points | Any | Tiers I-III. Higher tiers unlock species-specific research. |
+| Factory | Construction capacity | Any | Required for ship building. Output scales with minerals. |
+| Shipyard | Builds and repairs ships | Medium+ | Tier determines max hull class buildable. |
+| Trade Hub | Credit generation from trade | Small+ | Bonus when connected to trade routes. |
+| Defense Grid | Orbital defenses | Any | Minefields, gun platforms, planetary shields. |
+| Population Center | Increases max population | Any | Each one adds to population cap. Required for growth. |
+| Mining Facility | Extracts planet resources | Any | Output depends on planet resource richness and conditions. |
+| Spaceport | Colonization, transport | Small+ | Required for troop deployment and trade route connections. |
+| Temple | Generates faith | Any | Tiers I-III. Higher tiers increase conversion radius. |
+| Government Center | Admin functions, happiness | Small+ | One per planet. Government-type-specific bonuses. |
+| Military Academy | Ground troop production | Small+ | Required for ground invasion capability. |
+| Terraforming Station | Modifies planet environment | Medium+ | Slowly changes atmosphere/temperature/conditions. Very expensive. |
+| Orbital Platform | Extends gas giant use | Gas Giant only | Replaces surface buildings for gas giants. Limited types. |
+| Planetary Shield | Full-planet defense | Large+ | Blocks bombardment until destroyed. Endgame defense. |
+
+**Building Queue:** One active construction per planet. Credits can subsidize to accelerate. Multiple factories increase construction speed.
 
 ### Resource System
-- **Credits:** Universal currency. Generated by taxation, trade, and mining. Spent on construction, subsidies, espionage, diplomacy.
-- **Minerals:** Raw materials for building. Extracted from planets.
-- **Rare Elements:** Required for advanced tech and ships. Found on specific planet types.
-- **Energy:** Powers advanced buildings and military. Generated by specific infrastructure.
-- **Organics:** Food and biological materials. Required for population growth. Especially important for bio-origin species.
-- **Exotic Materials:** Endgame resources for megastructures and transcendence tech. Very rare.
-- **Faith:** Generated by temples and religious actions. Spent on missionaries, holy buildings, religious edicts.
-- **Research Points:** Generated by labs and allocated across active research projects.
+
+| Resource | Source | Used For |
+|----------|--------|----------|
+| **Credits** | Taxation, trade, mining | Construction, subsidies, espionage, diplomacy, unit upkeep |
+| **Minerals** | Mining facilities, planet deposits | Buildings, ships, ground units, infrastructure |
+| **Rare Elements** | Specific planet types, rare deposits | Advanced tech, advanced ship components |
+| **Energy** | Power plants, stellar collectors, volcanic worlds | Advanced buildings, military upkeep, terraforming |
+| **Organics** | Fertile planets, ocean worlds, farms | Population growth, bio-tech research. Critical for bio-origin species. |
+| **Exotic Materials** | Ice/volcanic/toxic worlds, gas giant platforms | Megastructures, transcendence tech, singularity drives. Very rare. |
+| **Faith** | Temples, religious leaders, species traits | Missionaries, holy buildings, religious edicts, holy wars |
+| **Research Points** | Labs, species traits, ancient ruins | Allocated across active research projects |
+
+Resources are **per-empire** (pooled), not per-planet. Planets produce into the empire pool. This keeps management tractable as empires grow.
 
 ---
 
