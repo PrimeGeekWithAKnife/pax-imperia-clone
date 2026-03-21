@@ -1,8 +1,8 @@
-# Nova Imperia — Milestone 0: Foundation
+# Ex Nihilo — Milestone 0: Foundation
 
 ## What This Is
 
-A modern web-based clone of Pax Imperia: Eminent Domain (1997), the real-time 4X space strategy game. Nova Imperia reimagines the game with modern tech: TypeScript monorepo, Phaser 3 for game rendering, React for UI overlays, Fastify + Socket.io server, and PostgreSQL for persistence. This milestone establishes the project foundation — scaffolding, tooling, and basic rendering.
+A modern web-based spiritual successor to Pax Imperia: Eminent Domain (1997), the real-time 4X space strategy game. The name "Ex Nihilo" — Latin for "From Nothing" — captures the core fantasy: a race evolving from primitive life to a supreme star-spanning empire. Ex Nihilo ("From Nothing") reimagines the game with modern tech: TypeScript monorepo, Phaser 3 for game rendering, React for UI overlays, Fastify + Socket.io server, and PostgreSQL for persistence. This milestone establishes the project foundation — scaffolding, tooling, and basic rendering.
 
 ## Core Value
 

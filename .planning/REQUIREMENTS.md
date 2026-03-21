@@ -1,4 +1,4 @@
-# Requirements: Nova Imperia — Milestone 0 (Foundation)
+# Requirements: Ex Nihilo — Milestone 0 (Foundation)
 
 **Defined:** 2026-03-21
 **Core Value:** A Phaser 3 game canvas renders in the browser with React UI overlays integrated and working — proving the hybrid rendering architecture.
@@ -7,12 +7,12 @@
 
 ### Monorepo & Tooling
 
-- [ ] **MONO-01**: npm workspaces resolve correctly across client, server, and shared packages
-- [ ] **MONO-02**: TypeScript compiles cleanly with strict mode across all three packages
+- [x] **MONO-01**: npm workspaces resolve correctly across client, server, and shared packages
+- [x] **MONO-02**: TypeScript compiles cleanly with strict mode across all three packages
 - [ ] **MONO-03**: ESLint flat config with typescript-eslint runs across all packages
 - [ ] **MONO-04**: Prettier configured and formatting consistently
-- [ ] **MONO-05**: Single `npm run dev` command starts client and server concurrently
-- [ ] **MONO-06**: TypeScript project references enforce package boundaries (shared cannot import client/server)
+- [x] **MONO-05**: Single `npm run dev` command starts client and server concurrently
+- [x] **MONO-06**: TypeScript project references enforce package boundaries (shared cannot import client/server)
 
 ### Shared Types
 
@@ -88,12 +88,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MONO-01 | Phase 1 | Pending |
-| MONO-02 | Phase 1 | Pending |
+| MONO-01 | Phase 1 | Complete |
+| MONO-02 | Phase 1 | Complete |
 | MONO-03 | Phase 1 | Pending |
 | MONO-04 | Phase 1 | Pending |
-| MONO-05 | Phase 1 | Pending |
-| MONO-06 | Phase 1 | Pending |
+| MONO-05 | Phase 1 | Complete |
+| MONO-06 | Phase 1 | Complete |
 | SHRD-01 | Phase 2 | Pending |
 | SHRD-02 | Phase 2 | Pending |
 | SHRD-03 | Phase 2 | Pending |
