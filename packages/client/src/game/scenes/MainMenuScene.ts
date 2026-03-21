@@ -15,9 +15,9 @@ export class MainMenuScene extends Phaser.Scene {
     super({ key: 'MainMenuScene' });
   }
 
-  private onGameStart = (data: { species: unknown; government: unknown }): void => {
-    console.log('[MainMenuScene] game:start received – launching galaxy map', data);
-    this.scene.start('GalaxyMapScene');
+  private onGameStartWithConfig = (data: { species: unknown; config: unknown }): void => {
+    console.log('[MainMenuScene] game:start_with_config received – launching galaxy map', data);
+    this.scene.start('GalaxyMapScene', { setupData: data });
   };
 
   create(): void {
@@ -28,13 +28,11 @@ export class MainMenuScene extends Phaser.Scene {
     this.createMenuButtons(width, height);
 
     // Remove any stale listener from a previous create() before re-registering.
-    // This prevents duplicate handlers if the scene is re-started without
-    // the event having fired.
-    this.game.events.off('game:start', this.onGameStart);
+    this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
 
-    // React emits 'game:start' with the created species when the player
-    // confirms their species in the species creator screen.
-    this.game.events.once('game:start', this.onGameStart);
+    // React emits 'game:start_with_config' with species + galaxy config when
+    // the player confirms in the game setup screen.
+    this.game.events.on('game:start_with_config', this.onGameStartWithConfig);
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     // Initialise audio generators (AudioEngine singleton already exists from

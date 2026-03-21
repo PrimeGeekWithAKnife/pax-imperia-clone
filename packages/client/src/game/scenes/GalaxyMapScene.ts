@@ -1,9 +1,17 @@
 import Phaser from 'phaser';
-import { initializeGame } from '@nova-imperia/shared';
-import type { Galaxy, StarSystem, StarType } from '@nova-imperia/shared';
+import { initializeGame, PREBUILT_SPECIES } from '@nova-imperia/shared';
+import type { Galaxy, StarSystem, StarType, Species, GalaxyShape, AIPersonality } from '@nova-imperia/shared';
 import { createGameEngine, getGameEngine, initializeTickState } from '../../engine/GameEngine';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
+
+/** Galaxy size key → system count */
+const GALAXY_SIZE_MAP: Record<string, 'small' | 'medium' | 'large' | 'huge'> = {
+  small: 'small', medium: 'medium', large: 'large', huge: 'huge',
+};
+
+const AI_COLORS = ['#ff6d00', '#e91e63', '#9c27b0', '#4caf50', '#ffc107', '#00bcd4', '#795548'];
+const AI_PERSONALITIES: AIPersonality[] = ['aggressive', 'defensive', 'economic', 'diplomatic', 'expansionist', 'researcher'];
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -149,7 +157,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-  create(data?: { knownSystemIds?: string[] }): void {
+  create(data?: { knownSystemIds?: string[]; setupData?: { species: Species; config: { galaxySize: string; galaxyShape: string; aiOpponents: number; seed: string; aiDifficulty: string } } }): void {
     // Reset state from any previous run
     this.parallaxStars = [];
     this.nebulaWisps = [];
@@ -167,6 +175,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     // ── Initialise or reuse game state ────────────────────────────────────────
     const existingEngine = getGameEngine();
     if (existingEngine) {
+      // Returning from SystemViewScene — reuse existing game state
       this.galaxy = existingEngine.getState().gameState.galaxy;
       const playerEmpire = existingEngine.getState().gameState.empires.find(e => !e.isAI);
       if (playerEmpire) {
@@ -177,68 +186,43 @@ export class GalaxyMapScene extends Phaser.Scene {
         for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
       }
     } else {
+      // ── Build game from setup data or defaults ─────────────────────────────
+      const setup = data?.setupData;
+      const playerSpecies: Species = setup?.species ?? {
+        id: 'human', name: 'Human', description: 'Adaptable and resourceful.', portrait: 'human',
+        traits: { construction: 5, reproduction: 5, research: 6, espionage: 5, economy: 6, combat: 5, diplomacy: 7 },
+        environmentPreference: { idealTemperature: 293, temperatureTolerance: 50, idealGravity: 1.0, gravityTolerance: 0.4, preferredAtmospheres: ['oxygen_nitrogen'] },
+        specialAbilities: [], isPrebuilt: true,
+      };
+
+      const galaxySize = GALAXY_SIZE_MAP[setup?.config?.galaxySize ?? 'medium'] ?? 'medium';
+      const galaxyShape = (setup?.config?.galaxyShape ?? 'spiral') as GalaxyShape;
+      const aiCount = setup?.config?.aiOpponents ?? 1;
+      const seed = parseInt(setup?.config?.seed ?? '42', 10) || 42;
+
+      // Build AI player list from pre-built species (pick randomly, avoid player's species)
+      const availableAI = PREBUILT_SPECIES.filter(s => s.id !== playerSpecies.id);
+      const aiPlayers = [];
+      for (let i = 0; i < aiCount && i < availableAI.length; i++) {
+        aiPlayers.push({
+          species: availableAI[i]!,
+          empireName: `${availableAI[i]!.name} Empire`,
+          color: AI_COLORS[i % AI_COLORS.length]!,
+          isAI: true as const,
+          aiPersonality: AI_PERSONALITIES[i % AI_PERSONALITIES.length]!,
+        });
+      }
+
       const gameState = initializeGame({
-        galaxyConfig: { seed: 42, size: 'medium', shape: 'spiral', playerCount: 2 },
+        galaxyConfig: { seed, size: galaxySize, shape: galaxyShape, playerCount: 1 + aiCount },
         players: [
           {
-            species: {
-              id: 'human',
-              name: 'Human',
-              description: 'Adaptable and resourceful.',
-              portrait: 'human',
-              traits: {
-                construction: 5,
-                reproduction: 5,
-                research: 6,
-                espionage: 5,
-                economy: 6,
-                combat: 5,
-                diplomacy: 7,
-              },
-              environmentPreference: {
-                idealTemperature: 293,
-                temperatureTolerance: 50,
-                idealGravity: 1.0,
-                gravityTolerance: 0.4,
-                preferredAtmospheres: ['oxygen_nitrogen'],
-              },
-              specialAbilities: [],
-              isPrebuilt: true,
-            },
-            empireName: 'Terran Federation',
+            species: playerSpecies,
+            empireName: `${playerSpecies.name} Dominion`,
             color: '#00d4ff',
             isAI: false,
           },
-          {
-            species: {
-              id: 'nkthari',
-              name: "Nk'thari",
-              description: 'Insectoid hive-mind collective.',
-              portrait: 'nkthari',
-              traits: {
-                construction: 8,
-                reproduction: 9,
-                research: 5,
-                espionage: 6,
-                economy: 4,
-                combat: 7,
-                diplomacy: 3,
-              },
-              environmentPreference: {
-                idealTemperature: 310,
-                temperatureTolerance: 30,
-                idealGravity: 1.2,
-                gravityTolerance: 0.3,
-                preferredAtmospheres: ['nitrogen'],
-              },
-              specialAbilities: ['hive_mind'],
-              isPrebuilt: true,
-            },
-            empireName: "Nk'thari Hegemony",
-            color: '#ff6d00',
-            isAI: true,
-            aiPersonality: 'aggressive',
-          },
+          ...aiPlayers,
         ],
       });
 
