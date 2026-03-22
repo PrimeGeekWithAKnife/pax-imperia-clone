@@ -4,7 +4,7 @@
       "id": "quantum_theory",
       "name": "Quantum Theory",
       "description": "A foundational framework for understanding matter and energy at the smallest scales, describing reality as a dance of probabilities rather than certainties. Every advanced technology begins here.",
-      "category": "racial",
+      "category": "construction",
       "age": "nano_atomic",
       "cost": 1200,
       "prerequisites": [],
@@ -55,7 +55,7 @@
       "id": "quantum_computing",
       "name": "Quantum Computing",
       "description": "Processors that exploit superposition and entanglement to solve problems no classical machine could touch. Cryptography, simulation, and strategic analysis leap forward in a single bound.",
-      "category": "racial",
+      "category": "construction",
       "age": "nano_atomic",
       "cost": 1800,
       "prerequisites": [
@@ -79,7 +79,7 @@
       "id": "quantum_ciphers",
       "name": "Quantum Ciphers",
       "description": "Unbreakable communication channels secured by the fundamental laws of physics. Any attempt at interception collapses the quantum state and reveals the eavesdropper instantly.",
-      "category": "racial",
+      "category": "defense",
       "age": "nano_atomic",
       "cost": 1500,
       "prerequisites": [
@@ -331,7 +331,7 @@
       "id": "trade_protocols",
       "name": "Trade Protocols",
       "description": "Formalised exchange agreements and commodity-valuation standards that make interstellar commerce predictable enough to be profitable. Every new trade partner multiplies the empire's revenue.",
-      "category": "racial",
+      "category": "construction",
       "age": "nano_atomic",
       "cost": 1000,
       "prerequisites": [],
@@ -413,7 +413,7 @@
       "id": "plasma_physics",
       "name": "Plasma Physics",
       "description": "A theoretical understanding of matter in the plasma state — superheated ionised gas confined by magnetic fields. This knowledge underpins both fusion power and an entire generation of weapons technology.",
-      "category": "racial",
+      "category": "weapons",
       "age": "fusion",
       "cost": 3000,
       "prerequisites": [
@@ -844,7 +844,7 @@
       "id": "cloaking_theory",
       "name": "Cloaking Theory",
       "description": "Theoretical models for bending electromagnetic radiation around a hull using shaped graviton fields. Practical cloaking remains out of reach, but the physics are now understood.",
-      "category": "racial",
+      "category": "defense",
       "age": "fusion",
       "cost": 3400,
       "prerequisites": [
@@ -886,7 +886,7 @@
       "id": "quantum_field_theory",
       "name": "Quantum Field Theory",
       "description": "A grand unification of quantum mechanics and field theory that describes the fundamental forces as manifestations of underlying quantum fields. The theoretical key to phase technology and teleportation.",
-      "category": "racial",
+      "category": "propulsion",
       "age": "nano_fusion",
       "cost": 6000,
       "prerequisites": [
@@ -906,7 +906,7 @@
       "id": "artificial_intelligence",
       "name": "Artificial Intelligence",
       "description": "Self-improving neural architectures capable of general reasoning, creative problem-solving, and autonomous decision-making. The line between tool and colleague begins to blur.",
-      "category": "racial",
+      "category": "construction",
       "age": "nano_fusion",
       "cost": 6000,
       "prerequisites": [
@@ -1006,7 +1006,7 @@
       "id": "ai_governor",
       "name": "AI Governor",
       "description": "Autonomous administrative intelligence capable of optimising an entire colony's production, logistics, and resource allocation without organic oversight. Bureaucracy perfected.",
-      "category": "racial",
+      "category": "construction",
       "age": "nano_fusion",
       "cost": 6500,
       "prerequisites": [
@@ -1372,7 +1372,7 @@
       "id": "dimensional_scanning",
       "name": "Dimensional Scanning",
       "description": "Sensor arrays tuned to detect quantum-state fluctuations in subspace — the ripple left by cloaked ships, hidden installations, and fold-space conduits.",
-      "category": "racial",
+      "category": "defense",
       "age": "nano_fusion",
       "cost": 6500,
       "prerequisites": [
@@ -1418,7 +1418,7 @@
       "id": "unified_field_theory",
       "name": "Unified Field Theory",
       "description": "The grand unification of all fundamental forces — electromagnetic, gravitational, strong and weak nuclear — into a single elegant mathematical framework. The key that unlocks antimatter mastery.",
-      "category": "racial",
+      "category": "propulsion",
       "age": "anti_matter",
       "cost": 11000,
       "prerequisites": [
@@ -1463,7 +1463,7 @@
       "id": "dark_matter_physics",
       "name": "Dark Matter Physics",
       "description": "Experimental techniques for detecting, containing, and manipulating dark matter — the invisible scaffolding of the universe. What was once unobservable becomes a resource.",
-      "category": "racial",
+      "category": "propulsion",
       "age": "anti_matter",
       "cost": 12000,
       "prerequisites": [
@@ -1846,7 +1846,7 @@
       "id": "temporal_mechanics",
       "name": "Temporal Mechanics",
       "description": "Exploiting micro-scale temporal variance near extreme gravitational gradients to achieve limited predictive modelling. The future is not fixed — but its probabilities can be mapped.",
-      "category": "racial",
+      "category": "defense",
       "age": "anti_matter",
       "cost": 13500,
       "prerequisites": [
@@ -1893,7 +1893,7 @@
       "id": "singularity_mathematics",
       "name": "Singularity Mathematics",
       "description": "Mathematical frameworks that describe the behaviour of space-time at infinite curvature — the point where physics as known collapses and something new emerges. The equations of godhood.",
-      "category": "racial",
+      "category": "propulsion",
       "age": "singularity",
       "cost": 18000,
       "prerequisites": [
