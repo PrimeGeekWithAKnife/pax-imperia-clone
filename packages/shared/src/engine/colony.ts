@@ -207,12 +207,16 @@ export function calculateHabitability(planet: Planet, species: Species): Habitab
  *
  * Each population_center building at level L adds +10% * L to growth.
  * Returns at least 1 when the colony is alive and below the population cap.
+ *
+ * If the empire is starving (isStarving = true), growth is always zero.
  */
 export function calculatePopulationGrowth(
   planet: Planet,
   species: Species,
   habitability: number,
+  isStarving = false,
 ): number {
+  if (isStarving) return 0;
   if (planet.currentPopulation <= 0) return 0;
   if (planet.currentPopulation >= planet.maxPopulation) return 0;
 
@@ -739,17 +743,22 @@ const BUILDING_PREREQUISITES: Partial<Record<BuildingType, BuildingType>> = {
  * Rules checked:
  * - Gas giants may only host spaceport (orbital platform) buildings.
  * - Building slots must not be exhausted.
+ * - Technology requirements must be met (if `empireTechs` is provided).
  * - Prerequisite buildings must already exist.
  * - Racial-unique buildings may only be built by the matching species.
  *
  * @param species - The empire's species. Required for racial building checks;
  *   if omitted, racial restrictions are not enforced (useful for server-side
  *   replay validation where species data may not be loaded).
+ * @param empireTechs - Array of researched technology IDs. When provided and
+ *   the building has a `requiredTech`, the check enforces that the required
+ *   tech has been researched.
  */
 export function canBuildOnPlanet(
   planet: Planet,
   buildingType: BuildingType,
   species?: Species,
+  empireTechs?: string[],
 ): { allowed: boolean; reason?: string } {
   // Gas giant restriction
   if (planet.type === 'gas_giant' && buildingType !== 'spaceport') {
@@ -768,8 +777,18 @@ export function canBuildOnPlanet(
     };
   }
 
-  // Racial species check — only enforce when a species is supplied
+  // Technology requirement check — only enforce when empireTechs is supplied
   const def = BUILDING_DEFINITIONS[buildingType];
+  if (def.requiredTech !== undefined && empireTechs !== undefined) {
+    if (!empireTechs.includes(def.requiredTech)) {
+      return {
+        allowed: false,
+        reason: `Requires technology: ${def.requiredTech}`,
+      };
+    }
+  }
+
+  // Racial species check — only enforce when a species is supplied
   if (def.racialSpeciesId !== undefined && species !== undefined) {
     if (species.id !== def.racialSpeciesId) {
       return {
@@ -802,13 +821,16 @@ export function canBuildOnPlanet(
  *
  * @param species - The empire's species. When provided, racial building
  *   restrictions are enforced before queuing.
+ * @param empireTechs - Array of researched technology IDs. When provided,
+ *   technology requirements are enforced before queuing.
  */
 export function addBuildingToQueue(
   planet: Planet,
   buildingType: BuildingType,
   species?: Species,
+  empireTechs?: string[],
 ): Planet {
-  const check = canBuildOnPlanet(planet, buildingType, species);
+  const check = canBuildOnPlanet(planet, buildingType, species, empireTechs);
   if (!check.allowed) {
     throw new Error(`Cannot queue building: ${check.reason}`);
   }

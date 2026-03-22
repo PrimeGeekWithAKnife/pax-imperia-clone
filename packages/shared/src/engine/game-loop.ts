@@ -434,13 +434,17 @@ function processPlayerActions(
           continue;
         }
 
-        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType);
+        // Retrieve researched tech IDs so building tech gates are enforced.
+        const empireResearchState = state.researchStates.get(empireId);
+        const empireTechs = empireResearchState?.completedTechs ?? [];
+
+        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, undefined, empireTechs);
         if (!buildCheck.allowed) {
           console.warn(`[game-loop] ConstructBuilding rejected for planet "${planetId}": ${buildCheck.reason}`);
           continue;
         }
 
-        const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType);
+        const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs);
         systems = replacePlanet(systems, updatedPlanet);
 
       // ── SetGameSpeed ─────────────────────────────────────────────────────
@@ -743,7 +747,10 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
       }
 
       const habitability = calculateHabitability(planet, empire.species);
-      let growth = calculatePopulationGrowth(planet, empire.species, habitability.score);
+      // If the empire has no organics, the population is starving and cannot grow.
+      const empireRes = getEmpireResources(state, empire.id);
+      const empireStarving = empireRes.organics <= 0;
+      let growth = calculatePopulationGrowth(planet, empire.species, habitability.score, empireStarving);
 
       if (growth <= 0) continue;
 

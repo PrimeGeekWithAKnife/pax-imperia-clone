@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -152,6 +152,7 @@ function estimateMaintenance(planet: Planet): Record<string, number> {
 interface BuildingPickerProps {
   planet: Planet;
   empireResources: EmpireResources;
+  empireTechs?: string[];
   onSelect: (type: BuildingType) => void;
   onClose: () => void;
 }
@@ -159,6 +160,7 @@ interface BuildingPickerProps {
 function BuildingPicker({
   planet,
   empireResources,
+  empireTechs,
   onSelect,
   onClose,
 }: BuildingPickerProps): React.ReactElement {
@@ -180,7 +182,10 @@ function BuildingPicker({
         <div className="bpicker__list">
           {ALL_BUILDING_TYPES.map((type) => {
             const def = BUILDING_DEFINITIONS[type];
-            const check = canBuildOnPlanet(planet, type);
+            const check = canBuildOnPlanet(planet, type, undefined, empireTechs);
+            const techLocked = def.requiredTech !== undefined
+              && empireTechs !== undefined
+              && !empireTechs.includes(def.requiredTech);
             const canAffordBuilding = Object.entries(def.baseCost).every(
               ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
             );
@@ -202,10 +207,15 @@ function BuildingPicker({
 
             const iconSrc = renderBuildingIcon(type, 48);
 
+            // Resolve a human-readable tech name for the locked tooltip.
+            const requiredTechName = def.requiredTech
+              ? (UNIVERSAL_TECH_BY_ID[def.requiredTech]?.name ?? def.requiredTech)
+              : undefined;
+
             return (
               <button
                 key={type}
-                className={`bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`}
+                className={`bpicker-item${disabled ? ' bpicker-item--disabled' : ''}${techLocked ? ' bpicker-item--locked' : ''}`}
                 onClick={() => !disabled && onSelect(type)}
                 disabled={disabled}
                 title={reason}
@@ -239,7 +249,12 @@ function BuildingPicker({
                     </span>
                   ))}
                 </div>
-                {!check.allowed && (
+                {techLocked && requiredTechName && (
+                  <div className="bpicker-item__reason bpicker-item__reason--tech">
+                    Requires: {requiredTechName}
+                  </div>
+                )}
+                {!check.allowed && !techLocked && (
                   <div className="bpicker-item__reason">{check.reason}</div>
                 )}
               </button>
@@ -380,6 +395,8 @@ interface PlanetManagementScreenProps {
   savedDesigns: ShipDesign[];
   /** Terraforming progress for this planet, if active. */
   terraformingProgress?: TerraformingProgress | null;
+  /** Researched technology IDs — used to gate building availability. */
+  empireTechs?: string[];
   onClose: () => void;
   onBuild: (planetId: string, buildingType: BuildingType) => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
@@ -392,6 +409,7 @@ export function PlanetManagementScreen({
   empireResources,
   savedDesigns,
   terraformingProgress = null,
+  empireTechs,
   onClose,
   onBuild,
   onCancelQueue,
@@ -879,6 +897,7 @@ export function PlanetManagementScreen({
         <BuildingPicker
           planet={planet}
           empireResources={empireResources}
+          empireTechs={empireTechs}
           onSelect={handleSelectBuilding}
           onClose={() => setPickerOpen(false)}
         />

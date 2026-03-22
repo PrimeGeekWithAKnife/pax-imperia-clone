@@ -17,6 +17,11 @@ export interface BuildingDefinition {
    * building. Leave undefined for buildings available to all species.
    */
   racialSpeciesId?: string;
+  /**
+   * If set, the empire must have researched this technology before the building
+   * can be constructed. Leave undefined for buildings available from the start.
+   */
+  requiredTech?: string;
 }
 
 export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
@@ -28,6 +33,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Generates research points each tick. Output is amplified by the species research trait.',
+    requiredTech: 'subspace_scanning',
   },
 
   factory: {
@@ -48,6 +54,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
     description: 'Enables ship construction on this planet. Higher levels reduce ship build time.',
+    requiredTech: 'cruiser_architecture',
   },
 
   trade_hub: {
@@ -58,6 +65,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description: 'Generates credits each tick through interstellar commerce.',
+    requiredTech: 'trade_protocols',
   },
 
   defense_grid: {
@@ -67,7 +75,8 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 2, energy: 2 },
     maxLevel: 4,
-    description: 'Provides planetary defenses. Does not produce resources but consumes energy.',
+    description: 'Provides planetary defences. Does not produce resources but consumes energy.',
+    requiredTech: 'reactive_plating',
   },
 
   population_center: {
@@ -99,6 +108,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 3,
     description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
+    requiredTech: 'orbital_fabrication',
   },
 
   power_plant: {
@@ -119,12 +129,13 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description: 'Keeps colonists happy and productive. Reduces unrest and generates cultural influence.',
+    requiredTech: 'growth_stimulants',
   },
 
   hydroponics_bay: {
     name: 'Hydroponics Bay',
     baseCost: { credits: 75 },
-    baseProduction: { organics: 5 },
+    baseProduction: { organics: 8 },
     buildTime: 3,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
@@ -139,6 +150,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 3,
     description: 'An orbital structure extending the planet\'s capabilities. Provides additional building capacity.',
+    requiredTech: 'megastructure_theory',
   },
 
   recycling_plant: {
@@ -149,6 +161,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 0 },
     maxLevel: 5,
     description: 'Converts waste into usable materials. Reduces environmental impact and building maintenance.',
+    requiredTech: 'genetic_optimization',
   },
 
   communications_hub: {
@@ -159,6 +172,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description: 'Planetary network connecting all buildings for improved coordination. Boosts research and trade.',
+    requiredTech: 'diplomatic_cipher',
   },
 
   terraforming_station: {
@@ -169,6 +183,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
     description: 'Slowly modifies planetary atmosphere and conditions. Very expensive but can make hostile worlds habitable.',
+    requiredTech: 'terraforming',
   },
 
   military_academy: {
@@ -179,6 +194,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 4,
     description: 'Trains ground forces for planetary defence and invasion. Required for troop deployment.',
+    requiredTech: 'heavy_fighter_wings',
   },
 
   fusion_reactor: {
@@ -189,6 +205,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
+    requiredTech: 'hyperspace_conduits',
   },
 
   // ── Vaelori unique buildings ────────────────────────────────────────────────

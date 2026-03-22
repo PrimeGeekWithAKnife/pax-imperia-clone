@@ -288,8 +288,12 @@ export class GameEngine {
       return false;
     }
 
+    // Retrieve researched tech IDs so building tech gates are enforced.
+    const empireResearchState = this.tickState.researchStates.get(empire.id);
+    const empireTechs = empireResearchState?.completedTechs ?? [];
+
     // Validate build is allowed
-    const buildCheck = canBuildOnPlanet(planet, buildingType);
+    const buildCheck = canBuildOnPlanet(planet, buildingType, undefined, empireTechs);
     if (!buildCheck.allowed) {
       console.warn(`[GameEngine.buildOnPlanet] Build not allowed: ${buildCheck.reason}`);
       return false;
@@ -327,7 +331,7 @@ export class GameEngine {
     };
 
     // Add building to the planet's production queue (pure — returns new Planet)
-    const updatedPlanet = addBuildingToQueue(planet, buildingType);
+    const updatedPlanet = addBuildingToQueue(planet, buildingType, undefined, empireTechs);
 
     // Splice the updated planet back into the galaxy
     const updatedSystems = galaxy.systems.map(s => {

@@ -1235,6 +1235,7 @@ export function App(): React.ReactElement {
           systemId={managedSystemId}
           empireResources={empireResources}
           savedDesigns={savedDesigns}
+          empireTechs={researchState.completedTechs}
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
@@ -1265,6 +1266,7 @@ export function App(): React.ReactElement {
         <FleetPanel
           fleet={selectedFleet}
           ships={fleetShips}
+          isSystemView={activeSystemId !== null}
           onClose={handleFleetDeselected}
         />
       )}

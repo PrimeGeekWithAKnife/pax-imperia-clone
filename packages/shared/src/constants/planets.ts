@@ -40,7 +40,7 @@ export const ATMOSPHERE_ADJACENCY: Partial<Record<AtmosphereType, AtmosphereType
 // ── Growth constants ────────────────────────────────────────────────────────
 
 /** Base fractional growth per turn before trait and habitability modifiers. */
-export const BASE_GROWTH_RATE = 0.02;
+export const BASE_GROWTH_RATE = 0.005;
 
 /** Minimum population at which a colony is considered active. */
 export const MIN_COLONY_POPULATION = 1;

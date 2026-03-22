@@ -57,6 +57,8 @@ export interface FleetPanelProps {
   ships: Ship[];
   /** Known ship designs, used to look up hull class for thumbnail rendering. */
   designs?: ShipDesign[];
+  /** When true, the fleet panel is shown inside the system view (not the galaxy map). */
+  isSystemView?: boolean;
   onClose: () => void;
 }
 
@@ -64,6 +66,7 @@ export function FleetPanel({
   fleet,
   ships,
   designs = [],
+  isSystemView = false,
   onClose,
 }: FleetPanelProps): React.ReactElement {
   const [fleetName, setFleetName] = useState(fleet.name);
@@ -114,6 +117,11 @@ export function FleetPanel({
     setMoveToActive(next);
     emitToPhaser('fleet:move_mode', { fleetId: fleet.id, active: next });
   }, [fleet.id, moveToActive]);
+
+  /** In system view, navigate back to galaxy map so the player can pick a target. */
+  const handleGoToGalaxyView = useCallback(() => {
+    emitToPhaser('scene:request_galaxy_view', { fleetId: fleet.id });
+  }, [fleet.id]);
 
   // ── Split Fleet ─────────────────────────────────────────────────────────────
 
@@ -316,14 +324,25 @@ export function FleetPanel({
       <section className="fleet-panel__section">
         <div className="fleet-panel__section-label">ACTIONS</div>
         <div className="fleet-panel__actions">
-          <button
-            type="button"
-            className={`fleet-panel__action-btn ${moveToActive ? 'fleet-panel__action-btn--active' : ''}`}
-            onClick={handleMoveToToggle}
-            title="Activate move mode then click a star system on the galaxy map"
-          >
-            {moveToActive ? 'Select Target...' : 'Move To'}
-          </button>
+          {isSystemView ? (
+            <button
+              type="button"
+              className="fleet-panel__action-btn"
+              onClick={handleGoToGalaxyView}
+              title="Return to the galaxy map to select a movement target"
+            >
+              Move To Galaxy View
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`fleet-panel__action-btn ${moveToActive ? 'fleet-panel__action-btn--active' : ''}`}
+              onClick={handleMoveToToggle}
+              title="Activate move mode then click a star system on the galaxy map"
+            >
+              {moveToActive ? 'Select Target...' : 'Move To'}
+            </button>
+          )}
 
           {!splitMode ? (
             <button

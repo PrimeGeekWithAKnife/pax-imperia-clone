@@ -379,7 +379,7 @@ export function getEnergyStatus(resources: EmpireResources): EnergyStatus {
 // ---------------------------------------------------------------------------
 
 /** Population units per organic consumed per tick. */
-export const ORGANICS_PER_POPULATION = 1_000;
+export const ORGANICS_PER_POPULATION = 5_000;
 
 /**
  * Calculate how many organics an empire's total population consumes per tick.

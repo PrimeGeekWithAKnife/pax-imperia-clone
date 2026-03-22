@@ -383,6 +383,13 @@ describe('calculatePopulationGrowth', () => {
     expect(boostedGrowth).toBeGreaterThan(baseGrowth);
   });
 
+  it('returns 0 when empire is starving', () => {
+    const planet = makePlanet({ currentPopulation: 1_000_000, maxPopulation: 10_000_000 });
+    const species = makeHumanSpecies();
+    const growth = calculatePopulationGrowth(planet, species, 80, true);
+    expect(growth).toBe(0);
+  });
+
   it('higher-level population center provides more growth than lower level', () => {
     const species = makeHumanSpecies();
     const planetLevel1 = makePlanet({
@@ -613,6 +620,34 @@ describe('canBuildOnPlanet', () => {
   it('allows spaceport on a gas giant', () => {
     const planet = makePlanet({ type: 'gas_giant' });
     const result = canBuildOnPlanet(planet, 'spaceport');
+    expect(result.allowed).toBe(true);
+  });
+
+  it('rejects building when required tech is not researched', () => {
+    const planet = makePlanet();
+    // research_lab requires 'subspace_scanning'
+    const result = canBuildOnPlanet(planet, 'research_lab', undefined, []);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/requires technology/i);
+  });
+
+  it('allows building when required tech is researched', () => {
+    const planet = makePlanet();
+    const result = canBuildOnPlanet(planet, 'research_lab', undefined, ['subspace_scanning']);
+    expect(result.allowed).toBe(true);
+  });
+
+  it('allows buildings without a tech requirement regardless of empireTechs', () => {
+    const planet = makePlanet();
+    // factory has no requiredTech
+    const result = canBuildOnPlanet(planet, 'factory', undefined, []);
+    expect(result.allowed).toBe(true);
+  });
+
+  it('does not enforce tech requirements when empireTechs is omitted', () => {
+    const planet = makePlanet();
+    // research_lab requires 'subspace_scanning', but no empireTechs provided
+    const result = canBuildOnPlanet(planet, 'research_lab');
     expect(result.allowed).toBe(true);
   });
 });
