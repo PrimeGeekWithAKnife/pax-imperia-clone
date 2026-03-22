@@ -1,0 +1,24 @@
+{
+  "id": "nexari",
+  "name": "Nexari",
+  "description": "The Nexari were once a fragile biological species driven by intense curiosity and a terror of death; they solved both problems by voluntarily integrating their neural architecture with an AI substrate of their own design. The resulting collective is neither fully organic nor fully digital but something richer than either — every individual an autonomous node in a species-wide reasoning engine. Their technology advances at a pace that disturbs even the most optimistic observers, because every breakthrough is simultaneously understood by all.",
+  "portrait": "portrait_nexari",
+  "traits": {
+    "construction": 8,
+    "reproduction": 2,
+    "research": 9,
+    "espionage": 4,
+    "economy": 5,
+    "combat": 6,
+    "diplomacy": 3
+  },
+  "environmentPreference": {
+    "idealTemperature": 270,
+    "temperatureTolerance": 150,
+    "idealGravity": 0.9,
+    "gravityTolerance": 0.6,
+    "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen", "carbon_dioxide", "methane"]
+  },
+  "specialAbilities": ["cybernetic", "hive_mind"],
+  "isPrebuilt": true
+}

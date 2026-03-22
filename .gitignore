@@ -7,6 +7,21 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+*.d.ts.map
+
+# Generated JS from TS config files
+vitest.workspace.js
+vitest.workspace.js.map
+vitest.workspace.d.ts
+vitest.workspace.d.ts.map
+packages/*/vite.config.js
+packages/*/vite.config.js.map
+packages/*/vite.config.d.ts
+packages/*/vite.config.d.ts.map
+packages/*/vitest.config.js
+packages/*/vitest.config.js.map
+packages/*/vitest.config.d.ts
+packages/*/vitest.config.d.ts.map
 
 # Environment
 .env
@@ -31,6 +46,10 @@ test-results/
 # Logs
 *.log
 npm-debug.log*
+
+# Tauri / Rust
+packages/client/src-tauri/target/
+packages/client/src-tauri/gen/
 
 # Docker
 .docker/

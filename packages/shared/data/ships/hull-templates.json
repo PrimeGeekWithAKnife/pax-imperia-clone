@@ -1,0 +1,439 @@
+[
+  {
+    "class": "scout",
+    "name": "Scout",
+    "baseHullPoints": 50,
+    "maxSlots": 3,
+    "slotLayout": [
+      {
+        "id": "scout_fore_1",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "sensor"]
+      },
+      {
+        "id": "scout_turret_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "armor", "sensor", "repair_drone", "special"]
+      },
+      {
+        "id": "scout_aft_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      }
+    ],
+    "baseCost": 100,
+    "baseSpeed": 8,
+    "requiredAge": "nano_atomic"
+  },
+  {
+    "class": "destroyer",
+    "name": "Destroyer",
+    "baseHullPoints": 100,
+    "maxSlots": 5,
+    "slotLayout": [
+      {
+        "id": "destroyer_fore_1",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"]
+      },
+      {
+        "id": "destroyer_fore_2",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"]
+      },
+      {
+        "id": "destroyer_turret_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "destroyer_port_1",
+        "x": 1,
+        "y": -1,
+        "facing": "port",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor"]
+      },
+      {
+        "id": "destroyer_aft_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      }
+    ],
+    "baseCost": 250,
+    "baseSpeed": 6,
+    "requiredAge": "nano_atomic"
+  },
+  {
+    "class": "transport",
+    "name": "Transport",
+    "baseHullPoints": 80,
+    "maxSlots": 4,
+    "slotLayout": [
+      {
+        "id": "transport_turret_1",
+        "x": 0,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "transport_internal_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["special", "fighter_bay"]
+      },
+      {
+        "id": "transport_aft_1",
+        "x": 2,
+        "y": -1,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "transport_aft_2",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      }
+    ],
+    "baseCost": 200,
+    "baseSpeed": 5,
+    "requiredAge": "nano_atomic"
+  },
+  {
+    "class": "cruiser",
+    "name": "Cruiser",
+    "baseHullPoints": 200,
+    "maxSlots": 8,
+    "slotLayout": [
+      {
+        "id": "cruiser_fore_1",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"]
+      },
+      {
+        "id": "cruiser_fore_2",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"]
+      },
+      {
+        "id": "cruiser_port_1",
+        "x": 1,
+        "y": -2,
+        "facing": "port",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "cruiser_starboard_1",
+        "x": 1,
+        "y": 2,
+        "facing": "starboard",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "cruiser_turret_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "armor", "sensor", "repair_drone", "special"]
+      },
+      {
+        "id": "cruiser_turret_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "armor", "sensor", "repair_drone", "special"]
+      },
+      {
+        "id": "cruiser_aft_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "cruiser_special_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": ["sensor", "repair_drone", "special", "warp_drive"]
+      }
+    ],
+    "baseCost": 500,
+    "baseSpeed": 5,
+    "requiredAge": "nano_fusion"
+  },
+  {
+    "class": "carrier",
+    "name": "Carrier",
+    "baseHullPoints": 250,
+    "maxSlots": 10,
+    "slotLayout": [
+      {
+        "id": "carrier_bay_1",
+        "x": 0,
+        "y": -2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "carrier_bay_2",
+        "x": 0,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "carrier_bay_3",
+        "x": 0,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "carrier_turret_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "carrier_turret_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "carrier_port_1",
+        "x": 1,
+        "y": -3,
+        "facing": "port",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "carrier_starboard_1",
+        "x": 1,
+        "y": 3,
+        "facing": "starboard",
+        "size": "small",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "carrier_aft_1",
+        "x": 2,
+        "y": -1,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "carrier_aft_2",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "carrier_special_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["sensor", "repair_drone", "special", "shield"]
+      }
+    ],
+    "baseCost": 800,
+    "baseSpeed": 4,
+    "requiredAge": "anti_matter"
+  },
+  {
+    "class": "coloniser",
+    "name": "Colony Ship",
+    "baseHullPoints": 60,
+    "maxSlots": 3,
+    "slotLayout": [
+      {
+        "id": "col_engine",
+        "x": 0.5,
+        "y": 0.8,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "col_cargo",
+        "x": 0.5,
+        "y": 0.4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["special"]
+      },
+      {
+        "id": "col_sensor",
+        "x": 0.5,
+        "y": 0.1,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["sensor"]
+      }
+    ],
+    "baseCost": 300,
+    "baseSpeed": 3,
+    "requiredAge": "nano_atomic"
+  },
+  {
+    "class": "battleship",
+    "name": "Battleship",
+    "baseHullPoints": 400,
+    "maxSlots": 12,
+    "slotLayout": [
+      {
+        "id": "battleship_fore_1",
+        "x": 0,
+        "y": -2,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "battleship_fore_2",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "battleship_fore_3",
+        "x": 0,
+        "y": 2,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "battleship_port_1",
+        "x": 1,
+        "y": -3,
+        "facing": "port",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "battleship_port_2",
+        "x": 1,
+        "y": -2,
+        "facing": "port",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "battleship_starboard_1",
+        "x": 1,
+        "y": 2,
+        "facing": "starboard",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "battleship_starboard_2",
+        "x": 1,
+        "y": 3,
+        "facing": "starboard",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "battleship_turret_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "sensor"]
+      },
+      {
+        "id": "battleship_turret_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "sensor"]
+      },
+      {
+        "id": "battleship_aft_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "battleship_special_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["special", "sensor", "repair_drone", "shield"]
+      },
+      {
+        "id": "battleship_internal_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["armor", "repair_drone", "special", "sensor"]
+      }
+    ],
+    "baseCost": 1200,
+    "baseSpeed": 3,
+    "requiredAge": "singularity"
+  }
+]

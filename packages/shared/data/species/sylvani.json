@@ -1,0 +1,24 @@
+{
+  "id": "sylvani",
+  "name": "Sylvani",
+  "description": "The Sylvani are a vast interconnected botanical intelligence that achieved sentience through mycelial-neural networks spanning continent-sized root systems on a lush garden world. They achieved spaceflight not through physics or metallurgy but by bioengineering organisms capable of surviving vacuum, growing living hulls that breathe and self-repair. Patient beyond any animal species' comprehension, a single Sylvani decision may unfold over decades — but the outcomes are almost always optimal.",
+  "portrait": "portrait_sylvani",
+  "traits": {
+    "construction": 3,
+    "reproduction": 8,
+    "research": 8,
+    "espionage": 2,
+    "economy": 6,
+    "combat": 2,
+    "diplomacy": 7
+  },
+  "environmentPreference": {
+    "idealTemperature": 295,
+    "temperatureTolerance": 30,
+    "idealGravity": 1.0,
+    "gravityTolerance": 0.3,
+    "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen"]
+  },
+  "specialAbilities": ["photosynthetic"],
+  "isPrebuilt": true
+}

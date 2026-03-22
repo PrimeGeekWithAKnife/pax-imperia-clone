@@ -100,7 +100,7 @@ The interface was the single most praised feature across nearly all reviews:
 
 ---
 
-## 6. Design Implications for Nova Imperia
+## 6. Design Implications for Ex Nihilo
 
 Based on this visual research, our modern clone should:
 

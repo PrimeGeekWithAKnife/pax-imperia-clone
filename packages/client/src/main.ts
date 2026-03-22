@@ -1,15 +1,20 @@
 /**
- * Nova Imperia - Game Client Entry Point
- * A modern clone of Pax Imperia: Eminent Domain
+ * Ex Nihilo - Game Client Entry Point
  */
 
-import type { Galaxy } from '@nova-imperia/shared';
+import Phaser from 'phaser';
+import { createGameConfig } from './game/config';
+import { mountUI } from './ui/index';
 
-const config: Pick<Galaxy, 'seed'> & { name: string } = {
-  name: 'Nova Imperia Galaxy',
-  seed: 42,
-};
+// Create the Phaser game instance
+const config = createGameConfig();
+const game = new Phaser.Game(config);
 
-console.log('Nova Imperia - Initializing...', config.name);
+// Mount the React UI overlay on top of the Phaser canvas
+mountUI();
 
-// Phaser and React bootstrapping will be added in Phase 3-4
+// Expose game instance for React ↔ Phaser event bridging.
+// This must always be set (not just in DEV) because useGameEvent hooks
+// and manual event emitters in React rely on window.__EX_NIHILO_GAME__ to
+// communicate with Phaser scenes.
+(window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ = game;

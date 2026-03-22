@@ -1,5 +1,8 @@
 /** Species and empire types */
 
+import type { GovernmentType } from './government.js';
+export type { GovernmentType };
+
 export interface Species {
   id: string;
   name: string;
@@ -52,14 +55,15 @@ export interface Empire {
   currentAge: TechAge;
   isAI: boolean;
   aiPersonality?: AIPersonality;
+  government: GovernmentType;
 }
 
 export type TechAge =
-  | 'diamond_age'
-  | 'spatial_dark_age'
-  | 'neo_renaissance'
-  | 'fusion_age'
-  | 'age_of_star_empires';
+  | 'nano_atomic'
+  | 'fusion'
+  | 'nano_fusion'
+  | 'anti_matter'
+  | 'singularity';
 
 export type AIPersonality =
   | 'aggressive'

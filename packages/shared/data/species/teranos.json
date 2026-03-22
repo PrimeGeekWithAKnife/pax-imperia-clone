@@ -1,0 +1,24 @@
+{
+  "id": "teranos",
+  "name": "Teranos",
+  "description": "The Teranos are a warm-blooded primate species whose most defining trait is relentless adaptability — they have colonized deserts, tundras, high altitudes, and deep forests on their homeworld before ever leaving it. Their path to space was paved with trade rather than conquest, building interstellar merchant networks that became the informal diplomatic infrastructure of early galactic civilization. No Teranos empire is ever the strongest or the smartest in the galaxy, but they are nearly always the most connected, and that has always been enough.",
+  "portrait": "portrait_teranos",
+  "traits": {
+    "construction": 5,
+    "reproduction": 6,
+    "research": 5,
+    "espionage": 5,
+    "economy": 7,
+    "combat": 5,
+    "diplomacy": 7
+  },
+  "environmentPreference": {
+    "idealTemperature": 288,
+    "temperatureTolerance": 35,
+    "idealGravity": 1.0,
+    "gravityTolerance": 0.3,
+    "preferredAtmospheres": ["oxygen_nitrogen"]
+  },
+  "specialAbilities": ["nomadic"],
+  "isPrebuilt": true
+}

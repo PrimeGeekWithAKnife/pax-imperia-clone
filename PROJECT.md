@@ -1,8 +1,8 @@
-# Pax Imperia: Eminent Domain - Modern Clone
+# Ex Nihilo - Game Design Document
 
-## Project Codename: **Nova Imperia**
+## Project: **Ex Nihilo**
 
-A modern reimagining of Pax Imperia: Eminent Domain (1997), the real-time 4X space strategy game originally developed by Heliotrope Studios and published by THQ.
+A modern real-time 4X space strategy game. Developed by Meridian Logic Ltd.
 
 ---
 
@@ -77,7 +77,7 @@ A modern reimagining of Pax Imperia: Eminent Domain (1997), the real-time 4X spa
 
 ---
 
-## Modern Vision: What Nova Imperia Will Be
+## Modern Vision: What Ex Nihilo Will Be
 
 ### Design Pillars
 1. **Faithful Core** - Preserve the real-time 4X formula with wormhole galaxy topology

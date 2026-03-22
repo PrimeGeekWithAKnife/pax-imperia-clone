@@ -1,0 +1,24 @@
+{
+  "id": "khazari",
+  "name": "Khazari",
+  "description": "The Khazari are a thick-scaled reptilian species who evolved in the volcanic highlands of a heavy-gravity world, where survival demanded mastery of fire, metal, and brute engineering. Their interstellar civilization was forged through conquest and industrial output rather than diplomacy or finesse, producing warfleets of unmatched tonnage. A Khazari admiral prizes the heft of a well-built hull the way philosophers prize truth — as the only thing that actually matters.",
+  "portrait": "portrait_khazari",
+  "traits": {
+    "construction": 9,
+    "reproduction": 5,
+    "research": 3,
+    "espionage": 2,
+    "economy": 6,
+    "combat": 9,
+    "diplomacy": 2
+  },
+  "environmentPreference": {
+    "idealTemperature": 620,
+    "temperatureTolerance": 120,
+    "idealGravity": 1.8,
+    "gravityTolerance": 0.5,
+    "preferredAtmospheres": ["carbon_dioxide", "sulfur_dioxide"]
+  },
+  "specialAbilities": ["silicon_based"],
+  "isPrebuilt": true
+}

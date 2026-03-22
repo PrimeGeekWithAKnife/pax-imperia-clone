@@ -1,0 +1,22 @@
+[package]
+name = "ex-nihilo"
+version = "0.1.0"
+description = "Ex Nihilo - A modern 4X space strategy game"
+authors = ["PrimeGeekWithAKnife"]
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

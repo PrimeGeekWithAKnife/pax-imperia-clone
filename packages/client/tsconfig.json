@@ -3,7 +3,11 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@nova-imperia/shared": ["../shared/src/index.ts"],
+      "@nova-imperia/shared-data/*": ["../shared/data/*"]
+    }
   },
   "include": ["src/**/*"],
   "references": [

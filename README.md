@@ -1,6 +1,6 @@
-# Nova Imperia
+# Ex Nihilo
 
-A modern, web-based reimagining of **Pax Imperia: Eminent Domain** (1997) - the real-time 4X space strategy game.
+A modern, web-based real-time 4X space strategy game.
 
 Build your empire across a galaxy of interconnected star systems. Customize your species, design warships, research technologies, negotiate with alien civilizations, and wage real-time tactical battles for galactic dominance.
 
@@ -45,10 +45,6 @@ packages/
   shared/    - Shared TypeScript types and game data
 docs/        - Design documents
 ```
-
-## Inspired By
-
-[Pax Imperia: Eminent Domain](https://en.wikipedia.org/wiki/Pax_Imperia:_Eminent_Domain) (1997) by Heliotrope Studios / THQ. This is an original fan project; no original game assets are used.
 
 ## License
 

@@ -54,12 +54,16 @@ export type PlanetType =
 
 export type AtmosphereType =
   | 'oxygen_nitrogen'
+  | 'nitrogen'
   | 'carbon_dioxide'
   | 'methane'
   | 'ammonia'
+  | 'sulfur_dioxide'
+  | 'hydrogen'
+  | 'hydrogen_helium'
   | 'none'
   | 'toxic'
-  | 'hydrogen_helium';
+  | 'vacuum';
 
 export interface Building {
   id: string;
@@ -75,7 +79,42 @@ export type BuildingType =
   | 'defense_grid'
   | 'population_center'
   | 'mining_facility'
-  | 'spaceport';
+  | 'spaceport'
+  | 'power_plant'
+  | 'entertainment_complex'
+  | 'hydroponics_bay'
+  | 'orbital_platform'
+  | 'recycling_plant'
+  | 'communications_hub'
+  | 'terraforming_station'
+  | 'military_academy'
+  | 'fusion_reactor'
+  | 'medical_bay'
+  | 'advanced_medical_centre'
+  // ── Vaelori unique buildings ──────────────────────────────────────────────
+  | 'crystal_resonance_chamber'
+  | 'psionic_amplifier'
+  // ── Khazari unique buildings ──────────────────────────────────────────────
+  | 'war_forge'
+  | 'magma_tap'
+  // ── Sylvani unique buildings ──────────────────────────────────────────────
+  | 'living_archive'
+  | 'growth_vat'
+  // ── Nexari unique buildings ───────────────────────────────────────────────
+  | 'neural_network_hub'
+  | 'assimilation_node'
+  // ── Drakmari unique buildings ─────────────────────────────────────────────
+  | 'abyssal_processor'
+  | 'predator_arena'
+  // ── Teranos unique buildings ──────────────────────────────────────────────
+  | 'diplomatic_quarter'
+  | 'innovation_lab'
+  // ── Zorvathi unique buildings ─────────────────────────────────────────────
+  | 'deep_hive'
+  | 'tunnel_network'
+  // ── Ashkari unique buildings ──────────────────────────────────────────────
+  | 'salvage_yard'
+  | 'black_market';
 
 export interface ProductionItem {
   type: 'ship' | 'building' | 'defense';

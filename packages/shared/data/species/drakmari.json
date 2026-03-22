@@ -1,0 +1,24 @@
+{
+  "id": "drakmari",
+  "name": "Drakmari",
+  "description": "The Drakmari are apex predators from the crushing deep-ocean trenches of a high-gravity water world, possessing bioluminescent skin, layered pressure-resistant anatomy, and an instinct for ambush that transferred seamlessly to naval combat. Reaching space required solving pressure engineering in reverse — not keeping pressure out, but learning to live without it — and the Drakmari did so with characteristic aggression, experimenting until it worked. Their fleets are fast, vicious, and alarmingly good at finding the weak points in an enemy formation.",
+  "portrait": "portrait_drakmari",
+  "traits": {
+    "construction": 4,
+    "reproduction": 7,
+    "research": 3,
+    "espionage": 6,
+    "economy": 3,
+    "combat": 9,
+    "diplomacy": 4
+  },
+  "environmentPreference": {
+    "idealTemperature": 310,
+    "temperatureTolerance": 50,
+    "idealGravity": 1.7,
+    "gravityTolerance": 0.4,
+    "preferredAtmospheres": ["oxygen_nitrogen", "carbon_dioxide"]
+  },
+  "specialAbilities": ["aquatic"],
+  "isPrebuilt": true
+}
