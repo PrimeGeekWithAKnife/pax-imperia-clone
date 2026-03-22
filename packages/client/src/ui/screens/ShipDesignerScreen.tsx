@@ -27,13 +27,16 @@ function emitToPhaser(eventName: string, data: unknown): void {
 
 // Hull class icons using text characters
 const HULL_CLASS_ICON: Record<HullClass, string> = {
-  scout:      '>>',
-  destroyer:  '>>>',
-  transport:  '[]>',
-  cruiser:    '==>',
-  carrier:    '[##]',
-  battleship: '###>',
-  coloniser:  '(O)>',
+  scout:            '>>',
+  destroyer:        '>>>',
+  transport:        '[]>',
+  cruiser:          '==>',
+  carrier:          '[##]',
+  battleship:       '###>',
+  coloniser:        '(O)>',
+  dreadnought:      '####>',
+  battle_station:   '[####]',
+  deep_space_probe: '(.)>',
 };
 
 // Human-readable age names for locked hull display

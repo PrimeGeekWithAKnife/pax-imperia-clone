@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PREBUILT_SPECIES, PREBUILT_SPECIES_BY_ID } from '../../data/species/index.js';
 import { SpeciesSchema, totalTraitPoints } from '../validation/species.js';
 
-const EXPECTED_SPECIES_COUNT = 8;
+const EXPECTED_SPECIES_COUNT = 15;
 const TRAIT_POINTS_MIN = 36;
 const TRAIT_POINTS_MAX = 50;
 const EXPECTED_IDS = [
@@ -14,6 +14,13 @@ const EXPECTED_IDS = [
   'teranos',
   'zorvathi',
   'ashkari',
+  'luminari',
+  'vethara',
+  'kaelenth',
+  'thyriaq',
+  'aethyn',
+  'orivani',
+  'pyrenth',
 ];
 
 describe('Prebuilt species data', () => {

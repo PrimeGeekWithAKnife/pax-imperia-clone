@@ -27,6 +27,9 @@ export const HullClassSchema = z.enum([
   'carrier',
   'battleship',
   'coloniser',
+  'dreadnought',
+  'battle_station',
+  'deep_space_probe',
 ]);
 
 // ── TechEffect discriminated union ────────────────────────────────────────────

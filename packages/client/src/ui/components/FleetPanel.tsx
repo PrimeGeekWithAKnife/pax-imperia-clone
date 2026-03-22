@@ -1,6 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Fleet, Ship, FleetStance, ShipDesign } from '@nova-imperia/shared';
+import { findPath, determineTravelMode } from '@nova-imperia/shared';
 import { renderShipThumbnail } from '../../assets/graphics';
+import { getGameEngine } from '../../engine/GameEngine';
+import { useGameEvent } from '../hooks/useGameEvents';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +84,78 @@ export function FleetPanel({
   const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set());
   const [showDisband, setShowDisband] = useState(false);
 
+  // ── Relocation confirmation state ─────────────────────────────────────────
+  const [relocateTarget, setRelocateTarget] = useState<{
+    systemId: string;
+    systemName: string;
+    estimatedTurns: number;
+  } | null>(null);
+
+  // Listen for destination selection from the galaxy map while in move mode
+  const handleDestinationSelected = useCallback(
+    (data: { fleetId: string; systemId: string; systemName: string }) => {
+      if (data.fleetId !== fleet.id) return;
+
+      // Calculate estimated travel time
+      const engine = getGameEngine();
+      let estimatedTurns = 1;
+      if (engine) {
+        const tickState = engine.getState();
+        const galaxy = tickState.gameState.galaxy;
+        const playerEmpire = tickState.gameState.empires.find(e => !e.isAI);
+        const empireTechs = playerEmpire?.technologies ?? [];
+        const travelMode = determineTravelMode(empireTechs);
+
+        // Ticks per hop by travel mode
+        const ticksPerHopMap: Record<string, number> = {
+          slow_ftl: 20,
+          wormhole: 10,
+          advanced_wormhole: 5,
+        };
+        const ticksPerHop = ticksPerHopMap[travelMode] ?? 10;
+
+        const pathResult = findPath(galaxy, fleet.position.systemId, data.systemId);
+        if (pathResult.found) {
+          const hops = pathResult.path.length - 1;
+          estimatedTurns = Math.max(1, hops * ticksPerHop);
+        }
+      }
+
+      setRelocateTarget({
+        systemId: data.systemId,
+        systemName: data.systemName,
+        estimatedTurns,
+      });
+    },
+    [fleet.id, fleet.position.systemId],
+  );
+
+  useGameEvent<{ fleetId: string; systemId: string; systemName: string }>(
+    'fleet:destination_selected',
+    handleDestinationSelected,
+  );
+
+  const handleRelocateConfirm = useCallback(() => {
+    if (!relocateTarget) return;
+    const engine = getGameEngine();
+    if (engine) {
+      engine.moveFleet(fleet.id, relocateTarget.systemId);
+    }
+    setRelocateTarget(null);
+    setMoveToActive(false);
+    emitToPhaser('fleet:move_mode_clear', {});
+  }, [fleet.id, relocateTarget]);
+
+  const handleRelocateCancel = useCallback(() => {
+    setRelocateTarget(null);
+    // Keep move mode active so the player can pick a different target
+  }, []);
+
+  // Clear relocation state if the fleet changes
+  useEffect(() => {
+    setRelocateTarget(null);
+  }, [fleet.id]);
+
   // ── Name editing ────────────────────────────────────────────────────────────
 
   const handleNameCommit = useCallback(() => {
@@ -122,8 +197,8 @@ export function FleetPanel({
     emitToPhaser('fleet:move_mode', { fleetId: fleet.id, active: next });
   }, [fleet.id, moveToActive]);
 
-  /** In system view, navigate back to galaxy map so the player can pick a target. */
-  const handleGoToGalaxyView = useCallback(() => {
+  /** In system view, navigate to the galaxy map so the player can pick a relocation target. */
+  const handleRelocateFleet = useCallback(() => {
     emitToPhaser('scene:request_galaxy_view', { fleetId: fleet.id });
   }, [fleet.id]);
 
@@ -332,10 +407,10 @@ export function FleetPanel({
             <button
               type="button"
               className="fleet-panel__action-btn"
-              onClick={handleGoToGalaxyView}
-              title="Return to the galaxy map to select a movement target"
+              onClick={handleRelocateFleet}
+              title="Switch to galaxy view to select a relocation target"
             >
-              Move To Galaxy View
+              Relocate Fleet
             </button>
           ) : (
             <button
@@ -382,6 +457,35 @@ export function FleetPanel({
           )}
         </div>
       </section>
+
+      {/* Relocation confirmation dialog */}
+      {relocateTarget && (
+        <section className="fleet-panel__section fleet-panel__section--relocate">
+          <div className="fleet-panel__relocate-confirm">
+            <div className="fleet-panel__relocate-message">
+              Relocate <strong>{fleetName}</strong> to <strong>{relocateTarget.systemName}</strong>?
+              <br />
+              Estimated travel: {relocateTarget.estimatedTurns} {relocateTarget.estimatedTurns === 1 ? 'turn' : 'turns'}
+            </div>
+            <div className="fleet-panel__relocate-btns">
+              <button
+                type="button"
+                className="fleet-panel__action-btn fleet-panel__action-btn--confirm"
+                onClick={handleRelocateConfirm}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="fleet-panel__action-btn fleet-panel__action-btn--cancel"
+                onClick={handleRelocateCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Disband */}
       <section className="fleet-panel__section fleet-panel__section--danger">

@@ -64,30 +64,6 @@ const ATMOSPHERE_LABELS: Record<AtmosphereType, string> = {
   none: 'None/Vacuum',
 };
 
-const GOVERNMENT_TYPES = [
-  'Democracy',
-  'Autocracy',
-  'Theocracy',
-  'Oligarchy',
-  'Hive Mind',
-  'Military Junta',
-  'Technocracy',
-  'Federation',
-] as const;
-
-type GovernmentType = (typeof GOVERNMENT_TYPES)[number];
-
-const GOVERNMENT_DESCRIPTIONS: Record<GovernmentType, string> = {
-  Democracy: 'High diplomacy and research. Slower to mobilize for war.',
-  Autocracy: 'Fast decisions, strong military focus. Lower morale over time.',
-  Theocracy: 'High morale and reproduction. Slower science progress.',
-  Oligarchy: 'Superior economy and espionage. Internal power struggles.',
-  'Hive Mind': 'Perfect coordination. Requires Hive Mind special ability.',
-  'Military Junta': 'Maximum combat and construction. Low diplomacy.',
-  Technocracy: 'Research and economy bonuses. Lower reproduction rate.',
-  Federation: 'Balanced across all traits. Flexible diplomatic options.',
-};
-
 const ORIGIN_STORIES = [
   'Balanced',
   'Bioengineering',
@@ -157,18 +133,14 @@ const ORIGIN_MAP: Record<string, OriginStory> = {
   vaelori: 'Psionic', khazari: 'Industrial', sylvani: 'Bioengineering',
   nexari: 'Cybernetic', drakmari: 'Aquatic', teranos: 'Balanced',
   zorvathi: 'Subterranean', ashkari: 'Nomadic',
+  luminari: 'Psionic', vethara: 'Bioengineering', kaelenth: 'Industrial',
+  thyriaq: 'Bioengineering', aethyn: 'Psionic', orivani: 'Balanced',
+  pyrenth: 'Subterranean',
 };
-const GOVT_MAP: Record<string, GovernmentType> = {
-  vaelori: 'Technocracy', khazari: 'Military Junta', sylvani: 'Federation',
-  nexari: 'Hive Mind', drakmari: 'Autocracy', teranos: 'Democracy',
-  zorvathi: 'Hive Mind', ashkari: 'Oligarchy',
-};
-
 const TEMPLATE_SPECIES = PREBUILT_SPECIES.map(s => ({
   name: s.name,
   traits: s.traits,
   abilities: s.specialAbilities,
-  government: GOVT_MAP[s.id] ?? 'Democracy' as GovernmentType,
   origin: ORIGIN_MAP[s.id] ?? 'Balanced' as OriginStory,
   description: s.description,
   id: s.id,
@@ -214,7 +186,6 @@ function defaultEnv(): EnvironmentPreference {
 export interface SpeciesCreatorContinueData {
   species: Species;
   originStory: string;
-  governmentType: string;
 }
 
 interface SpeciesCreatorScreenProps {
@@ -234,7 +205,6 @@ export function SpeciesCreatorScreen({
   const [traits, setTraits] = useState<SpeciesTraits>(defaultTraits);
   const [env, setEnv] = useState<EnvironmentPreference>(defaultEnv);
   const [abilities, setAbilities] = useState<SpecialAbility[]>([]);
-  const [government, setGovernment] = useState<GovernmentType>('Federation');
 
   // Portrait color customization — seeded from the initial origin palette
   const [primaryColor, setPrimaryColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[0]);
@@ -335,9 +305,6 @@ export function SpeciesCreatorScreen({
     const shuffled = abilityKeys.sort(() => Math.random() - 0.5);
     setAbilities(shuffled.slice(0, Math.floor(Math.random() * 3)));
 
-    // Random government
-    setGovernment(GOVERNMENT_TYPES[Math.floor(Math.random() * GOVERNMENT_TYPES.length)] ?? 'Federation');
-
     // Random origin
     const origins = [...ORIGIN_STORIES];
     setOrigin(origins[Math.floor(Math.random() * origins.length)] ?? 'Balanced');
@@ -352,14 +319,13 @@ export function SpeciesCreatorScreen({
     });
   }, []);
 
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(true);
 
   // Load template
   const handleLoadTemplate = useCallback((template: typeof TEMPLATE_SPECIES[0]) => {
     setName(template.name);
     setTraits(template.traits);
     setAbilities(template.abilities);
-    setGovernment(template.government);
     setOrigin(template.origin);
     setShowTemplatePicker(false);
   }, []);
@@ -379,8 +345,8 @@ export function SpeciesCreatorScreen({
       isPrebuilt: false,
     };
 
-    onContinue({ species, originStory: origin, governmentType: government });
-  }, [isValid, name, description, origin, traits, env, abilities, government, onContinue]);
+    onContinue({ species, originStory: origin });
+  }, [isValid, name, description, origin, traits, env, abilities, onContinue]);
 
   // Preview: trait bar chart
   const maxTraitVal = Math.max(...TRAIT_KEYS.map((k) => traits[k]));
@@ -577,24 +543,6 @@ export function SpeciesCreatorScreen({
               />
             </section>
 
-            {/* Government Type */}
-            <section className="sc-section">
-              <div className="sc-section__label">GOVERNMENT TYPE</div>
-              <div className="sc-gov-grid">
-                {GOVERNMENT_TYPES.map((gov) => (
-                  <button
-                    key={gov}
-                    type="button"
-                    className={`sc-gov-btn ${government === gov ? 'sc-gov-btn--active' : ''}`}
-                    onClick={() => setGovernment(gov)}
-                    title={GOVERNMENT_DESCRIPTIONS[gov]}
-                  >
-                    {gov}
-                  </button>
-                ))}
-              </div>
-              <div className="sc-gov-desc">{GOVERNMENT_DESCRIPTIONS[government]}</div>
-            </section>
           </div>
 
           {/* ── Right column: preview ─────────────────────────────────── */}
@@ -618,7 +566,6 @@ export function SpeciesCreatorScreen({
                   <div className="sc-preview__portrait-ring" />
                 </div>
                 <div className="sc-preview__name">{name.trim() || 'Unnamed Species'}</div>
-                <div className="sc-preview__gov-badge">{government}</div>
 
                 {/* Color customization pickers */}
                 <div className="sc-portrait-colors">
@@ -805,7 +752,7 @@ export function SpeciesCreatorScreen({
                 >
                   <div className="sc-template-card__name">{t.name}</div>
                   <div className="sc-template-card__origin">{t.origin}</div>
-                  <div className="sc-template-card__desc">{t.description}</div>
+                  <div className="sc-template-card__desc">{t.description.length > 200 ? t.description.slice(0, 200) + '…' : t.description}</div>
                   <div className="sc-template-card__traits">
                     {Object.entries(t.traits).map(([k, v]) => (
                       <span key={k} className="sc-template-card__trait">

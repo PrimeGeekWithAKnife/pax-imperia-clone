@@ -248,7 +248,7 @@ export class GameEngine {
     // Broadcast updated migration list so React stays in sync
     this.game.events.emit('engine:migrations_updated', getMigrationOrders());
 
-    // ── Auto-save (every 100 ticks) ─────────────────────────────────────────
+    // ── Auto-save (time-based, every 60 seconds of real time) ──────────────
     try {
       getSaveManager().autoSave(this.tickState);
     } catch {
@@ -1154,6 +1154,18 @@ export function createGameEngine(
 /** Retrieve the running GameEngine from the window global, if present. */
 export function getGameEngine(): GameEngine | undefined {
   return (window as unknown as Record<string, unknown>).__GAME_ENGINE__ as GameEngine | undefined;
+}
+
+/**
+ * Destroy the running GameEngine: pause the tick loop and clear the global
+ * reference so a subsequent createGameEngine() call starts fresh.
+ */
+export function destroyGameEngine(): void {
+  const engine = getGameEngine();
+  if (engine) {
+    engine.pause();
+  }
+  (window as unknown as Record<string, unknown>).__GAME_ENGINE__ = undefined;
 }
 
 // Re-export initializeTickState so callers can import from one place

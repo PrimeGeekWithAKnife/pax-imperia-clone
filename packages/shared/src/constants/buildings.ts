@@ -32,7 +32,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
-    description: 'Generates research points each tick. Output is amplified by the species research trait.',
+    description: 'Banks of humming terminals and sealed clean rooms where the unknown becomes the understood. Generates research points each tick, amplified by the species research trait. For many colonists, the glow of the lab at night is a promise that tomorrow will be better than today.',
     requiredTech: 'subspace_scanning',
   },
 
@@ -43,7 +43,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Processes raw resources into refined minerals. Amplified by the species construction trait. Credit-only cost to allow early construction.',
+    description: 'Smoke stacks, conveyor belts, and the relentless clatter of automated assembly lines turning raw ore into something useful. Processes raw resources into refined minerals, amplified by the species construction trait. Cheap to build — the first factory on a new colony is often the difference between survival and stagnation.',
   },
 
   shipyard: {
@@ -53,8 +53,8 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
-    description: 'Enables ship construction on this planet. Higher levels reduce ship build time.',
-    requiredTech: 'cruiser_architecture',
+    description: 'A vast orbital cradle of gantries, welding arms, and pressurised assembly bays where starships take shape from raw metal and ambition. Enables ship construction on this planet; higher levels reduce build time. The shipyard is where an empire\'s reach is forged — quite literally.',
+    requiredTech: 'nano_fabrication',
   },
 
   trade_hub: {
@@ -64,7 +64,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Generates credits each tick through interstellar commerce.',
+    description: 'A sprawling bazaar of warehouses, brokerage offices, and currency exchanges where goods from across the sector change hands. Generates credits each tick through interstellar commerce. Where trade hubs thrive, so does civilisation — and where they fall silent, empires soon follow.',
     requiredTech: 'trade_protocols',
   },
 
@@ -75,7 +75,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 2, energy: 2 },
     maxLevel: 4,
-    description: 'Provides planetary defences. Does not produce resources but consumes energy.',
+    description: 'A network of orbital weapon platforms, ground-based interceptors, and early-warning sensor arrays that turns a colony into a fortress. Produces no resources and draws significant energy, but an invading fleet will pay dearly for every kilometre of atmosphere it crosses.',
     requiredTech: 'automated_defence',
   },
 
@@ -86,7 +86,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Increases the tax base and organics output by housing more colonists. Essential for population growth.',
+    description: 'Habitation blocks, parks, schools, and the quiet infrastructure that turns a landing site into a home. Houses more colonists and increases organics output through expanded agriculture. Essential for population growth — an empire is only as strong as the people who believe in it.',
   },
 
   mining_facility: {
@@ -97,7 +97,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description:
-      'Extracts minerals and rare elements. Output scales with the planet natural resources rating. Cheap to build — essential for bootstrapping your economy.',
+      'Deep-bore drilling rigs and open-cast excavations that crack the planet\'s crust for what lies beneath. Extracts minerals and rare elements, with output scaling to the world\'s natural resources rating. Cheap to build and the first step in any colony\'s economic development — you cannot build an empire without digging one up first.',
   },
 
   spaceport: {
@@ -107,7 +107,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2 },
     maxLevel: 3,
-    description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
+    description: 'A gleaming orbital dock ringed with cargo berths and refuelling pylons, where freighters from distant systems queue for landing clearance. Boosts credit income and enables trade routes to other systems. The spaceport is the face a colony shows the galaxy — busy, prosperous, and open for business.',
     requiredTech: 'nano_fabrication',
   },
 
@@ -118,7 +118,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Generates energy to power other buildings. Essential for any growing colony. Higher levels produce more energy.',
+    description: 'Cooling towers, turbine halls, and the deep thrum of generators that never stop. Produces the energy that powers every other structure on the colony. Higher levels deliver more output. Without power, nothing else functions — the power plant is not glamorous, but it is indispensable.',
   },
 
   entertainment_complex: {
@@ -128,7 +128,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Keeps colonists happy and productive. Reduces unrest and generates cultural influence.',
+    description: 'Amphitheatres, holosuites, gardens, and gathering halls where colonists remember that life is more than work quotas and resource projections. Reduces unrest, generates cultural influence, and reminds a population stretched across the void that they still have something worth fighting for.',
     requiredTech: 'growth_stimulants',
   },
 
@@ -139,7 +139,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Grows food in controlled environments. Essential for colonies on barren or hostile worlds.',
+    description: 'Tiered racks of nutrient-rich tanks glow under artificial sunlight, growing food where no soil exists. Produces organics in controlled environments, making colonisation viable on barren or hostile worlds. The smell of green, growing things in a sealed bay on a lifeless rock is a small miracle that colonists never quite get used to.',
   },
 
   orbital_platform: {
@@ -149,7 +149,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 14,
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 3,
-    description: 'An orbital structure extending the planet\'s capabilities. Provides additional building capacity.',
+    description: 'A ring of pressurised modules and docking spars suspended in low orbit, extending the planet\'s industrial capacity beyond its surface. Generates modest energy and credits while providing additional building slots. When a world runs out of room to grow, it grows upward.',
     requiredTech: 'gravity_generators',
   },
 
@@ -160,7 +160,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 0 },
     maxLevel: 5,
-    description: 'Converts waste into usable materials. Reduces environmental impact and building maintenance.',
+    description: 'Nothing is wasted. Broken hull plating becomes structural alloy; spent fuel cells yield trace minerals; organic refuse becomes fertiliser. Converts waste streams into usable materials at zero maintenance cost. On the frontier, the recycling plant is a quiet testament to the principle that civilisation means making the most of what you have.',
     requiredTech: 'genetic_optimisation',
   },
 
@@ -171,7 +171,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Planetary network connecting all buildings for improved coordination. Boosts research and trade.',
+    description: 'Antenna arrays and quantum-entangled relay stations that knit every facility on the planet into a single coordinated network. Boosts research output and trade efficiency by eliminating communication lag. When every laboratory and marketplace can share data in real time, the whole colony becomes greater than the sum of its parts.',
     requiredTech: 'quantum_ciphers',
   },
 
@@ -182,7 +182,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
-    description: 'Slowly modifies planetary atmosphere and conditions. Very expensive but can make hostile worlds habitable.',
+    description: 'Massive atmospheric processors that pump tailored gas mixtures into alien skies, slowly bending a world\'s climate toward habitability over decades. Extremely expensive and energy-hungry, producing no immediate output — but the payoff is a planet reborn. Terraforming is the ultimate expression of patience: the belief that what you build today, your grandchildren will inherit.',
     requiredTech: 'terraforming',
   },
 
@@ -193,7 +193,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 2 },
     maxLevel: 4,
-    description: 'Trains ground forces for planetary defence and invasion. Required for troop deployment.',
+    description: 'Drill yards, simulation chambers, and officer schools where raw recruits are shaped into soldiers capable of holding ground on alien worlds. Trains ground forces for both planetary defence and invasion operations. Required for troop deployment. The academy is where a colony transforms from a settlement worth attacking into a settlement capable of fighting back.',
     requiredTech: 'heavy_fighter_wings',
   },
 
@@ -204,7 +204,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
-    description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
+    description: 'A miniature star contained in magnetic fields, converting hydrogen into helium and helium into the raw power that drives an advanced colony. Produces significantly more energy than a conventional power plant. The fusion reactor is the point at which a colony stops merely surviving and begins to thrive.',
     requiredTech: 'plasma_physics',
   },
 
@@ -215,7 +215,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'A well-equipped medical facility that reduces population loss from disease and improves overall colony health.',
+    description: 'Sterile wards, diagnostic arrays, and quarantine chambers staffed by specialists who have learned that alien biology is always full of surprises. Reduces population loss from disease and improves overall colony health. On frontier worlds, the medical bay is often the most visited building — and the most appreciated.',
   },
 
   advanced_medical_centre: {
@@ -225,7 +225,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 4,
-    description: 'A state-of-the-art xenobiological healthcare facility providing superior disease resistance and population recovery rates.',
+    description: 'Where the medical bay treats symptoms, the advanced medical centre rewrites them. Gene therapy suites, xenobiological research wings, and regeneration pods push the boundaries of what medicine can achieve across species. Provides superior disease resistance and dramatically improved population recovery rates. The colonists who walk out of these doors are, in a very real sense, better than when they walked in.',
     requiredTech: 'xenobiology',
   },
 
@@ -435,5 +435,187 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maxLevel: 5,
     description:
       'An off-the-books trading network that funnels goods through the grey margins of interstellar commerce. Provides a substantial boost to trade income and generates a trickle of rare elements from contraband deals. Ashkari only.',
+  },
+
+  // ── Luminari unique buildings ───────────────────────────────────────────────
+
+  plasma_conduit: {
+    name: 'Plasma Conduit',
+    racialSpeciesId: 'luminari',
+    baseCost: { credits: 180, minerals: 60 },
+    baseProduction: { energy: 14, researchPoints: 3 },
+    buildTime: 10,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 5,
+    description:
+      'A lattice of magnetic containment fields that channels raw stellar plasma through a series of resonance chambers, allowing Luminari researchers to manipulate energy states directly. Produces enormous quantities of energy and a steady stream of research insights drawn from observing matter-energy transitions at extreme temperatures. Luminari only.',
+  },
+
+  dimensional_resonator: {
+    name: 'Dimensional Resonator',
+    racialSpeciesId: 'luminari',
+    baseCost: { credits: 250, minerals: 80 },
+    baseProduction: { researchPoints: 8 },
+    buildTime: 14,
+    maintenanceCost: { credits: 3, energy: 4 },
+    maxLevel: 4,
+    description:
+      'A facility that generates controlled oscillations in the local electromagnetic field, allowing Luminari operatives to extend their perceptive range across vast distances. Dramatically enhances espionage operations launched from this planet and provides passive detection of cloaked or phased vessels in adjacent systems. The resonator hums at frequencies that make physical species uneasy. Luminari only.',
+  },
+
+  // ── Vethara unique buildings ────────────────────────────────────────────────
+
+  bonding_chamber: {
+    name: 'Bonding Chamber',
+    racialSpeciesId: 'vethara',
+    baseCost: { credits: 140, organics: 60 },
+    baseProduction: { organics: 3 },
+    buildTime: 8,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 5,
+    description:
+      'A climate-controlled biological facility where Vethara neural filaments are carefully matched with compatible host organisms under controlled conditions. Accelerates population growth by improving bonding success rates and reducing rejection complications. Each chamber is tended by symbiotic counsellors who monitor both host and Vethara throughout the integration process. Vethara only.',
+  },
+
+  neural_integration_centre: {
+    name: 'Neural Integration Centre',
+    racialSpeciesId: 'vethara',
+    baseCost: { credits: 220, minerals: 50 },
+    baseProduction: { researchPoints: 4, credits: 3 },
+    buildTime: 12,
+    maintenanceCost: { credits: 3, energy: 2 },
+    maxLevel: 4,
+    description:
+      'An advanced research complex where bonded Vethara pairs contribute their shared cognitive output to collective scientific endeavours. The dual-consciousness processing of bonded individuals generates unique insights unavailable to unbonded minds. Also serves as a diplomatic liaison facility, where the Vethara\'s innate empathic awareness — a byproduct of neural bonding — provides extraordinary insight into the motivations of visiting dignitaries. Vethara only.',
+  },
+
+  // ── Kaelenth unique buildings ───────────────────────────────────────────────
+
+  data_archive: {
+    name: 'Data Archive',
+    racialSpeciesId: 'kaelenth',
+    baseCost: { credits: 200, minerals: 120 },
+    baseProduction: { researchPoints: 10 },
+    buildTime: 14,
+    maintenanceCost: { credits: 2, energy: 3 },
+    maxLevel: 4,
+    description:
+      'A vast crystalline data repository containing fragmentary records from the Kaelenth\'s original creators, cross-referenced with forty-seven million years of accumulated observational data. Research output is extraordinary, driven by processing architectures that biological minds cannot replicate. Kaelenth researchers are tireless, require no sleep, and never forget a data point. The archive also contains sealed partitions that the Kaelenth have not yet managed to decrypt — files from the builders that resist every attempt at access. Kaelenth only.',
+  },
+
+  replication_forge: {
+    name: 'Replication Forge',
+    racialSpeciesId: 'kaelenth',
+    baseCost: { credits: 280, minerals: 200 },
+    baseProduction: { minerals: 6, energy: -4 },
+    buildTime: 10,
+    maintenanceCost: { credits: 3, energy: 3 },
+    maxLevel: 3,
+    description:
+      'An automated manufacturing complex that assembles new Kaelenth units from raw materials using fabrication techniques inherited from the original builders. Functions as both a population growth facility and a construction accelerator — new units are immediately integrated into the planetary workforce. The forge operates continuously and without supervision, its assembly routines refined over millions of years to near-perfect efficiency. Kaelenth only.',
+  },
+
+  // ── Thyriaq unique buildings ────────────────────────────────────────────────
+
+  reconfiguration_matrix: {
+    name: 'Reconfiguration Matrix',
+    racialSpeciesId: 'thyriaq',
+    baseCost: { credits: 160, minerals: 100 },
+    baseProduction: { minerals: 5, energy: 3 },
+    buildTime: 6,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'A designated volume in which Thyriaq swarm-regions specialise for industrial output, reconfiguring their nanite composition to process raw materials at the molecular level. The matrix does not contain machinery — it IS machinery, a living factory that can restructure itself to produce whatever is needed. Construction and resource processing on this planet operate at dramatically increased efficiency. Thyriaq only.',
+  },
+
+  substrate_processor: {
+    name: 'Substrate Processor',
+    racialSpeciesId: 'thyriaq',
+    baseCost: { credits: 120, minerals: 60 },
+    baseProduction: { researchPoints: 6, organics: 3 },
+    buildTime: 8,
+    maintenanceCost: { credits: 1, energy: 1 },
+    maxLevel: 5,
+    description:
+      'A swarm-region optimised for information processing, in which billions of nanites arrange themselves into computational architectures of extraordinary density. The processor analyses environmental data, simulates material configurations, and generates research output by literally thinking with matter. Also produces organic compounds as a byproduct of nanite reproduction cycles. Thyriaq only.',
+  },
+
+  // ── Aethyn unique buildings ─────────────────────────────────────────────────
+
+  dimensional_anchor: {
+    name: 'Dimensional Anchor',
+    racialSpeciesId: 'aethyn',
+    baseCost: { credits: 300, minerals: 100 },
+    baseProduction: { researchPoints: 6, energy: -3 },
+    buildTime: 16,
+    maintenanceCost: { credits: 4, energy: 3 },
+    maxLevel: 3,
+    description:
+      'A stabilisation facility that pins a region of local spacetime to the Aethyn\'s native dimensional frequency, creating a zone where their physics and ours overlap. Within the anchor\'s field, Aethyn operatives can perceive and manipulate both realities simultaneously, dramatically improving research output and enabling observations that are literally impossible under normal physics. The anchor also serves as a beachhead for reinforcements from the home dimension. Aethyn only.',
+  },
+
+  phase_laboratory: {
+    name: 'Phase Laboratory',
+    racialSpeciesId: 'aethyn',
+    baseCost: { credits: 220, minerals: 70 },
+    baseProduction: { researchPoints: 4 },
+    buildTime: 12,
+    maintenanceCost: { credits: 3, energy: 2 },
+    maxLevel: 4,
+    description:
+      'A research facility dedicated to studying the boundary between dimensions — specifically, the ways in which matter and energy behave differently when partially phased into the Aethyn\'s native reality. Provides a substantial bonus to espionage operations by allowing operatives to observe targets from a dimensional offset that conventional sensors cannot detect. Also generates a passive stealth field that makes the planet harder to scan. Aethyn only.',
+  },
+
+  // ── Orivani unique buildings ────────────────────────────────────────────────
+
+  grand_cathedral: {
+    name: 'Grand Cathedral',
+    racialSpeciesId: 'orivani',
+    baseCost: { credits: 250, minerals: 150 },
+    baseProduction: { faith: 8, credits: 3 },
+    buildTime: 14,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 4,
+    description:
+      'A towering edifice of devotional architecture, its spires visible from orbit, where the faithful gather in their thousands to reaffirm their commitment to the Coming. The cathedral generates enormous faith output and substantial credit income from pilgrim tithes. Its presence dramatically reduces unrest — colonists within sight of its towers work harder, complain less, and display a purposeful serenity that visiting xenopsychologists find either inspiring or deeply concerning. Orivani only.',
+  },
+
+  reliquary_vault: {
+    name: 'Reliquary Vault',
+    racialSpeciesId: 'orivani',
+    baseCost: { credits: 180, minerals: 80 },
+    baseProduction: { faith: 4 },
+    buildTime: 10,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 4,
+    description:
+      'A heavily fortified repository of sacred artefacts, prophetic texts, and relics believed to date from the First Revelation twelve thousand years ago. The vault provides a combat training bonus to ground forces and ship crews recruited on this planet — soldiers who have touched a relic of the Coming fight with a fervour that borders on the superhuman. Also serves as a centre for the contemplative orders, whose scholars occasionally produce insights of genuine scientific value while attempting to decode the deeper mathematics of the prophecy. Orivani only.',
+  },
+
+  // ── Pyrenth unique buildings ────────────────────────────────────────────────
+
+  elemental_forge: {
+    name: 'Elemental Forge',
+    racialSpeciesId: 'pyrenth',
+    baseCost: { credits: 200, minerals: 180 },
+    baseProduction: { minerals: 10, rareElements: 3, energy: -3 },
+    buildTime: 12,
+    maintenanceCost: { credits: 2, energy: 2 },
+    maxLevel: 4,
+    description:
+      'A deep-mantle facility where Pyrenth artisans manipulate geological forces directly — redirecting lava flows, crystallising mineral deposits, and refining ores through tectonic pressure rather than industrial chemistry. The forge produces extraordinary quantities of minerals and rare elements by working with the planet rather than against it. Output scales with volcanic activity. A Pyrenth elemental forge does not extract resources from a world; it cultivates them, the way a gardener cultivates soil. Pyrenth only.',
+  },
+
+  seismic_resonator: {
+    name: 'Seismic Resonator',
+    racialSpeciesId: 'pyrenth',
+    baseCost: { credits: 160, minerals: 120 },
+    baseProduction: { energy: 6 },
+    buildTime: 10,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'A network of crystalline transducers embedded deep in the planetary crust, converting tectonic vibrations into usable energy and providing the Pyrenth with a detailed real-time map of every geological process occurring beneath the surface. The resonator dramatically improves construction speed on this planet by allowing Pyrenth builders to work in harmony with natural geological forces. Also provides a substantial ground defence bonus — Pyrenth defenders using seismic data can predict and counter landing operations with geological precision. Pyrenth only.',
   },
 };

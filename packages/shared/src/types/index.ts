@@ -1,4 +1,6 @@
 export * from './galaxy.js';
+export * from './anomaly.js';
+export * from './minor-species.js';
 export * from './species.js';
 export * from './ships.js';
 export * from './game-state.js';
@@ -7,3 +9,9 @@ export * from './resources.js';
 export * from './technology.js';
 export * from './government.js';
 export * from './governor.js';
+export * from './trade-routes.js';
+export * from './ai-personality.js';
+export * from './first-contact.js';
+export * from './ethical-audit.js';
+export * from './demographics.js';
+export * from './governor-personality.js';

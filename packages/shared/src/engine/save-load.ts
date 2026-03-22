@@ -14,7 +14,7 @@ import type { ResearchState } from './research.js';
 import type { FleetMovementOrder, ShipProductionOrder } from './fleet.js';
 import type { MigrationOrder } from './colony.js';
 import type { TerraformingProgress } from './terraforming.js';
-import type { TradeRoute } from './trade.js';
+import type { BasicTradeRoute } from './trade.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { ShipDesign, ShipComponent } from '../types/ships.js';
 import type { GameState } from '../types/game-state.js';
@@ -39,7 +39,7 @@ export interface SerializedTickState {
   migrationOrders: MigrationOrder[];
   pendingActions: GameTickState['pendingActions'];
   empireResourcesMap: Array<[string, EmpireResources]>;
-  tradeRoutes: TradeRoute[];
+  tradeRoutes: BasicTradeRoute[];
   economicLeadTicks: Array<[string, number]>;
   allTechCount: number;
   terraformingProgressMap: Array<[string, TerraformingProgress]>;

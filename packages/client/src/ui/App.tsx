@@ -54,7 +54,7 @@ type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 're
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
-  completedTechs: ['pulse_lasers', 'composite_armour', 'ion_drives', 'growth_stimulants'],
+  completedTechs: [],
   activeResearch: [],
   currentAge: 'nano_atomic',
   totalResearchGenerated: 0,
@@ -82,7 +82,7 @@ const MOCK_PLAYER_EMPIRE: Empire = {
   technologies: [],
   currentAge: 'nano_atomic',
   isAI: false,
-  government: 'representative_democracy',
+  government: 'democracy',
 };
 
 /**
@@ -112,6 +112,7 @@ function buildKnownEmpiresFromEngine(engine: GameEngine): KnownEmpire[] {
         treaties: [],
         attitude: 0,
         tradeRoutes: 0,
+        communicationLevel: 'none' as const,
       },
       trust: relation ? Math.max(0, Math.min(100, 50 + relation.attitude / 2)) : 0,
       incidents: [],
@@ -349,8 +350,12 @@ export function App(): React.ReactElement {
       if (currentScreen === 'game') {
         switch (e.key) {
           case 'Escape':
-            setIsPaused((prev) => !prev);
-            e.preventDefault();
+            // Only toggle pause when a game is in progress; on the main menu
+            // there is nothing to pause.
+            if (gameStarted) {
+              setIsPaused((prev) => !prev);
+              e.preventDefault();
+            }
             break;
           case ' ':
             // Space: toggle pause (only while game is running)
@@ -360,19 +365,19 @@ export function App(): React.ReactElement {
             }
             break;
           case '1':
-            setGameSpeed('paused');
+            if (gameStarted) setGameSpeed('paused');
             break;
           case '2':
-            setGameSpeed('slow');
+            if (gameStarted) setGameSpeed('slow');
             break;
           case '3':
-            setGameSpeed('normal');
+            if (gameStarted) setGameSpeed('normal');
             break;
           case '4':
-            setGameSpeed('fast');
+            if (gameStarted) setGameSpeed('fast');
             break;
           case '5':
-            setGameSpeed('fastest');
+            if (gameStarted) setGameSpeed('fastest');
             break;
           case 'r':
           case 'R':
@@ -957,6 +962,29 @@ export function App(): React.ReactElement {
     setManagedSystemId(null);
   }, []);
 
+  // ── All colonised planets owned by the player (for planet navigation arrows) ──
+  const allColonisedPlanets = useMemo((): Array<{ planet: Planet; systemId: string }> => {
+    const engine = getGameEngine();
+    if (!engine) return [];
+    const state = engine.getState();
+    const player = state.gameState.empires.find(e => !e.isAI);
+    if (!player) return [];
+    const result: Array<{ planet: Planet; systemId: string }> = [];
+    for (const system of state.gameState.galaxy.systems) {
+      for (const p of system.planets) {
+        if (p.ownerId === player.id) {
+          result.push({ planet: p, systemId: system.id });
+        }
+      }
+    }
+    return result;
+  }, [galaxy, playerEmpire]);
+
+  const handleChangePlanet = useCallback((planet: Planet, systemId: string) => {
+    setManagedPlanet(planet);
+    setManagedSystemId(systemId);
+  }, []);
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
       if (!managedSystemId) {
@@ -1099,6 +1127,28 @@ export function App(): React.ReactElement {
 
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
   const handleStartGame = useCallback((config: GameConfig) => {
+    // Reset stale game-session state so the new game starts clean
+    setSelectedSystem(null);
+    setSelectedPlanet(null);
+    setActiveSystemId(null);
+    setGalaxy(null);
+    setLiveCredits(undefined);
+    setLiveResearchPoints(undefined);
+    setEmpireResources(EMPTY_RESOURCES);
+    setResearchState(MOCK_RESEARCH_STATE);
+    setAllTechs(UNIVERSAL_TECHNOLOGIES);
+    setKnownEmpires([]);
+    setSavedDesigns([]);
+    setSelectedFleet(null);
+    setFleetShips([]);
+    setBattleResults(null);
+    setActiveMigrations([]);
+    setPlayerVictoryProgress(null);
+    setCurrentTick(0);
+    setEventLogEntries([]);
+    setManagedPlanet(null);
+    setManagedSystemId(null);
+    setGameSpeed('normal');
     // Apply empire name and government from setup to the player empire state
     setPlayerEmpire(prev => ({
       ...prev,
@@ -1108,7 +1158,7 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
     setGameStarted(true);
     setIsPaused(false);
-  }, []);
+  }, [setSelectedSystem, setSelectedPlanet, setGameSpeed]);
 
   // Pause menu
   const handleResume = useCallback(() => {
@@ -1137,6 +1187,29 @@ export function App(): React.ReactElement {
     setIsPaused(false);
     setGameStarted(false);
     setCurrentScreen('game');
+    // Reset all game-session state so a new game starts fresh
+    setSelectedSystem(null);
+    setSelectedPlanet(null);
+    setActiveSystemId(null);
+    setGalaxy(null);
+    setLiveCredits(undefined);
+    setLiveResearchPoints(undefined);
+    setEmpireResources(EMPTY_RESOURCES);
+    setResearchState(MOCK_RESEARCH_STATE);
+    setAllTechs(UNIVERSAL_TECHNOLOGIES);
+    setPlayerEmpire(MOCK_PLAYER_EMPIRE);
+    setKnownEmpires([]);
+    setSavedDesigns([]);
+    setSelectedFleet(null);
+    setFleetShips([]);
+    setBattleResults(null);
+    setActiveMigrations([]);
+    setPlayerVictoryProgress(null);
+    setCurrentTick(0);
+    setEventLogEntries([]);
+    setManagedPlanet(null);
+    setManagedSystemId(null);
+    setGameSpeed('normal');
     // Tell Phaser to go back to the main menu scene
     const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { scene: { start: (key: string) => void }; events: { emit: (e: string) => void } }
@@ -1145,7 +1218,7 @@ export function App(): React.ReactElement {
       // Stop all scenes and restart main menu
       game.events.emit('ui:exit_to_menu');
     }
-  }, []);
+  }, [setSelectedSystem, setSelectedPlanet, setGameSpeed]);
 
   // Render species creator as full-screen overlay
   if (currentScreen === 'species-creator') {
@@ -1166,7 +1239,6 @@ export function App(): React.ReactElement {
         <GameSetupScreen
           species={creatorData.species}
           originStory={creatorData.originStory}
-          governmentType={creatorData.governmentType}
           onBack={handleBackFromSetup}
           onStartGame={handleStartGame}
         />
@@ -1387,6 +1459,9 @@ export function App(): React.ReactElement {
           empireResources={empireResources}
           savedDesigns={savedDesigns}
           empireTechs={researchState.completedTechs}
+          allColonisedPlanets={allColonisedPlanets}
+          onChangePlanet={handleChangePlanet}
+          playerSpeciesId={playerEmpire.species.id}
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}

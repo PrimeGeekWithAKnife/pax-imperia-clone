@@ -1,0 +1,250 @@
+[
+  {
+    "text": "The average galaxy contains two hundred billion stars. Yours is one of trillions.",
+    "category": "serious"
+  },
+  {
+    "text": "Every civilisation in this galaxy achieved spaceflight independently, within a few centuries of one another. Across cosmic time, the odds of that are vanishingly small. Or inevitable.",
+    "category": "serious"
+  },
+  {
+    "text": "Light from the most distant stars you can see set out before any species in this galaxy was sentient. By the time it arrives, empires may have already risen and fallen.",
+    "category": "serious"
+  },
+  {
+    "text": "A wormhole is not a tunnel. It is a wound in spacetime that happens to connect two points. Whether it was made or simply occurred is a question no one has answered.",
+    "category": "serious"
+  },
+  {
+    "text": "In the silence between stars, radio signals from a hundred dead civilisations are still travelling outward, long after their senders turned to dust.",
+    "category": "serious"
+  },
+  {
+    "text": "The galaxy rotates once every 225 million years. In the time it takes to complete a single turn, whole species have evolved, flourished, and gone extinct without ever knowing the stars.",
+    "category": "serious"
+  },
+  {
+    "text": "There are more stars in the observable universe than grains of sand on every beach on every habitable world ever catalogued. Most of them will never be visited.",
+    "category": "serious"
+  },
+  {
+    "text": "When two empires meet for the first time, the moment is unique in cosmic history. It will never happen again, no matter how long the universe endures.",
+    "category": "serious"
+  },
+  {
+    "text": "Space is not empty. It is filled with radiation, dust, magnetic fields, and the remnants of stars that died before your homeworld formed. You are building your empire in a graveyard.",
+    "category": "serious"
+  },
+  {
+    "text": "Every atom of iron in your warships was forged in the heart of a star that exploded billions of years ago. You wage war with the debris of ancient cataclysms.",
+    "category": "serious"
+  },
+  {
+    "text": "The void between galaxies is the loneliest place in existence. Millions of light-years of nothing. No stars. No warmth. No signal. Just the faint hiss of the cosmic microwave background.",
+    "category": "serious"
+  },
+  {
+    "text": "Empires measure time in generations. The galaxy measures it in aeons. Neither unit matters to the stars.",
+    "category": "serious"
+  },
+  {
+    "text": "On a long enough timeline, every civilisation faces the same choice: grow beyond its cradle or perish within it. There is no third option.",
+    "category": "serious"
+  },
+  {
+    "text": "A single supernova can outshine an entire galaxy for weeks. It is a reminder that the universe does not negotiate.",
+    "category": "serious"
+  },
+  {
+    "text": "Some wars are fought over territory. Others over ideology. The most devastating are fought over resources that both sides need to survive. Those wars have no room for mercy.",
+    "category": "serious"
+  },
+  {
+    "text": "Wormhole stability decreases with distance. Plan your supply routes carefully — a fleet stranded without resupply is a fleet that has already lost.",
+    "category": "informative"
+  },
+  {
+    "text": "Colonising a planet with a poor environmental match will impose severe growth penalties. Check atmosphere and gravity compatibility before committing colony ships.",
+    "category": "informative"
+  },
+  {
+    "text": "Research output is amplified by your species' research trait. Species with high research traits should prioritise labs early to snowball their technological advantage.",
+    "category": "informative"
+  },
+  {
+    "text": "Power plants and fusion reactors are the backbone of any colony. Most advanced buildings consume energy — if your grid goes negative, production grinds to a halt.",
+    "category": "informative"
+  },
+  {
+    "text": "Mining facilities scale their output with the planet's natural resources rating. A rich world with three mines will vastly outproduce a barren one with five.",
+    "category": "informative"
+  },
+  {
+    "text": "Trade hubs generate credits passively, but spaceports unlock trade routes between systems. Combining both on a well-connected colony creates a powerful economic engine.",
+    "category": "informative"
+  },
+  {
+    "text": "Government type affects every aspect of your empire. A Technocracy excels at research but fields weaker fleets. A Military Junta does the opposite. Choose based on your strategy, not your ideals.",
+    "category": "informative"
+  },
+  {
+    "text": "Racial buildings are exclusive to their species and often dramatically more efficient than universal equivalents. Build them early on your core worlds.",
+    "category": "informative"
+  },
+  {
+    "text": "Happiness is not cosmetic. Low happiness reduces productivity, increases unrest, and can trigger rebellions on distant colonies. Entertainment complexes and good governance keep your people content.",
+    "category": "informative"
+  },
+  {
+    "text": "Shipyards must be constructed before a planet can build vessels. Higher shipyard levels reduce construction time. Your capital should have a shipyard as early as possible.",
+    "category": "informative"
+  },
+  {
+    "text": "Defence grids do not produce resources, but they make planetary invasion vastly more costly for attackers. A well-fortified world can hold against fleets many times its size.",
+    "category": "informative"
+  },
+  {
+    "text": "Terraforming stations are expensive and slow, but they can transform a hostile world into a paradise. On long campaigns, terraforming key systems pays for itself many times over.",
+    "category": "informative"
+  },
+  {
+    "text": "Medical bays reduce population loss from disease. On newly colonised worlds with unfamiliar biospheres, they can mean the difference between a thriving settlement and a dying one.",
+    "category": "informative"
+  },
+  {
+    "text": "Recycling plants have zero maintenance cost. On resource-poor worlds, they provide a small but reliable trickle of minerals and energy that adds up over time.",
+    "category": "informative"
+  },
+  {
+    "text": "Orbital platforms extend a planet's building capacity beyond its surface limits. Late-game colonies should invest in them to maximise output from every world.",
+    "category": "informative"
+  },
+  {
+    "text": "The Khazari word for 'diplomacy' translates roughly as 'shouting last.'",
+    "category": "amusing"
+  },
+  {
+    "text": "Sylvani decision-making is renowned for producing optimal outcomes. It is also renowned for taking forty years. Most other species have gone to war and back by then.",
+    "category": "amusing"
+  },
+  {
+    "text": "The Ashkari have a saying: 'One species' wreckage is another species' research grant.'",
+    "category": "amusing"
+  },
+  {
+    "text": "Drakmari interior designers insist that all furniture should be pressure-rated to 400 atmospheres. This makes dinner parties with other species somewhat tense.",
+    "category": "amusing"
+  },
+  {
+    "text": "The Nexari do not understand jokes. They understand the structural mechanics of humour perfectly. This is not the same thing.",
+    "category": "amusing"
+  },
+  {
+    "text": "Teranos diplomats are trained to smile at every species they meet. The Khazari interpret a bared-teeth display as a challenge. Early relations were... memorable.",
+    "category": "amusing"
+  },
+  {
+    "text": "Zorvathi workers do not take breaks, hold meetings, or complain about management. Other species find this deeply unsettling rather than admirable.",
+    "category": "amusing"
+  },
+  {
+    "text": "The Vaelori once attempted to explain psionic theory to a Khazari delegation. The Khazari responded by hitting the demonstration crystal with a hammer to see if it was hollow.",
+    "category": "amusing"
+  },
+  {
+    "text": "Ashkari merchants will sell you anything, including a detailed analysis of why you are overpaying. The analysis costs extra.",
+    "category": "amusing"
+  },
+  {
+    "text": "A Drakmari general was once asked to define 'peaceful coexistence.' After a long pause, they replied: 'When the enemy has been coexisted into submission.'",
+    "category": "amusing"
+  },
+  {
+    "text": "If a species achieves immortality and no one remembers what they once were, have they survived — or gone extinct?",
+    "category": "philosophical"
+  },
+  {
+    "text": "Is an empire that conquers every world in the galaxy alone, or has it simply become the galaxy?",
+    "category": "philosophical"
+  },
+  {
+    "text": "The Sylvani do not distinguish between 'self' and 'ecosystem.' If you burn their forest, you have not destroyed their home — you have murdered part of their mind.",
+    "category": "philosophical"
+  },
+  {
+    "text": "Every species believes its own form of consciousness is the truest kind. None of them can prove it.",
+    "category": "philosophical"
+  },
+  {
+    "text": "The word 'alien' implies a norm. But in a galaxy of eight starfaring species, who decides what is normal and what is other?",
+    "category": "philosophical"
+  },
+  {
+    "text": "To terraform a world is to declare that your vision of paradise matters more than whatever was already there. Is that creation, or a subtler form of conquest?",
+    "category": "philosophical"
+  },
+  {
+    "text": "A hive mind has no dissent, no crime, no loneliness. It also has no art, no argument, no solitude. Whether that is utopia or oblivion depends on who you ask — and whether they are still capable of being asked.",
+    "category": "philosophical"
+  },
+  {
+    "text": "What does a species owe the galaxy? Nothing, say the conquerors. Everything, say the idealists. The galaxy itself has no opinion on the matter.",
+    "category": "philosophical"
+  },
+  {
+    "text": "You did not choose to exist. Your species did not choose to evolve. Yet here you are, choosing the fate of worlds. At what point does the accident of existence become the burden of responsibility?",
+    "category": "philosophical"
+  },
+  {
+    "text": "The difference between a liberator and a conqueror is usually decided by whoever writes the history.",
+    "category": "philosophical"
+  },
+  {
+    "text": "Deep space probes at the galaxy's edge have detected patterns in the cosmic background radiation. They appear to be counting down.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Astronomers have catalogued a region of the deep field where galaxies that should exist... do not. The void is too perfect. Too clean.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Ancient data cores recovered from precursor ruins contain a single repeating phrase in a language no species recognises. Linguistic analysis suggests it is a warning.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Statistical models of the distribution of intelligent life in the galaxy produce a curious result: there should be far more spacefaring species than there are. The models do not explain where they went.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Long-range sensor arrays occasionally detect a signal from beyond the galactic rim. It is not random noise. It is not a known language. It repeats at intervals that match no natural phenomenon.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Precursor ruins found on unrelated worlds, separated by thousands of light-years, all share the same final inscription: a symbol that roughly translates as 'flee outward.'",
+    "category": "mysterious"
+  },
+  {
+    "text": "Navigators report that certain wormholes at the galaxy's edge appear to have been sealed — not collapsed naturally, but deliberately closed from the other side.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Three neighbouring galaxies in the deep field have gone dark in the last million years. Cosmologists attribute this to observational error. None of them sound particularly convinced.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Zorvathi deep-bore excavations on ancient worlds have uncovered tunnel networks that predate their own species by millions of years. Something else was digging. Something was trying to hide.",
+    "category": "mysterious"
+  },
+  {
+    "text": "A Vaelori research collective once pooled their psionic perception and directed it beyond the galactic rim. The entire collective went silent for eleven days. When they returned, they refused to discuss what they had seen.",
+    "category": "mysterious"
+  },
+  {
+    "text": "The oldest Ashkari generation ships carry sealed archives labelled 'Do Not Open Until the Sky Goes Dark.' No living Ashkari knows who wrote the label or what the archives contain.",
+    "category": "mysterious"
+  },
+  {
+    "text": "Galactic background radiation is not uniform. There is a shadow — a region where something between the galaxies is blocking the light. It is moving.",
+    "category": "mysterious"
+  }
+]

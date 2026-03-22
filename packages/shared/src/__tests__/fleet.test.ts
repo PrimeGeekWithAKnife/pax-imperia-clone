@@ -38,7 +38,7 @@ function makeSystem(id: string, x: number, y: number, wormholes: string[]): Star
 }
 
 function makeGalaxy(systems: StarSystem[]): Galaxy {
-  return { id: 'test-galaxy', systems, width: 1000, height: 1000, seed: 0 };
+  return { id: 'test-galaxy', systems, anomalies: [], minorSpecies: [], width: 1000, height: 1000, seed: 0 };
 }
 
 /**

@@ -435,5 +435,326 @@
     "baseCost": 1200,
     "baseSpeed": 3,
     "requiredAge": "singularity"
+  },
+  {
+    "class": "dreadnought",
+    "name": "Dreadnought",
+    "baseHullPoints": 600,
+    "maxSlots": 15,
+    "slotLayout": [
+      {
+        "id": "dreadnought_fore_1",
+        "x": 0,
+        "y": -3,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "dreadnought_fore_2",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "dreadnought_fore_3",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "dreadnought_fore_4",
+        "x": 0,
+        "y": 3,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile"]
+      },
+      {
+        "id": "dreadnought_port_1",
+        "x": 1,
+        "y": -4,
+        "facing": "port",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "dreadnought_port_2",
+        "x": 1,
+        "y": -3,
+        "facing": "port",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "dreadnought_starboard_1",
+        "x": 1,
+        "y": 4,
+        "facing": "starboard",
+        "size": "large",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "dreadnought_starboard_2",
+        "x": 1,
+        "y": 3,
+        "facing": "starboard",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "armor", "shield"]
+      },
+      {
+        "id": "dreadnought_turret_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "sensor"]
+      },
+      {
+        "id": "dreadnought_turret_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield", "sensor"]
+      },
+      {
+        "id": "dreadnought_armor_1",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["armor", "shield", "repair_drone"]
+      },
+      {
+        "id": "dreadnought_armor_2",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["armor", "shield", "repair_drone"]
+      },
+      {
+        "id": "dreadnought_special_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["special", "sensor", "repair_drone", "shield"]
+      },
+      {
+        "id": "dreadnought_aft_1",
+        "x": 2,
+        "y": -1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "dreadnought_aft_2",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      }
+    ],
+    "baseCost": 2000,
+    "baseSpeed": 2,
+    "requiredAge": "singularity"
+  },
+  {
+    "class": "battle_station",
+    "name": "Battle Station",
+    "baseHullPoints": 800,
+    "maxSlots": 20,
+    "slotLayout": [
+      {
+        "id": "bstation_bay_1",
+        "x": 0,
+        "y": -4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "bstation_bay_2",
+        "x": 0,
+        "y": -2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "bstation_bay_3",
+        "x": 0,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "bstation_bay_4",
+        "x": 0,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "bstation_bay_5",
+        "x": 0,
+        "y": 4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay"]
+      },
+      {
+        "id": "bstation_hangar_1",
+        "x": 1,
+        "y": -4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay", "special"]
+      },
+      {
+        "id": "bstation_hangar_2",
+        "x": 1,
+        "y": 4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["fighter_bay", "special"]
+      },
+      {
+        "id": "bstation_turret_1",
+        "x": 1,
+        "y": -3,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "bstation_turret_2",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "bstation_turret_3",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "bstation_turret_4",
+        "x": 1,
+        "y": 3,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "shield"]
+      },
+      {
+        "id": "bstation_armor_1",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["armor", "shield", "repair_drone"]
+      },
+      {
+        "id": "bstation_armor_2",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["armor", "shield", "repair_drone"]
+      },
+      {
+        "id": "bstation_armor_3",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["armor", "shield", "repair_drone"]
+      },
+      {
+        "id": "bstation_special_1",
+        "x": 2,
+        "y": -2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["sensor", "repair_drone", "special", "shield"]
+      },
+      {
+        "id": "bstation_special_2",
+        "x": 2,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["sensor", "repair_drone", "special", "shield"]
+      },
+      {
+        "id": "bstation_special_3",
+        "x": 2,
+        "y": 2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": ["sensor", "repair_drone", "special", "shield"]
+      },
+      {
+        "id": "bstation_aft_1",
+        "x": 3,
+        "y": -1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "bstation_aft_2",
+        "x": 3,
+        "y": 1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "bstation_aft_3",
+        "x": 3,
+        "y": 0,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": ["engine", "warp_drive"]
+      }
+    ],
+    "baseCost": 3000,
+    "baseSpeed": 1,
+    "requiredAge": "singularity"
+  },
+  {
+    "class": "deep_space_probe",
+    "name": "Deep Space Probe",
+    "baseHullPoints": 10,
+    "maxSlots": 1,
+    "slotLayout": [
+      {
+        "id": "probe_sensor_1",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["sensor"]
+      }
+    ],
+    "baseCost": 50,
+    "baseSpeed": 10,
+    "requiredAge": "nano_atomic"
   }
 ]

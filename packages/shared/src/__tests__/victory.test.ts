@@ -56,7 +56,7 @@ function makeEmpire(id: string, overrides: Partial<Empire> = {}): Empire {
     technologies: [],
     currentAge: 'nano_atomic',
     isAI: false,
-    government: 'representative_democracy',
+    government: 'democracy',
     ...overrides,
   };
 }
@@ -68,6 +68,7 @@ function makeRelation(empireId: string, status: DiplomaticRelation['status'] = '
     treaties: [],
     attitude: 0,
     tradeRoutes: 0,
+    communicationLevel: 'none',
   };
 }
 
@@ -104,7 +105,7 @@ function makeSystem(id: string, planets: ReturnType<typeof makePlanet>[]): StarS
 }
 
 function makeGalaxy(systems: StarSystem[]): Galaxy {
-  return { id: 'galaxy', systems, width: 1000, height: 1000, seed: 1 };
+  return { id: 'galaxy', systems, anomalies: [], minorSpecies: [], width: 1000, height: 1000, seed: 1 };
 }
 
 function makeGameState(

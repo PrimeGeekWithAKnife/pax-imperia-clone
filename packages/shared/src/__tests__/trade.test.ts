@@ -3,7 +3,7 @@ import {
   canEstablishTradeRoute,
   calculateTradeRouteIncome,
   processTradeRoutes,
-  type TradeRoute,
+  type BasicTradeRoute,
 } from '../engine/trade.js';
 import type { Galaxy, StarSystem, Planet, Building } from '../types/galaxy.js';
 
@@ -75,13 +75,15 @@ function makeGalaxy(): Galaxy {
   return {
     id: 'galaxy-1',
     systems: [systemA, systemB],
+    anomalies: [],
+    minorSpecies: [],
     width: 500,
     height: 500,
     seed: 42,
   };
 }
 
-function makeRoute(overrides: Partial<TradeRoute> = {}): TradeRoute {
+function makeRoute(overrides: Partial<BasicTradeRoute> = {}): BasicTradeRoute {
   return {
     id: 'route-1',
     empireId: 'empire-1',
@@ -293,7 +295,7 @@ describe('processTradeRoutes', () => {
     sysB.wormholes.push('sys-d');
 
     const route1 = makeRoute({ id: 'r1', empireId: 'empire-1' });
-    const route2: TradeRoute = {
+    const route2: BasicTradeRoute = {
       id: 'r2',
       empireId: 'empire-2',
       originSystemId: 'sys-b',
@@ -311,7 +313,7 @@ describe('processTradeRoutes', () => {
 
   it('skips routes referencing systems that no longer exist', () => {
     const galaxy = makeGalaxy();
-    const route: TradeRoute = {
+    const route: BasicTradeRoute = {
       id: 'r-ghost',
       empireId: 'empire-1',
       originSystemId: 'sys-gone',
@@ -352,6 +354,8 @@ describe('processTradeRoutes', () => {
             discovered: {},
           },
         ],
+        anomalies: [],
+        minorSpecies: [],
         width: 1000,
         height: 1000,
         seed: 1,

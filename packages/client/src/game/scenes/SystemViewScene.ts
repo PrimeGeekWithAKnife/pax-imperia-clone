@@ -4,9 +4,9 @@ import { StarRenderer } from '../rendering/StarRenderer';
 import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
-import { getGameEngine } from '../../engine/GameEngine';
+import { getGameEngine, destroyGameEngine } from '../../engine/GameEngine';
 import type { MigrationOrder } from '../../engine/migration';
-import type { GameTickState } from '@nova-imperia/shared';
+import type { GameTickState, GameSpeedName } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import type { HullClass } from '@nova-imperia/shared';
 
@@ -40,8 +40,22 @@ const ZOOM_DEFAULT = 1.0;
 const ZOOM_FACTOR = 0.1;   // zoom step per wheel tick
 const ZOOM_LERP = 0.12;    // fraction lerped per frame
 
-/** Below this zoom level individual ship sprites are replaced by a fleet badge. */
-const FLEET_BADGE_ZOOM_THRESHOLD = 0.8;
+/**
+ * Hull class priority for selecting a representative fleet icon — higher
+ * index = larger / more imposing ship, used as the fleet badge thumbnail.
+ */
+const HULL_CLASS_RANK: Record<HullClass, number> = {
+  deep_space_probe: 0,
+  scout: 1,
+  transport: 2,
+  coloniser: 3,
+  destroyer: 4,
+  cruiser: 5,
+  carrier: 6,
+  battleship: 7,
+  dreadnought: 8,
+  battle_station: 9,
+};
 
 // ── SystemViewScene ────────────────────────────────────────────────────────────
 
@@ -202,6 +216,15 @@ export class SystemViewScene extends Phaser.Scene {
       this.ambient.startSystemAmbient(this.system.starType);
     }
 
+    // ── Speed change listener ─────────────────────────────────────────────
+    this.game.events.on('ui:speed_change', this._handleSpeedChange, this);
+
+    // ── Music track change ─────────────────────────────────────────────────
+    this.game.events.on('music:set_track', this._handleMusicTrack, this);
+
+    // ── Exit to main menu ─────────────────────────────────────────────────
+    this.game.events.on('ui:exit_to_menu', this._handleExitToMenu, this);
+
     // ── Colonise action listener ───────────────────────────────────────────
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
 
@@ -225,16 +248,17 @@ export class SystemViewScene extends Phaser.Scene {
     // Refresh ship indicators on each engine tick so newly built ships appear
     this.game.events.on('engine:tick', this._handleEngineTick, this);
 
-    // Music track change
-    this.game.events.on('music:set_track', (track: unknown) => {
-      this.music?.setTrack(track as MusicTrack);
-    });
+    // Relocate Fleet — switch to galaxy map with move mode activated
+    this.game.events.on('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
 
     // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
-    // Clean up listeners and notify React when the scene shuts down
+    // Clean up ALL listeners and notify React when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('ui:speed_change', this._handleSpeedChange, this);
+      this.game.events.off('music:set_track', this._handleMusicTrack, this);
+      this.game.events.off('ui:exit_to_menu', this._handleExitToMenu, this);
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
@@ -244,6 +268,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
       this.game.events.off('engine:tech_researched', this._handleTechResearchedSfx, this);
       this.game.events.off('engine:tick', this._handleEngineTick, this);
+      this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
       for (const [, sprites] of this.shipSprites) {
@@ -337,9 +362,6 @@ export class SystemViewScene extends Phaser.Scene {
     this.cameraOffset.y = py + (this.cameraOffset.y - py) * ratio;
 
     this._applyWorldTransform();
-
-    // Switch between individual sprites and fleet badges based on zoom level
-    this._updateFleetBadgeVisibility();
   }
 
   // ── Colonise action ───────────────────────────────────────────────────────────
@@ -584,24 +606,30 @@ export class SystemViewScene extends Phaser.Scene {
     this._renderShipIndicators();
   };
 
-  // ── Ship rendering ───────────────────────────────────────────────────────────
+  // ── Fleet rendering ──────────────────────────────────────────────────────────
 
   /**
-   * Ship sprite objects keyed by ship.id.
-   * Each entry is a list: [sprite, label] or just [sprite] depending on how it
-   * was created.  We keep a flat array so we can destroy all of them together.
+   * Fleet icon objects keyed by fleet.id.
+   * Each entry is a list of game objects (sprite, label, hit area) that
+   * together represent one fleet icon in the system view.
+   * We always show ONE icon per fleet (using the largest hull class as
+   * the representative ship), matching the galaxy map behaviour.
    */
   private shipSprites: Map<string, Phaser.GameObjects.GameObject[]> = new Map();
 
   /**
    * Fleet badge containers keyed by `fleetId`.
-   * Shown when zoomed out below FLEET_BADGE_ZOOM_THRESHOLD.
+   * Kept for compatibility with shutdown cleanup, but no longer used
+   * as a separate zoom-dependent layer — we always show fleet icons.
    */
   private fleetBadges: Map<string, Phaser.GameObjects.Container> = new Map();
 
   /**
-   * Render ship indicators for all ships currently positioned in this system.
-   * Uses proper ship silhouette icons from renderShipIcon.
+   * Render ONE fleet icon per fleet currently positioned in this system.
+   * Uses the largest hull class in the fleet as the representative icon,
+   * shows the fleet name (not individual ship names), and offsets
+   * multiple fleets so they don't overlap.
+   *
    * Called on create and refreshed each tick.
    */
   private _renderShipIndicators(): void {
@@ -609,15 +637,18 @@ export class SystemViewScene extends Phaser.Scene {
     if (!engine) return;
 
     const state = engine.getState();
-    const shipsInSystem = state.gameState.ships.filter(
-      s => s.position.systemId === this.system.id,
+    const designsMap = state.shipDesigns ?? new Map();
+
+    // Find all fleets in this system
+    const fleetsInSystem = state.gameState.fleets.filter(
+      f => f.position.systemId === this.system.id && f.ships.length > 0,
     );
 
-    const currentIds = new Set(shipsInSystem.map(s => s.id));
+    const currentFleetIds = new Set(fleetsInSystem.map(f => f.id));
 
-    // Remove indicators for ships that are gone
+    // Remove indicators for fleets that are gone
     for (const [id, objects] of this.shipSprites) {
-      if (!currentIds.has(id)) {
+      if (!currentFleetIds.has(id)) {
         for (const o of objects) o.destroy();
         this.shipSprites.delete(id);
       }
@@ -629,90 +660,68 @@ export class SystemViewScene extends Phaser.Scene {
       empireColours.set(empire.id, empire.color);
     }
 
-    // Build a map of fleetId → empireId
-    const fleetEmpire = new Map<string, string>();
-    for (const fleet of state.gameState.fleets) {
-      fleetEmpire.set(fleet.id, fleet.empireId);
-    }
+    // Render one icon per fleet, offset vertically for multiple fleets
+    for (let fleetIdx = 0; fleetIdx < fleetsInSystem.length; fleetIdx++) {
+      const fleet = fleetsInSystem[fleetIdx]!;
 
-    // Spread multiple ships so they don't overlap — group by orbit slot
-    const shipsByOrbit = new Map<number, number>();
+      // Skip if already rendered (and still present)
+      if (this.shipSprites.has(fleet.id)) continue;
 
-    for (const ship of shipsInSystem) {
-      if (this.shipSprites.has(ship.id)) continue;
-
-      // Determine orbit-slot position
-      const orbitIdx = ship.position.orbitIndex ?? -1;
-      const offsetIndex = shipsByOrbit.get(orbitIdx) ?? 0;
-      shipsByOrbit.set(orbitIdx, offsetIndex + 1);
-
-      // World-space position (relative to worldContainer origin)
-      let wx = 50;
-      let wy = -50;
-
-      if (orbitIdx >= 0) {
-        const entry = this.orbitEntries[orbitIdx];
-        if (entry) {
-          wx = entry.container.x + 22 + offsetIndex * 28;
-          wy = entry.container.y - 22;
+      // Determine the largest hull class in this fleet for the representative icon
+      const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
+      let bestHullClass: HullClass = 'deep_space_probe';
+      let bestRank = -1;
+      for (const ship of fleetShips) {
+        const design = designsMap.get(ship.designId);
+        const hull: HullClass = (design?.hull as HullClass | undefined) ?? 'scout';
+        const rank = HULL_CLASS_RANK[hull];
+        if (rank > bestRank) {
+          bestRank = rank;
+          bestHullClass = hull;
         }
-      } else {
-        wx += offsetIndex * 28;
       }
 
-      // Look up the ship's hull class from the empire ship designs (if available)
-      const shipDesign = (state.gameState as unknown as { shipDesigns?: { id: string; hull: HullClass; empireId: string }[] })
-        .shipDesigns?.find((d) => d.id === ship.designId);
+      // World-space position: offset each fleet vertically so they don't overlap
+      const wx = 50 + fleetIdx * 40;
+      const wy = -60 - fleetIdx * 30;
 
-      const hullClass: HullClass = shipDesign?.hull ?? 'scout';
+      const empireColor = empireColours.get(fleet.empireId) ?? '#4488cc';
 
-      // Determine empire colour from fleet membership
-      const empireId = ship.fleetId ? (fleetEmpire.get(ship.fleetId) ?? null) : null;
-      const empireColor = empireId ? (empireColours.get(empireId) ?? '#4488cc') : '#4488cc';
-
-      // Render ship icon at 28px (displayed at ~24–28px at 1x zoom due to world scale)
-      const iconSize = 28;
-      const dataUrl = renderShipIcon(hullClass, iconSize, empireColor);
+      // Render ship icon at 32px
+      const iconSize = 32;
+      const dataUrl = renderShipIcon(bestHullClass, iconSize, empireColor);
 
       const objects: Phaser.GameObjects.GameObject[] = [];
 
       if (dataUrl) {
-        // Convert data URL to Phaser texture if not already registered
-        const textureKey = `ship_icon_${hullClass}_${empireColor.replace('#', '')}`;
+        const textureKey = `fleet_icon_${bestHullClass}_${empireColor.replace('#', '')}`;
         if (!this.textures.exists(textureKey)) {
           this.textures.addBase64(textureKey, dataUrl);
         }
 
-        // We schedule the actual sprite creation after the texture is loaded,
-        // but addBase64 is synchronous for already-loaded data in most Phaser builds.
-        // Guard with a callback to be safe.
         if (this.textures.exists(textureKey)) {
-          this._createShipSprite(ship, wx, wy, textureKey, hullClass, empireColor, iconSize, state, objects);
+          this._createFleetIcon(fleet, fleetShips.length, wx, wy, textureKey, empireColor, iconSize, state, objects);
         } else {
           this.textures.once(`addtexture-${textureKey}`, () => {
-            this._createShipSprite(ship, wx, wy, textureKey, hullClass, empireColor, iconSize, state, objects);
+            this._createFleetIcon(fleet, fleetShips.length, wx, wy, textureKey, empireColor, iconSize, state, objects);
           });
         }
       } else {
         // Fallback: simple triangle if canvas not available
-        this._createFallbackShipIndicator(ship, wx, wy, empireColor, state, objects);
+        this._createFallbackFleetIndicator(fleet, fleetShips.length, wx, wy, empireColor, state, objects);
       }
 
-      this.shipSprites.set(ship.id, objects);
+      this.shipSprites.set(fleet.id, objects);
     }
-
-    // Refresh fleet badges
-    this._renderFleetBadges(shipsInSystem, fleetEmpire, empireColours);
-    this._updateFleetBadgeVisibility();
   }
 
-  private _createShipSprite(
-    ship: { id: string; name: string; fleetId: string | null },
+  private _createFleetIcon(
+    fleet: { id: string; name: string },
+    shipCount: number,
     wx: number,
     wy: number,
     textureKey: string,
-    _hullClass: HullClass,
-    _empireColor: string,
+    empireColor: string,
     iconSize: number,
     state: GameTickState,
     objects: Phaser.GameObjects.GameObject[],
@@ -724,8 +733,9 @@ export class SystemViewScene extends Phaser.Scene {
     this.worldContainer.add(sprite);
     objects.push(sprite);
 
-    // Ship name label
-    const label = this.add.text(wx + iconSize * 0.6, wy - iconSize * 0.3, ship.name, {
+    // Fleet name label (with ship count)
+    const labelText = `${fleet.name} (${shipCount})`;
+    const label = this.add.text(wx + iconSize * 0.6, wy - iconSize * 0.3, labelText, {
       fontFamily: 'monospace',
       fontSize: '10px',
       color: '#aaeeff',
@@ -752,18 +762,19 @@ export class SystemViewScene extends Phaser.Scene {
     });
     hitArea.on('pointerdown', () => {
       this.sfx?.playClick();
-      const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
-      if (fleet) {
-        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
-        this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
+      const fullFleet = state.gameState.fleets.find(f => f.id === fleet.id);
+      if (fullFleet) {
+        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fullFleet.id);
+        this.game.events.emit('fleet:selected', { fleet: fullFleet, ships: fleetShips });
       }
     });
 
     sprite.setAlpha(0.92);
   }
 
-  private _createFallbackShipIndicator(
-    ship: { id: string; name: string; fleetId: string | null },
+  private _createFallbackFleetIndicator(
+    fleet: { id: string; name: string },
+    shipCount: number,
     wx: number,
     wy: number,
     empireColor: string,
@@ -788,7 +799,7 @@ export class SystemViewScene extends Phaser.Scene {
     gfx.strokeCircle(0, 0, 14);
     container.add(gfx);
 
-    const label = this.add.text(18, -8, ship.name, {
+    const label = this.add.text(18, -8, `${fleet.name} (${shipCount})`, {
       fontFamily: 'monospace',
       fontSize: '11px',
       color: '#aaeeff',
@@ -800,154 +811,43 @@ export class SystemViewScene extends Phaser.Scene {
     hitArea.on('pointerover', () => { this.sfx?.playHover(); });
     hitArea.on('pointerdown', () => {
       this.sfx?.playClick();
-      const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
-      if (fleet) {
-        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
-        this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
+      const fullFleet = state.gameState.fleets.find(f => f.id === fleet.id);
+      if (fullFleet) {
+        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fullFleet.id);
+        this.game.events.emit('fleet:selected', { fleet: fullFleet, ships: fleetShips });
       }
     });
     container.add(hitArea);
   }
 
-  // ── Fleet badges (shown when zoomed out) ─────────────────────────────────────
-
-  /**
-   * Render small fleet count badges grouped by fleet.
-   * Each badge shows the ship count, the empire colour, and is clickable.
-   */
-  private _renderFleetBadges(
-    shipsInSystem: { id: string; fleetId: string | null; position: { systemId: string; orbitIndex?: number } }[],
-    fleetEmpire: Map<string, string>,
-    empireColours: Map<string, string>,
-  ): void {
-    const engine = getGameEngine();
-    if (!engine) return;
-    const state = engine.getState();
-
-    // Group ships by fleet (or by "no fleet" → own entry per ship)
-    const fleetCounts = new Map<string, { count: number; empireId: string; wx: number; wy: number }>();
-
-    const shipsByOrbit = new Map<number, number>();
-    for (const ship of shipsInSystem) {
-      const orbitIdx = ship.position.orbitIndex ?? -1;
-      const offsetIndex = shipsByOrbit.get(orbitIdx) ?? 0;
-      shipsByOrbit.set(orbitIdx, offsetIndex + 1);
-
-      let wx = 50;
-      let wy = -50;
-      if (orbitIdx >= 0) {
-        const entry = this.orbitEntries[orbitIdx];
-        if (entry) {
-          wx = entry.container.x + 22 + offsetIndex * 28;
-          wy = entry.container.y - 22;
-        }
-      } else {
-        wx += offsetIndex * 28;
-      }
-
-      const groupKey = ship.fleetId ?? `solo_${ship.id}`;
-      const empireId = ship.fleetId ? (fleetEmpire.get(ship.fleetId) ?? '') : '';
-      const existing = fleetCounts.get(groupKey);
-      if (existing) {
-        existing.count++;
-      } else {
-        fleetCounts.set(groupKey, { count: 1, empireId, wx, wy });
-      }
-    }
-
-    // Remove stale badges
-    for (const [key, badge] of this.fleetBadges) {
-      if (!fleetCounts.has(key)) {
-        badge.destroy();
-        this.fleetBadges.delete(key);
-      }
-    }
-
-    // Add or update badges
-    for (const [fleetKey, info] of fleetCounts) {
-      const empireColor = empireColours.get(info.empireId) ?? '#00d4ff';
-      const colorNum = parseInt(empireColor.replace('#', ''), 16);
-
-      let badge = this.fleetBadges.get(fleetKey);
-      if (badge) {
-        // Update count
-        const countText = badge.getAt(1) as Phaser.GameObjects.Text;
-        countText?.setText(String(info.count));
-        badge.setPosition(info.wx, info.wy);
-        continue;
-      }
-
-      // Create badge
-      badge = this.add.container(info.wx, info.wy).setDepth(165);
-      this.worldContainer.add(badge);
-
-      // Empire-coloured border circle
-      const border = this.add.graphics();
-      border.lineStyle(2, colorNum, 0.9);
-      border.strokeCircle(0, 0, 12);
-      border.fillStyle(0x000820, 0.85);
-      border.fillCircle(0, 0, 11);
-      badge.add(border);
-
-      // Ship count text
-      const countLabel = this.add.text(0, 0, String(info.count), {
-        fontFamily: 'monospace',
-        fontSize: '11px',
-        color: empireColor,
-        fontStyle: 'bold',
-      }).setOrigin(0.5, 0.5);
-      badge.add(countLabel);
-
-      // Click handler
-      const hitArea = this.add.circle(0, 0, 13, 0xffffff, 0).setInteractive({ useHandCursor: true });
-      hitArea.on('pointerover', () => {
-        border.clear();
-        border.lineStyle(2.5, colorNum, 1.0);
-        border.strokeCircle(0, 0, 12);
-        border.fillStyle(0x001030, 0.9);
-        border.fillCircle(0, 0, 11);
-        this.sfx?.playHover();
-      });
-      hitArea.on('pointerout', () => {
-        border.clear();
-        border.lineStyle(2, colorNum, 0.9);
-        border.strokeCircle(0, 0, 12);
-        border.fillStyle(0x000820, 0.85);
-        border.fillCircle(0, 0, 11);
-      });
-      hitArea.on('pointerdown', () => {
-        this.sfx?.playClick();
-        const fleet = state.gameState.fleets.find(f => f.id === fleetKey);
-        if (fleet) {
-          const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
-          this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
-        }
-      });
-      badge.add(hitArea);
-
-      this.fleetBadges.set(fleetKey, badge);
-    }
-  }
-
-  /**
-   * Show fleet badges when zoomed out below threshold, hide individual sprites.
-   * Show individual sprites when zoomed in above threshold.
-   */
-  private _updateFleetBadgeVisibility(): void {
-    const showBadges = this.currentZoom < FLEET_BADGE_ZOOM_THRESHOLD;
-
-    for (const [, objects] of this.shipSprites) {
-      for (const obj of objects) {
-        (obj as Phaser.GameObjects.Image).setVisible(!showBadges);
-      }
-    }
-
-    for (const [, badge] of this.fleetBadges) {
-      badge.setVisible(showBadges);
-    }
-  }
-
   // ── Game event SFX handlers ───────────────────────────────────────────────────
+
+  private _handleSpeedChange = (speed: unknown): void => {
+    const engine = getGameEngine();
+    if (engine) {
+      const prevSpeed = engine.getState().gameState.speed;
+      engine.setSpeed(speed as GameSpeedName);
+      // Audio feedback for speed change
+      const speedOrder: GameSpeedName[] = ['paused', 'slow', 'normal', 'fast', 'fastest'];
+      const prevIdx = speedOrder.indexOf(prevSpeed as GameSpeedName);
+      const newIdx = speedOrder.indexOf(speed as GameSpeedName);
+      if (newIdx > prevIdx) {
+        this.sfx?.playSpeedUp();
+      } else if (newIdx < prevIdx) {
+        this.sfx?.playSpeedDown();
+      }
+    }
+  };
+
+  private _handleMusicTrack = (track: unknown): void => {
+    this.music?.setTrack(track as MusicTrack);
+  };
+
+  private _handleExitToMenu = (): void => {
+    destroyGameEngine();
+    this.ambient?.stopAll();
+    this.scene.start('MainMenuScene');
+  };
 
   private _handleMigrationStartedSfx = (): void => {
     this.sfx?.playColoniseStart();
@@ -1210,4 +1110,21 @@ export class SystemViewScene extends Phaser.Scene {
       this.scene.start('GalaxyMapScene');
     });
   }
+
+  /**
+   * Handle 'scene:request_galaxy_view' — switch to the galaxy map and
+   * activate fleet move mode so the player can pick a relocation target.
+   *
+   * We stash the fleet ID on the window so GalaxyMapScene can pick it up
+   * after initialisation (the SystemViewScene is destroyed during transition
+   * so we cannot use delayed calls).
+   */
+  private _handleRequestGalaxyView = (data: unknown): void => {
+    const { fleetId } = data as { fleetId: string };
+    // Stash on window for the galaxy scene to pick up in create()
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_PENDING_MOVE_MODE__ = fleetId;
+    this.ambient?.stopAll();
+    this.music?.crossfadeTo('galaxy');
+    this.scene.start('GalaxyMapScene');
+  };
 }

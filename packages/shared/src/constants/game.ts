@@ -7,7 +7,7 @@ export const GALAXY_SIZES = {
   small: 20,
   medium: 40,
   large: 80,
-  huge: 120,
+  huge: 1000,
 } as const;
 
 export type GalaxySize = keyof typeof GALAXY_SIZES;
@@ -41,27 +41,27 @@ export const TECH_AGES: TechAgeDefinition[] = [
   {
     name: 'nano_atomic',
     combatBonus: 0,
-    unlockedHulls: ['scout', 'transport'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser'],
   },
   {
     name: 'fusion',
     combatBonus: 5,
-    unlockedHulls: ['scout', 'transport', 'destroyer'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer'],
   },
   {
     name: 'nano_fusion',
     combatBonus: 10,
-    unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser'],
   },
   {
     name: 'anti_matter',
     combatBonus: 20,
-    unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser', 'carrier'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier'],
   },
   {
     name: 'singularity',
     combatBonus: 35,
-    unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser', 'carrier', 'battleship'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
   },
 ];
 

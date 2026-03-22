@@ -18,7 +18,7 @@ import { distance2D } from '../utils/math.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface TradeRoute {
+export interface BasicTradeRoute {
   id: string;
   empireId: string;
   originSystemId: string;
@@ -143,7 +143,7 @@ export function canEstablishTradeRoute(
  *
  * Minimum income is 1 credit/tick so even adjacent systems produce some revenue.
  */
-export function calculateTradeRouteIncome(route: TradeRoute, distance: number): number {
+export function calculateTradeRouteIncome(route: BasicTradeRoute, distance: number): number {
   return Math.max(1, Math.round(BASE_TRADE_INCOME * distance / DISTANCE_SCALE));
 }
 
@@ -155,7 +155,7 @@ export function calculateTradeRouteIncome(route: TradeRoute, distance: number): 
  * a missing system never crashes the game loop.
  */
 export function processTradeRoutes(
-  routes: TradeRoute[],
+  routes: BasicTradeRoute[],
   galaxy: Galaxy,
 ): { income: Map<string, number> } {
   const income = new Map<string, number>();

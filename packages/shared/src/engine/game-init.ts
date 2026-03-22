@@ -33,7 +33,7 @@ export interface PlayerSetup {
   color: string;
   isAI: boolean;
   aiPersonality?: AIPersonality;
-  /** Government type for this empire. Defaults to 'representative_democracy'. */
+  /** Government type for this empire. Defaults to 'democracy'. */
   government?: GovernmentType;
 }
 
@@ -161,7 +161,7 @@ export function selectHomeSystem(
 // ── createStartingFleet ───────────────────────────────────────────────────────
 
 /**
- * Creates the starting fleet for an empire: 2 Scouts, 1 Destroyer, 1 Transport.
+ * Creates the starting fleet for an empire: a single Deep Space Probe.
  * Returns immutable Fleet and Ship objects — does not mutate any galaxy state.
  */
 export function createStartingFleet(
@@ -172,10 +172,7 @@ export function createStartingFleet(
   const fleetId = generateId();
 
   const shipDefs: Array<{ hull: HullClass; name: string }> = [
-    { hull: 'scout', name: `${empireName} Scout I` },
-    { hull: 'scout', name: `${empireName} Scout II` },
-    { hull: 'destroyer', name: `${empireName} Destroyer I` },
-    { hull: 'transport', name: `${empireName} Transport I` },
+    { hull: 'deep_space_probe', name: `${empireName} Deep Space Probe I` },
   ];
 
   const BASE_HULL_POINTS: Record<HullClass, number> = {
@@ -186,6 +183,9 @@ export function createStartingFleet(
     carrier: 200,
     battleship: 300,
     coloniser: 60,
+    dreadnought: 600,
+    battle_station: 800,
+    deep_space_probe: 10,
   };
 
   const ships: Ship[] = shipDefs.map(def => {
@@ -211,7 +211,7 @@ export function createStartingFleet(
 
   const fleet: Fleet = {
     id: fleetId,
-    name: `${empireName} Home Fleet`,
+    name: `1st ${empireName} Expeditionary Fleet`,
     ships: ships.map(s => s.id),
     empireId,
     position: { systemId },
@@ -281,6 +281,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       'spaceport',
       'mining_facility',
       'power_plant',
+      'hydroponics_bay',
     ];
 
     const startingBuildings: Building[] = startingBuildingTypes.map(type => ({
@@ -346,7 +347,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
-      government: playerSetup.government ?? 'representative_democracy',
+      government: playerSetup.government ?? 'democracy',
       ...(playerSetup.aiPersonality !== undefined
         ? { aiPersonality: playerSetup.aiPersonality }
         : {}),

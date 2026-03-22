@@ -1,0 +1,24 @@
+{
+  "id": "aethyn",
+  "name": "Aethyn",
+  "description": "The Aethyn are not from here. Not from this star system, not from this sector, not from this galaxy — not from this dimension. They evolved in a parallel reality where the fundamental constants of physics differ in ways that make their home universe as alien to ours as ours is to theirs. In their native reality, what we call 'matter' does not exist in solid form. Space has additional compactified dimensions that their senses perceive directly. Time, as they experience it, is not a river but a landscape — they can perceive temporal adjacency the way we perceive spatial depth, though they cannot travel through it at will. When Aethyn scientists first breached the membrane between dimensions and observed our universe, their initial reaction was documented in their archives as something between wonder and nausea. A reality where matter is rigid, where space has only three extended dimensions, where time moves in a single direction — it was like discovering a world made of ice, beautiful and incomprehensible and somehow functioning despite what seemed like crippling limitations.\n\nThey came through the breach because they are explorers, and because our universe is the most extraordinary frontier their civilisation has ever encountered. The Aethyn who operate in our dimension are volunteers — pioneers who have undergone extensive modification to survive in what they experience as a cramped, flat, terrifyingly linear reality. Their ships phase in and out of normal space because they are not entirely here — portions of each vessel extend into dimensional layers that our instruments cannot detect. Their weapons operate on principles that our physicists describe, with varying degrees of academic dignity, as 'impossible.' They do not violate the laws of physics. They obey laws of physics that are not ours. The Aethyn are patient with the confusion this causes, though their patience has a quality of gentle bewilderment, as though they are constantly surprised that anyone finds multidimensional existence difficult to grasp.\n\nTo other species, the Aethyn are the most truly alien civilisation in the galaxy. Conversations with them have a dreamlike quality — they describe observations and concepts for which no equivalent exists in any language evolved in three-dimensional space. Their visual appearance shifts depending on the angle of observation, as portions of their anatomy extend into dimensions the observer cannot perceive. They are not deliberately mysterious; they are simply describing reality as they experience it, and our reality lacks the vocabulary. Their understanding of theoretical physics is millennia ahead of any species native to this universe, but their grasp of practical matters — construction, resource extraction, trade, anything involving the sustained manipulation of stubborn, solid, three-dimensional matter — is startlingly poor. They know how matter works. They simply find it exasperating to work with, the way a sculptor might find it exasperating to carve granite with wet spaghetti.\n\nThe Aethyn's internal tension is one of perspective. The Pioneers — the faction that pushed for dimensional exploration — believe that understanding our universe will yield insights applicable to their own, that the constraints of three-dimensional space will teach them things their native physics never could. They are scientists and romantics, in love with limitation as a form of novelty. The Conservators — the cautious majority who remained in the home dimension — worry that prolonged exposure to our reality is changing the Pioneers in ways they do not fully recognise. Aethyn who spend too long in three-dimensional space begin to develop fixed forms, stable geometries, preferences for specific spatial orientations — habits of rigidity that, in a being evolved for dimensional fluidity, feel like a disease. The Pioneers insist they are merely adapting. The Conservators suspect they are calcifying. The debate plays out across the dimensional membrane, with each side literally occupying a different reality, and neither entirely able to comprehend the other's concerns.",
+  "portrait": "portrait_aethyn",
+  "traits": {
+    "construction": 2,
+    "reproduction": 3,
+    "research": 10,
+    "espionage": 8,
+    "economy": 3,
+    "combat": 5,
+    "diplomacy": 5
+  },
+  "environmentPreference": {
+    "idealTemperature": 400,
+    "temperatureTolerance": 350,
+    "idealGravity": 0.5,
+    "gravityTolerance": 0.8,
+    "preferredAtmospheres": ["none", "vacuum", "hydrogen", "ammonia", "toxic"]
+  },
+  "specialAbilities": ["dimensional"],
+  "isPrebuilt": true
+}

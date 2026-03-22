@@ -2097,6 +2097,31 @@
   opacity: 0.9;
 }
 
+.bpicker__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.bpicker__tab {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.bpicker__tab:hover {
+  background: rgba(0, 180, 220, 0.15);
+  color: var(--color-text);
+}
+
 .bpicker__list {
   overflow-y: auto;
   display: flex;
@@ -4597,6 +4622,40 @@
 }
 
 .fleet-panel__disband-btns .fleet-panel__action-btn {
+  flex: 1;
+}
+
+/* Relocation confirmation dialog */
+.fleet-panel__section--relocate {
+  border-top: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.fleet-panel__relocate-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fleet-panel__relocate-message {
+  font-size: 10px;
+  color: #aaccee;
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 2px;
+}
+
+.fleet-panel__relocate-message strong {
+  color: #00d4ff;
+}
+
+.fleet-panel__relocate-btns {
+  display: flex;
+  gap: 5px;
+}
+
+.fleet-panel__relocate-btns .fleet-panel__action-btn {
   flex: 1;
 }
 
@@ -9027,4 +9086,465 @@ button:active:not(:disabled),
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ================================================================
+   ESPIONAGE SCREEN
+================================================================ */
+
+.espionage-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: var(--color-bg-panel);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.espionage-screen__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(5, 5, 15, 0.6);
+  flex-shrink: 0;
+}
+
+.espionage-screen__title {
+  font-size: 20px;
+  color: var(--color-accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.espionage-screen__close {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.espionage-screen__close:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-bright);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+/* Counter-intelligence bar */
+.espionage-screen__ci-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(5, 5, 15, 0.4);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.espionage-screen__ci-label {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.espionage-screen__ci-track {
+  flex: 1;
+  max-width: 200px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.espionage-screen__ci-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.espionage-screen__ci-value {
+  color: var(--color-accent);
+  font-weight: bold;
+  min-width: 48px;
+  text-align: right;
+}
+
+.espionage-screen__ci-hint {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+/* Main body: three columns */
+.espionage-screen__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Left: agent list */
+.espionage-screen__agents {
+  width: 280px;
+  min-width: 220px;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.espionage-screen__agents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
+}
+
+.espionage-screen__agents-title {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.espionage-screen__recruit-btn {
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid var(--color-border-bright);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.espionage-screen__recruit-btn:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.22);
+  border-color: var(--color-accent);
+}
+
+.espionage-screen__recruit-btn--disabled,
+.espionage-screen__recruit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.espionage-screen__recruit-cost {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.espionage-screen__empty {
+  padding: 20px 14px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.espionage-screen__agent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.espionage-screen__agent-list li {
+  list-style: none;
+}
+
+/* Agent row */
+.agent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.agent-row:hover {
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.agent-row--selected {
+  background: rgba(0, 212, 255, 0.12);
+  border-left: 2px solid var(--color-accent);
+}
+
+.agent-row__skill {
+  font-size: 9px;
+  letter-spacing: -1px;
+  color: #ffa726;
+  flex-shrink: 0;
+  max-width: 60px;
+  overflow: hidden;
+}
+
+.agent-row__status {
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 60px;
+}
+
+.agent-row__infiltration-progress {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.agent-row__mission {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  flex: 1;
+}
+
+.agent-row__target {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+/* Centre: mission assignment */
+.espionage-screen__mission {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+}
+
+.espionage-screen__mission-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.mission-panel__heading {
+  font-size: 14px;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 12px;
+}
+
+.mission-panel__note {
+  font-size: 11px;
+  margin: 0 0 10px;
+}
+
+.mission-panel__note--warn {
+  color: #ff8844;
+}
+
+.mission-panel__label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
+.mission-panel__select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.mission-panel__select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.mission-panel__missions {
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.mission-panel__legend {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0 6px;
+}
+
+.mission-panel__radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mission-panel__radio-label input[type="radio"] {
+  accent-color: var(--color-accent);
+  margin-top: 2px;
+}
+
+.mission-panel__mission-name {
+  font-weight: bold;
+  color: var(--color-text);
+  min-width: 100px;
+}
+
+.mission-panel__mission-desc {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  flex: 1;
+}
+
+.mission-panel__assign-btn {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin: 12px 0;
+  background: rgba(0, 212, 255, 0.15);
+  border: 1px solid var(--color-border-bright);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+.mission-panel__assign-btn:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.28);
+}
+
+.mission-panel__assign-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mission-panel__agent-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 11px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.mission-panel__agent-info dt {
+  color: var(--color-text-muted);
+}
+
+.mission-panel__agent-info dd {
+  margin: 0;
+  color: var(--color-text);
+}
+
+/* Right: event log */
+.espionage-screen__log {
+  width: 280px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.espionage-screen__log-title {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.espionage-screen__log-empty {
+  padding: 20px 14px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.event-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.event-log__entry {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  align-items: flex-start;
+}
+
+.event-log__entry--negative {
+  background: rgba(255, 50, 50, 0.06);
+}
+
+.event-log__entry--positive {
+  background: rgba(50, 200, 100, 0.06);
+}
+
+.event-log__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 212, 255, 0.12);
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.event-log__text {
+  color: var(--color-text);
+  line-height: 1.4;
 }

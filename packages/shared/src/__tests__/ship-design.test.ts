@@ -65,13 +65,13 @@ function makeValidScoutDesign(): { design: ShipDesign; hull: HullTemplate; usedC
 // ---------------------------------------------------------------------------
 
 describe('Hull templates data', () => {
-  it('exports exactly 7 hull templates', () => {
-    expect(HULL_TEMPLATES).toHaveLength(7);
+  it('exports exactly 10 hull templates', () => {
+    expect(HULL_TEMPLATES).toHaveLength(10);
   });
 
   it('contains all expected hull classes', () => {
     const classes = HULL_TEMPLATES.map((h) => h.class).sort();
-    expect(classes).toEqual(['battleship', 'carrier', 'coloniser', 'cruiser', 'destroyer', 'scout', 'transport']);
+    expect(classes).toEqual(['battle_station', 'battleship', 'carrier', 'coloniser', 'cruiser', 'deep_space_probe', 'destroyer', 'dreadnought', 'scout', 'transport']);
   });
 
   it('has unique classes', () => {

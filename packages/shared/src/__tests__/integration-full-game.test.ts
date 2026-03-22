@@ -40,7 +40,7 @@ import { canEstablishTradeRoute } from '../engine/trade.js';
 import { generateId } from '../utils/id.js';
 import type { Species } from '../types/species.js';
 import type { Technology } from '../types/technology.js';
-import type { TradeRoute } from '../engine/trade.js';
+import type { BasicTradeRoute } from '../engine/trade.js';
 import type { Planet } from '../types/galaxy.js';
 
 // ---------------------------------------------------------------------------
@@ -1027,7 +1027,7 @@ describe('Test 9: Trade routes generate income', () => {
       const _creditsBefore = state.empireResourcesMap.get(empire.id)?.credits ?? 0;
 
       // Add trade route
-      const tradeRoute: TradeRoute = {
+      const tradeRoute: BasicTradeRoute = {
         id: generateId(),
         empireId: empire.id,
         originSystemId: sys1.id,
@@ -1057,7 +1057,7 @@ describe('Test 9: Trade routes generate income', () => {
 
     const creditsBefore = state.empireResourcesMap.get(empire.id)?.credits ?? 0;
 
-    const tradeRoute: TradeRoute = {
+    const tradeRoute: BasicTradeRoute = {
       id: generateId(),
       empireId: empire.id,
       originSystemId: sys1.id,
@@ -1083,7 +1083,7 @@ describe('Test 9: Trade routes generate income', () => {
 
     // Add a self-consistent trade route (even if invalid — it should not crash)
     const systems = state.gameState.galaxy.systems;
-    const tradeRoute: TradeRoute = {
+    const tradeRoute: BasicTradeRoute = {
       id: generateId(),
       empireId: empire.id,
       originSystemId: systems[0]!.id,

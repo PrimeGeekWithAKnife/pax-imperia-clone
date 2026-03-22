@@ -50,6 +50,12 @@ export const SpecialAbilitySchema = z.enum([
   'nomadic',
   'subterranean',
   'photosynthetic',
+  'energy_form',
+  'symbiotic',
+  'synthetic',
+  'nanomorphic',
+  'dimensional',
+  'devout',
 ]);
 
 export const SpeciesSchema = z.object({

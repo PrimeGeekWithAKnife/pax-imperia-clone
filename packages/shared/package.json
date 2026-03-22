@@ -9,7 +9,6 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "tsc --watch --preserveWatchOutput",
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

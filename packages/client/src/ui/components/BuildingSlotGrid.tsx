@@ -56,6 +56,27 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   // ── Ashkari ─────────────────────────────────────────────────────────────
   salvage_yard: 'SV',
   black_market: 'BM',
+  // ── Luminari ───────────────────────────────────────────────────────────
+  plasma_conduit: 'PL',
+  dimensional_resonator: 'DR',
+  // ── Vethara ────────────────────────────────────────────────────────────
+  bonding_chamber: 'BC',
+  neural_integration_centre: 'NI',
+  // ── Kaelenth ───────────────────────────────────────────────────────────
+  data_archive: 'DA',
+  replication_forge: 'RF',
+  // ── Thyriaq ────────────────────────────────────────────────────────────
+  reconfiguration_matrix: 'RM',
+  substrate_processor: 'SB',
+  // ── Aethyn ─────────────────────────────────────────────────────────────
+  dimensional_anchor: 'DI',
+  phase_laboratory: 'PH',
+  // ── Orivani ────────────────────────────────────────────────────────────
+  grand_cathedral: 'GC',
+  reliquary_vault: 'RV',
+  // ── Pyrenth ────────────────────────────────────────────────────────────
+  elemental_forge: 'EF',
+  seismic_resonator: 'SR',
 };
 
 /** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */

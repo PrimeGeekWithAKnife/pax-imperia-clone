@@ -1,0 +1,24 @@
+{
+  "id": "vethara",
+  "name": "Vethara",
+  "description": "In their natural state, the Vethara are nothing. Translucent neural filaments roughly the length of a forearm, drifting in the warm ammonia seas of Vethar — eyeless, limbless, and possessed of a cognitive capacity roughly equivalent to a flatworm. They are, by any reasonable biological standard, one of the least impressive organisms in the galaxy. Left alone, they would never have achieved sentience, never have built tools, never have looked at the stars and wondered. But the Vethara were not left alone. Something — the fossil record suggests a precursor civilisation, long since vanished — engineered them. Encoded in their genome is an extraordinary capability: the ability to bond with the nervous system of another organism, integrating seamlessly into the host's neural architecture. With a compatible host, the result is not parasitism but genuine symbiosis — expanded cognitive function, shared sensory experience, enhanced immune response, and a lifespan roughly tripled. The Vethara gain a body, a mind to think with, a world to perceive. The host gains a second consciousness — a quiet, supportive presence woven through their thoughts like a melody beneath speech. The early Vethara bonded with the amphibious megafauna of their homeworld. They walked upright for the first time inside borrowed bodies. They built their first cities with borrowed hands.\n\nThe Vethara came to the stars because they must. Without hosts, they are barely aware — sluggish filaments drifting in chemical soup, incapable of abstract thought. With hosts, they are brilliant, creative, empathetic, and driven by a gratitude so deep it borders on devotion. But Vethar's native megafauna are dying. Millennia of bonding have depleted the compatible host population, and the Vethara reproduce faster than their hosts can sustain. The mathematics are stark: expand or regress. Find new compatible species or sink back into the ammonia and forget that you were ever a person. Every Vethara ship that launches carries unbonded filaments in stasis, and every first contact is, beneath the diplomatic pleasantries, an assessment. How compatible is your nervous system? How would bonding feel? Would you welcome us, or would we have to override you?\n\nThis is the Vethara's terrible burden: compatibility is not binary. Some species bond beautifully — the experience is described by willing hosts as gaining a second soul, a lifelong companion who shares your joys and halves your sorrows. Others resist. The host's immune system attacks the filaments, the neural integration causes agony, and the Vethara — desperate, afraid of returning to mindlessness — may override the host's will entirely, suppressing their consciousness to survive. The Vethara do not speak of this openly. Their diplomats present bonding as a gift, an offer of partnership and shared existence. And for compatible species, it genuinely is. But the unbonded Vethara in their stasis tanks do not know, until the moment of contact, whether they will be partners or parasites. The line between the two is measured in neurotransmitter compatibility, and it is vanishingly thin.\n\nVethara society is divided along the fault line of this truth. The Covenant — the majority — insists that bonding must always be consensual, that hosts must be informed, that compatibility must be tested before integration. They have built elaborate ethical frameworks, bonding protocols, and consent rituals. They are sincere. They are also haunted by the knowledge that their species' survival depends on finding enough willing hosts. The Unbound — a growing faction born from desperation — argue that survival trumps consent. That the Vethara have a right to exist, and that a host who would deny them bonding is condemning them to a death worse than death — not extinction, but the loss of everything that makes existence meaningful. The Covenant calls the Unbound monsters. The Unbound call the Covenant naive. Both are terrified of what happens when the stasis tanks outnumber the available hosts.",
+  "portrait": "portrait_vethara",
+  "traits": {
+    "construction": 3,
+    "reproduction": 7,
+    "research": 5,
+    "espionage": 8,
+    "economy": 4,
+    "combat": 4,
+    "diplomacy": 8
+  },
+  "environmentPreference": {
+    "idealTemperature": 300,
+    "temperatureTolerance": 50,
+    "idealGravity": 0.9,
+    "gravityTolerance": 0.5,
+    "preferredAtmospheres": ["ammonia", "oxygen_nitrogen", "methane"]
+  },
+  "specialAbilities": ["symbiotic"],
+  "isPrebuilt": true
+}

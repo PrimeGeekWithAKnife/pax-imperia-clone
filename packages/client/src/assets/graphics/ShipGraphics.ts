@@ -1208,13 +1208,16 @@ function drawColoniser(
 // ── Dispatch table ─────────────────────────────────────────────────────────────
 
 const HULL_DRAW_FNS: Record<HullClass, DrawFn> = {
-  scout:      drawScout,
-  destroyer:  drawDestroyer,
-  transport:  drawTransport,
-  cruiser:    drawCruiser,
-  carrier:    drawCarrier,
-  battleship: drawBattleship,
-  coloniser:  drawColoniser,
+  scout:            drawScout,
+  destroyer:        drawDestroyer,
+  transport:        drawTransport,
+  cruiser:          drawCruiser,
+  carrier:          drawCarrier,
+  battleship:       drawBattleship,
+  coloniser:        drawColoniser,
+  dreadnought:      drawBattleship,    // reuse battleship silhouette for now
+  battle_station:   drawCarrier,       // reuse carrier silhouette for now
+  deep_space_probe: drawScout,         // reuse scout silhouette for now
 };
 
 // ── Core render function ───────────────────────────────────────────────────────

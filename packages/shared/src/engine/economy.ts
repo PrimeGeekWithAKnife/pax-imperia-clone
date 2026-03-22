@@ -10,7 +10,7 @@
  *   - Ship production is slowed (50 % of normal construction rate).
  *
  * Food / organics consumption:
- *   - Population consumes 1 organic unit per 1 000 population per tick.
+ *   - Population consumes 1 organic unit per 50 000 population per tick.
  *   - If organics reach zero, population declines (starvation).
  */
 
@@ -387,13 +387,13 @@ export function getEnergyStatus(resources: EmpireResources): EnergyStatus {
 // ---------------------------------------------------------------------------
 
 /** Population units per organic consumed per tick. */
-export const ORGANICS_PER_POPULATION = 5_000;
+export const ORGANICS_PER_POPULATION = 50_000;
 
 /**
  * Calculate how many organics an empire's total population consumes per tick.
  *
  * Formula: floor(totalPopulation / ORGANICS_PER_POPULATION)
- * Minimum 0 (an empire with < 1 000 population consumes 0).
+ * Minimum 0 (an empire with < 50 000 population consumes 0).
  */
 export function calculateOrganicsConsumption(totalPopulation: number): number {
   return Math.floor(Math.max(0, totalPopulation) / ORGANICS_PER_POPULATION);

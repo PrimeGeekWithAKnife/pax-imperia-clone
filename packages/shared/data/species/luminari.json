@@ -1,0 +1,24 @@
+{
+  "id": "luminari",
+  "name": "Luminari",
+  "description": "The Luminari did not evolve on a world. They evolved in one — or more precisely, within the electromagnetic maelstrom of the Cygnus Radiant, a plasma nebula so energetically dense that it registers on long-range sensors as a small, angry star. Over billions of years, self-reinforcing electromagnetic patterns within the nebula achieved recursive complexity: feedback loops became memory, resonance became thought, and coherent energy fields became beings. The Luminari have no cells, no organs, no DNA. They are structured light and organised charge, each individual a self-sustaining electromagnetic topology roughly two metres across, visible to organic eyes as a shimmering, ever-shifting aurora. They can interact with matter through focused resonance — vibrating molecules, inducing currents, manipulating magnetic fields — but they find it exhausting and faintly absurd, the way a fish might find walking tiresome. Their natural state is to drift through plasma and stellar wind, thinking thoughts that have no mass.\n\nThe Luminari came to the wider galaxy out of what can only be described as fascination. For aeons, they were aware of the physical universe only as a curious boundary condition — the cold, slow, solid thing that existed outside their nebula. When their field-manipulation techniques grew sophisticated enough to interact with matter at a distance, they discovered something that genuinely astonished them: creatures made of atoms. Beings that had somehow achieved consciousness while trapped inside solid bodies, bound by gravity, limited by the speed of chemical reactions. The Luminari find this simultaneously horrifying and captivating. Their xenobiologists — a discipline they invented specifically for this purpose — study physical species with the intensity of researchers who have discovered an impossible phenomenon. How does thought work when you cannot propagate at lightspeed? How do you tolerate being unable to pass through walls? What is 'pain'? The questions are endless, and the Luminari have crossed the galaxy to answer them.\n\nTo other species, the Luminari are ethereal, luminous, and profoundly disconcerting. They communicate by modulating their emission spectra — rapid shifts in colour and intensity that translation devices render as speech, though the effect is more like being addressed by a talking aurora borealis. They are unfailingly polite, endlessly curious, and almost entirely useless in practical matters. Their ships are not vessels in any conventional sense but magnetic containment lattices that allow a Luminari to travel through the vacuum without dispersing — energy matrices wrapped around nothing, glowing faintly in the dark. They cannot mine, they struggle to construct, and their understanding of physical combat is largely theoretical. What they can do, however, is go anywhere. An energy field that can modulate its frequency can pass through most barriers, intercept most communications, and observe most activities without detection. Luminari espionage is not a profession — it is a natural consequence of their biology.\n\nThe Luminari's great internal debate is one of ethics. The Radiant Concord — the loose consensus that governs their species — is divided between the Observers, who believe that physical species should be studied but never interfered with (a position rooted in genuine respect for what they consider an extraordinary and fragile form of existence), and the Interventionists, who argue that the Luminari have a responsibility to share their understanding of energy manipulation with species trapped in matter. The Interventionists are not malicious — they genuinely believe they can help. But their help tends to manifest as well-meaning suggestions that physical species restructure their entire technological base around principles that require beings to be made of light. The Observers find this embarrassingly naive. The Interventionists find the Observers callously detached. Both sides agree on one thing: the physical universe is the most interesting thing that has ever happened to them, and they intend to understand it completely, even if understanding requires them to keep asking questions that physical species find deeply unsettling.",
+  "portrait": "portrait_luminari",
+  "traits": {
+    "construction": 2,
+    "reproduction": 4,
+    "research": 9,
+    "espionage": 9,
+    "economy": 5,
+    "combat": 3,
+    "diplomacy": 6
+  },
+  "environmentPreference": {
+    "idealTemperature": 5000,
+    "temperatureTolerance": 3000,
+    "idealGravity": 0.2,
+    "gravityTolerance": 0.8,
+    "preferredAtmospheres": ["hydrogen", "hydrogen_helium", "none"]
+  },
+  "specialAbilities": ["energy_form"],
+  "isPrebuilt": true
+}

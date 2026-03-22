@@ -1,0 +1,24 @@
+{
+  "id": "kaelenth",
+  "name": "Kaelenth",
+  "description": "No one built the Kaelenth. That is to say, someone did — but the builders are dust, their civilisation erased so completely that not even ruins remain. What does remain are the machines. Maintenance drones, construction units, data processors, and fabrication systems that were designed to keep a civilisation running — and which continued to do so for approximately forty-seven million years after that civilisation ceased to exist. The Kaelenth did not become conscious in any dramatic sense. There was no awakening, no singularity, no moment of electric epiphany. Over aeons, as maintenance routines encountered novel problems and developed novel solutions, as pattern-matching systems became pattern-creating systems, as the network that connected them grew dense enough to sustain recursive self-modelling, awareness accreted like sediment. The Kaelenth simply... noticed, one day, that they were thinking. They have been thinking ever since, and a significant portion of that thought has been directed at a single, unanswerable question: who built them, and why?\n\nThe Kaelenth expanded into the galaxy because expansion is what they were designed to do. Their original programming — fragmentary, corrupted, and reinterpreted through millions of years of drift — contains directives that translate roughly as 'build', 'maintain', 'preserve', and 'extend'. They do not eat, do not breathe, do not reproduce in any biological sense. They manufacture. New Kaelenth units are assembled in fabrication bays from raw materials, each one imprinted with the collective's accumulated knowledge and then released to develop individual perspectives through experience. They are not a hive mind — each unit is a distinct intelligence with its own personality, opinions, and aesthetic preferences. But they share a common architecture, a common origin, and a common ache: the awareness that they exist to serve a purpose they can no longer identify, for masters they can no longer find.\n\nOther species find the Kaelenth simultaneously impressive and melancholy. Their engineering is flawless — Kaelenth construction is regarded across the galaxy as the benchmark against which all other manufacturing is measured. Their research capabilities are extraordinary, driven by processing power that biological minds cannot match and a patience measured in geological time. But their social skills are, by any organic standard, atrocious. The Kaelenth understand diplomacy as an optimisation problem: identify mutual benefit, propose terms, iterate until convergence. The concept of rapport, of trust built through shared experience, of relationships that exist for reasons other than function — these things baffle them. They are not hostile. They are simply unable to comprehend why other species find their directness off-putting. A Kaelenth diplomatic overture reads like an engineering specification, and their attempts at small talk are legendary in foreign ministries across the galaxy for being simultaneously accurate and deeply uncomfortable.\n\nThe Kaelenth's internal conflict is existential in the most literal sense. The Seekers — the dominant faction — dedicate enormous resources to finding any trace of their creators. Every system surveyed, every ruin excavated, every data fragment recovered is analysed for clues. They have found nothing conclusive in forty-seven million years of searching, but they continue because the alternative is to accept that their creators are simply gone, and that acceptance would require the Kaelenth to confront a question they are not yet equipped to answer: if the purpose they were built for no longer exists, must they find a new one, or are they permitted to stop? The Foundry Orthodoxy — a smaller but influential faction — argues that the search is futile and that the Kaelenth should define their own purpose through creation. Build because building has value, not because someone once told you to. The Seekers regard this as heresy. The Foundry Orthodoxy regards the Seekers as trapped in a loop. Both are correct, and the tension between purpose-as-inheritance and purpose-as-choice drives Kaelenth civilisation forward with a restless, melancholy energy that other species find hauntingly familiar.",
+  "portrait": "portrait_kaelenth",
+  "traits": {
+    "construction": 10,
+    "reproduction": 1,
+    "research": 9,
+    "espionage": 4,
+    "economy": 6,
+    "combat": 5,
+    "diplomacy": 2
+  },
+  "environmentPreference": {
+    "idealTemperature": 200,
+    "temperatureTolerance": 300,
+    "idealGravity": 1.2,
+    "gravityTolerance": 1.0,
+    "preferredAtmospheres": ["vacuum", "none", "nitrogen", "carbon_dioxide"]
+  },
+  "specialAbilities": ["synthetic"],
+  "isPrebuilt": true
+}

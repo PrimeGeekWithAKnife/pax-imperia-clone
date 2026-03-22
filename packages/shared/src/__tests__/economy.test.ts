@@ -56,7 +56,7 @@ function makeEmpire(species: Species): Empire {
     technologies: [],
     currentAge: 'nano_atomic',
     isAI: false,
-    government: 'representative_democracy',
+    government: 'democracy',
   };
 }
 
