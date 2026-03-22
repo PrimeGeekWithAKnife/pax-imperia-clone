@@ -105,4 +105,84 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maxLevel: 5,
     description: 'Generates energy to power other buildings. Essential for any growing colony. Higher levels produce more energy.',
   },
+
+  entertainment_complex: {
+    name: 'Entertainment Complex',
+    baseCost: { credits: 90 },
+    baseProduction: { faith: 2, organics: 1 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description: 'Keeps colonists happy and productive. Reduces unrest and generates cultural influence.',
+  },
+
+  hydroponics_bay: {
+    name: 'Hydroponics Bay',
+    baseCost: { credits: 75 },
+    baseProduction: { organics: 5 },
+    buildTime: 3,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description: 'Grows food in controlled environments. Essential for colonies on barren or hostile worlds.',
+  },
+
+  orbital_platform: {
+    name: 'Orbital Platform',
+    baseCost: { credits: 200, minerals: 80 },
+    baseProduction: { energy: 3, credits: 3 },
+    buildTime: 7,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 3,
+    description: 'An orbital structure extending the planet\'s capabilities. Provides additional building capacity.',
+  },
+
+  recycling_plant: {
+    name: 'Recycling Plant',
+    baseCost: { credits: 60 },
+    baseProduction: { minerals: 2, energy: 1 },
+    buildTime: 3,
+    maintenanceCost: { credits: 0 },
+    maxLevel: 5,
+    description: 'Converts waste into usable materials. Reduces environmental impact and building maintenance.',
+  },
+
+  communications_hub: {
+    name: 'Communications Hub',
+    baseCost: { credits: 100 },
+    baseProduction: { researchPoints: 2, credits: 2 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description: 'Planetary network connecting all buildings for improved coordination. Boosts research and trade.',
+  },
+
+  terraforming_station: {
+    name: 'Terraforming Station',
+    baseCost: { credits: 300, minerals: 100 },
+    baseProduction: {},
+    buildTime: 10,
+    maintenanceCost: { credits: 3, energy: 2 },
+    maxLevel: 3,
+    description: 'Slowly modifies planetary atmosphere and conditions. Very expensive but can make hostile worlds habitable.',
+  },
+
+  military_academy: {
+    name: 'Military Academy',
+    baseCost: { credits: 150, minerals: 40 },
+    baseProduction: {},
+    buildTime: 6,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 4,
+    description: 'Trains ground forces for planetary defence and invasion. Required for troop deployment.',
+  },
+
+  fusion_reactor: {
+    name: 'Fusion Reactor',
+    baseCost: { credits: 120, minerals: 30 },
+    baseProduction: { energy: 12 },
+    buildTime: 5,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 5,
+    description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
+  },
 };

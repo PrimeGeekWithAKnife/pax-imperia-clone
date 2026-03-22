@@ -42,6 +42,7 @@ import {
   BUILDING_DEFINITIONS,
   HULL_TEMPLATE_BY_CLASS,
   startShipProduction,
+  issueMovementOrder,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -737,6 +738,62 @@ export class GameEngine {
    */
   getActiveMigrations(systemId?: string): MigrationOrder[] {
     return getMigrationOrders(systemId);
+  }
+
+  /**
+   * Issue a movement order to move a fleet from its current position to
+   * destinationSystemId along the wormhole network.
+   *
+   * Uses issueMovementOrder from shared/engine/fleet.ts to plan the route via
+   * A* pathfinding, then appends the order to tickState.movementOrders so the
+   * game loop will process it each tick.
+   *
+   * Emits 'engine:fleet_moved' events as the fleet arrives at each hop.
+   *
+   * @returns true if the order was accepted, false if the fleet was not found,
+   *          was already at the destination, or no path could be found.
+   */
+  moveFleet(fleetId: string, destinationSystemId: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) {
+      console.warn(`[GameEngine.moveFleet] Fleet "${fleetId}" not found`);
+      return false;
+    }
+
+    if (fleet.position.systemId === destinationSystemId) {
+      console.warn(`[GameEngine.moveFleet] Fleet "${fleetId}" is already at "${destinationSystemId}"`);
+      return false;
+    }
+
+    const galaxy = this.tickState.gameState.galaxy;
+    const order = issueMovementOrder(fleet, galaxy, destinationSystemId);
+    if (!order) {
+      console.warn(`[GameEngine.moveFleet] No path from "${fleet.position.systemId}" to "${destinationSystemId}"`);
+      return false;
+    }
+
+    // Remove any existing order for this fleet, then add the new one
+    const filteredOrders = this.tickState.movementOrders.filter(o => o.fleetId !== fleetId);
+
+    // Update the fleet's destination field so the UI can show it immediately
+    const updatedFleet = { ...fleet, destination: destinationSystemId };
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? updatedFleet : f,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      movementOrders: [...filteredOrders, order],
+      gameState: {
+        ...this.tickState.gameState,
+        fleets: updatedFleets,
+      },
+    };
+
+    // Notify React so the fleet screen updates immediately
+    this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
+
+    return true;
   }
 
   /** Return the current tick state snapshot. */

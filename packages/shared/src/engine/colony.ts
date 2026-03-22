@@ -800,6 +800,14 @@ export function addBuildingToQueue(planet: Planet, buildingType: BuildingType): 
     defense_grid: 7,
     mining_facility: 4,
     power_plant: 3,
+    entertainment_complex: 4,
+    hydroponics_bay: 3,
+    orbital_platform: 7,
+    recycling_plant: 3,
+    communications_hub: 4,
+    terraforming_station: 10,
+    military_academy: 6,
+    fusion_reactor: 5,
   };
 
   const turnsRemaining = BASE_BUILD_TURNS[buildingType];

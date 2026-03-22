@@ -80,7 +80,15 @@ export type BuildingType =
   | 'population_center'
   | 'mining_facility'
   | 'spaceport'
-  | 'power_plant';
+  | 'power_plant'
+  | 'entertainment_complex'
+  | 'hydroponics_bay'
+  | 'orbital_platform'
+  | 'recycling_plant'
+  | 'communications_hub'
+  | 'terraforming_station'
+  | 'military_academy'
+  | 'fusion_reactor';
 
 export interface ProductionItem {
   type: 'ship' | 'building' | 'defense';

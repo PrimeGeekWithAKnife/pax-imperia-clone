@@ -31,15 +31,23 @@ function slotCacheKey(type: BuildingType, level: number, size: number): string {
 // ── Accent colours per building type ─────────────────────────────────────────
 
 const ACCENT: Record<BuildingType, string> = {
-  research_lab:      '#3ac8ff',
-  factory:           '#ff9933',
-  shipyard:          '#00e5ff',
-  trade_hub:         '#44ff88',
-  defense_grid:      '#ff3333',
-  population_center: '#ffe066',
-  mining_facility:   '#cc8844',
-  spaceport:         '#4488ff',
-  power_plant:       '#ffcc00',
+  research_lab:          '#3ac8ff',
+  factory:               '#ff9933',
+  shipyard:              '#00e5ff',
+  trade_hub:             '#44ff88',
+  defense_grid:          '#ff3333',
+  population_center:     '#ffe066',
+  mining_facility:       '#cc8844',
+  spaceport:             '#4488ff',
+  power_plant:           '#ffcc00',
+  entertainment_complex: '#ff66cc',
+  hydroponics_bay:       '#44dd44',
+  orbital_platform:      '#66ccff',
+  recycling_plant:       '#88cc44',
+  communications_hub:    '#44aaff',
+  terraforming_station:  '#22ddaa',
+  military_academy:      '#cc4422',
+  fusion_reactor:        '#ff8800',
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -1571,18 +1579,967 @@ const drawPowerPlant: DrawFn = (ctx, s) => {
   drawGlow(ctx, sc(46, s), sc(28, s), sc(3, s), accent, 0.3);
 };
 
+// ── Entertainment Complex ─────────────────────────────────────────────────────
+// Amphitheatre bowl shape with tiered seating, central holographic stage,
+// coloured light beams, curved roof canopy.
+
+const drawEntertainmentComplex: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(6, s), sc(55, s), sc(52, s), accent);
+
+  // Amphitheatre bowl — outer ellipse (ground level)
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath();
+  ctx.ellipse(sc(32, s), sc(50, s), sc(24, s), sc(10, s), 0, Math.PI, 0);
+  ctx.lineTo(sc(32, s) + sc(24, s), sc(50, s));
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiered seating arcs (3 levels)
+  const tierColours = ['#2a2840', '#222038', '#1c1a30'];
+  for (let t = 0; t < 3; t++) {
+    const rx = sc(20 - t * 5, s);
+    const ry = sc(8 - t * 2, s);
+    ctx.strokeStyle = tierColours[t]!;
+    ctx.lineWidth = sc(2, s);
+    ctx.beginPath();
+    ctx.ellipse(sc(32, s), sc(50, s), rx, ry, 0, Math.PI, 0);
+    ctx.stroke();
+    // Seat dots along arc
+    ctx.fillStyle = accent + '66';
+    for (let d = 0; d <= 6; d++) {
+      const angle = Math.PI + (d / 6) * Math.PI;
+      ctx.beginPath();
+      ctx.arc(
+        sc(32, s) + rx * Math.cos(angle),
+        sc(50, s) + ry * Math.sin(angle),
+        sc(0.8, s), 0, Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+
+  // Holographic stage platform at bottom of bowl
+  ctx.fillStyle = '#1e1a30';
+  roundRect(ctx, sc(22, s), sc(46, s), sc(20, s), sc(6, s), sc(1.5, s));
+  ctx.fill();
+  drawGlow(ctx, sc(32, s), sc(49, s), sc(12, s), accent, 0.35);
+
+  // Holographic display column rising from stage
+  ctx.strokeStyle = accent + 'aa';
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(32, s), sc(46, s));
+  ctx.lineTo(sc(32, s), sc(22, s));
+  ctx.stroke();
+
+  // Hologram projection cone
+  ctx.fillStyle = accent + '22';
+  ctx.beginPath();
+  ctx.moveTo(sc(32, s), sc(22, s));
+  ctx.lineTo(sc(22, s), sc(38, s));
+  ctx.lineTo(sc(42, s), sc(38, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent + '66';
+  ctx.lineWidth = sc(0.75, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(32, s), sc(22, s));
+  ctx.lineTo(sc(22, s), sc(38, s));
+  ctx.moveTo(sc(32, s), sc(22, s));
+  ctx.lineTo(sc(42, s), sc(38, s));
+  ctx.stroke();
+
+  // Curved canopy roof — arc above the bowl
+  ctx.strokeStyle = '#3a3050';
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(42, s), sc(26, s), Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+  // Canopy support struts
+  ctx.strokeStyle = '#2a2040';
+  ctx.lineWidth = sc(1, s);
+  for (let st = 0; st < 5; st++) {
+    const angle = Math.PI * 1.15 + (st / 4) * Math.PI * 0.7;
+    const rx = sc(32, s) + sc(26, s) * Math.cos(angle);
+    const ry = sc(42, s) + sc(26, s) * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(sc(32, s) + (sc(24, s) - sc(3, s)) * Math.cos(angle),
+               sc(42, s) + (sc(8, s) - sc(2, s)) * Math.sin(angle));
+    ctx.lineTo(rx, ry);
+    ctx.stroke();
+  }
+
+  // Coloured light beams from canopy tips
+  const beamAngles = [Math.PI * 1.1, Math.PI * 1.9];
+  const beamColors = [accent, '#ff66aa'];
+  for (let b = 0; b < 2; b++) {
+    const bx = sc(32, s) + sc(26, s) * Math.cos(beamAngles[b]!);
+    const by = sc(42, s) + sc(26, s) * Math.sin(beamAngles[b]!);
+    drawGlow(ctx, bx, by, sc(8, s), beamColors[b]!, 0.5);
+    ctx.fillStyle = beamColors[b]! + 'cc';
+    ctx.beginPath();
+    ctx.arc(bx, by, sc(1.5, s), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Ambient stage glow
+  drawGlow(ctx, sc(32, s), sc(32, s), sc(20, s), accent, 0.12);
+};
+
+// ── Hydroponics Bay ───────────────────────────────────────────────────────────
+// Greenhouse dome with ribbed glass panels, green plant interior glow,
+// water conduits, grow-light strips, ventilation pipes on exterior.
+
+const drawHydroponicsBay: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+
+  const cx = sc(32, s);
+  const baseY = sc(54, s);
+  const domeR = sc(20, s);
+
+  // Dome body — gradient lit from above with green interior
+  const domeGrad = ctx.createRadialGradient(
+    sc(26, s), sc(30, s), sc(2, s),
+    cx, sc(34, s), domeR,
+  );
+  domeGrad.addColorStop(0, '#2a4a28');
+  domeGrad.addColorStop(0.5, '#1a3018');
+  domeGrad.addColorStop(1, '#0e1e0c');
+  ctx.fillStyle = domeGrad;
+  ctx.beginPath();
+  ctx.arc(cx, baseY, domeR, Math.PI, 0);
+  ctx.lineTo(cx + domeR, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Glass panel ribs — radial lines across dome
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, baseY, domeR, Math.PI, 0);
+  ctx.lineTo(cx + domeR, baseY);
+  ctx.closePath();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(100,200,80,0.22)';
+  ctx.lineWidth = sc(0.8, s);
+  for (let ri = 1; ri <= 7; ri++) {
+    const angle = Math.PI + (ri / 8) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, baseY);
+    ctx.lineTo(cx + domeR * 1.1 * Math.cos(angle), baseY + domeR * 1.1 * Math.sin(angle));
+    ctx.stroke();
+  }
+  // Horizontal arc seams
+  for (let ha = 1; ha <= 3; ha++) {
+    const hr = (ha / 4) * domeR;
+    ctx.beginPath();
+    ctx.arc(cx, baseY, hr, Math.PI, 0);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Glass specular highlight — upper left quadrant
+  ctx.fillStyle = 'rgba(200,255,180,0.12)';
+  ctx.beginPath();
+  ctx.ellipse(sc(24, s), sc(36, s), sc(7, s), sc(4, s), -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Interior grow-light strips through glass — warm green bands
+  for (let gl = 0; gl < 3; gl++) {
+    const gly = baseY - sc(6 + gl * 5, s);
+    const glw = sc(12 - gl * 2, s);
+    ctx.fillStyle = accent + '55';
+    ctx.beginPath();
+    ctx.ellipse(cx, gly, glw, sc(1.5, s), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawGlow(ctx, cx, sc(42, s), sc(18, s), accent, 0.25);
+
+  // Water conduit pipes — blue tubes running up exterior sides
+  const pipeXs = [cx - domeR + sc(4, s), cx + domeR - sc(4, s)];
+  for (const px of pipeXs) {
+    ctx.strokeStyle = '#1a4060';
+    ctx.lineWidth = sc(2, s);
+    ctx.beginPath();
+    ctx.moveTo(px, baseY);
+    ctx.lineTo(px, baseY - sc(12, s));
+    ctx.stroke();
+    // Pipe coupling rings
+    for (let pr = 0; pr < 2; pr++) {
+      ctx.fillStyle = '#2a5070';
+      ctx.beginPath();
+      ctx.arc(px, baseY - sc(4 + pr * 5, s), sc(1.8, s), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Water flow glow at base
+    drawGlow(ctx, px, baseY - sc(2, s), sc(4, s), '#44aaff', 0.3);
+  }
+
+  // Ventilation pipe on dome apex
+  ctx.strokeStyle = '#3a5030';
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.moveTo(cx, baseY - domeR);
+  ctx.lineTo(cx, baseY - domeR - sc(8, s));
+  ctx.stroke();
+  ctx.fillStyle = '#2a4020';
+  roundRect(ctx, cx - sc(3, s), baseY - domeR - sc(10, s), sc(6, s), sc(4, s), sc(1, s));
+  ctx.fill();
+  // Vent grille slots
+  ctx.strokeStyle = '#1a3010';
+  ctx.lineWidth = sc(0.6, s);
+  for (let vs = 0; vs < 3; vs++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - sc(2, s), baseY - domeR - sc(9.5, s) + vs * sc(1.2, s));
+    ctx.lineTo(cx + sc(2, s), baseY - domeR - sc(9.5, s) + vs * sc(1.2, s));
+    ctx.stroke();
+  }
+
+  // Equatorial base ring
+  ctx.strokeStyle = '#2a4828';
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.moveTo(cx - domeR, baseY);
+  ctx.lineTo(cx + domeR, baseY);
+  ctx.stroke();
+};
+
+// ── Orbital Platform ──────────────────────────────────────────────────────────
+// Torus ring structure floating above the planet surface, solar panels,
+// docking arm, attitude thrusters, communications array.
+
+const drawOrbitalPlatform: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const cy = sc(30, s);
+
+  // Surface shadow — ellipse cast on ground
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(56, s), sc(18, s), sc(4, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outer ring — toroidal body (drawn as thick ellipse)
+  const ringGrad = ctx.createRadialGradient(
+    sc(28, s), sc(26, s), sc(4, s),
+    cx, cy, sc(20, s),
+  );
+  ringGrad.addColorStop(0, '#3a4860');
+  ringGrad.addColorStop(0.6, '#1e2c44');
+  ringGrad.addColorStop(1, '#0e1828');
+  ctx.strokeStyle = ringGrad;
+  ctx.lineWidth = sc(7, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(19, s), sc(9, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Ring hull highlight — top arc lighter
+  ctx.strokeStyle = '#4a6080';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(19, s), sc(9, s), 0, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+
+  // Panel lines on ring body
+  ctx.strokeStyle = 'rgba(80,120,180,0.25)';
+  ctx.lineWidth = sc(0.6, s);
+  for (let ps = 0; ps < 8; ps++) {
+    const angle = (ps / 8) * Math.PI * 2;
+    const nx = cx + sc(19, s) * Math.cos(angle);
+    const ny = cy + sc(9, s) * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(nx, ny);
+    ctx.lineTo(cx + sc(12, s) * Math.cos(angle), cy + sc(5.5, s) * Math.sin(angle));
+    ctx.stroke();
+  }
+
+  // Inner ring detail
+  ctx.strokeStyle = '#14202e';
+  ctx.lineWidth = sc(5, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(13, s), sc(6, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Central hub
+  const hubGrad = ctx.createRadialGradient(
+    sc(30, s), sc(28, s), sc(1, s),
+    cx, cy, sc(5, s),
+  );
+  hubGrad.addColorStop(0, '#3a5070');
+  hubGrad.addColorStop(1, '#1a2838');
+  ctx.fillStyle = hubGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(5, s), sc(3, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  drawGlow(ctx, cx, cy, sc(8, s), accent, 0.4);
+
+  // Solar panels — large rectangular arrays on radial arms
+  const solarData = [
+    { ax: -24, ay: 0, pw: 14, ph: 5, angle: -0.15 },
+    { ax:  24, ay: 0, pw: 14, ph: 5, angle:  0.15 },
+  ];
+  for (const sd of solarData) {
+    const armEnd = { x: cx + sc(sd.ax, s), y: cy + sc(sd.ay, s) };
+    // Connection arm
+    ctx.strokeStyle = '#2a3a50';
+    ctx.lineWidth = sc(1.5, s);
+    ctx.beginPath();
+    ctx.moveTo(cx + sc(sd.ax > 0 ? 5 : -5, s), cy);
+    ctx.lineTo(armEnd.x, armEnd.y);
+    ctx.stroke();
+    // Panel body
+    ctx.save();
+    ctx.translate(armEnd.x, armEnd.y);
+    ctx.rotate(sd.angle);
+    // Panel grid — solar cells
+    const pw = sc(sd.pw, s);
+    const ph = sc(sd.ph, s);
+    ctx.fillStyle = '#0a1428';
+    roundRect(ctx, -pw / 2, -ph / 2, pw, ph, sc(0.5, s));
+    ctx.fill();
+    // Cell lines
+    ctx.strokeStyle = accent + '44';
+    ctx.lineWidth = sc(0.5, s);
+    for (let cl = 1; cl < 4; cl++) {
+      ctx.beginPath();
+      ctx.moveTo(-pw / 2 + (cl / 4) * pw, -ph / 2);
+      ctx.lineTo(-pw / 2 + (cl / 4) * pw,  ph / 2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(-pw / 2, 0); ctx.lineTo(pw / 2, 0);
+    ctx.stroke();
+    // Panel frame
+    ctx.strokeStyle = '#2a4060';
+    ctx.lineWidth = sc(0.8, s);
+    roundRect(ctx, -pw / 2, -ph / 2, pw, ph, sc(0.5, s));
+    ctx.stroke();
+    drawGlow(ctx, 0, 0, sc(8, s), accent, 0.15);
+    ctx.restore();
+  }
+
+  // Docking arm extending downward
+  ctx.strokeStyle = '#2a3a50';
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + sc(9, s));
+  ctx.lineTo(cx, sc(48, s));
+  ctx.stroke();
+  // Docking clamp at end
+  ctx.fillStyle = '#1e2e44';
+  roundRect(ctx, cx - sc(5, s), sc(46, s), sc(10, s), sc(5, s), sc(1, s));
+  ctx.fill();
+  ctx.strokeStyle = '#3a5070';
+  ctx.lineWidth = sc(0.75, s);
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(4, s), sc(48, s));
+  ctx.lineTo(cx + sc(4, s), sc(48, s));
+  ctx.stroke();
+
+  // Attitude thrusters at ring cardinal points
+  const thrusterAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+  for (const ta of thrusterAngles) {
+    const tx = cx + sc(19, s) * Math.cos(ta);
+    const ty = cy + sc(9, s) * Math.sin(ta);
+    ctx.fillStyle = '#1e2c3a';
+    ctx.beginPath();
+    ctx.arc(tx, ty, sc(2, s), 0, Math.PI * 2);
+    ctx.fill();
+    drawGlow(ctx, tx, ty, sc(4, s), accent, 0.4);
+  }
+
+  // Station glow
+  drawGlow(ctx, cx, cy, sc(26, s), accent, 0.08);
+};
+
+// ── Recycling Plant ───────────────────────────────────────────────────────────
+// Industrial block with three circular recycling arrow symbols on facade,
+// conveyor feed inputs, waste chute, green accent lighting.
+
+const drawRecyclingPlant: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+
+  // Main building body
+  const bodyGrad = ctx.createLinearGradient(sc(10, s), sc(18, s), sc(10, s), sc(55, s));
+  bodyGrad.addColorStop(0, '#1a2818');
+  bodyGrad.addColorStop(1, '#0e1a0c');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, sc(10, s), sc(18, s), sc(44, s), sc(37, s), sc(2, s));
+  ctx.fill();
+
+  // Isometric top face
+  ctx.fillStyle = '#243020';
+  ctx.beginPath();
+  ctx.moveTo(sc(10, s), sc(18, s));
+  ctx.lineTo(sc(54, s), sc(18, s));
+  ctx.lineTo(sc(50, s), sc(12, s));
+  ctx.lineTo(sc(14, s), sc(12, s));
+  ctx.closePath();
+  ctx.fill();
+
+  // Panel lines
+  drawPanelLines(ctx, s, sc(10, s), sc(18, s), sc(44, s), sc(37, s), 8, 'rgba(40,80,30,0.4)');
+
+  // Three circular recycling arrow symbols on facade
+  const arrowCentres = [sc(20, s), sc(32, s), sc(44, s)];
+  for (const acx of arrowCentres) {
+    const acy = sc(34, s);
+    const r = sc(7, s);
+    // Arrow circle track
+    ctx.strokeStyle = accent + '88';
+    ctx.lineWidth = sc(2, s);
+    ctx.beginPath();
+    ctx.arc(acx, acy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    // Three arrowhead tips evenly around the circle
+    ctx.fillStyle = accent + 'cc';
+    for (let ar = 0; ar < 3; ar++) {
+      const angle = (ar / 3) * Math.PI * 2 - Math.PI / 6;
+      const ax = acx + r * Math.cos(angle);
+      const ay = acy + r * Math.sin(angle);
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(angle + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -sc(2.5, s));
+      ctx.lineTo(sc(1.8, s),  sc(1, s));
+      ctx.lineTo(-sc(1.8, s), sc(1, s));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    drawGlow(ctx, acx, acy, r * 1.2, accent, 0.2);
+  }
+
+  // Waste input chute on left side
+  ctx.fillStyle = '#141e12';
+  roundRect(ctx, sc(6, s), sc(28, s), sc(6, s), sc(16, s), sc(1, s));
+  ctx.fill();
+  // Chute slat detail
+  ctx.strokeStyle = '#1e2e1a';
+  ctx.lineWidth = sc(0.7, s);
+  for (let sl = 0; sl < 4; sl++) {
+    ctx.beginPath();
+    ctx.moveTo(sc(7, s), sc(30 + sl * 3.5, s));
+    ctx.lineTo(sc(11, s), sc(30 + sl * 3.5, s));
+    ctx.stroke();
+  }
+
+  // Output conveyor on right
+  ctx.fillStyle = '#182614';
+  roundRect(ctx, sc(52, s), sc(30, s), sc(6, s), sc(12, s), sc(1, s));
+  ctx.fill();
+  // Conveyor rollers
+  ctx.strokeStyle = '#2a4020';
+  ctx.lineWidth = sc(0.6, s);
+  for (let ro = 0; ro < 4; ro++) {
+    ctx.beginPath();
+    ctx.moveTo(sc(53, s), sc(32 + ro * 2.5, s));
+    ctx.lineTo(sc(57, s), sc(32 + ro * 2.5, s));
+    ctx.stroke();
+  }
+
+  // Accent status lights on top face
+  ctx.fillStyle = accent;
+  for (let li = 0; li < 3; li++) {
+    ctx.beginPath();
+    ctx.arc(sc(18 + li * 12, s), sc(14, s), sc(1, s), 0, Math.PI * 2);
+    ctx.fill();
+    drawGlow(ctx, sc(18 + li * 12, s), sc(14, s), sc(3, s), accent, 0.4);
+  }
+
+  // Overall green ambient glow
+  drawGlow(ctx, sc(32, s), sc(36, s), sc(24, s), accent, 0.1);
+};
+
+// ── Communications Hub ────────────────────────────────────────────────────────
+// Central tower with satellite dish at top, concentric signal wave arcs,
+// receiver array on sides, blue data-link glow.
+
+const drawCommunicationsHub: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(10, s), sc(54, s), sc(44, s), accent);
+
+  // Base building block
+  const baseGrad = ctx.createLinearGradient(sc(18, s), sc(36, s), sc(18, s), sc(55, s));
+  baseGrad.addColorStop(0, '#18202e');
+  baseGrad.addColorStop(1, '#0e1620');
+  ctx.fillStyle = baseGrad;
+  roundRect(ctx, sc(18, s), sc(36, s), sc(28, s), sc(19, s), sc(2, s));
+  ctx.fill();
+  drawPanelLines(ctx, s, sc(18, s), sc(36, s), sc(28, s), sc(19, s), 6, 'rgba(40,80,140,0.35)');
+
+  // Central tower mast
+  const mGrad = ctx.createLinearGradient(sc(28, s), 0, sc(36, s), 0);
+  mGrad.addColorStop(0, '#1e2c40');
+  mGrad.addColorStop(0.5, '#3a5070');
+  mGrad.addColorStop(1, '#1a2838');
+  ctx.fillStyle = mGrad;
+  roundRect(ctx, sc(28, s), sc(10, s), sc(8, s), sc(28, s), sc(2, s));
+  ctx.fill();
+  drawPanelLines(ctx, s, sc(28, s), sc(10, s), sc(8, s), sc(28, s), 6, 'rgba(40,80,160,0.3)');
+
+  // Signal wave arcs emanating from dish (concentric)
+  const waveCx = sc(32, s);
+  const waveCy = sc(12, s);
+  ctx.save();
+  for (let w = 1; w <= 4; w++) {
+    const wr = sc(w * 5, s);
+    const alpha = 0.6 - w * 0.12;
+    ctx.strokeStyle = accent + Math.round(alpha * 255).toString(16).padStart(2, '0');
+    ctx.lineWidth = sc(0.9, s);
+    ctx.beginPath();
+    ctx.arc(waveCx, waveCy, wr, Math.PI * 1.25, Math.PI * 1.75);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(waveCx, waveCy, wr, Math.PI * 0.25, -Math.PI * 0.25);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(waveCx, waveCy, wr, Math.PI * 0.75, Math.PI * 1.25);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(waveCx, waveCy, wr, -Math.PI * 0.25, Math.PI * 0.25);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Primary dish at top of mast
+  ctx.strokeStyle = '#4a6888';
+  ctx.lineWidth = sc(2.5, s);
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(12, s), sc(9, s), Math.PI * 0.55, Math.PI * 2.45);
+  ctx.stroke();
+  // Dish feed
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(12, s), sc(2, s), 0, Math.PI * 2);
+  ctx.fill();
+  drawGlow(ctx, sc(32, s), sc(12, s), sc(12, s), accent, 0.7);
+
+  // Side receiver arrays — small dishes either side of tower
+  const sideArrays = [
+    { x: sc(14, s), y: sc(40, s), flip: false },
+    { x: sc(50, s), y: sc(40, s), flip: true  },
+  ];
+  for (const sa of sideArrays) {
+    ctx.strokeStyle = '#3a5878';
+    ctx.lineWidth = sc(1.5, s);
+    // Arm from building
+    ctx.beginPath();
+    ctx.moveTo(sa.flip ? sc(46, s) : sc(18, s), sa.y);
+    ctx.lineTo(sa.x, sa.y);
+    ctx.stroke();
+    // Small dish
+    const dStart = sa.flip ? Math.PI * 1.7 : Math.PI * 0.3;
+    const dEnd   = sa.flip ? Math.PI * 0.3 : Math.PI * 1.7;
+    ctx.beginPath();
+    ctx.arc(sa.x, sa.y, sc(6, s), dStart, dEnd);
+    ctx.stroke();
+    // Dish focal point
+    ctx.fillStyle = accent + '99';
+    ctx.beginPath();
+    ctx.arc(sa.x, sa.y, sc(1.2, s), 0, Math.PI * 2);
+    ctx.fill();
+    drawGlow(ctx, sa.x, sa.y, sc(5, s), accent, 0.3);
+  }
+
+  // Blue data link conduit — glowing line on tower
+  ctx.save();
+  ctx.shadowBlur = sc(6, s);
+  ctx.shadowColor = accent;
+  ctx.strokeStyle = accent + '88';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(32, s), sc(10, s));
+  ctx.lineTo(sc(32, s), sc(36, s));
+  ctx.stroke();
+  ctx.restore();
+
+  // Building windows
+  const winPositions = [[22, 42], [30, 42], [38, 42], [46, 42], [22, 48], [30, 48], [38, 48], [46, 48]] as const;
+  for (const [wx, wy] of winPositions) {
+    ctx.fillStyle = accent + '77';
+    roundRect(ctx, sc(wx, s), sc(wy, s), sc(4, s), sc(3, s), sc(0.5, s));
+    ctx.fill();
+  }
+};
+
+// ── Terraforming Station ──────────────────────────────────────────────────────
+// Large domed complex with atmospheric vent towers, processor units,
+// gas conduits, teal/cyan atmospheric glow.
+
+const drawTerraformingStation: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(4, s), sc(55, s), sc(56, s), accent);
+
+  // Main processing dome — large, central
+  const cx = sc(32, s);
+  const baseY = sc(55, s);
+  const domeR = sc(22, s);
+  const domeGrad = ctx.createRadialGradient(
+    sc(24, s), sc(28, s), sc(2, s),
+    cx, sc(33, s), domeR,
+  );
+  domeGrad.addColorStop(0, '#1a3e38');
+  domeGrad.addColorStop(0.6, '#0e2828');
+  domeGrad.addColorStop(1, '#061818');
+  ctx.fillStyle = domeGrad;
+  ctx.beginPath();
+  ctx.arc(cx, baseY, domeR, Math.PI, 0);
+  ctx.lineTo(cx + domeR, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Dome structural panels
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, baseY, domeR, Math.PI, 0);
+  ctx.lineTo(cx + domeR, baseY);
+  ctx.closePath();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(30,160,130,0.2)';
+  ctx.lineWidth = sc(0.8, s);
+  for (let rs = 1; rs <= 8; rs++) {
+    const angle = Math.PI + (rs / 9) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, baseY);
+    ctx.lineTo(cx + domeR * 1.1 * Math.cos(angle), baseY + domeR * 1.1 * Math.sin(angle));
+    ctx.stroke();
+  }
+  for (let ha = 1; ha <= 4; ha++) {
+    ctx.beginPath();
+    ctx.arc(cx, baseY, (ha / 5) * domeR, Math.PI, 0);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Dome specular
+  ctx.fillStyle = 'rgba(100,220,200,0.1)';
+  ctx.beginPath();
+  ctx.ellipse(sc(22, s), sc(36, s), sc(10, s), sc(5, s), -0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Atmospheric vent towers — 4 towers around dome
+  const ventTowers = [
+    { x: sc(7, s),  h: sc(30, s) },
+    { x: sc(15, s), h: sc(24, s) },
+    { x: sc(49, s), h: sc(28, s) },
+    { x: sc(57, s), h: sc(22, s) },
+  ];
+  for (const vt of ventTowers) {
+    const tGrad = ctx.createLinearGradient(vt.x - sc(3, s), 0, vt.x + sc(3, s), 0);
+    tGrad.addColorStop(0, '#0e2820');
+    tGrad.addColorStop(0.5, '#1e4838');
+    tGrad.addColorStop(1, '#0e2820');
+    ctx.fillStyle = tGrad;
+    roundRect(ctx, vt.x - sc(3, s), baseY - vt.h, sc(6, s), vt.h, sc(1, s));
+    ctx.fill();
+    // Vent flare at top
+    ctx.fillStyle = '#1a3e30';
+    roundRect(ctx, vt.x - sc(4.5, s), baseY - vt.h - sc(4, s), sc(9, s), sc(5, s), sc(1.5, s));
+    ctx.fill();
+    // Vent grille
+    drawVentGrille(ctx, s, vt.x - sc(3, s), baseY - vt.h + sc(2, s), sc(6, s), sc(8, s));
+    // Gas emission glow
+    drawGlow(ctx, vt.x, baseY - vt.h - sc(2, s), sc(8, s), accent, 0.45);
+    ctx.fillStyle = accent + '55';
+    ctx.beginPath();
+    ctx.ellipse(vt.x, baseY - vt.h - sc(1, s), sc(3.5, s), sc(1.5, s), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Gas conduit pipework between towers and dome
+  ctx.strokeStyle = '#1e4838';
+  ctx.lineWidth = sc(1.8, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(10, s), baseY - sc(10, s));
+  ctx.bezierCurveTo(sc(12, s), baseY - sc(14, s), sc(16, s), baseY - sc(12, s), cx - domeR, baseY - sc(10, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sc(54, s), baseY - sc(10, s));
+  ctx.bezierCurveTo(sc(52, s), baseY - sc(14, s), sc(48, s), baseY - sc(12, s), cx + domeR, baseY - sc(10, s));
+  ctx.stroke();
+  // Pipe coupling nodes
+  for (const px of [sc(13, s), sc(22, s), sc(42, s), sc(51, s)]) {
+    ctx.fillStyle = '#2a5848';
+    ctx.beginPath();
+    ctx.arc(px, baseY - sc(11, s), sc(2, s), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Central dome apex vent stack
+  ctx.strokeStyle = '#2a5848';
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.moveTo(cx, baseY - domeR);
+  ctx.lineTo(cx, baseY - domeR - sc(10, s));
+  ctx.stroke();
+  drawGlow(ctx, cx, baseY - domeR - sc(6, s), sc(10, s), accent, 0.5);
+  ctx.fillStyle = accent + '88';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - domeR - sc(4, s), sc(4, s), sc(2, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Interior atmospheric glow through dome
+  drawGlow(ctx, cx, sc(40, s), sc(20, s), accent, 0.2);
+};
+
+// ── Military Academy ──────────────────────────────────────────────────────────
+// Fortified compound with crenellated walls, central command block,
+// parade ground, flag mast, red accent lights.
+
+const drawMilitaryAcademy: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(4, s), sc(55, s), sc(56, s), accent);
+
+  // Parade ground — flat area in front of buildings
+  ctx.fillStyle = '#151510';
+  roundRect(ctx, sc(8, s), sc(46, s), sc(48, s), sc(10, s), sc(0, s));
+  ctx.fill();
+  // Ground marking lines
+  ctx.strokeStyle = '#202018';
+  ctx.lineWidth = sc(0.6, s);
+  for (let gl = 0; gl < 4; gl++) {
+    ctx.beginPath();
+    ctx.moveTo(sc(12 + gl * 12, s), sc(47, s));
+    ctx.lineTo(sc(12 + gl * 12, s), sc(55, s));
+    ctx.stroke();
+  }
+
+  // Outer fortification wall — crenellated top
+  const wallY = sc(32, s);
+  ctx.fillStyle = '#252018';
+  roundRect(ctx, sc(6, s), wallY, sc(52, s), sc(15, s), sc(1, s));
+  ctx.fill();
+  // Crenels (merlons) — rectangular notches along top
+  ctx.fillStyle = '#2a2520';
+  for (let cr = 0; cr < 10; cr++) {
+    ctx.fillRect(sc(8 + cr * 5.2, s), sc(29, s), sc(3, s), sc(4, s));
+  }
+  // Wall shadow below
+  ctx.strokeStyle = '#1a1810';
+  ctx.lineWidth = sc(0.75, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(6, s), wallY + sc(14, s));
+  ctx.lineTo(sc(58, s), wallY + sc(14, s));
+  ctx.stroke();
+
+  // Corner towers
+  const cornerData = [
+    { x: sc(6, s),  topY: sc(18, s), h: sc(28, s) },
+    { x: sc(50, s), topY: sc(18, s), h: sc(28, s) },
+  ];
+  for (const ct of cornerData) {
+    const tGrad = ctx.createLinearGradient(ct.x, ct.topY, ct.x + sc(8, s), ct.topY);
+    tGrad.addColorStop(0, '#201c14');
+    tGrad.addColorStop(0.5, '#342e20');
+    tGrad.addColorStop(1, '#201c14');
+    ctx.fillStyle = tGrad;
+    roundRect(ctx, ct.x, ct.topY, sc(8, s), ct.h, sc(1, s));
+    ctx.fill();
+    // Tower crenels
+    ctx.fillStyle = '#2a2418';
+    for (let tc = 0; tc < 2; tc++) {
+      ctx.fillRect(ct.x + sc(1 + tc * 4, s), ct.topY - sc(3, s), sc(2.5, s), sc(4, s));
+    }
+    // Arrow slit windows
+    ctx.fillStyle = '#100c08';
+    ctx.fillRect(ct.x + sc(3, s), ct.topY + sc(6, s), sc(2, s), sc(6, s));
+    ctx.fillRect(ct.x + sc(3, s), ct.topY + sc(14, s), sc(2, s), sc(6, s));
+    // Red accent light
+    drawGlow(ctx, ct.x + sc(4, s), ct.topY + sc(2, s), sc(5, s), accent, 0.4);
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(ct.x + sc(4, s), ct.topY + sc(2, s), sc(1.2, s), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Central command block — taller than walls
+  const cmdGrad = ctx.createLinearGradient(sc(20, s), sc(10, s), sc(44, s), sc(10, s));
+  cmdGrad.addColorStop(0, '#1e1a10');
+  cmdGrad.addColorStop(0.5, '#302a1a');
+  cmdGrad.addColorStop(1, '#1e1a10');
+  ctx.fillStyle = cmdGrad;
+  roundRect(ctx, sc(20, s), sc(10, s), sc(24, s), sc(36, s), sc(2, s));
+  ctx.fill();
+  drawPanelLines(ctx, s, sc(20, s), sc(10, s), sc(24, s), sc(36, s), 7, 'rgba(60,50,20,0.4)');
+
+  // Command block windows
+  const cmdWindows = [[24, 14], [36, 14], [24, 22], [36, 22], [24, 30], [36, 30]] as const;
+  for (const [wx, wy] of cmdWindows) {
+    ctx.fillStyle = accent + '88';
+    roundRect(ctx, sc(wx, s), sc(wy, s), sc(4, s), sc(5, s), sc(0.5, s));
+    ctx.fill();
+    drawGlow(ctx, sc(wx + 2, s), sc(wy + 2.5, s), sc(3, s), accent, 0.25);
+  }
+
+  // Entrance arch at base of command block
+  ctx.fillStyle = '#100c08';
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(46, s), sc(5, s), Math.PI, 0);
+  ctx.rect(sc(27, s), sc(46, s), sc(10, s), sc(4, s));
+  ctx.fill();
+
+  // Flag mast on command block roof
+  ctx.strokeStyle = '#4a4030';
+  ctx.lineWidth = sc(1.2, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(34, s), sc(10, s));
+  ctx.lineTo(sc(34, s), sc(2, s));
+  ctx.stroke();
+  // Flag pennant
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(sc(34, s), sc(2, s));
+  ctx.lineTo(sc(44, s), sc(5, s));
+  ctx.lineTo(sc(34, s), sc(8, s));
+  ctx.closePath();
+  ctx.fill();
+  drawGlow(ctx, sc(34, s), sc(5, s), sc(6, s), accent, 0.35);
+};
+
+// ── Fusion Reactor ────────────────────────────────────────────────────────────
+// Toroidal reactor chamber with plasma containment glow, magnetic coil rings,
+// cooling towers, power conduit feed lines, orange-white plasma glow.
+
+const drawFusionReactor: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(6, s), sc(55, s), sc(52, s), accent);
+
+  const cx = sc(32, s);
+  const cy = sc(34, s);
+
+  // Outer containment shell — torus drawn as thick ellipse (side view)
+  const shellGrad = ctx.createRadialGradient(
+    sc(28, s), sc(30, s), sc(2, s),
+    cx, cy, sc(20, s),
+  );
+  shellGrad.addColorStop(0, '#3a2a10');
+  shellGrad.addColorStop(0.5, '#1e1808');
+  shellGrad.addColorStop(1, '#100e06');
+  ctx.strokeStyle = shellGrad;
+  ctx.lineWidth = sc(9, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(18, s), sc(10, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Shell highlight — top arc
+  ctx.strokeStyle = '#4a3818';
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(18, s), sc(10, s), 0, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.stroke();
+
+  // Magnetic containment coil rings — overlaid on torus body
+  ctx.strokeStyle = '#2a2010';
+  ctx.lineWidth = sc(2, s);
+  for (let coil = -2; coil <= 2; coil++) {
+    ctx.beginPath();
+    ctx.ellipse(cx + sc(coil * 4, s), cy, sc(4.5, s), sc(11, s), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Coil highlight lines
+  ctx.strokeStyle = '#504028';
+  ctx.lineWidth = sc(0.6, s);
+  for (let coil = -2; coil <= 2; coil++) {
+    ctx.beginPath();
+    ctx.ellipse(cx + sc(coil * 4, s), cy, sc(4.5, s), sc(11, s), 0, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  // Plasma core visible in centre hole of torus
+  const plasmaGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, sc(6, s));
+  plasmaGrad.addColorStop(0, '#ffffff');
+  plasmaGrad.addColorStop(0.3, '#ffee88');
+  plasmaGrad.addColorStop(0.7, accent + 'cc');
+  plasmaGrad.addColorStop(1, accent + '00');
+  ctx.fillStyle = plasmaGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, sc(6, s), sc(4, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  drawGlow(ctx, cx, cy, sc(14, s), accent, 0.65);
+
+  // Cooling towers — two tall cylinders either side
+  const coolTowers = [
+    { x: sc(8,  s), h: sc(30, s) },
+    { x: sc(56, s), h: sc(28, s) },
+  ];
+  for (const ct of coolTowers) {
+    const ctGrad = ctx.createLinearGradient(ct.x - sc(4, s), 0, ct.x + sc(4, s), 0);
+    ctGrad.addColorStop(0, '#151210');
+    ctGrad.addColorStop(0.5, '#2a2418');
+    ctGrad.addColorStop(1, '#151210');
+    ctx.fillStyle = ctGrad;
+    roundRect(ctx, ct.x - sc(4, s), sc(55, s) - ct.h, sc(8, s), ct.h, sc(2, s));
+    ctx.fill();
+    // Cooling fins — horizontal bands
+    ctx.strokeStyle = '#2a2010';
+    ctx.lineWidth = sc(0.6, s);
+    for (let fi = 2; fi < 6; fi++) {
+      ctx.beginPath();
+      ctx.moveTo(ct.x - sc(5, s), sc(55, s) - ct.h + sc(fi * 5, s));
+      ctx.lineTo(ct.x + sc(5, s), sc(55, s) - ct.h + sc(fi * 5, s));
+      ctx.stroke();
+    }
+    // Tower cap with heat dissipation glow
+    ctx.fillStyle = '#202018';
+    roundRect(ctx, ct.x - sc(5.5, s), sc(55, s) - ct.h - sc(4, s), sc(11, s), sc(5, s), sc(1.5, s));
+    ctx.fill();
+    drawGlow(ctx, ct.x, sc(55, s) - ct.h, sc(8, s), '#ff6600', 0.35);
+    ctx.fillStyle = '#ff6600aa';
+    ctx.beginPath();
+    ctx.ellipse(ct.x, sc(55, s) - ct.h, sc(3, s), sc(1.5, s), 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Vent grille near base of tower
+    drawVentGrille(ctx, s, ct.x - sc(3, s), sc(48, s), sc(6, s), sc(6, s));
+  }
+
+  // Power output conduits — thick cables from reactor to sides
+  ctx.strokeStyle = '#3a2808';
+  ctx.lineWidth = sc(2.5, s);
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(18, s), cy + sc(6, s));
+  ctx.bezierCurveTo(cx - sc(22, s), cy + sc(8, s), sc(12, s), sc(50, s), sc(8, s), sc(55, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx + sc(18, s), cy + sc(6, s));
+  ctx.bezierCurveTo(cx + sc(22, s), cy + sc(8, s), sc(52, s), sc(50, s), sc(56, s), sc(55, s));
+  ctx.stroke();
+  // Energy glow on conduits
+  ctx.save();
+  ctx.shadowBlur = sc(6, s);
+  ctx.shadowColor = accent;
+  ctx.strokeStyle = accent + '44';
+  ctx.lineWidth = sc(1, s);
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(18, s), cy + sc(6, s));
+  ctx.bezierCurveTo(cx - sc(22, s), cy + sc(8, s), sc(12, s), sc(50, s), sc(8, s), sc(55, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx + sc(18, s), cy + sc(6, s));
+  ctx.bezierCurveTo(cx + sc(22, s), cy + sc(8, s), sc(52, s), sc(50, s), sc(56, s), sc(55, s));
+  ctx.stroke();
+  ctx.restore();
+
+  // Overall plasma ambient glow
+  drawGlow(ctx, cx, cy, sc(28, s), accent, 0.14);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
-  research_lab:      drawResearchLab,
-  factory:           drawFactory,
-  shipyard:          drawShipyard,
-  trade_hub:         drawTradeHub,
-  defense_grid:      drawDefenceGrid,
-  population_center: drawPopulationCentre,
-  mining_facility:   drawMiningFacility,
-  spaceport:         drawSpaceport,
-  power_plant:       drawPowerPlant,
+  research_lab:          drawResearchLab,
+  factory:               drawFactory,
+  shipyard:              drawShipyard,
+  trade_hub:             drawTradeHub,
+  defense_grid:          drawDefenceGrid,
+  population_center:     drawPopulationCentre,
+  mining_facility:       drawMiningFacility,
+  spaceport:             drawSpaceport,
+  power_plant:           drawPowerPlant,
+  entertainment_complex: drawEntertainmentComplex,
+  hydroponics_bay:       drawHydroponicsBay,
+  orbital_platform:      drawOrbitalPlatform,
+  recycling_plant:       drawRecyclingPlant,
+  communications_hub:    drawCommunicationsHub,
+  terraforming_station:  drawTerraformingStation,
+  military_academy:      drawMilitaryAcademy,
+  fusion_reactor:        drawFusionReactor,
 };
 
 // ── Roman numeral level badge ─────────────────────────────────────────────────

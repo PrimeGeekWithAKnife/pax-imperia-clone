@@ -10,3 +10,5 @@ export { ShipDesignerScreen } from './ShipDesignerScreen';
 export type { ShipDesignerScreenProps } from './ShipDesignerScreen';
 export { DiplomacyScreen } from './DiplomacyScreen';
 export type { DiplomacyScreenProps, KnownEmpire, DiplomaticIncident } from './DiplomacyScreen';
+export { FleetScreen } from './FleetScreen';
+export type { FleetScreenProps } from './FleetScreen';

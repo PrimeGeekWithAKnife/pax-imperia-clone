@@ -7,10 +7,10 @@
  *   'system' — drone + pad + texture (warmer)
  *
  * Music tracks (player-selectable mood):
- *   'deep_space'  — the original ambient drone: eerie, atmospheric, slow sirens
- *   'exploration' — warmer pentatonic arpeggio with hopeful pad chords
- *   'tension'     — darker drones, dissonant intervals, faster modulation
- *   'serenity'    — minimal, single sustained pad with very slow filter sweeps
+ *   'deep_space'  — vast and empty; very low drone, slow evolving pad chords
+ *   'exploration' — warm Rhodes-like pentatonic melody with gentle bass line
+ *   'tension'     — pulsing sub-bass, dissonant slides, sharp noise stabs
+ *   'serenity'    — pure sine tones in C major, minimal, long reverb tails
  */
 
 import type { AudioEngine } from './AudioEngine';
@@ -34,8 +34,14 @@ const FADE_IN_TIME  = 3.0;   // seconds
 // Pentatonic C-major scale (MIDI note numbers for the motif)
 const PENTATONIC = [48, 50, 52, 55, 57]; // C3 D3 E3 G3 A3
 
-// Exploration arpeggio: C4, E4, G4, A4, C5
-const EXPLORATION_ARPEGGIO = [60, 64, 67, 69, 72];
+// Exploration arpeggio — used only as a fallback; melody now uses a Rhodes tone
+const EXPLORATION_ARPEGGIO = [60, 64, 67, 69, 72]; // C4 E4 G4 A4 C5
+
+// Deep Space chord progression: Cm → Fm → Ab → Eb (each held for 30 s)
+// Represented as root MIDI notes; chords are built in the pad layer.
+const DS_CHORD_ROOTS = [48, 53, 56, 51]; // C3 F3 Ab3 Eb3
+const DS_CHORD_TYPE  = ['minor', 'minor', 'major', 'major'] as const; // chord quality
+const DS_CHORD_DURATION = 30; // seconds per chord
 
 function midiToHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
@@ -121,32 +127,28 @@ export class MusicGenerator {
     switch (track) {
       case 'deep_space':
         layers.push(this._createBassDrone());
+        layers.push(this._createDeepSpacePadChords());
         layers.push(this._createTexture());
-        layers.push(this._createShimmer());
-        if (scene === 'menu' || scene === 'system') {
-          layers.push(this._createPadLayer());
-        }
         if (scene === 'menu') {
           layers.push(this._createMotif());
         }
         break;
 
       case 'exploration':
-        layers.push(this._createExplorationArpeggio());
+        layers.push(this._createExplorationBassLine());
+        layers.push(this._createExplorationRhodesMelody());
         layers.push(this._createExplorationPad());
-        layers.push(this._createExplorationShimmer());
         break;
 
       case 'tension':
-        layers.push(this._createTensionDrone());
-        layers.push(this._createTensionDissonance());
-        layers.push(this._createTensionTexture());
-        layers.push(this._createTensionStabs());
+        layers.push(this._createTensionSubBass());
+        layers.push(this._createTensionDissonanceSlide());
+        layers.push(this._createTensionNoiseStabs());
         break;
 
       case 'serenity':
-        layers.push(this._createSerenityPad());
-        layers.push(this._createSerenityShimmer());
+        layers.push(this._createSerenityChimes());
+        layers.push(this._createSerenityDrone());
         break;
     }
 
@@ -180,152 +182,145 @@ export class MusicGenerator {
   // ── Deep Space layer factories ───────────────────────────────────────────────
 
   /**
-   * Bass drone: two detuned sines at ~40 Hz.
-   * Slowly sweeps ±2 Hz over 45-second cycles via an LFO.
+   * Bass drone: two detuned sines at 28–32 Hz — lower than before, more vast.
+   * Very slow LFO sweep.
    */
   private _createBassDrone(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.18;
+    gain.gain.value = 0.20;
     gain.connect(this.masterFade);
 
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     osc1.type = 'sine';
     osc2.type = 'sine';
-    osc1.frequency.value = 40.0;
-    osc2.frequency.value = 40.5; // slight detune
+    // Base in the 25-35 Hz range — deeper than the old 40 Hz
+    osc1.frequency.value = 30.0;
+    osc2.frequency.value = 30.4;
 
-    // LFO to slowly sweep frequency
+    // Very slow LFO (one cycle every 60 s) — ±2 Hz
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.value = 1 / 45; // one cycle every 45 s
+    lfo.frequency.value = 1 / 60;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 2; // ±2 Hz
+    lfoGain.gain.value = 2;
     lfo.connect(lfoGain);
     lfoGain.connect(osc1.frequency);
     lfoGain.connect(osc2.frequency);
 
-    // Slight soft clip via waveshaper for warmth
+    // Lowpass to strip any overtone content above ~80 Hz — no whistly tone
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 80;
+    lp.Q.value = 0.5;
+
     const shaper = ctx.createWaveShaper();
     shaper.curve = makeSoftClipCurve(256);
     osc1.connect(shaper);
     osc2.connect(shaper);
-    shaper.connect(gain);
+    shaper.connect(lp);
+    lp.connect(gain);
 
     osc1.start();
     osc2.start();
     lfo.start();
 
     return {
-      nodes: [osc1, osc2, lfo, lfoGain, shaper, gain],
+      nodes: [osc1, osc2, lfo, lfoGain, shaper, lp, gain],
       gain,
       stop: () => { osc1.stop(); osc2.stop(); lfo.stop(); },
     };
   }
 
   /**
-   * Pad layer: sawtooth through a lowpass filter, LFO on cutoff.
-   * Warmer, slightly fuller texture for menu and system view.
+   * Deep Space pad chords: slow chord progression Cm → Fm → Ab → Eb.
+   * Each chord is held for 30 seconds, cross-fading smoothly.
+   * Uses filtered sawtooth oscillators to build warm, low-frequency pads.
+   * No high-frequency content — all shimmer removed.
    */
-  private _createPadLayer(): ActiveLayer {
+  private _createDeepSpacePadChords(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
     gain.gain.value = 0.055;
     gain.connect(this.masterFade);
 
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.value = 55; // A1 — low pad root
-
-    // Lowpass filter — cutoff sweeps via slow LFO
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 200;
-    filter.Q.value = 1.2;
-
-    // LFO on filter cutoff (0.02 Hz = one sweep every 50 s)
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.02;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 80; // sweeps cutoff ±80 Hz around 200
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-
-    // Convolver for reverb
-    const reverb = this._createReverb(6, 3.5);
-
-    osc.connect(filter);
-    filter.connect(reverb);
+    const reverb = this._createReverb(10, 5);
     reverb.connect(gain);
 
-    osc.start();
-    lfo.start();
+    let stopped = false;
+    let chordIndex = 0;
+    let currentOscs: OscillatorNode[] = [];
+    let currentEnvGain: GainNode | null = null;
 
-    return {
-      nodes: [osc, filter, lfo, lfoGain, reverb, gain],
-      gain,
-      stop: () => { osc.stop(); lfo.stop(); },
+    const CHORD_INTERVALS = {
+      minor: [0, 3, 7],
+      major: [0, 4, 7],
     };
-  }
 
-  /**
-   * Shimmer: high-frequency sine with a feedback delay line, creating
-   * ethereal, drifting high tones.
-   */
-  private _createShimmer(): ActiveLayer {
-    const ctx = this.ctx;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.015;  // Much quieter — subtle background presence
-    gain.connect(this.masterFade);
+    const buildChord = (): void => {
+      if (stopped) return;
+      const root = DS_CHORD_ROOTS[chordIndex % DS_CHORD_ROOTS.length]!;
+      const quality = DS_CHORD_TYPE[chordIndex % DS_CHORD_TYPE.length]!;
+      const intervals = CHORD_INTERVALS[quality];
+      const t = ctx.currentTime;
 
-    // Lower frequency range: 200-500 Hz for a deeper, less whistly shimmer
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = 350;
+      // Fade out old chord
+      if (currentEnvGain) {
+        const old = currentEnvGain;
+        old.gain.linearRampToValueAtTime(0, t + 4);
+        // Disconnect old oscs after fade
+        setTimeout(() => {
+          for (const o of currentOscs) {
+            try { o.stop(); } catch { /* */ }
+          }
+        }, 5000);
+      }
 
-    const freqLfo = ctx.createOscillator();
-    freqLfo.type = 'sine';
-    freqLfo.frequency.value = 1 / 50; // 50-second cycle (slower)
-    const freqLfoGain = ctx.createGain();
-    freqLfoGain.gain.value = 150; // ±150 Hz around 350 (range: 200-500 Hz)
-    freqLfo.connect(freqLfoGain);
-    freqLfoGain.connect(osc.frequency);
+      const envGain = ctx.createGain();
+      envGain.gain.setValueAtTime(0, t);
+      envGain.gain.linearRampToValueAtTime(0.9, t + 4); // fade in over 4 s
+      envGain.connect(reverb);
 
-    // Amplitude envelope: slow swell via AM LFO
-    const ampLfo = ctx.createOscillator();
-    ampLfo.type = 'sine';
-    ampLfo.frequency.value = 1 / 23; // 23-second swell
-    const ampLfoGain = ctx.createGain();
-    ampLfoGain.gain.value = 0.5;
-    const ampOffset = ctx.createGain();
-    ampOffset.gain.value = 0.5; // DC offset so AM goes 0→1
-    ampLfo.connect(ampLfoGain);
-    ampLfoGain.connect(ampOffset.gain);
+      const oscs: OscillatorNode[] = [];
+      for (const interval of intervals) {
+        const midi = root + interval;
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = midiToHz(midi);
+        osc.detune.value = (Math.random() - 0.5) * 3; // tiny detune for warmth
 
-    // Feedback delay
-    const delay = ctx.createDelay(4.0);
-    delay.delayTime.value = 0.7;
-    const feedbackGain = ctx.createGain();
-    feedbackGain.gain.value = 0.55;
-    const reverb = this._createReverb(8, 5);
+        // Lowpass to remove high harmonics — keep it warm and low
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 350;
+        lp.Q.value = 0.7;
 
-    osc.connect(ampOffset);
-    ampOffset.connect(delay);
-    delay.connect(feedbackGain);
-    feedbackGain.connect(delay);
-    delay.connect(reverb);
-    reverb.connect(gain);
+        osc.connect(lp);
+        lp.connect(envGain);
+        osc.start(t);
+        oscs.push(osc);
+      }
 
-    osc.start();
-    freqLfo.start();
-    ampLfo.start();
+      currentOscs = oscs;
+      currentEnvGain = envGain;
+      chordIndex++;
+
+      // Schedule next chord change
+      setTimeout(buildChord, DS_CHORD_DURATION * 1000);
+    };
+
+    buildChord();
 
     return {
-      nodes: [osc, freqLfo, freqLfoGain, ampLfo, ampLfoGain, ampOffset, delay, feedbackGain, reverb, gain],
+      nodes: [reverb, gain],
       gain,
-      stop: () => { osc.stop(); freqLfo.stop(); ampLfo.stop(); },
+      stop: () => {
+        stopped = true;
+        for (const o of currentOscs) {
+          try { o.stop(); } catch { /* */ }
+        }
+      },
     };
   }
 
@@ -336,7 +331,7 @@ export class MusicGenerator {
   private _createTexture(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.03;
+    gain.gain.value = 0.025;
     gain.connect(this.masterFade);
 
     const bufferSize = ctx.sampleRate * 4;
@@ -348,18 +343,17 @@ export class MusicGenerator {
     source.buffer = noiseBuffer;
     source.loop = true;
 
-    // Bandpass centred at ~200 Hz, width covers 100-400 Hz
+    // Low bandpass — keep below 200 Hz to avoid any whistly presence
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.value = 200;
-    bp.Q.value = 0.7; // fairly wide
+    bp.frequency.value = 100;
+    bp.Q.value = 0.5;
 
-    // Slow LFO on bandpass centre
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.value = 1 / 60; // 60-second sweep
+    lfo.frequency.value = 1 / 70;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 100; // ±100 Hz
+    lfoGain.gain.value = 60;
     lfo.connect(lfoGain);
     lfoGain.connect(bp.frequency);
 
@@ -414,12 +408,10 @@ export class MusicGenerator {
       osc.start(t);
       osc.stop(t + 5);
 
-      // Schedule next note: gap of 5-9 seconds between notes
       const gap = 5 + Math.random() * 4;
       setTimeout(() => scheduleNote(noteIndex + 1, 0), (delay + gap) * 1000);
     };
 
-    // Start the motif sequence with a small initial delay
     const initialDelay = 3 + Math.random() * 4;
     setTimeout(() => scheduleNote(0, 0), initialDelay * 1000);
 
@@ -433,23 +425,81 @@ export class MusicGenerator {
   // ── Exploration track layer factories ────────────────────────────────────────
 
   /**
-   * Exploration arpeggio: gentle pentatonic notes (C4, E4, G4, A4, C5) played
-   * slowly with soft sine tones and delay.  Warm and hopeful.
+   * Exploration bass line: a gentle walking bass that moves under the melody.
+   * Warm sine tone with subtle movement — one note every 4–6 s.
    */
-  private _createExplorationArpeggio(): ActiveLayer {
+  private _createExplorationBassLine(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.10;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(5, 3);
+    reverb.connect(gain);
+
+    // Bass line notes: C2, G2, F2, E2, G2, Ab2, G2 — gentle movement
+    const bassMidi = [36, 43, 41, 40, 43, 44, 43];
+    let stopped = false;
+    let noteIdx = 0;
+
+    const scheduleNote = (): void => {
+      if (stopped) return;
+      const midi = bassMidi[noteIdx % bassMidi.length]!;
+      const freq = midiToHz(midi);
+      const t = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.8, t + 0.08);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 4.0);
+
+      // Very light lowpass to keep the bass warm
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 300;
+
+      osc.connect(lp);
+      lp.connect(env);
+      env.connect(reverb);
+      osc.start(t);
+      osc.stop(t + 5);
+
+      noteIdx++;
+      const gap = 4000 + Math.random() * 2000;
+      setTimeout(scheduleNote, gap);
+    };
+
+    setTimeout(scheduleNote, 500 + Math.random() * 1000);
+
+    return {
+      nodes: [reverb, gain],
+      gain,
+      stop: () => { stopped = true; },
+    };
+  }
+
+  /**
+   * Rhodes-like melody: sine tone + slight detuned harmonic above.
+   * Plays notes from the pentatonic scale every 2–3 s. Warm and hopeful.
+   */
+  private _createExplorationRhodesMelody(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
     gain.gain.value = 0.12;
     gain.connect(this.masterFade);
 
-    const reverb = this._createReverb(8, 4);
+    const reverb = this._createReverb(8, 4.5);
     reverb.connect(gain);
 
-    // Feedback delay for gentle echo
+    // Feedback delay for a gentle echo
     const delay = ctx.createDelay(3.0);
-    delay.delayTime.value = 0.45;
+    delay.delayTime.value = 0.40;
     const fbGain = ctx.createGain();
-    fbGain.gain.value = 0.4;
+    fbGain.gain.value = 0.35;
     delay.connect(fbGain);
     fbGain.connect(delay);
     delay.connect(reverb);
@@ -463,30 +513,44 @@ export class MusicGenerator {
       const freq = midiToHz(midi);
       const t = ctx.currentTime;
 
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
+      // Primary sine — fundamental (Rhodes-like body)
+      const osc1 = ctx.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.value = freq;
 
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.8, t + 0.15);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 3.5);
+      // Second sine at slightly detuned upper partial — gives a Rhodes-like bell quality
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.value = freq * 2.05; // slightly sharp octave above
+      osc2.detune.value = 8;
 
-      osc.connect(env);
-      env.connect(delay);
+      const env1 = ctx.createGain();
+      env1.gain.setValueAtTime(0, t);
+      env1.gain.linearRampToValueAtTime(0.85, t + 0.01); // fast attack like Rhodes
+      env1.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
 
-      osc.start(t);
-      osc.stop(t + 4);
+      const env2 = ctx.createGain();
+      env2.gain.setValueAtTime(0, t);
+      env2.gain.linearRampToValueAtTime(0.18, t + 0.005); // upper partial decays faster
+      env2.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+
+      osc1.connect(env1);
+      osc2.connect(env2);
+      env1.connect(delay);
+      env2.connect(delay);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 4);
+      osc2.stop(t + 2);
 
       noteIndex++;
-
-      // Gap: 2.5-4.5 s between notes — leisurely arpeggio pace
-      const gap = 2500 + Math.random() * 2000;
+      // One note every 2–3 seconds
+      const gap = 2000 + Math.random() * 1000;
       setTimeout(scheduleNote, gap);
     };
 
-    // Start after a brief pause
-    setTimeout(scheduleNote, 1500 + Math.random() * 1000);
+    setTimeout(scheduleNote, 1200 + Math.random() * 800);
 
     return {
       nodes: [reverb, delay, fbGain, gain],
@@ -496,13 +560,13 @@ export class MusicGenerator {
   }
 
   /**
-   * Exploration pad: a gentle C-major chord spread across sine oscillators,
-   * very slowly modulated for movement.
+   * Exploration pad: a sustained C-major chord with very slow swell.
+   * Warm, open. No shimmer overtones.
    */
   private _createExplorationPad(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.05;
+    gain.gain.value = 0.045;
     gain.connect(this.masterFade);
 
     const reverb = this._createReverb(7, 4);
@@ -516,10 +580,7 @@ export class MusicGenerator {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = midiToHz(midi);
-
-      // Very slight per-note detune for warmth
-      const detune = (Math.random() - 0.5) * 4;
-      osc.detune.value = detune;
+      osc.detune.value = (Math.random() - 0.5) * 4;
 
       const envGain = ctx.createGain();
       envGain.gain.value = 0.33;
@@ -533,9 +594,9 @@ export class MusicGenerator {
     // Slow LFO on master gain for gentle swell
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.value = 1 / 18; // 18-second swell
+    lfo.frequency.value = 1 / 20;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.02;
+    lfoGain.gain.value = 0.018;
     lfo.connect(lfoGain);
     lfoGain.connect(gain.gain);
     lfo.start();
@@ -547,123 +608,94 @@ export class MusicGenerator {
     };
   }
 
-  /**
-   * Exploration shimmer: soft, high-register sine notes at long intervals,
-   * evoking starlight.
-   */
-  private _createExplorationShimmer(): ActiveLayer {
-    const ctx = this.ctx;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.03;
-    gain.connect(this.masterFade);
-
-    const reverb = this._createReverb(9, 5.5);
-    reverb.connect(gain);
-
-    let stopped = false;
-
-    // High pentatonic notes: E5, G5, A5, C6
-    const shimmerMidi = [76, 79, 81, 84];
-
-    const scheduleShimmer = (): void => {
-      if (stopped) return;
-      const midi = shimmerMidi[Math.floor(Math.random() * shimmerMidi.length)]!;
-      const t = ctx.currentTime;
-
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = midiToHz(midi);
-
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.6, t + 0.4);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 5);
-
-      osc.connect(env);
-      env.connect(reverb);
-      osc.start(t);
-      osc.stop(t + 6);
-
-      // Long gaps: 8-16 s between shimmer notes
-      setTimeout(scheduleShimmer, 8000 + Math.random() * 8000);
-    };
-
-    setTimeout(scheduleShimmer, 4000 + Math.random() * 4000);
-
-    return {
-      nodes: [reverb, gain],
-      gain,
-      stop: () => { stopped = true; },
-    };
-  }
-
   // ── Tension track layer factories ─────────────────────────────────────────
 
   /**
-   * Tension drone: low sines in the 20-30 Hz range — sub-bass rumble.
+   * Tension sub-bass: 30 Hz sine with 0.5 Hz amplitude modulation.
+   * Pulsing, dangerous, visceral.
    */
-  private _createTensionDrone(): ActiveLayer {
+  private _createTensionSubBass(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.22;
+    gain.gain.value = 0.25;
     gain.connect(this.masterFade);
 
-    const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
-    osc1.type = 'sine';
-    osc2.type = 'sine';
-    osc1.frequency.value = 24.0;
-    osc2.frequency.value = 27.5; // dissonant interval
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 30;
 
-    // Faster LFO than deep_space — more urgent sweep
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sawtooth';
-    lfo.frequency.value = 1 / 12; // 12-second cycle (faster)
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 3; // ±3 Hz
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc1.frequency);
-    lfoGain.connect(osc2.frequency);
+    // 0.5 Hz AM — slow dread pulse
+    const ampLfo = ctx.createOscillator();
+    ampLfo.type = 'sine';
+    ampLfo.frequency.value = 0.5;
+
+    const ampLfoGain = ctx.createGain();
+    ampLfoGain.gain.value = 0.45;
+    const dcOffset = ctx.createGain();
+    dcOffset.gain.value = 0.55; // so gain never goes below 0.1
+
+    ampLfo.connect(ampLfoGain);
+    ampLfoGain.connect(dcOffset.gain);
+    osc.connect(dcOffset);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 90;
 
     const shaper = ctx.createWaveShaper();
     shaper.curve = makeSoftClipCurve(256);
-    osc1.connect(shaper);
-    osc2.connect(shaper);
-    shaper.connect(gain);
+    dcOffset.connect(shaper);
+    shaper.connect(lp);
+    lp.connect(gain);
 
-    osc1.start();
-    osc2.start();
-    lfo.start();
+    osc.start();
+    ampLfo.start();
 
     return {
-      nodes: [osc1, osc2, lfo, lfoGain, shaper, gain],
+      nodes: [osc, ampLfo, ampLfoGain, dcOffset, shaper, lp, gain],
       gain,
-      stop: () => { osc1.stop(); osc2.stop(); lfo.stop(); },
+      stop: () => { osc.stop(); ampLfo.stop(); },
     };
   }
 
   /**
-   * Tension dissonance: minor 2nd shimmer — two close-together high tones
-   * that beat against each other unpleasantly.
+   * Tension dissonance: two close-together sines that slide.
+   * Minor seconds that drift upward over time — unsettling, dangerous.
    */
-  private _createTensionDissonance(): ActiveLayer {
+  private _createTensionDissonanceSlide(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.045;
+    gain.gain.value = 0.05;
     gain.connect(this.masterFade);
 
-    // Minor 2nd: B4 (494 Hz) and C5 (523 Hz) — classic dissonance
+    const reverb = this._createReverb(5, 3);
+    reverb.connect(gain);
+
+    // Start at B3/C4 minor 2nd, slowly glide upward over ~40 s then back
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     osc1.type = 'sine';
     osc2.type = 'sine';
-    osc1.frequency.value = midiToHz(71); // B4
-    osc2.frequency.value = midiToHz(72); // C5
 
-    // Fast amplitude LFO — creates a pulsing, unsettling quality
+    const now = ctx.currentTime;
+    osc1.frequency.setValueAtTime(midiToHz(59), now); // B3
+    osc2.frequency.setValueAtTime(midiToHz(60), now); // C4
+
+    // Slow upward slide: both oscillators glide ±6 semitones over 40 s
+    const slideLfo = ctx.createOscillator();
+    slideLfo.type = 'sine';
+    slideLfo.frequency.value = 1 / 40;
+    const slideLfoGain = ctx.createGain();
+    // 6 semitones ≈ ratio 1.5, centred on base freq; use detune in cents
+    slideLfoGain.gain.value = 200; // ±200 cents
+    slideLfo.connect(slideLfoGain);
+    slideLfoGain.connect(osc1.detune);
+    slideLfoGain.connect(osc2.detune);
+
+    // Pulsing amplitude — slower than before for added dread
     const ampLfo = ctx.createOscillator();
     ampLfo.type = 'sine';
-    ampLfo.frequency.value = 1 / 8; // 8-second pulse
+    ampLfo.frequency.value = 1 / 6; // 6-second pulse
     const ampLfoGain = ctx.createGain();
     ampLfoGain.gain.value = 0.4;
     const ampOffset = ctx.createGain();
@@ -671,82 +703,33 @@ export class MusicGenerator {
     ampLfo.connect(ampLfoGain);
     ampLfoGain.connect(ampOffset.gain);
 
-    const reverb = this._createReverb(5, 3);
-
     osc1.connect(ampOffset);
     osc2.connect(ampOffset);
     ampOffset.connect(reverb);
-    reverb.connect(gain);
 
     osc1.start();
     osc2.start();
+    slideLfo.start();
     ampLfo.start();
 
     return {
-      nodes: [osc1, osc2, ampLfo, ampLfoGain, ampOffset, reverb, gain],
+      nodes: [osc1, osc2, slideLfo, slideLfoGain, ampLfo, ampLfoGain, ampOffset, reverb, gain],
       gain,
-      stop: () => { osc1.stop(); osc2.stop(); ampLfo.stop(); },
+      stop: () => { osc1.stop(); osc2.stop(); slideLfo.stop(); ampLfo.stop(); },
     };
   }
 
   /**
-   * Tension texture: higher-frequency bandpass noise with faster sweep —
-   * more agitated than the deep_space texture.
+   * Tension noise stabs: short bursts of white noise (50 ms each) at
+   * irregular intervals — sharp transient impacts. Dangerous.
    */
-  private _createTensionTexture(): ActiveLayer {
+  private _createTensionNoiseStabs(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.04;
+    gain.gain.value = 0.18;
     gain.connect(this.masterFade);
 
-    const bufferSize = ctx.sampleRate * 4;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const source = ctx.createBufferSource();
-    source.buffer = noiseBuffer;
-    source.loop = true;
-
-    // Higher, tighter bandpass
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 350;
-    bp.Q.value = 1.5;
-
-    // Faster LFO
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 1 / 15; // 15-second sweep (faster)
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 150; // wider sweep
-    lfo.connect(lfoGain);
-    lfoGain.connect(bp.frequency);
-
-    source.connect(bp);
-    bp.connect(gain);
-
-    source.start();
-    lfo.start();
-
-    return {
-      nodes: [source, bp, lfo, lfoGain, gain],
-      gain,
-      stop: () => { source.stop(); lfo.stop(); },
-    };
-  }
-
-  /**
-   * Tension stabs: occasional short, low-pitched impacts at irregular intervals.
-   * Creates a sense of lurking threat.
-   */
-  private _createTensionStabs(): ActiveLayer {
-    const ctx = this.ctx;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.14;
-    gain.connect(this.masterFade);
-
-    const reverb = this._createReverb(3, 2.5);
+    const reverb = this._createReverb(2, 2.5);
     reverb.connect(gain);
 
     let stopped = false;
@@ -755,39 +738,36 @@ export class MusicGenerator {
       if (stopped) return;
       const t = ctx.currentTime;
 
-      // Short, punchy low note — E1 or F1
-      const stabMidi = Math.random() < 0.5 ? 28 : 29; // E1 / F1
-      const freq = midiToHz(stabMidi);
+      // 50 ms white noise burst
+      const stabLen = Math.floor(ctx.sampleRate * 0.05);
+      const stabBuf = ctx.createBuffer(1, stabLen, ctx.sampleRate);
+      const stabData = stabBuf.getChannelData(0);
+      for (let i = 0; i < stabLen; i++) {
+        stabData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / stabLen, 2);
+      }
 
-      const osc = ctx.createOscillator();
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq;
+      const src = ctx.createBufferSource();
+      src.buffer = stabBuf;
 
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 300;
-      filter.Q.value = 2;
-      // Quick filter sweep down
-      filter.frequency.setValueAtTime(300, t);
-      filter.frequency.exponentialRampToValueAtTime(60, t + 0.4);
+      // High-pass to give a crisp "snap"
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 1500;
 
       const env = ctx.createGain();
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.9, t + 0.04);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      env.gain.setValueAtTime(0.9, t);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
-      osc.connect(filter);
-      filter.connect(env);
+      src.connect(hp);
+      hp.connect(env);
       env.connect(reverb);
+      src.start(t);
 
-      osc.start(t);
-      osc.stop(t + 0.8);
-
-      // Irregular gaps: 7-20 s
-      setTimeout(scheduleStab, 7000 + Math.random() * 13000);
+      // Irregular gaps: 6–18 s
+      setTimeout(scheduleStab, 6000 + Math.random() * 12000);
     };
 
-    setTimeout(scheduleStab, 3000 + Math.random() * 5000);
+    setTimeout(scheduleStab, 2000 + Math.random() * 4000);
 
     return {
       nodes: [reverb, gain],
@@ -799,79 +779,27 @@ export class MusicGenerator {
   // ── Serenity track layer factories ───────────────────────────────────────
 
   /**
-   * Serenity pad: a single, very quiet sustained tone with an extremely slow
-   * filter sweep.  Almost meditative.
+   * Serenity chimes: pure sine tones in C major with very long reverb tails.
+   * Wind chimes in space. Notes from C major: C5, E5, G5, A5, C6.
    */
-  private _createSerenityPad(): ActiveLayer {
+  private _createSerenityChimes(): ActiveLayer {
     const ctx = this.ctx;
     const gain = ctx.createGain();
-    gain.gain.value = 0.04;
+    gain.gain.value = 0.028;
     gain.connect(this.masterFade);
 
-    const reverb = this._createReverb(12, 6);
-    reverb.connect(gain);
-
-    // Single low sine: C2
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = midiToHz(36); // C2
-
-    // Very slight chorus effect via a second detuned osc
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.value = midiToHz(36);
-    osc2.detune.value = 3;
-
-    // Extremely slow lowpass sweep
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 180;
-    filter.Q.value = 0.5;
-
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 1 / 40; // 40-second sweep — very slow
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 60; // ±60 Hz around 180
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-
-    osc.connect(filter);
-    osc2.connect(filter);
-    filter.connect(reverb);
-
-    osc.start();
-    osc2.start();
-    lfo.start();
-
-    return {
-      nodes: [osc, osc2, filter, lfo, lfoGain, reverb, gain],
-      gain,
-      stop: () => { osc.stop(); osc2.stop(); lfo.stop(); },
-    };
-  }
-
-  /**
-   * Serenity shimmer: very occasional high notes at long intervals — sparse
-   * and crystalline, like drops of water in a still pool.
-   */
-  private _createSerenityShimmer(): ActiveLayer {
-    const ctx = this.ctx;
-    const gain = ctx.createGain();
-    gain.gain.value = 0.025;
-    gain.connect(this.masterFade);
-
-    const reverb = this._createReverb(14, 7);
+    // Long cathedral reverb
+    const reverb = this._createReverb(16, 7.5);
     reverb.connect(gain);
 
     let stopped = false;
 
-    // Very high notes: G5, A5, E6 — crystalline
-    const shimmerMidi = [79, 81, 88];
+    // Pure C major: C5, E5, G5, A5, C6
+    const chimeMidi = [72, 76, 79, 81, 84];
 
-    const scheduleShimmer = (): void => {
+    const scheduleChime = (): void => {
       if (stopped) return;
-      const midi = shimmerMidi[Math.floor(Math.random() * shimmerMidi.length)]!;
+      const midi = chimeMidi[Math.floor(Math.random() * chimeMidi.length)]!;
       const t = ctx.currentTime;
 
       const osc = ctx.createOscillator();
@@ -880,24 +808,66 @@ export class MusicGenerator {
 
       const env = ctx.createGain();
       env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.5, t + 0.6);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 8);
+      env.gain.linearRampToValueAtTime(0.7, t + 0.02); // fast attack
+      env.gain.exponentialRampToValueAtTime(0.001, t + 8); // very long decay
 
       osc.connect(env);
       env.connect(reverb);
       osc.start(t);
       osc.stop(t + 9);
 
-      // Very long gaps: 15-30 s — extremely sparse
-      setTimeout(scheduleShimmer, 15000 + Math.random() * 15000);
+      // Very long gaps: 12–28 s — extremely sparse, like wind chimes
+      setTimeout(scheduleChime, 12000 + Math.random() * 16000);
     };
 
-    setTimeout(scheduleShimmer, 6000 + Math.random() * 6000);
+    // First chime after a brief wait
+    setTimeout(scheduleChime, 4000 + Math.random() * 4000);
 
     return {
       nodes: [reverb, gain],
       gain,
       stop: () => { stopped = true; },
+    };
+  }
+
+  /**
+   * Serenity drone: a pair of pure sine tones (C3 + G3) at very low volume.
+   * Near-silence — just enough to fill the room. Very slow filter.
+   */
+  private _createSerenityDrone(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.022; // quietest of all tracks
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(14, 7);
+    reverb.connect(gain);
+
+    // C major perfect fifth: C3 + G3
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.value = midiToHz(48); // C3
+
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = midiToHz(55); // G3
+    osc2.detune.value = 2; // tiny detune for gentle beating
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 250;
+
+    osc1.connect(lp);
+    osc2.connect(lp);
+    lp.connect(reverb);
+
+    osc1.start();
+    osc2.start();
+
+    return {
+      nodes: [osc1, osc2, lp, reverb, gain],
+      gain,
+      stop: () => { osc1.stop(); osc2.stop(); },
     };
   }
 
@@ -918,7 +888,6 @@ export class MusicGenerator {
     for (let ch = 0; ch < 2; ch++) {
       const data = ir.getChannelData(ch);
       for (let i = 0; i < length; i++) {
-        // Exponential decay noise
         data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
       }
     }

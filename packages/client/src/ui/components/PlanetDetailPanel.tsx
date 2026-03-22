@@ -38,6 +38,14 @@ const BUILDING_TYPE_LABELS: Record<string, string> = {
   mining_facility: 'Mining Facility',
   spaceport: 'Spaceport',
   power_plant: 'Power Plant',
+  entertainment_complex: 'Entertainment Complex',
+  hydroponics_bay: 'Hydroponics Bay',
+  orbital_platform: 'Orbital Platform',
+  recycling_plant: 'Recycling Plant',
+  communications_hub: 'Communications Hub',
+  terraforming_station: 'Terraforming Station',
+  military_academy: 'Military Academy',
+  fusion_reactor: 'Fusion Reactor',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

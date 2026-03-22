@@ -29,8 +29,9 @@ import { ResearchScreen } from './screens/ResearchScreen';
 import { ShipDesignerScreen } from './screens/ShipDesignerScreen';
 import { DiplomacyScreen } from './screens/DiplomacyScreen';
 import type { KnownEmpire } from './screens/DiplomacyScreen';
+import { FleetScreen } from './screens/FleetScreen';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -202,9 +203,8 @@ export function App(): React.ReactElement {
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
 
-  // ── "Coming Soon" / Fleet list overlay state ──
+  // ── "Coming Soon" overlay state ──
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
-  const [showFleetList, setShowFleetList] = useState(false);
 
   // ── Migration state ──
   // All active (in_progress) migrations, updated by engine events.
@@ -373,7 +373,7 @@ export function App(): React.ReactElement {
 
   // Fleet, Economy, Espionage button handlers for TopBar
   const handleOpenFleetList = useCallback(() => {
-    setShowFleetList(true);
+    setCurrentScreen('fleet');
   }, []);
 
   const handleOpenEconomy = useCallback(() => {
@@ -848,6 +848,15 @@ export function App(): React.ReactElement {
     );
   }
 
+  // Render fleet management screen as full-screen overlay
+  if (currentScreen === 'fleet') {
+    return (
+      <div className="ui-overlay">
+        <FleetScreen onClose={() => setCurrentScreen('game')} />
+      </div>
+    );
+  }
+
   // Don't render game HUD until a game is actually running
   // But still allow the settings/pause menu overlay from the main menu
   if (!gameStarted) {
@@ -939,62 +948,6 @@ export function App(): React.ReactElement {
           ships={fleetShips}
           onClose={handleFleetDeselected}
         />
-      )}
-
-      {/* Fleet list overlay (TopBar Fleet button) */}
-      {showFleetList && (
-        <div className="pm-overlay" onClick={() => setShowFleetList(false)}>
-          <div
-            className="pm-screen"
-            style={{ maxWidth: '600px', maxHeight: '400px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="pm-header">
-              <div className="pm-header__info">
-                <h2 className="pm-header__name">Fleet Overview</h2>
-              </div>
-              <button
-                className="panel-close-btn pm-header__close"
-                onClick={() => setShowFleetList(false)}
-                aria-label="Close fleet overview"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="pm-body" style={{ padding: '16px' }}>
-              {(() => {
-                const engine = getGameEngine();
-                const ships = engine?.getState().gameState.ships ?? [];
-                const fleets = engine?.getState().gameState.fleets ?? [];
-                if (ships.length === 0 && fleets.length === 0) {
-                  return <div className="pm-prod-empty">No ships or fleets. Build a shipyard and produce ships.</div>;
-                }
-                return (
-                  <div>
-                    <div className="pm-section-label">SHIPS ({ships.length})</div>
-                    {ships.map((s) => (
-                      <div key={s.id} className="pm-stat-row">
-                        <span className="pm-stat-label">{s.name}</span>
-                        <span className="pm-stat-value">HP {s.hullPoints}/{s.maxHullPoints} &middot; System: {s.position.systemId.slice(0, 8)}...</span>
-                      </div>
-                    ))}
-                    {fleets.length > 0 && (
-                      <>
-                        <div className="pm-section-label" style={{ marginTop: '12px' }}>FLEETS ({fleets.length})</div>
-                        {fleets.map((f) => (
-                          <div key={f.id} className="pm-stat-row">
-                            <span className="pm-stat-label">{f.name}</span>
-                            <span className="pm-stat-value">{f.ships.length} ship{f.ships.length !== 1 ? 's' : ''}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Coming Soon notification */}

@@ -166,6 +166,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.starHitAreas.clear();
     this.pulseTweens.clear();
     this.fleetBadges.clear();
+    this.transitDots.clear();
     this.selectedSystemId = null;
     this.homeSystemId = null;
     this.lastPointerDownTime = 0;
@@ -319,11 +320,17 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Clean up listeners when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('engine:tick', this._handleEngineTick);
+      this.game.events.off('engine:fleet_moved', this._handleFleetMoved);
       // Destroy fleet badges
       for (const [, container] of this.fleetBadges) {
         container.destroy();
       }
       this.fleetBadges.clear();
+      // Destroy transit dots
+      for (const [, entry] of this.transitDots) {
+        entry.gfx.destroy();
+      }
+      this.transitDots.clear();
     });
   }
 
@@ -331,6 +338,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.updateZoomLerp();
     this.updateParallax();
     this.updateWormholeParticles(delta);
+    this.updateTransitDots(delta);
     this.emitViewport();
   }
 
@@ -412,6 +420,9 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Refresh fleet badges each engine tick so newly produced ships appear on the map
     this.game.events.on('engine:tick', this._handleEngineTick);
+
+    // Play arrival flash when a fleet reaches its destination (or any intermediate hop)
+    this.game.events.on('engine:fleet_moved', this._handleFleetMoved);
 
     // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
     this.game.events.on('ui:exit_to_menu', () => {
@@ -1183,6 +1194,22 @@ export class GalaxyMapScene extends Phaser.Scene {
   private fleetBadges: Map<string, Phaser.GameObjects.Container> = new Map();
 
   /**
+   * Animated transit dots — one per active movement order.
+   * Each entry carries: the graphics object, the current t value (0–1) along
+   * the current hop segment, and the two endpoint systems for interpolation.
+   * The `speed` field is fractional t-units per ms, derived from ticksPerHop.
+   */
+  private transitDots: Map<string, {
+    gfx: Phaser.GameObjects.Arc;
+    t: number;
+    speed: number;
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }> = new Map();
+
+  /**
    * Render small fleet count badges at star systems that have ships.
    * Called on create and on each engine tick.
    */
@@ -1250,7 +1277,116 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Rebuild the set of animated transit dots to match the current set of
+   * active movement orders.  Called on each engine tick so the dots stay
+   * in sync when orders are added or cleared.
+   */
+  private _syncTransitDots(): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const state = engine.getState();
+    const orders = state.movementOrders;
+    const activeFleetIds = new Set(orders.map(o => o.fleetId));
+
+    // Remove dots for orders that no longer exist
+    for (const [fleetId, entry] of this.transitDots) {
+      if (!activeFleetIds.has(fleetId)) {
+        entry.gfx.destroy();
+        this.transitDots.delete(fleetId);
+      }
+    }
+
+    // Add or update dots for active orders
+    for (const order of orders) {
+      const fromId = order.path[order.currentSegment - 1];
+      const toId   = order.path[order.currentSegment];
+      if (!fromId || !toId) continue;
+
+      const fromSys = this.galaxy.systems.find(s => s.id === fromId);
+      const toSys   = this.galaxy.systems.find(s => s.id === toId);
+      if (!fromSys || !toSys) continue;
+
+      const existing = this.transitDots.get(order.fleetId);
+
+      if (existing) {
+        // Update endpoints in case the segment changed (fleet moved one hop)
+        existing.fromX = fromSys.position.x;
+        existing.fromY = fromSys.position.y;
+        existing.toX   = toSys.position.x;
+        existing.toY   = toSys.position.y;
+        // Reset t proportionally based on ticksInTransit
+        existing.t = order.ticksPerHop > 0 ? order.ticksInTransit / order.ticksPerHop : 0;
+      } else {
+        // Speed: complete segment in ticksPerHop ticks × ~500 ms/tick (visual only)
+        const msSPerHop = Math.max(1, order.ticksPerHop) * 500;
+        const speed = 1 / msSPerHop; // t-units per ms
+
+        const dot = this.add.circle(
+          fromSys.position.x,
+          fromSys.position.y,
+          3.5,
+          0x00d4ff,
+          0.9,
+        );
+        this.starLayer.add(dot);
+
+        this.transitDots.set(order.fleetId, {
+          gfx: dot,
+          t: order.ticksPerHop > 0 ? order.ticksInTransit / order.ticksPerHop : 0,
+          speed,
+          fromX: fromSys.position.x,
+          fromY: fromSys.position.y,
+          toX: toSys.position.x,
+          toY: toSys.position.y,
+        });
+      }
+    }
+  }
+
+  /** Interpolate transit dots along their current hop segment each frame. */
+  private updateTransitDots(delta: number): void {
+    for (const [, entry] of this.transitDots) {
+      entry.t = Math.min(entry.t + entry.speed * delta, 1);
+      const x = entry.fromX + entry.t * (entry.toX - entry.fromX);
+      const y = entry.fromY + entry.t * (entry.toY - entry.fromY);
+      entry.gfx.setPosition(x, y);
+    }
+  }
+
+  /**
+   * Play a brief arrival flash at a system when a fleet completes a hop or
+   * arrives at its final destination.
+   */
+  private _playArrivalFlash(systemId: string): void {
+    const sys = this.galaxy.systems.find(s => s.id === systemId);
+    if (!sys) return;
+
+    const flash = this.add.circle(sys.position.x, sys.position.y, 10, 0x00d4ff, 0.7);
+    this.starLayer.add(flash);
+
+    this.tweens.add({
+      targets: flash,
+      scaleX: 3.5,
+      scaleY: 3.5,
+      alpha: 0,
+      duration: 500,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+  }
+
   private _handleEngineTick = (): void => {
     this._renderFleetBadges();
+    this._syncTransitDots();
+  };
+
+  private _handleFleetMoved = (event: unknown): void => {
+    const evt = event as { fleet?: { position?: { systemId?: string } } };
+    const systemId = evt?.fleet?.position?.systemId;
+    if (systemId) {
+      this._playArrivalFlash(systemId);
+    }
   };
 }

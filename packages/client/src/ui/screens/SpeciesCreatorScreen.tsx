@@ -3,7 +3,7 @@ import type { Species, SpeciesTraits, EnvironmentPreference, SpecialAbility } fr
 import { TraitSlider } from '../components/TraitSlider';
 import { AbilityPicker, ABILITY_INFO } from '../components/AbilityPicker';
 import { portraitCache } from '../../game/rendering/portraitCache';
-import { ORIGIN_TO_BASE_SHAPE } from '../../game/rendering/PortraitRenderer';
+import { ORIGIN_TO_BASE_SHAPE, ORIGIN_TO_COLORS } from '../../game/rendering/PortraitRenderer';
 import type { PortraitOptions } from '../../game/rendering/PortraitRenderer';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -236,10 +236,10 @@ export function SpeciesCreatorScreen({
   const [abilities, setAbilities] = useState<SpecialAbility[]>([]);
   const [government, setGovernment] = useState<GovernmentType>('Federation');
 
-  // Portrait color customization
-  const [primaryColor, setPrimaryColor] = useState('#2d6b8a');
-  const [secondaryColor, setSecondaryColor] = useState('#4aa8cc');
-  const [accentColor, setAccentColor] = useState('#00d4ff');
+  // Portrait color customization — seeded from the initial origin palette
+  const [primaryColor, setPrimaryColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[0]);
+  const [secondaryColor, setSecondaryColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[1]);
+  const [accentColor, setAccentColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[2]);
 
   // Portrait data URL (re-rendered when portrait options change)
   const [portraitUrl, setPortraitUrl] = useState<string>('');
@@ -280,12 +280,20 @@ export function SpeciesCreatorScreen({
     setTraits((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Origin selection — auto-fill suggested traits/abilities
+  // Origin selection — auto-fill suggested traits/abilities + matching colour palette
   const handleOriginChange = useCallback((newOrigin: OriginStory) => {
     setOrigin(newOrigin);
     const preset = ORIGIN_PRESETS[newOrigin];
     setTraits(preset.traits);
     setAbilities(preset.abilities);
+    const colors = ORIGIN_TO_COLORS[newOrigin];
+    if (colors) {
+      setPrimaryColor(colors[0]);
+      setSecondaryColor(colors[1]);
+      setAccentColor(colors[2]);
+      // Bust the portrait cache so the new colours are picked up immediately
+      portraitCache.clear();
+    }
   }, []);
 
   // Atmosphere multi-select

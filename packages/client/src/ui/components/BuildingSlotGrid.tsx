@@ -22,6 +22,14 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   mining_facility: 'MF',
   spaceport: 'SP',
   power_plant: 'PP',
+  entertainment_complex: 'EC',
+  hydroponics_bay: 'HB',
+  orbital_platform: 'OP',
+  recycling_plant: 'RC',
+  communications_hub: 'CH',
+  terraforming_station: 'TF',
+  military_academy: 'MA',
+  fusion_reactor: 'FR',
 };
 
 /** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */
