@@ -2225,6 +2225,261 @@
         }
       ],
       "icon": "tech_ascension_project"
+    },
+    {
+      "id": "xenolinguistics_foundation",
+      "name": "Xenolinguistics Foundation",
+      "description": "The mathematical foundations of cross-species communication. Enough to convey basic commands: leave, stop, give.",
+      "category": "biology",
+      "age": "nano_atomic",
+      "cost": 800,
+      "prerequisites": [],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "basic_communication"
+        }
+      ],
+      "icon": "tech_xenolinguistics_foundation"
+    },
+    {
+      "id": "trade_linguistics",
+      "name": "Trade Linguistics",
+      "description": "Advanced linguistic frameworks for commercial and diplomatic exchange. Sufficient for trade agreements and embassy establishment.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 2000,
+      "prerequisites": [
+        "xenolinguistics_foundation"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "trade_communication"
+        }
+      ],
+      "icon": "tech_trade_linguistics"
+    },
+    {
+      "id": "scientific_collaboration_protocols",
+      "name": "Scientific Collaboration Protocols",
+      "description": "Full linguistic integration enabling joint research, technical documentation exchange, and deep cultural understanding.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "trade_linguistics",
+        "quantum_computing"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "scientific_collaboration"
+        }
+      ],
+      "icon": "tech_scientific_collaboration_protocols"
+    },
+    {
+      "id": "xeno_archaeology",
+      "name": "Xeno-Archaeology",
+      "description": "Systematic excavation and study of alien ruins. Every civilisation leaves traces — most leave warnings.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "subspace_scanning"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "excavation"
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "dig_site"
+        }
+      ],
+      "icon": "tech_xeno_archaeology"
+    },
+    {
+      "id": "precursor_decryption",
+      "name": "Precursor Decryption",
+      "description": "Cracking the encoded knowledge of extinct civilisations. What they knew could save us. What destroyed them could kill us.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 6000,
+      "prerequisites": [
+        "xeno_archaeology",
+        "quantum_computing"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "precursor_research"
+        }
+      ],
+      "icon": "tech_precursor_decryption"
+    },
+    {
+      "id": "deep_archaeology",
+      "name": "Deep Archaeology",
+      "description": "Excavation of sites so ancient they predate the galaxy's current structure. The warnings found here are not about the past.",
+      "category": "construction",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "precursor_decryption",
+        "consciousness_studies"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "deep_excavation"
+        }
+      ],
+      "icon": "tech_deep_archaeology"
+    },
+    {
+      "id": "advanced_sensors",
+      "name": "Advanced Sensors",
+      "description": "Multi-spectrum sensor arrays that can analyse a system's composition from wormhole distance. Detects resources, habitability, and signs of civilisation.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 1500,
+      "prerequisites": [
+        "subspace_scanning"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 50
+        }
+      ],
+      "icon": "tech_advanced_sensors"
+    },
+    {
+      "id": "deep_space_telemetry",
+      "name": "Deep Space Telemetry",
+      "description": "Long-range passive observation of systems beyond the wormhole network. Distant stars that seemed unreachable begin to resolve into possibility.",
+      "category": "propulsion",
+      "age": "nano_fusion",
+      "cost": 4000,
+      "prerequisites": [
+        "advanced_sensors",
+        "graviton_theory"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "deep_scan"
+        }
+      ],
+      "icon": "tech_deep_space_telemetry"
+    },
+    {
+      "id": "alien_material_analysis",
+      "name": "Alien Material Analysis",
+      "description": "Systematic study of materials recovered from an unknown hostile force. Their metallurgy operates on principles we have never encountered.",
+      "category": "weapons",
+      "age": "singularity",
+      "cost": 20000,
+      "prerequisites": [
+        "battleship_yards"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_strength",
+          "value": 20
+        }
+      ],
+      "icon": "tech_alien_material_analysis"
+    },
+    {
+      "id": "harvester_shield_harmonics",
+      "name": "Harvester Shield Harmonics",
+      "description": "Reverse-engineered shield frequencies derived from salvaged wreckage. Not a match for the originals, but enough to survive a second volley.",
+      "category": "defense",
+      "age": "singularity",
+      "cost": 25000,
+      "prerequisites": [
+        "alien_material_analysis"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_strength",
+          "value": 30
+        }
+      ],
+      "icon": "tech_harvester_shield_harmonics"
+    },
+    {
+      "id": "adaptive_weapon_matrices",
+      "name": "Adaptive Weapon Matrices",
+      "description": "Weapons systems that learn from each engagement, recalibrating to exploit vulnerabilities in the enemy's defences.",
+      "category": "weapons",
+      "age": "singularity",
+      "cost": 30000,
+      "prerequisites": [
+        "alien_material_analysis",
+        "dark_energy_weapons"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 25
+        },
+        {
+          "type": "enable_ability",
+          "ability": "adaptive_weapons"
+        }
+      ],
+      "icon": "tech_adaptive_weapon_matrices"
+    },
+    {
+      "id": "wormhole_destabilisation",
+      "name": "Wormhole Destabilisation",
+      "description": "The power to unmake what nature or the ancients created. A wormhole collapsed is a route forever denied — to you and to your enemies.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "wormhole_stabilisation",
+        "graviton_theory"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "collapse_wormhole"
+        }
+      ],
+      "icon": "tech_wormhole_destabilisation"
+    },
+    {
+      "id": "wormhole_generation",
+      "name": "Wormhole Generation",
+      "description": "A mobile station that tears open a stable wormhole between two points in space. The galaxy is no longer shaped by chance.",
+      "category": "propulsion",
+      "age": "singularity",
+      "cost": 35000,
+      "prerequisites": [
+        "wormhole_destabilisation",
+        "reality_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "create_wormhole"
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "wormhole_station"
+        }
+      ],
+      "icon": "tech_wormhole_generation"
     }
   ],
   "ageGates": {
