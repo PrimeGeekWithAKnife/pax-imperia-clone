@@ -39,6 +39,7 @@ const ACCENT: Record<BuildingType, string> = {
   population_center: '#ffe066',
   mining_facility:   '#cc8844',
   spaceport:         '#4488ff',
+  power_plant:       '#ffcc00',
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -1509,6 +1510,67 @@ const drawSpaceport: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, padCx, padCy, sc(20, s), accent, 0.15);
 };
 
+// ── Power Plant ──────────────────────────────────────────────────────────────
+
+const drawPowerPlant: DrawFn = (ctx, s) => {
+  const accent = ACCENT.power_plant;
+  drawGroundPlatform(ctx, s, sc(8, s), sc(40, s), sc(48, s), accent);
+
+  // Main reactor dome
+  const cx = sc(32, s);
+  const cy = sc(28, s);
+  const r = sc(14, s);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#2a3040';
+  ctx.fill();
+  ctx.strokeStyle = '#556';
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+
+  // Energy glow inside dome
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.8);
+  glow.addColorStop(0, 'rgba(255, 204, 0, 0.4)');
+  glow.addColorStop(0.6, 'rgba(255, 150, 0, 0.15)');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - r, cy - r, r * 2, r);
+
+  // Lightning bolt symbol
+  ctx.beginPath();
+  ctx.moveTo(sc(30, s), sc(20, s));
+  ctx.lineTo(sc(34, s), sc(26, s));
+  ctx.lineTo(sc(31, s), sc(26, s));
+  ctx.lineTo(sc(34, s), sc(34, s));
+  ctx.lineTo(sc(30, s), sc(27, s));
+  ctx.lineTo(sc(33, s), sc(27, s));
+  ctx.closePath();
+  ctx.fillStyle = accent;
+  ctx.fill();
+
+  // Power conduit lines
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(sc(18, s), sc(38, s));
+  ctx.lineTo(sc(18, s), sc(28, s));
+  ctx.moveTo(sc(46, s), sc(38, s));
+  ctx.lineTo(sc(46, s), sc(28, s));
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Pylons on sides
+  ctx.fillStyle = '#3a4050';
+  ctx.fillRect(sc(15, s), sc(24, s), sc(6, s), sc(16, s));
+  ctx.fillRect(sc(43, s), sc(24, s), sc(6, s), sc(16, s));
+
+  // Pylon glow dots
+  drawGlow(ctx, sc(18, s), sc(28, s), sc(3, s), accent, 0.3);
+  drawGlow(ctx, sc(46, s), sc(28, s), sc(3, s), accent, 0.3);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -1520,6 +1582,7 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   population_center: drawPopulationCentre,
   mining_facility:   drawMiningFacility,
   spaceport:         drawSpaceport,
+  power_plant:       drawPowerPlant,
 };
 
 // ── Roman numeral level badge ─────────────────────────────────────────────────

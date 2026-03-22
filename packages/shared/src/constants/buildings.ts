@@ -95,4 +95,14 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maxLevel: 3,
     description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
   },
+
+  power_plant: {
+    name: 'Power Plant',
+    baseCost: { credits: 70 },
+    baseProduction: { energy: 8 },
+    buildTime: 3,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description: 'Generates energy to power other buildings. Essential for any growing colony. Higher levels produce more energy.',
+  },
 };

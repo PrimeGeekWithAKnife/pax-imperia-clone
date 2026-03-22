@@ -79,7 +79,8 @@ export type BuildingType =
   | 'defense_grid'
   | 'population_center'
   | 'mining_facility'
-  | 'spaceport';
+  | 'spaceport'
+  | 'power_plant';
 
 export interface ProductionItem {
   type: 'ship' | 'building' | 'defense';

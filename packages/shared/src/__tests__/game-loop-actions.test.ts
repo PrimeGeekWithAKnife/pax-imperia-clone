@@ -202,7 +202,7 @@ describe('submitAction', () => {
 // ---------------------------------------------------------------------------
 
 describe('processGameTick — ColonisePlanet action', () => {
-  it('colonised planet becomes owned by the empire on the next tick', () => {
+  it('creates a migration order on the next tick (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
     const ts = initializeTickState(gs);
 
@@ -216,12 +216,13 @@ describe('processGameTick — ColonisePlanet action', () => {
     const tsWithAction = submitAction(ts, empireId, action);
     const { newState } = processGameTick(tsWithAction);
 
-    const planet = newState.gameState.galaxy.systems
-      .flatMap(s => s.planets)
-      .find(p => p.id === targetPlanetId)!;
-
-    expect(planet.ownerId).toBe(empireId);
-    expect(planet.currentPopulation).toBeGreaterThan(0);
+    // A migration order should be created — colonisation is deferred.
+    const migrationOrder = newState.migrationOrders.find(
+      o => o.targetPlanetId === targetPlanetId,
+    );
+    expect(migrationOrder).toBeDefined();
+    expect(migrationOrder?.empireId).toBe(empireId);
+    expect(migrationOrder?.status).toBe('migrating');
   });
 
   it('deducts colonisation credits from the empire', () => {
@@ -302,7 +303,7 @@ describe('processGameTick — ColonisePlanet action', () => {
     expect(updatedPlanet.ownerId).toBeNull();
   });
 
-  it('emits a PlanetColonised event', () => {
+  it('emits a MigrationStarted event (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
     const ts = initializeTickState(gs);
 
@@ -316,14 +317,14 @@ describe('processGameTick — ColonisePlanet action', () => {
     const tsWithAction = submitAction(ts, empireId, action);
     const { events } = processGameTick(tsWithAction);
 
-    const colonisedEvents = events.filter(e => e.type === 'PlanetColonised');
-    expect(colonisedEvents).toHaveLength(1);
+    const migrationEvents = events.filter(e => e.type === 'MigrationStarted');
+    expect(migrationEvents).toHaveLength(1);
 
-    const event = colonisedEvents[0]!;
-    if (event.type === 'PlanetColonised') {
+    const event = migrationEvents[0]!;
+    if (event.type === 'MigrationStarted') {
       expect(event.empireId).toBe(empireId);
       expect(event.systemId).toBe(systemId);
-      expect(event.planetId).toBe(targetPlanetId);
+      expect(event.targetPlanetId).toBe(targetPlanetId);
     }
   });
 

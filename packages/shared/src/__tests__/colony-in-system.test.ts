@@ -486,7 +486,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
     return submitAction(base, empireId, action);
   }
 
-  it('processes a ColonisePlanet action and colonises the planet', () => {
+  it('processes a ColonisePlanet action and starts a migration (not instant colonisation)', () => {
     const gameState = makeGameState();
     const tickState = addColonisePlanetAction(
       initializeTickState(gameState),
@@ -497,16 +497,22 @@ describe('Integration: colonisation action in game-loop tick', () => {
 
     const { newState } = processGameTick(tickState);
 
-    // The target planet should now be owned.
-    const system = newState.gameState.galaxy.systems.find(s => s.id === 'system-loop')!;
-    const target = system.planets.find(p => p.id === 'planet-target-loop')!;
+    // A migration order should have been created.
+    expect(newState.migrationOrders.length).toBeGreaterThan(0);
+    const order = newState.migrationOrders.find(o => o.targetPlanetId === 'planet-target-loop');
+    expect(order).toBeDefined();
+    expect(order?.empireId).toBe(EMPIRE_ID);
+    expect(order?.status).toBe('migrating');
 
-    expect(target.ownerId).toBe(EMPIRE_ID);
-    expect(target.currentPopulation).toBeGreaterThan(0);
-    expect(target.buildings.some(b => b.type === 'population_center')).toBe(true);
+    // The target planet is NOT immediately owned — ownership is deferred.
+    const system = newState.gameState.galaxy.systems.find(s => s.id === 'system-loop')!;
+    void system.planets.find(p => p.id === 'planet-target-loop')!;
+    // After the first tick the first wave may have arrived and set ownerId.
+    // We only assert that a migration is in progress; ownership follows from wave arrival.
+    expect(order?.arrivedPopulation).toBeGreaterThanOrEqual(0);
   });
 
-  it('emits a PlanetColonised event', () => {
+  it('emits a MigrationStarted event (not an instant PlanetColonised event)', () => {
     const gameState = makeGameState();
     const tickState = addColonisePlanetAction(
       initializeTickState(gameState),
@@ -517,26 +523,27 @@ describe('Integration: colonisation action in game-loop tick', () => {
 
     const { events } = processGameTick(tickState);
 
-    const colonisedEvent = events.find(e => e.type === 'PlanetColonised');
-    expect(colonisedEvent).toBeDefined();
-    if (colonisedEvent?.type === 'PlanetColonised') {
-      expect(colonisedEvent.empireId).toBe(EMPIRE_ID);
-      expect(colonisedEvent.systemId).toBe('system-loop');
-      expect(colonisedEvent.planetId).toBe('planet-target-loop');
-      expect(colonisedEvent.planetName).toBe('Target');
+    const migrationStartedEvent = events.find(e => e.type === 'MigrationStarted');
+    expect(migrationStartedEvent).toBeDefined();
+    if (migrationStartedEvent?.type === 'MigrationStarted') {
+      expect(migrationStartedEvent.empireId).toBe(EMPIRE_ID);
+      expect(migrationStartedEvent.systemId).toBe('system-loop');
+      expect(migrationStartedEvent.targetPlanetId).toBe('planet-target-loop');
     }
+
+    // No instant PlanetColonised event — that only fires after full migration.
+    expect(events.some(e => e.type === 'PlanetColonised')).toBe(false);
   });
 
-  it('deducts the colonisation cost from the empire credits', () => {
-    // To isolate the cost deduction from the resource-production tick that also
-    // runs, we use an empire with exactly enough credits for the action and then
-    // verify the planet is successfully colonised (proving the cost was paid).
-    // A second run with one fewer credit should be rejected.
+  it('deducts the colonisation cost from the empire credits upfront', () => {
+    // Credits are deducted when the migration order is created (not on colony
+    // establishment). A second run with one fewer credit than the cost should
+    // be rejected and produce no migration order.
     const species = makeSpecies({ id: EMPIRE_ID });
     const targetPlanet = makePlanet({ id: 'planet-target-loop', name: 'Target' });
     const cost = getColonisationCost(targetPlanet, species);
 
-    // Exact-credit scenario: colonisation should succeed.
+    // Exact-credit scenario: migration should be started.
     const exactCreditState: GameState = {
       ...makeGameState(),
       empires: makeGameState().empires.map(e => ({ ...e, credits: cost })),
@@ -548,13 +555,13 @@ describe('Integration: colonisation action in game-loop tick', () => {
       'planet-target-loop',
     );
     const { newState: successState } = processGameTick(tickStateExact);
-    const colonisedPlanet = successState.gameState.galaxy.systems
-      .find(s => s.id === 'system-loop')!
-      .planets.find(p => p.id === 'planet-target-loop')!;
-    // If cost was deducted correctly the planet should be owned.
-    expect(colonisedPlanet.ownerId).toBe(EMPIRE_ID);
+    // A migration order should exist — the cost was accepted.
+    const migrationOrder = successState.migrationOrders.find(
+      o => o.targetPlanetId === 'planet-target-loop',
+    );
+    expect(migrationOrder).toBeDefined();
 
-    // One-short scenario: colonisation should fail (credits = cost - 1).
+    // One-short scenario: migration should not start (credits = cost - 1).
     const shortCreditState: GameState = {
       ...makeGameState(),
       empires: makeGameState().empires.map(e => ({ ...e, credits: cost - 1 })),
@@ -566,6 +573,10 @@ describe('Integration: colonisation action in game-loop tick', () => {
       'planet-target-loop',
     );
     const { newState: failState } = processGameTick(tickStateShort);
+    const noOrder = failState.migrationOrders.find(
+      o => o.targetPlanetId === 'planet-target-loop',
+    );
+    expect(noOrder).toBeUndefined();
     const uncolonisedPlanet = failState.gameState.galaxy.systems
       .find(s => s.id === 'system-loop')!
       .planets.find(p => p.id === 'planet-target-loop')!;

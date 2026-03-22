@@ -18,6 +18,36 @@ import {
 } from '../constants/planets.js';
 import { generateId } from '../utils/id.js';
 
+// ── Migration interfaces ─────────────────────────────────────────────────────
+
+/**
+ * Represents an active migration from a source planet to an uncolonised target
+ * planet within the same star system.
+ *
+ * Migration is the multi-turn process by which a colony is founded: waves of
+ * migrants depart every `wavePeriod` ticks and a fraction are lost in transit.
+ * The colony is officially established once `arrivedPopulation >= threshold`.
+ */
+export interface MigrationOrder {
+  id: string;
+  empireId: string;
+  systemId: string;
+  sourcePlanetId: string;
+  targetPlanetId: string;
+  /** Population that has arrived at the target so far. */
+  arrivedPopulation: number;
+  /** Population needed to officially establish the colony. */
+  threshold: number;
+  /** Ticks remaining until the next wave departs (0 means send this tick). */
+  ticksToNextWave: number;
+  /** Ticks between waves. */
+  wavePeriod: number;
+  /** Current status of the migration. */
+  status: 'migrating' | 'established' | 'cancelled';
+  /** Credit cost paid upfront when the migration order was created. */
+  totalCost: number;
+}
+
 // ── Public interfaces ───────────────────────────────────────────────────────
 
 export interface HabitabilityReport {
@@ -430,6 +460,261 @@ export function coloniseInSystem(
   return { ...system, planets: updatedPlanets };
 }
 
+// ── Migration ────────────────────────────────────────────────────────────────
+
+/**
+ * The population threshold that must arrive at the target planet for a colony
+ * to be officially established.
+ */
+const MIGRATION_THRESHOLD = 50;
+
+/**
+ * Number of ticks between successive migration waves.
+ */
+const MIGRATION_WAVE_PERIOD = 3;
+
+/**
+ * Minimum source population required before migration can begin.
+ * Prevents small colonies from stripping themselves bare.
+ */
+const MIN_SOURCE_POPULATION = 100;
+
+/**
+ * Check whether an empire can start a migration to a target planet within the
+ * same star system.
+ *
+ * Requirements (all must be satisfied):
+ * - Source planet is owned by the empire.
+ * - Source planet has population >= MIN_SOURCE_POPULATION (100).
+ * - Target planet is unowned.
+ * - Target planet is not a gas giant.
+ * - Target planet habitability for the species is >= MIN_COLONIZE_HABITABILITY (10).
+ * - Empire can afford the cost.
+ * - No existing active migration to this target planet.
+ */
+export function canStartMigration(
+  system: StarSystem,
+  sourcePlanetId: string,
+  targetPlanetId: string,
+  empireId: string,
+  species: Species,
+  empireCredits: number,
+  existingOrders: MigrationOrder[] = [],
+): { allowed: boolean; reason?: string; cost: number } {
+  const sourcePlanet = system.planets.find(p => p.id === sourcePlanetId);
+  if (!sourcePlanet) {
+    return { allowed: false, reason: 'Source planet not found in this system', cost: 0 };
+  }
+
+  const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+  if (!targetPlanet) {
+    return { allowed: false, reason: 'Target planet not found in this system', cost: 0 };
+  }
+
+  // Cost is always calculated so callers can show it even on rejection.
+  const cost = getColonisationCost(targetPlanet, species);
+
+  // Source must be owned by the empire.
+  if (sourcePlanet.ownerId !== empireId) {
+    return {
+      allowed: false,
+      reason: 'Source planet is not owned by this empire',
+      cost,
+    };
+  }
+
+  // Source must have sufficient population.
+  if (sourcePlanet.currentPopulation < MIN_SOURCE_POPULATION) {
+    return {
+      allowed: false,
+      reason: `Source planet population too low (${sourcePlanet.currentPopulation}, minimum ${MIN_SOURCE_POPULATION})`,
+      cost,
+    };
+  }
+
+  // Target must be unowned.
+  if (targetPlanet.ownerId !== null) {
+    return { allowed: false, reason: 'Target planet is already owned', cost };
+  }
+
+  // Gas giants require the orbital-platform path.
+  if (targetPlanet.type === 'gas_giant') {
+    return {
+      allowed: false,
+      reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
+      cost,
+    };
+  }
+
+  // Habitability check.
+  const report = calculateHabitability(targetPlanet, species);
+  if (report.score < MIN_COLONIZE_HABITABILITY) {
+    return {
+      allowed: false,
+      reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
+      cost,
+    };
+  }
+
+  // No existing active migration to the same target.
+  const duplicate = existingOrders.find(
+    o => o.targetPlanetId === targetPlanetId && o.status === 'migrating',
+  );
+  if (duplicate) {
+    return { allowed: false, reason: 'A migration to this planet is already in progress', cost };
+  }
+
+  // Affordability check.
+  if (empireCredits < cost) {
+    return {
+      allowed: false,
+      reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
+      cost,
+    };
+  }
+
+  return { allowed: true, cost };
+}
+
+/**
+ * Create a new MigrationOrder for an in-system migration.
+ *
+ * Does **not** validate prerequisites — call `canStartMigration` first.
+ * Does **not** deduct credits — the caller is responsible for that.
+ */
+export function startMigration(
+  system: StarSystem,
+  sourcePlanetId: string,
+  targetPlanetId: string,
+  empireId: string,
+  species: Species,
+): MigrationOrder {
+  const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+  if (!targetPlanet) {
+    throw new Error(`Planet "${targetPlanetId}" not found in system "${system.id}"`);
+  }
+
+  const cost = getColonisationCost(targetPlanet, species);
+
+  return {
+    id: generateId(),
+    empireId,
+    systemId: system.id,
+    sourcePlanetId,
+    targetPlanetId,
+    arrivedPopulation: 0,
+    threshold: MIGRATION_THRESHOLD,
+    ticksToNextWave: 0, // first wave departs immediately on next tick
+    wavePeriod: MIGRATION_WAVE_PERIOD,
+    status: 'migrating',
+    totalCost: cost,
+  };
+}
+
+/**
+ * Process one game tick of a migration order.
+ *
+ * Each tick:
+ * - If `ticksToNextWave > 0`, decrement the counter and return unchanged.
+ * - Otherwise send a wave:
+ *   - Wave size = 1–3 people, capped at 10% of the source planet's population.
+ *   - 10% of the wave is lost in transit (floor, minimum 0).
+ *   - Remaining migrants are added to the target planet's currentPopulation.
+ *   - The first arriving wave sets ownerId on the target.
+ *   - ticksToNextWave is reset to wavePeriod.
+ *   - If arrivedPopulation >= threshold after the wave, status → 'established'.
+ *
+ * Returns a new order and system (pure — no mutation) plus human-readable event
+ * strings for logging / event emission.
+ */
+export function processMigrationTick(
+  order: MigrationOrder,
+  system: StarSystem,
+): { order: MigrationOrder; system: StarSystem; events: string[] } {
+  if (order.status !== 'migrating') {
+    return { order, system, events: [] };
+  }
+
+  // Not yet time for the next wave.
+  if (order.ticksToNextWave > 0) {
+    return {
+      order: { ...order, ticksToNextWave: order.ticksToNextWave - 1 },
+      system,
+      events: [],
+    };
+  }
+
+  // Find source and target planets.
+  const sourcePlanetIndex = system.planets.findIndex(p => p.id === order.sourcePlanetId);
+  const targetPlanetIndex = system.planets.findIndex(p => p.id === order.targetPlanetId);
+
+  if (sourcePlanetIndex === -1 || targetPlanetIndex === -1) {
+    // Planets no longer exist — cancel the migration.
+    return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: planet no longer exists'] };
+  }
+
+  const sourcePlanet = system.planets[sourcePlanetIndex]!;
+  const targetPlanet = system.planets[targetPlanetIndex]!;
+
+  // Wave size: 1–3, capped at 10% of source population (rounded down, min 1).
+  const maxWave = Math.max(1, Math.floor(sourcePlanet.currentPopulation * 0.1));
+  const waveDeparted = Math.min(3, maxWave);
+
+  // Can't send more than the source actually has.
+  const actualDeparted = Math.min(waveDeparted, sourcePlanet.currentPopulation);
+  if (actualDeparted <= 0) {
+    // Source is empty — cancel.
+    return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: source population exhausted'] };
+  }
+
+  // Transit losses: 10% of wave, rounded down, minimum 0.
+  const lost = Math.floor(actualDeparted * 0.1);
+  const arrived = actualDeparted - lost;
+
+  // Update source and target populations.
+  const updatedSource: Planet = {
+    ...sourcePlanet,
+    currentPopulation: sourcePlanet.currentPopulation - actualDeparted,
+  };
+
+  const newTargetPop = targetPlanet.currentPopulation + arrived;
+  const newArrivedTotal = order.arrivedPopulation + arrived;
+
+  // First wave claims ownership.
+  const newOwnerId = targetPlanet.ownerId ?? order.empireId;
+
+  const updatedTarget: Planet = {
+    ...targetPlanet,
+    currentPopulation: newTargetPop,
+    ownerId: newOwnerId,
+  };
+
+  // Update the systems array.
+  const updatedPlanets = [...system.planets];
+  updatedPlanets[sourcePlanetIndex] = updatedSource;
+  updatedPlanets[targetPlanetIndex] = updatedTarget;
+  const updatedSystem: StarSystem = { ...system, planets: updatedPlanets };
+
+  // Determine new status.
+  const newStatus: MigrationOrder['status'] =
+    newArrivedTotal >= order.threshold ? 'established' : 'migrating';
+
+  const updatedOrder: MigrationOrder = {
+    ...order,
+    arrivedPopulation: newArrivedTotal,
+    ticksToNextWave: order.wavePeriod,
+    status: newStatus,
+  };
+
+  const eventMessages = [
+    `Wave of ${actualDeparted} departed`,
+    `${arrived} arrived`,
+    ...(lost > 0 ? [`${lost} lost in transit`] : []),
+  ];
+
+  return { order: updatedOrder, system: updatedSystem, events: eventMessages };
+}
+
 // ── Building slot management ────────────────────────────────────────────────
 
 /**
@@ -514,6 +799,7 @@ export function addBuildingToQueue(planet: Planet, buildingType: BuildingType): 
     trade_hub: 6,
     defense_grid: 7,
     mining_facility: 4,
+    power_plant: 3,
   };
 
   const turnsRemaining = BASE_BUILD_TURNS[buildingType];

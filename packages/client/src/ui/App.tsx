@@ -4,6 +4,8 @@ import type { EmpireResources } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
 import type { GameEngine } from '../engine/GameEngine';
 import { getGameEngine } from '../engine/GameEngine';
+import type { MigrationOrder } from '../engine/migration';
+import { estimateTotalWaves } from '../engine/migration';
 import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
@@ -14,6 +16,7 @@ import { useGameEvent } from './hooks/useGameEvents';
 import { TopBar } from './components/TopBar';
 import { SystemInfoPanel } from './components/SystemInfoPanel';
 import { PlanetDetailPanel } from './components/PlanetDetailPanel';
+import type { ActiveMigrationInfo } from './components/PlanetDetailPanel';
 import { ColoniseNotification } from './components/ColoniseNotification';
 import { Minimap } from './components/Minimap';
 import { FleetPanel } from './components/FleetPanel';
@@ -199,6 +202,13 @@ export function App(): React.ReactElement {
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
 
+  // ── Migration state ──
+  // All active (in_progress) migrations, updated by engine events.
+  const [activeMigrations, setActiveMigrations] = useState<MigrationOrder[]>([]);
+
+  // Estimated total waves for migration UI (constant for now)
+  const estimatedWavesForMigration = useMemo(() => estimateTotalWaves(), []);
+
   // ── Known empire map (id → { name, color }) for PlanetDetailPanel ──
   const knownEmpireMap = useMemo((): Map<string, { name: string; color: string }> => {
     const map = new Map<string, { name: string; color: string }>();
@@ -207,6 +217,49 @@ export function App(): React.ReactElement {
     }
     return map;
   }, [knownEmpires]);
+
+  // ── Derive active migration info for the currently selected planet ──
+  const activeMigrationForPanel = useMemo((): ActiveMigrationInfo | null => {
+    if (!selectedPlanet) return null;
+    const mig = activeMigrations.find(m => m.targetPlanetId === selectedPlanet.id);
+    if (!mig) return null;
+
+    // Resolve the source planet name from the current galaxy state
+    const engine = getGameEngine();
+    let sourceName = mig.sourcePlanetId;
+    if (engine) {
+      const system = engine.getState().gameState.galaxy.systems.find(
+        s => s.id === mig.systemId,
+      );
+      const sourcePlanet = system?.planets.find(p => p.id === mig.sourcePlanetId);
+      if (sourcePlanet) sourceName = sourcePlanet.name;
+    }
+
+    return {
+      arrivedPopulation: mig.arrivedPopulation,
+      threshold: mig.threshold,
+      ticksToNextWave: mig.ticksToNextWave,
+      status: mig.status,
+      sourcePlanetName: sourceName,
+      colonistsLost: mig.colonistsLost,
+      currentWave: mig.currentWave,
+    };
+  }, [selectedPlanet, activeMigrations]);
+
+  // ── Derive source planet name hint for the colonise panel ──
+  // Show the first owned planet in the current system as the migration source.
+  const migrationSourcePlanetName = useMemo((): string | null => {
+    if (!selectedPlanet) return null;
+    const systemId = activeSystemId ?? selectedSystem?.id;
+    if (!systemId) return null;
+    const engine = getGameEngine();
+    if (!engine) return null;
+    const system = engine.getState().gameState.galaxy.systems.find(s => s.id === systemId);
+    const owned = system?.planets.find(
+      p => p.ownerId !== null && p.id !== selectedPlanet.id,
+    );
+    return owned?.name ?? null;
+  }, [selectedPlanet, activeSystemId, selectedSystem]);
 
   // ── Escape key: toggle pause menu during gameplay ──
   useEffect(() => {
@@ -467,6 +520,35 @@ export function App(): React.ReactElement {
     [],
   );
 
+  // Engine emits 'engine:migrations_updated' after any migration state change
+  // (started, wave, completed, cancelled).
+  const handleMigrationsUpdated = useCallback((migrations: MigrationOrder[]) => {
+    setActiveMigrations([...migrations]);
+  }, []);
+
+  // Engine emits 'engine:migration_completed' when threshold reached.
+  const handleMigrationCompleted = useCallback((migration: MigrationOrder) => {
+    setColoniseNotification(migration.targetPlanetId);
+    // Refresh the planet panel so it shows owned state
+    const engine = getGameEngine();
+    if (engine) {
+      const system = engine.getState().gameState.galaxy.systems.find(
+        s => s.id === migration.systemId,
+      );
+      const updated = system?.planets.find(p => p.id === migration.targetPlanetId);
+      if (updated) setSelectedPlanet(updated);
+    }
+  }, [setSelectedPlanet]);
+
+  // Player clicks "Cancel Migration" in PlanetDetailPanel
+  const handleCancelMigration = useCallback(() => {
+    if (!selectedPlanet) return;
+    const engine = getGameEngine();
+    if (engine) {
+      engine.stopMigration(selectedPlanet.id);
+    }
+  }, [selectedPlanet]);
+
   useGameEvent<StarSystem>('system:selected', handleSystemSelected);
   useGameEvent<Planet>('planet:selected', handlePlanetSelected);
   useGameEvent<void>('system:deselected', handleSystemDeselected);
@@ -494,6 +576,8 @@ export function App(): React.ReactElement {
   useGameEvent<{ tick: number }>('engine:tick', handleEngineTick);
   useGameEvent<{ planetName: string; systemId: string; planetId: string }>('engine:planet_colonised', handlePlanetColonised);
   useGameEvent<{ shipName: string; systemId: string }>('engine:ship_produced', handleShipProduced);
+  useGameEvent<MigrationOrder[]>('engine:migrations_updated', handleMigrationsUpdated);
+  useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -750,6 +834,8 @@ export function App(): React.ReactElement {
         onSpeedChange={setGameSpeed}
         credits={liveCredits}
         researchPoints={liveResearchPoints}
+        minerals={empireResources.minerals}
+        energy={empireResources.energy}
         onOpenResearch={handleOpenResearch}
         onOpenShipDesigner={handleOpenShipDesigner}
         onOpenDiplomacy={handleOpenDiplomacy}
@@ -763,6 +849,10 @@ export function App(): React.ReactElement {
         playerEmpire={playerEmpire}
         knownEmpireMap={knownEmpireMap}
         systemId={activeSystemId ?? selectedSystem?.id ?? null}
+        activeMigration={activeMigrationForPanel}
+        onCancelMigration={handleCancelMigration}
+        estimatedWaves={estimatedWavesForMigration}
+        sourcePlanetName={migrationSourcePlanetName}
       />
 
       <Minimap

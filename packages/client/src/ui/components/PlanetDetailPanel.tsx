@@ -89,7 +89,45 @@ function HabitabilityBar({ score }: { score: number }): React.ReactElement {
   );
 }
 
+// ── Migration sub-components ──────────────────────────────────────────────────
+
+interface MigrationProgressBarProps {
+  arrived: number;
+  threshold: number;
+}
+
+function MigrationProgressBar({ arrived, threshold }: MigrationProgressBarProps): React.ReactElement {
+  const pct = Math.min(100, Math.round((arrived / threshold) * 100));
+  return (
+    <div className="resource-bar-track migration-progress-track">
+      <div
+        className="resource-bar-fill migration-progress-fill"
+        style={{ width: `${pct}%`, background: '#00d4ff' }}
+      />
+      <span className="resource-bar-label">{arrived}/{threshold}</span>
+    </div>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
+
+/** Active migration info passed down from App. */
+export interface ActiveMigrationInfo {
+  /** Colonists that have arrived at the target planet so far. */
+  arrivedPopulation: number;
+  /** Number of colonists needed to establish the colony. */
+  threshold: number;
+  /** Game ticks until the next wave departs. */
+  ticksToNextWave: number;
+  /** Human-readable status label. */
+  status: string;
+  /** Name of the source planet migrants are drawn from. */
+  sourcePlanetName: string;
+  /** Colonists lost in transit. */
+  colonistsLost: number;
+  /** Current wave number. */
+  currentWave: number;
+}
 
 interface PlanetDetailPanelProps {
   planet: Planet | null;
@@ -100,6 +138,14 @@ interface PlanetDetailPanelProps {
   knownEmpireMap?: Map<string, { name: string; color: string }>;
   /** System ID for the colonise action. */
   systemId?: string | null;
+  /** Active migration targeting this planet, if any. */
+  activeMigration?: ActiveMigrationInfo | null;
+  /** Called when the player clicks "Cancel Migration". */
+  onCancelMigration?: () => void;
+  /** Estimated total waves needed (shown in colonise panel). */
+  estimatedWaves?: number;
+  /** Name of the suggested source planet for migration. */
+  sourcePlanetName?: string | null;
 }
 
 // ── PlanetDetailPanel ─────────────────────────────────────────────────────────
@@ -110,6 +156,10 @@ export function PlanetDetailPanel({
   playerEmpire,
   knownEmpireMap,
   systemId,
+  activeMigration,
+  onCancelMigration,
+  estimatedWaves = 17,
+  sourcePlanetName,
 }: PlanetDetailPanelProps): React.ReactElement | null {
   const visible = planet !== null;
 
@@ -153,14 +203,15 @@ export function PlanetDetailPanel({
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  const handleColonise = useCallback(() => {
+  // Emit event to start a migration via SystemViewScene → GameEngine
+  const handleStartMigration = useCallback(() => {
     if (!planet || !playerEmpire || !systemId) return;
     const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
-    game?.events.emit('colony:colonise', {
+    game?.events.emit('colony:start_migration', {
       systemId,
-      planetId: planet.id,
+      targetPlanetId: planet.id,
       empireId: playerEmpire.id,
     });
   }, [planet, playerEmpire, systemId]);
@@ -269,8 +320,70 @@ export function PlanetDetailPanel({
 
           {/* ── Colony status by ownership ── */}
 
-          {/* Unowned planet */}
-          {ownership === 'unowned' && (
+          {/* Unowned planet — active migration in progress */}
+          {ownership === 'unowned' && activeMigration && (
+            <>
+              <div className="panel-divider" />
+              <div className="panel-section-label">MIGRATION IN PROGRESS</div>
+
+              <div className="panel-row">
+                <span className="panel-label">Source</span>
+                <span className="panel-value">{activeMigration.sourcePlanetName}</span>
+              </div>
+
+              <div className="panel-row">
+                <span className="panel-label">Wave</span>
+                <span className="panel-value">
+                  {activeMigration.currentWave}/~{estimatedWaves}
+                </span>
+              </div>
+
+              <div className="panel-row panel-row--column">
+                <span className="panel-label">
+                  Colonists Arrived
+                </span>
+                <MigrationProgressBar
+                  arrived={activeMigration.arrivedPopulation}
+                  threshold={activeMigration.threshold}
+                />
+              </div>
+
+              <div className="panel-row">
+                <span className="panel-label">Status</span>
+                <span className="panel-value panel-value--cyan">
+                  Migrating — {activeMigration.arrivedPopulation}/{activeMigration.threshold} colonists
+                </span>
+              </div>
+
+              <div className="panel-row">
+                <span className="panel-label">Next wave</span>
+                <span className="panel-value">
+                  {activeMigration.ticksToNextWave} turn{activeMigration.ticksToNextWave !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {activeMigration.colonistsLost > 0 && (
+                <div className="panel-row">
+                  <span className="panel-label">Lost in transit</span>
+                  <span className="panel-value panel-value--warning">
+                    {activeMigration.colonistsLost} colonists
+                  </span>
+                </div>
+              )}
+
+              <div className="colonise-action">
+                <button
+                  className="colonise-btn colonise-btn--cancel"
+                  onClick={onCancelMigration}
+                >
+                  Cancel Migration
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Unowned planet — no active migration: show colonise options */}
+          {ownership === 'unowned' && !activeMigration && (
             <>
               <div className="panel-divider" />
               <div className="panel-section-label">COLONISATION</div>
@@ -304,6 +417,22 @@ export function PlanetDetailPanel({
                     <span className="panel-value">{colonisationStatus.cost} CR</span>
                   </div>
 
+                  <div className="panel-row">
+                    <span className="panel-label">Duration</span>
+                    <span className="panel-value panel-value--muted">
+                      ~{estimatedWaves} turns
+                    </span>
+                  </div>
+
+                  {sourcePlanetName && (
+                    <div className="panel-row">
+                      <span className="panel-label">Source</span>
+                      <span className="panel-value panel-value--muted">
+                        {sourcePlanetName}
+                      </span>
+                    </div>
+                  )}
+
                   {!colonisationStatus.allowed && colonisationStatus.reason && (
                     <div className="colonise-reason">{colonisationStatus.reason}</div>
                   )}
@@ -311,7 +440,7 @@ export function PlanetDetailPanel({
                   <div className="colonise-action">
                     <button
                       className={`colonise-btn${colonisationStatus.allowed ? '' : ' colonise-btn--disabled'}`}
-                      onClick={colonisationStatus.allowed ? handleColonise : undefined}
+                      onClick={colonisationStatus.allowed ? handleStartMigration : undefined}
                       disabled={!colonisationStatus.allowed}
                       aria-disabled={!colonisationStatus.allowed}
                     >

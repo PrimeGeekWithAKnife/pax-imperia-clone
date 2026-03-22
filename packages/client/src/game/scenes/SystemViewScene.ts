@@ -5,6 +5,7 @@ import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer'
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 import { getGameEngine } from '../../engine/GameEngine';
+import type { MigrationOrder } from '../../engine/migration';
 
 // ── Planet label data (kept local — not part of shared types) ─────────────────
 
@@ -39,6 +40,40 @@ interface OrbitEntry {
   orbitRing: Phaser.GameObjects.Arc;
 }
 
+// ── Colony ship animation ─────────────────────────────────────────────────────
+
+/**
+ * A single animated colony ship travelling from source to target planet.
+ * Ships travel along a quadratic bezier arc.
+ */
+interface ColonyShip {
+  /** Graphics object representing the tiny triangular ship + glow trail. */
+  gfx: Phaser.GameObjects.Graphics;
+  /** Progress along the path, 0 (source) → 1 (target). */
+  t: number;
+  /** Speed of travel per ms (fraction of path per ms). */
+  speed: number;
+  /** Control point for the bezier arc. */
+  cx: number;
+  cy: number;
+  /** Source world position. */
+  sx: number;
+  sy: number;
+  /** Target world position. */
+  tx: number;
+  ty: number;
+  /** Alpha of this ship (fades in/out at ends of journey). */
+  alpha: number;
+}
+
+/** One active wave animation — may contain 2–3 ships. */
+interface MigrationAnimation {
+  migrationId: string;
+  sourcePlanetId: string;
+  targetPlanetId: string;
+  ships: ColonyShip[];
+}
+
 export class SystemViewScene extends Phaser.Scene {
   private system!: StarSystem;
   private orbitEntries: OrbitEntry[] = [];
@@ -46,6 +81,9 @@ export class SystemViewScene extends Phaser.Scene {
   // UI
   private tooltipBg!: Phaser.GameObjects.Rectangle;
   private tooltipText!: Phaser.GameObjects.Text;
+
+  // Colony ship animations
+  private migrationAnimations: MigrationAnimation[] = [];
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   private music: MusicGenerator | null = null;
@@ -132,6 +170,17 @@ export class SystemViewScene extends Phaser.Scene {
     // clicks the Colonise button in PlanetDetailPanel.
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
 
+    // ── Migration action listeners ─────────────────────────────────────────────
+    // React emits 'colony:start_migration' when the player clicks Colonise on an
+    // unowned planet (now the migration-first flow).
+    this.game.events.on('colony:start_migration', this.handleStartMigrationAction, this);
+
+    // Engine emits 'engine:migration_wave' each time a wave departs.
+    this.game.events.on('engine:migration_wave', this.handleMigrationWave, this);
+
+    // Check existing migrations when entering the scene (e.g. loading a save)
+    this._syncMigrationAnimations();
+
     // Music track change — player selects a new mood from the Settings panel
     this.game.events.on('music:set_track', (track: unknown) => {
       this.music?.setTrack(track as MusicTrack);
@@ -141,9 +190,12 @@ export class SystemViewScene extends Phaser.Scene {
     // receives a valid systemId even when the galaxy-map selectedSystem is null.
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
-    // Clean up listener and notify React when the scene shuts down
+    // Clean up listeners and notify React when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
+      this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
+      this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
+      this._clearMigrationAnimations();
       this.game.events.emit('system:exited');
     });
   }
@@ -155,6 +207,9 @@ export class SystemViewScene extends Phaser.Scene {
       const cy = this.scale.height / 2 + Math.sin(entry.angle) * entry.orbitRadius;
       entry.container.setPosition(cx, cy);
     }
+
+    // Update colony ship animations
+    this._updateMigrationAnimations(delta);
   }
 
   // ── Colonise action ───────────────────────────────────────────────────────────
@@ -177,6 +232,249 @@ export class SystemViewScene extends Phaser.Scene {
 
     engine.executeAction({ type: 'ColonisePlanet', empireId, systemId, planetId });
   };
+
+  // ── Migration actions ─────────────────────────────────────────────────────────
+
+  private handleStartMigrationAction = (payload: unknown): void => {
+    const { systemId, targetPlanetId } = payload as {
+      systemId: string;
+      targetPlanetId: string;
+      empireId: string;
+    };
+
+    if (systemId !== this.system?.id) return;
+
+    const engine = getGameEngine();
+    if (!engine) {
+      console.warn('[SystemViewScene] start_migration received but GameEngine is not available');
+      return;
+    }
+
+    // Find a suitable source planet (first owned planet in this system)
+    const ownedPlanet = this.system.planets.find(p => p.ownerId !== null);
+    if (!ownedPlanet) {
+      console.warn('[SystemViewScene] No owned planet in system to source migrants from');
+      return;
+    }
+
+    engine.startMigration(systemId, ownedPlanet.id, targetPlanetId);
+  };
+
+  private handleMigrationWave = (payload: unknown): void => {
+    const { migration } = payload as { migration: MigrationOrder };
+    if (migration.systemId !== this.system?.id) return;
+    this._spawnWaveAnimation(migration);
+  };
+
+  // ── Colony ship animations ────────────────────────────────────────────────────
+
+  /**
+   * Get the current world position of a planet by its ID.
+   * Returns null if the planet's orbit entry is not found.
+   */
+  private _getPlanetWorldPos(planetId: string): { x: number; y: number } | null {
+    const entry = this.orbitEntries.find(e => e.planet.id === planetId);
+    if (!entry) return null;
+    return { x: entry.container.x, y: entry.container.y };
+  }
+
+  /**
+   * Spawn 2–3 staggered colony ships along the arc from source to target.
+   */
+  private _spawnWaveAnimation(migration: MigrationOrder): void {
+    const sourcePos = this._getPlanetWorldPos(migration.sourcePlanetId);
+    const targetPos = this._getPlanetWorldPos(migration.targetPlanetId);
+    if (!sourcePos || !targetPos) return;
+
+    // Perpendicular offset for the bezier control point — creates a gentle arc
+    const midX = (sourcePos.x + targetPos.x) / 2;
+    const midY = (sourcePos.y + targetPos.y) / 2;
+    const dx = targetPos.x - sourcePos.x;
+    const dy = targetPos.y - sourcePos.y;
+    const perpX = -dy * 0.3;
+    const perpY = dx * 0.3;
+
+    const ships: ColonyShip[] = [];
+    const SHIP_COUNT = 3;
+    for (let i = 0; i < SHIP_COUNT; i++) {
+      const gfx = this.add.graphics();
+      gfx.setDepth(150);
+      ships.push({
+        gfx,
+        t: -(i * 0.25),        // stagger: ships depart at t = 0, -0.25, -0.5
+        speed: 0.00025,         // path fraction per ms (~4 s full transit at 60 fps)
+        cx: midX + perpX,
+        cy: midY + perpY,
+        sx: sourcePos.x,
+        sy: sourcePos.y,
+        tx: targetPos.x,
+        ty: targetPos.y,
+        alpha: 0,
+      });
+    }
+
+    // Find existing animation for this migration or create one
+    let anim = this.migrationAnimations.find(a => a.migrationId === migration.id);
+    if (!anim) {
+      anim = {
+        migrationId: migration.id,
+        sourcePlanetId: migration.sourcePlanetId,
+        targetPlanetId: migration.targetPlanetId,
+        ships: [],
+      };
+      this.migrationAnimations.push(anim);
+    }
+    anim.ships.push(...ships);
+  }
+
+  /**
+   * Update all colony ship positions, redraw them, and remove ships that have arrived.
+   */
+  private _updateMigrationAnimations(delta: number): void {
+    for (const anim of this.migrationAnimations) {
+      const toRemove: ColonyShip[] = [];
+
+      // Update source/target positions live (planets are orbiting)
+      const sourcePos = this._getPlanetWorldPos(anim.sourcePlanetId);
+      const targetPos = this._getPlanetWorldPos(anim.targetPlanetId);
+
+      for (const ship of anim.ships) {
+        ship.t += ship.speed * delta;
+
+        // Update bezier control point if planets moved
+        if (sourcePos && targetPos) {
+          ship.sx = sourcePos.x;
+          ship.sy = sourcePos.y;
+          ship.tx = targetPos.x;
+          ship.ty = targetPos.y;
+          const midX = (sourcePos.x + targetPos.x) / 2;
+          const midY = (sourcePos.y + targetPos.y) / 2;
+          const dx = targetPos.x - sourcePos.x;
+          const dy = targetPos.y - sourcePos.y;
+          ship.cx = midX - dy * 0.3;
+          ship.cy = midY + dx * 0.3;
+        }
+
+        const tc = Math.max(0, Math.min(1, ship.t));
+
+        // Alpha: fade in over first 10%, fade out over last 10%
+        if (ship.t < 0) {
+          ship.alpha = 0;
+        } else if (tc < 0.1) {
+          ship.alpha = tc / 0.1;
+        } else if (tc > 0.9) {
+          ship.alpha = (1 - tc) / 0.1;
+        } else {
+          ship.alpha = 1;
+        }
+
+        if (ship.t >= 1) {
+          ship.gfx.destroy();
+          toRemove.push(ship);
+          continue;
+        }
+
+        if (ship.t < 0) {
+          ship.gfx.clear();
+          continue;
+        }
+
+        // Quadratic bezier position
+        const t = tc;
+        const invT = 1 - t;
+        const px = invT * invT * ship.sx + 2 * invT * t * ship.cx + t * t * ship.tx;
+        const py = invT * invT * ship.sy + 2 * invT * t * ship.cy + t * t * ship.ty;
+
+        // Direction tangent for ship rotation
+        const dtx = 2 * invT * (ship.cx - ship.sx) + 2 * t * (ship.tx - ship.cx);
+        const dty = 2 * invT * (ship.cy - ship.sy) + 2 * t * (ship.ty - ship.cy);
+        const angle = Math.atan2(dty, dtx);
+
+        this._drawColonyShip(ship.gfx, px, py, angle, ship.alpha);
+      }
+
+      for (const dead of toRemove) {
+        anim.ships.splice(anim.ships.indexOf(dead), 1);
+      }
+    }
+
+    // Remove animations with no living ships
+    this.migrationAnimations = this.migrationAnimations.filter(a => a.ships.length > 0);
+  }
+
+  /**
+   * Draw a tiny triangular colony ship with an engine glow trail.
+   *
+   * @param gfx   Graphics object to draw into (cleared before each draw)
+   * @param x     World X of the ship nose
+   * @param y     World Y of the ship nose
+   * @param angle Heading in radians
+   * @param alpha Overall opacity 0–1
+   */
+  private _drawColonyShip(
+    gfx: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    angle: number,
+    alpha: number,
+  ): void {
+    gfx.clear();
+    if (alpha <= 0) return;
+
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    // Helper: rotate a local offset (lx, ly) around the ship's heading
+    const rot = (lx: number, ly: number): [number, number] => [
+      x + cos * lx - sin * ly,
+      y + sin * lx + cos * ly,
+    ];
+
+    // ── Engine glow trail (behind the ship) ───────────────────────────────
+    const trailLen = 8;
+    gfx.fillStyle(0x00aaff, 0.35 * alpha);
+    gfx.fillCircle(...rot(-trailLen * 0.5, 0), 2);
+    gfx.fillStyle(0x0066cc, 0.18 * alpha);
+    gfx.fillCircle(...rot(-trailLen, 0), 1.5);
+    gfx.fillStyle(0x003399, 0.10 * alpha);
+    gfx.fillCircle(...rot(-trailLen * 1.5, 0), 1);
+
+    // ── Triangular hull ───────────────────────────────────────────────────
+    //  Nose at (4, 0), wings at (-3, ±3)
+    const [nx, ny] = rot(4, 0);
+    const [lx, ly] = rot(-3, 3);
+    const [rx, ry] = rot(-3, -3);
+
+    gfx.fillStyle(0xaaddff, 0.92 * alpha);
+    gfx.fillTriangle(nx, ny, lx, ly, rx, ry);
+
+    // ── Bright engine core dot ────────────────────────────────────────────
+    gfx.fillStyle(0xffffff, 0.85 * alpha);
+    gfx.fillCircle(...rot(-2, 0), 1);
+  }
+
+  /**
+   * Spawn animations for any migrations already active in this system when the
+   * scene first loads (handles the case where the player navigates away and back).
+   */
+  private _syncMigrationAnimations(): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+    const activeMigrations = engine.getActiveMigrations(this.system.id);
+    for (const migration of activeMigrations) {
+      this._spawnWaveAnimation(migration);
+    }
+  }
+
+  /** Destroy all colony ship graphics objects. */
+  private _clearMigrationAnimations(): void {
+    for (const anim of this.migrationAnimations) {
+      for (const ship of anim.ships) {
+        ship.gfx.destroy();
+      }
+    }
+    this.migrationAnimations = [];
+  }
 
   // ── Starfield backdrop ────────────────────────────────────────────────────────
 

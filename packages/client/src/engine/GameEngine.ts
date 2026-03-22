@@ -21,9 +21,13 @@
  *  'engine:combat_resolved'   CombatResolvedEvent
  *  'engine:tech_researched'   TechResearchedEvent
  *  'engine:game_over'         { winnerId?: string; reason?: string }
- *  'engine:galaxy_updated'    Galaxy   (emitted every tick so minimap can refresh)
- *  'engine:planet_colonised'  { planetName: string; systemId: string; planetId: string }
- *  'engine:ship_produced'     { shipName: string; systemId: string }
+ *  'engine:galaxy_updated'      Galaxy   (emitted every tick so minimap can refresh)
+ *  'engine:planet_colonised'    { planetName: string; systemId: string; planetId: string }
+ *  'engine:ship_produced'       { shipName: string; systemId: string }
+ *  'engine:migration_started'   MigrationOrder
+ *  'engine:migration_wave'      { migration: MigrationOrder; waveNumber: number; colonistsDispatched: number }
+ *  'engine:migration_completed' MigrationOrder
+ *  'engine:migration_cancelled' { targetPlanetId: string }
  */
 
 import type Phaser from 'phaser';
@@ -47,6 +51,13 @@ import type {
   CombatResolvedEvent,
   TechResearchedEvent,
 } from '@nova-imperia/shared';
+import {
+  createMigrationOrder,
+  cancelMigration,
+  getActiveMigrations as getMigrationOrders,
+  tickMigrations,
+} from './migration.js';
+import type { MigrationOrder } from './migration.js';
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
 
@@ -182,6 +193,27 @@ export class GameEngine {
 
     // ── Emit galaxy snapshot so the minimap can refresh ─────────────────────
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
+
+    // ── Process active migrations and emit wave events ───────────────────────
+    const waveEvents = tickMigrations();
+    for (const evt of waveEvents) {
+      this.game.events.emit('engine:migration_wave', {
+        migration: evt.migration,
+        waveNumber: evt.waveNumber,
+        colonistsDispatched: evt.colonistsDispatched,
+      });
+      if (evt.migration.status === 'completed') {
+        // Automatically establish the colony once the threshold is reached
+        this.colonisePlanet(
+          evt.migration.systemId,
+          evt.migration.targetPlanetId,
+          evt.migration.empireId,
+        );
+        this.game.events.emit('engine:migration_completed', evt.migration);
+      }
+    }
+    // Broadcast updated migration list so React stays in sync
+    this.game.events.emit('engine:migrations_updated', getMigrationOrders());
 
     // ── Game-over check ──────────────────────────────────────────────────────
     if (this.tickState.gameState.status === 'finished') {
@@ -622,6 +654,89 @@ export class GameEngine {
         console.warn(`[GameEngine.executeAction] Unknown action type: ${action.type}`);
         break;
     }
+  }
+
+  /**
+   * Start a multi-turn migration from sourcePlanetId to targetPlanetId.
+   *
+   * Validates that:
+   *  - The system and both planets exist.
+   *  - The source planet is owned by the empire.
+   *  - The target planet is unowned.
+   *  - No migration is already active for the target planet.
+   *
+   * Emits 'engine:migration_started' on success.
+   *
+   * @returns true if the migration was started, false otherwise.
+   */
+  startMigration(systemId: string, sourcePlanetId: string, targetPlanetId: string): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.startMigration] System "${systemId}" not found`);
+      return false;
+    }
+
+    const sourcePlanet = system.planets.find(p => p.id === sourcePlanetId);
+    if (!sourcePlanet) {
+      console.warn(`[GameEngine.startMigration] Source planet "${sourcePlanetId}" not found`);
+      return false;
+    }
+
+    const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+    if (!targetPlanet) {
+      console.warn(`[GameEngine.startMigration] Target planet "${targetPlanetId}" not found`);
+      return false;
+    }
+
+    if (!sourcePlanet.ownerId) {
+      console.warn('[GameEngine.startMigration] Source planet has no owner');
+      return false;
+    }
+
+    if (targetPlanet.ownerId !== null) {
+      console.warn('[GameEngine.startMigration] Target planet is already owned');
+      return false;
+    }
+
+    const order = createMigrationOrder(systemId, sourcePlanetId, targetPlanetId, sourcePlanet.ownerId);
+    if (!order) {
+      console.warn('[GameEngine.startMigration] Migration already active for target planet');
+      return false;
+    }
+
+    this.game.events.emit('engine:migration_started', order);
+    // Broadcast updated list
+    this.game.events.emit('engine:migrations_updated', getMigrationOrders());
+    return true;
+  }
+
+  /**
+   * Cancel an active migration targeting the given planet.
+   *
+   * Emits 'engine:migration_cancelled' on success.
+   *
+   * @returns true if a migration was found and cancelled, false otherwise.
+   */
+  stopMigration(targetPlanetId: string): boolean {
+    const cancelled = cancelMigration(targetPlanetId);
+    if (cancelled) {
+      this.game.events.emit('engine:migration_cancelled', { targetPlanetId });
+      this.game.events.emit('engine:migrations_updated', getMigrationOrders());
+    }
+    return cancelled;
+  }
+
+  /**
+   * Returns all active (in_progress) migration orders, optionally filtered by
+   * system ID.
+   *
+   * This is used by SystemViewScene to determine which ship animations to show
+   * and by React components to display migration status.
+   */
+  getActiveMigrations(systemId?: string): MigrationOrder[] {
+    return getMigrationOrders(systemId);
   }
 
   /** Return the current tick state snapshot. */

@@ -6,10 +6,11 @@
  * callers must persist the returned state.
  *
  * Processing order per tick:
- *  0.  Player Actions       (colonise, build, speed change)
+ *  0.  Player Actions       (colonise/start migration, build, speed change)
  *  1.  Fleet Movement
  *  2.  Combat Resolution
  *  3.  Population Growth
+ *  3b. Migration Processing (wave departures, arrivals, colony establishment)
  *  4.  Resource Production
  *  5.  Construction Queues
  *  6.  Ship Production
@@ -31,7 +32,9 @@ import type {
   CombatStartedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
-  PlanetColonisedEvent,
+  MigrationStartedEvent,
+  MigrationWaveEvent,
+  ColonyEstablishedEvent,
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
@@ -43,10 +46,12 @@ import {
   calculateHabitability,
   calculatePopulationGrowth,
   processConstructionQueue,
-  canColoniseInSystem,
-  coloniseInSystem,
+  canStartMigration,
+  startMigration,
+  processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  type MigrationOrder,
 } from './colony.js';
 import {
   processResearchTick,
@@ -119,6 +124,12 @@ export interface GameTickState {
    * Same provenance as shipDesigns.
    */
   shipComponents?: ShipComponent[];
+  /**
+   * Active migration orders (multi-turn colonisation process).
+   * Created when a ColonisePlanet action is processed; removed once the
+   * migration status becomes 'established' or 'cancelled'.
+   */
+  migrationOrders: MigrationOrder[];
   /**
    * Player actions queued for processing on the next tick.
    * Use submitAction to add actions; the game loop drains this list each tick.
@@ -304,14 +315,33 @@ function processPlayerActions(
 
         const system = systems[systemIndex]!;
 
-        // Validate using canColoniseInSystem.
-        const check = canColoniseInSystem(system, planetId, empireId, empire.species, empire.credits);
+        // Find the source planet — the empire's most populous planet in the system.
+        const sourcePlanet = system.planets
+          .filter(p => p.ownerId === empireId)
+          .sort((a, b) => b.currentPopulation - a.currentPopulation)[0];
+
+        if (!sourcePlanet) {
+          console.warn(`[game-loop] ColonisePlanet rejected for empire "${empireId}": no owned planet in system`);
+          continue;
+        }
+
+        // Validate using canStartMigration.
+        const check = canStartMigration(
+          system,
+          sourcePlanet.id,
+          planetId,
+          empireId,
+          empire.species,
+          empire.credits,
+          state.migrationOrders,
+        );
+
         if (!check.allowed) {
           console.warn(`[game-loop] ColonisePlanet rejected for empire "${empireId}": ${check.reason}`);
           continue;
         }
 
-        // Deduct the colonisation cost from both empire and resource map.
+        // Deduct the colonisation cost upfront from both empire and resource map.
         const updatedEmpire = { ...empire, credits: empire.credits - check.cost };
         empires = empires.map(e => (e.id === empireId ? updatedEmpire : e));
         // Also deduct from the persistent resource map
@@ -323,23 +353,21 @@ function processPlayerActions(
           state = { ...state, empireResourcesMap: newMap };
         }
 
-        // Apply colonisation to the system.
-        const updatedSystem = coloniseInSystem(system, planetId, empireId);
-        systems = systems.map(s => (s.id === systemId ? updatedSystem : s));
+        // Create the migration order — planet ownership is deferred until the
+        // first wave arrives (handled in stepMigrations).
+        const migrationOrder = startMigration(system, sourcePlanet.id, planetId, empireId, empire.species);
+        state = { ...state, migrationOrders: [...state.migrationOrders, migrationOrder] };
 
-        // Emit event.
-        const colonisedPlanet = updatedSystem.planets.find(p => p.id === planetId);
-        const planetName = colonisedPlanet?.name ?? planetId;
-
-        const colonisedEvent: PlanetColonisedEvent = {
-          type: 'PlanetColonised',
+        // Emit MigrationStarted event.
+        const migrationStartedEvent: MigrationStartedEvent = {
+          type: 'MigrationStarted',
           empireId,
           systemId,
-          planetId,
-          planetName,
+          sourcePlanetId: sourcePlanet.id,
+          targetPlanetId: planetId,
           tick,
         };
-        events.push(colonisedEvent);
+        events.push(migrationStartedEvent);
 
       // ── ConstructBuilding ────────────────────────────────────────────────
       } else if (action.type === 'ConstructBuilding') {
@@ -691,6 +719,110 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 3b: Migration Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process all active migration orders for this tick.
+ *
+ * For each migrating order:
+ * - Advances the wave countdown.
+ * - When a wave is sent, updates source/target planet populations.
+ * - Emits MigrationWave events per wave.
+ * - Emits ColonyEstablished when cumulative arrivals reach the threshold.
+ * - Removes completed (established / cancelled) orders from the list.
+ */
+function stepMigrations(
+  state: GameTickState,
+  events: GameEvent[],
+): GameTickState {
+  if (state.migrationOrders.length === 0) return state;
+
+  const tick = state.gameState.currentTick;
+  let systems = state.gameState.galaxy.systems;
+  const remainingOrders: MigrationOrder[] = [];
+
+  for (const order of state.migrationOrders) {
+    if (order.status !== 'migrating') {
+      // Already completed or cancelled — drop from list.
+      continue;
+    }
+
+    // Find the system for this order.
+    const systemIndex = systems.findIndex(s => s.id === order.systemId);
+    if (systemIndex === -1) {
+      console.warn(`[game-loop] Migration order references unknown system "${order.systemId}" — cancelling`);
+      remainingOrders.push({ ...order, status: 'cancelled' });
+      continue;
+    }
+
+    const system = systems[systemIndex]!;
+    const { order: updatedOrder, system: updatedSystem, events: waveEvents } =
+      processMigrationTick(order, system);
+
+    // Update the systems list if anything changed.
+    if (updatedSystem !== system) {
+      systems = systems.map((s, i) => (i === systemIndex ? updatedSystem : s));
+    }
+
+    // Emit wave events if a wave was sent this tick.
+    if (waveEvents.length > 0) {
+      // Calculate actual numbers from population change.
+      const targetBefore = system.planets.find(p => p.id === order.targetPlanetId);
+      const targetAfter = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
+      const sourceBefore = system.planets.find(p => p.id === order.sourcePlanetId);
+      const sourceAfter = updatedSystem.planets.find(p => p.id === order.sourcePlanetId);
+
+      if (targetBefore && targetAfter && sourceBefore && sourceAfter) {
+        const departed = sourceBefore.currentPopulation - sourceAfter.currentPopulation;
+        const arrived = targetAfter.currentPopulation - targetBefore.currentPopulation;
+        const lost = departed - arrived;
+
+        const waveEvent: MigrationWaveEvent = {
+          type: 'MigrationWave',
+          empireId: order.empireId,
+          systemId: order.systemId,
+          departed,
+          arrived,
+          lost,
+          tick,
+        };
+        events.push(waveEvent);
+      }
+    }
+
+    // Emit ColonyEstablished when the migration completes.
+    if (updatedOrder.status === 'established') {
+      const planet = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
+      const planetName = planet?.name ?? order.targetPlanetId;
+
+      const establishedEvent: ColonyEstablishedEvent = {
+        type: 'ColonyEstablished',
+        empireId: order.empireId,
+        systemId: order.systemId,
+        planetId: order.targetPlanetId,
+        planetName,
+        tick,
+      };
+      events.push(establishedEvent);
+      // Established orders are not retained.
+    } else if (updatedOrder.status === 'migrating') {
+      remainingOrders.push(updatedOrder);
+    }
+    // Cancelled orders are also dropped.
+  }
+
+  return {
+    ...state,
+    migrationOrders: remainingOrders,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 4: Resource Production
 // ---------------------------------------------------------------------------
 
@@ -1022,6 +1154,9 @@ export function processGameTick(
   // 3. Population Growth
   s = stepPopulationGrowth(s);
 
+  // 3b. Migration Processing (after population growth so wave logistics are current)
+  s = stepMigrations(s, events);
+
   // 4. Resource Production
   s = stepResourceProduction(s);
 
@@ -1104,6 +1239,7 @@ export function initializeTickState(gameState: GameState): GameTickState {
     movementOrders: [],
     productionOrders: [],
     pendingCombats: [],
+    migrationOrders: [],
     pendingActions: [],
     empireResourcesMap,
   };

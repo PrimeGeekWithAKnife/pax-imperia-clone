@@ -10,6 +10,8 @@ interface TopBarProps {
   onOpenResearch?: () => void;
   onOpenShipDesigner?: () => void;
   onOpenDiplomacy?: () => void;
+  minerals?: number;
+  energy?: number;
 }
 
 interface SpeedButton {
@@ -34,6 +36,8 @@ export function TopBar({
   onOpenResearch,
   onOpenShipDesigner,
   onOpenDiplomacy,
+  minerals = 0,
+  energy = 0,
 }: TopBarProps): React.ReactElement {
   const handleSpeedClick = useCallback(
     (speed: GameSpeedName) => {
@@ -78,13 +82,21 @@ export function TopBar({
 
       {/* Resources */}
       <div className="top-bar__resources">
-        <span className="resource-item">
+        <span className="resource-item" title="Credits">
           <span className="resource-icon">₵</span>
-          <span className="resource-value">{credits.toLocaleString()}</span>
+          <span className="resource-value">{Math.floor(credits).toLocaleString()}</span>
         </span>
-        <span className="resource-item">
+        <span className="resource-item" title="Minerals">
+          <span className="resource-icon">⛏</span>
+          <span className="resource-value">{Math.floor(minerals).toLocaleString()}</span>
+        </span>
+        <span className="resource-item" title="Energy">
+          <span className="resource-icon" style={{ color: energy < 0 ? '#ff4444' : undefined }}>⚡</span>
+          <span className="resource-value" style={{ color: energy < 0 ? '#ff4444' : undefined }}>{Math.floor(energy).toLocaleString()}</span>
+        </span>
+        <span className="resource-item" title="Research">
           <span className="resource-icon">⚗</span>
-          <span className="resource-value">{researchPoints.toLocaleString()}</span>
+          <span className="resource-value">{Math.floor(researchPoints).toLocaleString()}</span>
         </span>
       </div>
     </div>

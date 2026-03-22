@@ -470,7 +470,7 @@ describe('processGameTick — construction queues', () => {
         if (
           planet.ownerId !== null &&
           planet.currentPopulation > 0 &&
-          planet.buildings.length < 6 // typical cap for most planet types
+          planet.buildings.length < 10 // room for more buildings on the planet
         ) {
           targetPlanet = planet;
           targetSystemIndex = si;

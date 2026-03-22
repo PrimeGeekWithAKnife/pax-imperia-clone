@@ -148,6 +148,37 @@ export interface PlanetColonisedEvent {
   tick: number;
 }
 
+/** Emitted when a migration order is created (player clicks "Colonise"). */
+export interface MigrationStartedEvent {
+  type: 'MigrationStarted';
+  empireId: string;
+  systemId: string;
+  sourcePlanetId: string;
+  targetPlanetId: string;
+  tick: number;
+}
+
+/** Emitted each tick a wave departs and arrives during migration. */
+export interface MigrationWaveEvent {
+  type: 'MigrationWave';
+  empireId: string;
+  systemId: string;
+  departed: number;
+  arrived: number;
+  lost: number;
+  tick: number;
+}
+
+/** Emitted when cumulative arrivals reach the threshold and the colony is founded. */
+export interface ColonyEstablishedEvent {
+  type: 'ColonyEstablished';
+  empireId: string;
+  systemId: string;
+  planetId: string;
+  planetName: string;
+  tick: number;
+}
+
 export interface TreatyProposedEvent {
   type: 'TreatyProposed';
   proposalId: string;
@@ -201,6 +232,9 @@ export type GameEvent =
   | TechResearchedEvent
   | PlanetColonizedEvent
   | PlanetColonisedEvent
+  | MigrationStartedEvent
+  | MigrationWaveEvent
+  | ColonyEstablishedEvent
   | TreatyProposedEvent
   | TreatyAcceptedEvent
   | TreatyRejectedEvent

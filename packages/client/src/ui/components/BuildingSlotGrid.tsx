@@ -21,6 +21,7 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   population_center: 'PC',
   mining_facility: 'MF',
   spaceport: 'SP',
+  power_plant: 'PP',
 };
 
 /** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */
