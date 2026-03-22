@@ -70,6 +70,13 @@ interface MoonEntry {
   speed: number; // rad per ms
 }
 
+interface OrbitalEntry {
+  gfx: Phaser.GameObjects.Graphics;
+  orbitRadius: number;
+  angle: number;
+  speed: number; // rad per ms
+}
+
 // ── PlanetRenderer ────────────────────────────────────────────────────────────
 
 export class PlanetRenderer {
@@ -92,11 +99,12 @@ export class PlanetRenderer {
     this.addPlanetBody(container, planet, radius);
     this.addAtmosphere(container, planet, radius);
     const moonEntries = this.addMoons(container, planet, radius);
+    const orbitalEntries = this.addOrbitalStructures(container, planet, radius);
 
-    // Moon orbit update (driven by a repeating timer)
-    let moonTimer: Phaser.Time.TimerEvent | null = null;
-    if (moonEntries.length > 0) {
-      moonTimer = this.scene.time.addEvent({
+    // Moon + orbital structure orbit update (driven by a repeating timer)
+    const hasOrbiting = moonEntries.length > 0 || orbitalEntries.length > 0;
+    if (hasOrbiting) {
+      const timer = this.scene.time.addEvent({
         delay: 16,
         loop: true,
         callback: () => {
@@ -114,9 +122,16 @@ export class PlanetRenderer {
               m.moonRadius * 0.85,
             );
           }
+          for (const o of orbitalEntries) {
+            o.angle += o.speed * 16;
+            o.gfx.setPosition(
+              Math.cos(o.angle) * o.orbitRadius,
+              Math.sin(o.angle) * o.orbitRadius,
+            );
+          }
         },
       });
-      this.timerEvents.push(moonTimer);
+      this.timerEvents.push(timer);
     }
 
     const timerEvents = this.timerEvents.slice();
@@ -626,6 +641,114 @@ export class PlanetRenderer {
     }
 
     return moonEntries;
+  }
+
+  // ── Orbital structures ─────────────────────────────────────────────────────
+
+  /**
+   * Draw tiny orbital structures around colonised planets based on their
+   * buildings. Each relevant building type spawns a small 2-4 px icon that
+   * orbits the planet slowly.
+   */
+  private addOrbitalStructures(
+    container: Phaser.GameObjects.Container,
+    planet: Planet,
+    r: number,
+  ): OrbitalEntry[] {
+    const entries: OrbitalEntry[] = [];
+    if (planet.buildings.length === 0) return entries;
+
+    const buildingTypes = planet.buildings.map(b => b.type);
+    const structures: Array<{ type: string; draw: (g: Phaser.GameObjects.Graphics) => void }> = [];
+
+    // Shipyard -> L-shaped dock
+    if (buildingTypes.includes('shipyard')) {
+      structures.push({
+        type: 'shipyard',
+        draw: (g) => {
+          g.lineStyle(1, 0x99aacc, 0.9);
+          g.beginPath();
+          g.moveTo(-2, -2);
+          g.lineTo(-2, 2);
+          g.lineTo(2, 2);
+          g.strokePath();
+          g.fillStyle(0xaabbdd, 0.7);
+          g.fillRect(-2.5, 1, 5, 1.5);
+        },
+      });
+    }
+
+    // Spaceport -> satellite dot with antenna
+    if (buildingTypes.includes('spaceport')) {
+      structures.push({
+        type: 'spaceport',
+        draw: (g) => {
+          g.fillStyle(0xccccdd, 0.9);
+          g.fillCircle(0, 0, 1.5);
+          g.lineStyle(0.5, 0xaaaacc, 0.7);
+          g.beginPath();
+          g.moveTo(0, -1.5);
+          g.lineTo(0, -3.5);
+          g.strokePath();
+          g.beginPath();
+          g.moveTo(-1.5, -3.5);
+          g.lineTo(1.5, -3.5);
+          g.strokePath();
+        },
+      });
+    }
+
+    // Orbital platform -> ring segment
+    if (buildingTypes.includes('orbital_platform')) {
+      structures.push({
+        type: 'orbital_platform',
+        draw: (g) => {
+          g.lineStyle(1.2, 0xbbaa88, 0.8);
+          g.beginPath();
+          g.arc(0, 0, 3, 0, Math.PI * 0.8);
+          g.strokePath();
+          g.fillStyle(0xccbb99, 0.6);
+          g.fillCircle(3, 0, 1);
+        },
+      });
+    }
+
+    // Defence grid -> 2-3 tiny triangular satellites
+    if (buildingTypes.includes('defense_grid')) {
+      for (let i = 0; i < 3; i++) {
+        structures.push({
+          type: 'defense_' + i,
+          draw: (g) => {
+            g.fillStyle(0xcc4444, 0.8);
+            g.fillTriangle(-1.5, 1, 1.5, 1, 0, -2);
+          },
+        });
+      }
+    }
+
+    // Place each structure at a unique orbit slot
+    for (let i = 0; i < structures.length; i++) {
+      const orbitR = r * (1.35 + i * 0.18);
+      const startAngle = seededRandom(planet.id, 500 + i) * Math.PI * 2;
+      const speed = 0.0003 / (1 + i * 0.3); // varied speeds
+
+      const gfx = this.scene.add.graphics();
+      structures[i]!.draw(gfx);
+
+      const sx = Math.cos(startAngle) * orbitR;
+      const sy = Math.sin(startAngle) * orbitR;
+      gfx.setPosition(sx, sy);
+      container.add(gfx);
+
+      entries.push({
+        gfx,
+        orbitRadius: orbitR,
+        angle: startAngle,
+        speed,
+      });
+    }
+
+    return entries;
   }
 
   // ── Rings ───────────────────────────────────────────────────────────────────
