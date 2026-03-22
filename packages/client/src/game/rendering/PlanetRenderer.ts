@@ -575,23 +575,50 @@ export class PlanetRenderer {
     const style = ATMOSPHERE_STYLES[planet.atmosphere];
     if (!style) return;
 
-    const atmoR = r * (1 + style.thickness);
+    const thickness = r * style.thickness;
+    const steps = 8;
 
-    // Multiple rings for soft gradient
-    for (let i = 3; i >= 1; i--) {
-      const ringR = r + (atmoR - r) * (i / 3);
-      const alpha = style.alpha * (i / 3) * 0.5;
-      const ring = this.scene.add.graphics();
-      ring.lineStyle(2, style.color, alpha);
-      ring.strokeCircle(0, 0, ringR);
-      container.add(ring);
+    // Layered concentric fills with decreasing alpha — smooth gradient haze
+    const atmosGfx = this.scene.add.graphics();
+    for (let i = steps; i >= 1; i--) {
+      const t = i / steps;
+      const ringRadius = r + thickness * t;
+      // Alpha fades outward: strongest near the surface, weakest at the edge
+      const alpha = style.alpha * 0.18 * (1 - t * 0.7);
+      atmosGfx.fillStyle(style.color, alpha);
+      atmosGfx.fillCircle(0, 0, ringRadius);
     }
+    container.add(atmosGfx);
 
-    // Solid haze outer
-    const haze = this.scene.add.graphics();
-    haze.lineStyle(3, style.color, style.alpha * 0.35);
-    haze.strokeCircle(0, 0, atmoR);
-    container.add(haze);
+    // Fine stroke rings for additional definition
+    const ringGfx = this.scene.add.graphics();
+    for (let i = 4; i >= 1; i--) {
+      const t = i / 4;
+      const ringR = r + thickness * t;
+      const alpha = style.alpha * t * 0.3;
+      ringGfx.lineStyle(1, style.color, alpha);
+      ringGfx.strokeCircle(0, 0, ringR);
+    }
+    container.add(ringGfx);
+
+    // Atmospheric scattering — blue rim light on the lit (left) side for
+    // oxygen-nitrogen atmospheres, mimicking Rayleigh scattering
+    if (planet.atmosphere === 'oxygen_nitrogen') {
+      const scatterGfx = this.scene.add.graphics();
+      // Draw a partial arc on the left side of the planet
+      scatterGfx.lineStyle(1.5, 0x88bbff, 0.35);
+      scatterGfx.beginPath();
+      // Arc from roughly top-left to bottom-left (PI/2 to 3PI/2 covers left side)
+      scatterGfx.arc(0, 0, r + thickness * 0.15, Math.PI * 0.55, Math.PI * 1.45);
+      scatterGfx.strokePath();
+
+      // Second, slightly wider and fainter arc
+      scatterGfx.lineStyle(2, 0x6699dd, 0.18);
+      scatterGfx.beginPath();
+      scatterGfx.arc(0, 0, r + thickness * 0.30, Math.PI * 0.65, Math.PI * 1.35);
+      scatterGfx.strokePath();
+      container.add(scatterGfx);
+    }
   }
 
   // ── Moons ───────────────────────────────────────────────────────────────────
