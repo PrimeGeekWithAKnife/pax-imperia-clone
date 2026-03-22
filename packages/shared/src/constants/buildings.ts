@@ -32,7 +32,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
-    description: 'Generates research points each tick. Output is amplified by the species research trait.',
+    description: 'Banks of humming terminals and sealed clean rooms where the unknown becomes the understood. Generates research points each tick, amplified by the species research trait. For many colonists, the glow of the lab at night is a promise that tomorrow will be better than today.',
     requiredTech: 'subspace_scanning',
   },
 
@@ -43,7 +43,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Processes raw resources into refined minerals. Amplified by the species construction trait. Credit-only cost to allow early construction.',
+    description: 'Smoke stacks, conveyor belts, and the relentless clatter of automated assembly lines turning raw ore into something useful. Processes raw resources into refined minerals, amplified by the species construction trait. Cheap to build — the first factory on a new colony is often the difference between survival and stagnation.',
   },
 
   shipyard: {
@@ -53,7 +53,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
-    description: 'Enables ship construction on this planet. Higher levels reduce ship build time.',
+    description: 'A vast orbital cradle of gantries, welding arms, and pressurised assembly bays where starships take shape from raw metal and ambition. Enables ship construction on this planet; higher levels reduce build time. The shipyard is where an empire\'s reach is forged — quite literally.',
     requiredTech: 'nano_fabrication',
   },
 
@@ -64,7 +64,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Generates credits each tick through interstellar commerce.',
+    description: 'A sprawling bazaar of warehouses, brokerage offices, and currency exchanges where goods from across the sector change hands. Generates credits each tick through interstellar commerce. Where trade hubs thrive, so does civilisation — and where they fall silent, empires soon follow.',
     requiredTech: 'trade_protocols',
   },
 
@@ -75,7 +75,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 2, energy: 2 },
     maxLevel: 4,
-    description: 'Provides planetary defences. Does not produce resources but consumes energy.',
+    description: 'A network of orbital weapon platforms, ground-based interceptors, and early-warning sensor arrays that turns a colony into a fortress. Produces no resources and draws significant energy, but an invading fleet will pay dearly for every kilometre of atmosphere it crosses.',
     requiredTech: 'automated_defence',
   },
 
@@ -86,7 +86,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Increases the tax base and organics output by housing more colonists. Essential for population growth.',
+    description: 'Habitation blocks, parks, schools, and the quiet infrastructure that turns a landing site into a home. Houses more colonists and increases organics output through expanded agriculture. Essential for population growth — an empire is only as strong as the people who believe in it.',
   },
 
   mining_facility: {
@@ -97,7 +97,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description:
-      'Extracts minerals and rare elements. Output scales with the planet natural resources rating. Cheap to build — essential for bootstrapping your economy.',
+      'Deep-bore drilling rigs and open-cast excavations that crack the planet\'s crust for what lies beneath. Extracts minerals and rare elements, with output scaling to the world\'s natural resources rating. Cheap to build and the first step in any colony\'s economic development — you cannot build an empire without digging one up first.',
   },
 
   spaceport: {
@@ -107,7 +107,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2 },
     maxLevel: 3,
-    description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
+    description: 'A gleaming orbital dock ringed with cargo berths and refuelling pylons, where freighters from distant systems queue for landing clearance. Boosts credit income and enables trade routes to other systems. The spaceport is the face a colony shows the galaxy — busy, prosperous, and open for business.',
     requiredTech: 'nano_fabrication',
   },
 
@@ -118,7 +118,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Generates energy to power other buildings. Essential for any growing colony. Higher levels produce more energy.',
+    description: 'Cooling towers, turbine halls, and the deep thrum of generators that never stop. Produces the energy that powers every other structure on the colony. Higher levels deliver more output. Without power, nothing else functions — the power plant is not glamorous, but it is indispensable.',
   },
 
   entertainment_complex: {
@@ -128,7 +128,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Keeps colonists happy and productive. Reduces unrest and generates cultural influence.',
+    description: 'Amphitheatres, holosuites, gardens, and gathering halls where colonists remember that life is more than work quotas and resource projections. Reduces unrest, generates cultural influence, and reminds a population stretched across the void that they still have something worth fighting for.',
     requiredTech: 'growth_stimulants',
   },
 
@@ -139,7 +139,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Grows food in controlled environments. Essential for colonies on barren or hostile worlds.',
+    description: 'Tiered racks of nutrient-rich tanks glow under artificial sunlight, growing food where no soil exists. Produces organics in controlled environments, making colonisation viable on barren or hostile worlds. The smell of green, growing things in a sealed bay on a lifeless rock is a small miracle that colonists never quite get used to.',
   },
 
   orbital_platform: {
@@ -149,7 +149,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 14,
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 3,
-    description: 'An orbital structure extending the planet\'s capabilities. Provides additional building capacity.',
+    description: 'A ring of pressurised modules and docking spars suspended in low orbit, extending the planet\'s industrial capacity beyond its surface. Generates modest energy and credits while providing additional building slots. When a world runs out of room to grow, it grows upward.',
     requiredTech: 'gravity_generators',
   },
 
@@ -160,7 +160,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 0 },
     maxLevel: 5,
-    description: 'Converts waste into usable materials. Reduces environmental impact and building maintenance.',
+    description: 'Nothing is wasted. Broken hull plating becomes structural alloy; spent fuel cells yield trace minerals; organic refuse becomes fertiliser. Converts waste streams into usable materials at zero maintenance cost. On the frontier, the recycling plant is a quiet testament to the principle that civilisation means making the most of what you have.',
     requiredTech: 'genetic_optimisation',
   },
 
@@ -171,7 +171,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 8,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'Planetary network connecting all buildings for improved coordination. Boosts research and trade.',
+    description: 'Antenna arrays and quantum-entangled relay stations that knit every facility on the planet into a single coordinated network. Boosts research output and trade efficiency by eliminating communication lag. When every laboratory and marketplace can share data in real time, the whole colony becomes greater than the sum of its parts.',
     requiredTech: 'quantum_ciphers',
   },
 
@@ -182,7 +182,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
-    description: 'Slowly modifies planetary atmosphere and conditions. Very expensive but can make hostile worlds habitable.',
+    description: 'Massive atmospheric processors that pump tailored gas mixtures into alien skies, slowly bending a world\'s climate toward habitability over decades. Extremely expensive and energy-hungry, producing no immediate output — but the payoff is a planet reborn. Terraforming is the ultimate expression of patience: the belief that what you build today, your grandchildren will inherit.',
     requiredTech: 'terraforming',
   },
 
@@ -193,7 +193,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 2 },
     maxLevel: 4,
-    description: 'Trains ground forces for planetary defence and invasion. Required for troop deployment.',
+    description: 'Drill yards, simulation chambers, and officer schools where raw recruits are shaped into soldiers capable of holding ground on alien worlds. Trains ground forces for both planetary defence and invasion operations. Required for troop deployment. The academy is where a colony transforms from a settlement worth attacking into a settlement capable of fighting back.',
     requiredTech: 'heavy_fighter_wings',
   },
 
@@ -204,7 +204,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
-    description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
+    description: 'A miniature star contained in magnetic fields, converting hydrogen into helium and helium into the raw power that drives an advanced colony. Produces significantly more energy than a conventional power plant. The fusion reactor is the point at which a colony stops merely surviving and begins to thrive.',
     requiredTech: 'plasma_physics',
   },
 
@@ -215,7 +215,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 6,
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
-    description: 'A well-equipped medical facility that reduces population loss from disease and improves overall colony health.',
+    description: 'Sterile wards, diagnostic arrays, and quarantine chambers staffed by specialists who have learned that alien biology is always full of surprises. Reduces population loss from disease and improves overall colony health. On frontier worlds, the medical bay is often the most visited building — and the most appreciated.',
   },
 
   advanced_medical_centre: {
@@ -225,7 +225,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     buildTime: 10,
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 4,
-    description: 'A state-of-the-art xenobiological healthcare facility providing superior disease resistance and population recovery rates.',
+    description: 'Where the medical bay treats symptoms, the advanced medical centre rewrites them. Gene therapy suites, xenobiological research wings, and regeneration pods push the boundaries of what medicine can achieve across species. Provides superior disease resistance and dramatically improved population recovery rates. The colonists who walk out of these doors are, in a very real sense, better than when they walked in.',
     requiredTech: 'xenobiology',
   },
 

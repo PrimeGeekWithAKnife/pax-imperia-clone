@@ -38,11 +38,17 @@ The best 4X lore makes the player *feel* something when they read a tech descrip
 - 8 pre-built species each have unique lore and backstory
 - Tone: hard sci-fi with wonder, not campy. Grounded but awe-inspiring
 - Every mechanic should have a "why" that a curious player can discover
+- Loading tips live in `packages/shared/data/loading-tips.json` — 62 tips across 5 categories
+- Government descriptions should read like political philosophy, not stat blocks — convey what it *feels* like to live under each system, what it costs, what it enables
+- Building descriptions need both flavour (what does it look like? what does it mean?) AND mechanical info (what does it produce?) — tooltips, not novels
+- The Devourer must NEVER be named in player-facing text before the post-victory reveal; use indirect foreshadowing only (missing galaxies, sealed wormholes, ancient warnings, strange signals)
+- Racial building descriptions were already high quality with good species flavour — focus universal building rewrites on giving them personality without overwriting mechanical clarity
+- Species-specific humour works best when it reveals character: Khazari bluntness, Sylvani patience, Ashkari cunning, Nexari literalness, etc.
+- The Story Bible answers most of the previously open questions — see STORY-BIBLE.md for creative direction
 
-## Open Questions (for director interview)
-- What is the central conflict? Why are species expanding NOW?
-- Is there a precursor civilisation? Ancient ruins? A galactic mystery?
-- What is the tone — hopeful (Star Trek), gritty (Expanse), cosmic (2001)?
-- Are there ethical dimensions? Can the player be "evil" and should the game judge?
-- What does "victory" mean narratively? Conquest = genocide? Research = ascension?
-- Is there something beyond the map edge? A threat? A mystery?
+## Open Questions (for future sessions)
+- Should the Devourer be beatable, or is the post-victory phase about buying time / escaping?
+- Are there minor species (primitive civilisations) on some planets? Can the player interact with them?
+- Should species have internal politics (factions, civil war, revolution)?
+- What role does religion/faith play? The Theocracy government exists — faith in what?
+- What are the specific relationships between species? (Ancient grudges, alliances, trade partnerships)
