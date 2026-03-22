@@ -1641,18 +1641,18 @@ export function initializeTickState(gameState: GameState): GameTickState {
  * Return the number of milliseconds between game ticks for the given speed.
  *
  * - paused   → 0   (game does not advance)
- * - slow     → 2000 ms
- * - normal   → 1000 ms
- * - fast     → 500 ms
- * - fastest  → 250 ms
+ * - slow     → 4000 ms  (deliberate, strategic pace)
+ * - normal   → 2000 ms  (comfortable play speed)
+ * - fast     → 1000 ms  (accelerated)
+ * - fastest  → 500 ms   (skip-ahead speed)
  */
 export function getTickRate(speed: keyof typeof GAME_SPEEDS): number {
   switch (speed) {
     case 'paused':  return 0;
-    case 'slow':    return 2000;
-    case 'normal':  return 1000;
-    case 'fast':    return 500;
-    case 'fastest': return 250;
+    case 'slow':    return 4000;
+    case 'normal':  return 2000;
+    case 'fast':    return 1000;
+    case 'fastest': return 500;
     default: {
       const _exhaustive: never = speed;
       console.warn(`[game-loop] Unknown game speed "${String(_exhaustive)}" — defaulting to normal`);

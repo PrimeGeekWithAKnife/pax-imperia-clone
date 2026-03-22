@@ -835,48 +835,9 @@ export function addBuildingToQueue(
     throw new Error(`Cannot queue building: ${check.reason}`);
   }
 
-  // Default construction time in turns (could later come from tech tree /
-  // constants, but kept simple for now)
-  const BASE_BUILD_TURNS: Record<BuildingType, number> = {
-    population_center: 5,
-    factory: 4,
-    research_lab: 6,
-    spaceport: 8,
-    shipyard: 10,
-    trade_hub: 6,
-    defense_grid: 7,
-    mining_facility: 4,
-    power_plant: 3,
-    entertainment_complex: 4,
-    hydroponics_bay: 3,
-    orbital_platform: 7,
-    recycling_plant: 3,
-    communications_hub: 4,
-    terraforming_station: 10,
-    military_academy: 6,
-    fusion_reactor: 5,
-    medical_bay: 3,
-    advanced_medical_centre: 5,
-    // ── Racial unique buildings ─────────────────────────────────────────────
-    crystal_resonance_chamber: 7,
-    psionic_amplifier: 6,
-    war_forge: 8,
-    magma_tap: 5,
-    living_archive: 9,
-    growth_vat: 4,
-    neural_network_hub: 8,
-    assimilation_node: 7,
-    abyssal_processor: 5,
-    predator_arena: 5,
-    diplomatic_quarter: 6,
-    innovation_lab: 5,
-    deep_hive: 6,
-    tunnel_network: 7,
-    salvage_yard: 4,
-    black_market: 4,
-  };
-
-  const turnsRemaining = BASE_BUILD_TURNS[buildingType];
+  // Use buildTime from BUILDING_DEFINITIONS (single source of truth)
+  const def = BUILDING_DEFINITIONS[buildingType];
+  const turnsRemaining = def?.buildTime ?? 10;
 
   return {
     ...planet,
