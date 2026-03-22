@@ -71,9 +71,9 @@ const PERSONALITY_TECH_PREFERENCE: Record<AIPersonality, string[]> = {
   aggressive:   ['weapons', 'propulsion'],
   defensive:    ['defense', 'construction'],
   economic:     ['construction', 'biology'],
-  diplomatic:   ['special', 'biology'],
+  diplomatic:   ['racial', 'biology'],
   expansionist: ['propulsion', 'construction'],
-  researcher:   ['special', 'weapons', 'defense', 'biology', 'construction', 'propulsion'],
+  researcher:   ['racial', 'weapons', 'defense', 'biology', 'construction', 'propulsion'],
 };
 
 /** Building types most valued by each personality. */

@@ -59,7 +59,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   propulsion:   'Propulsion',
   biology:      'Biology',
   construction: 'Construction',
-  special:      'Special',
+  racial:       'Racial',
 };
 
 export function TechDetailPanel({

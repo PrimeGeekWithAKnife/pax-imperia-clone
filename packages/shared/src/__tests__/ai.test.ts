@@ -355,7 +355,7 @@ describe('evaluateResearchPriority', () => {
 
   it('researcher AI gives highest priority to research techs', () => {
     const techs: Technology[] = [
-      makeTech({ id: 's1', name: 'Special Tech', category: 'special', cost: 100 }),
+      makeTech({ id: 's1', name: 'Racial Tech', category: 'racial', cost: 100 }),
       makeTech({ id: 'w1', name: 'Weapons', category: 'weapons', cost: 100 }),
     ];
     const empire = makeEmpire();
@@ -801,7 +801,7 @@ describe('generateAIDecisions', () => {
     const empire = makeEmpire({ aiPersonality: 'researcher' });
     const gameState = makeGameState(galaxy, [empire]);
     const techs: Technology[] = [
-      makeTech({ id: 's1', category: 'special' }),
+      makeTech({ id: 's1', category: 'racial' }),
       makeTech({ id: 'c1', category: 'construction' }),
     ];
 

@@ -4,7 +4,7 @@
       "id": "quantum_theory",
       "name": "Quantum Theory",
       "description": "A foundational framework for understanding matter and energy at the smallest scales, describing reality as a dance of probabilities rather than certainties. Every advanced technology begins here.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_atomic",
       "cost": 1200,
       "prerequisites": [],
@@ -55,7 +55,7 @@
       "id": "quantum_computing",
       "name": "Quantum Computing",
       "description": "Processors that exploit superposition and entanglement to solve problems no classical machine could touch. Cryptography, simulation, and strategic analysis leap forward in a single bound.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_atomic",
       "cost": 1800,
       "prerequisites": [
@@ -79,7 +79,7 @@
       "id": "quantum_ciphers",
       "name": "Quantum Ciphers",
       "description": "Unbreakable communication channels secured by the fundamental laws of physics. Any attempt at interception collapses the quantum state and reveals the eavesdropper instantly.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_atomic",
       "cost": 1500,
       "prerequisites": [
@@ -331,7 +331,7 @@
       "id": "trade_protocols",
       "name": "Trade Protocols",
       "description": "Formalised exchange agreements and commodity-valuation standards that make interstellar commerce predictable enough to be profitable. Every new trade partner multiplies the empire's revenue.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_atomic",
       "cost": 1000,
       "prerequisites": [],
@@ -391,7 +391,7 @@
       "id": "fusion_threshold",
       "name": "Fusion Threshold",
       "description": "The convergence of early discoveries into a coherent scientific paradigm — nano-scale engineering, quantum computation, and biological mastery form the foundation for the next great leap.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_atomic",
       "cost": 2500,
       "prerequisites": [
@@ -413,7 +413,7 @@
       "id": "plasma_physics",
       "name": "Plasma Physics",
       "description": "A theoretical understanding of matter in the plasma state — superheated ionised gas confined by magnetic fields. This knowledge underpins both fusion power and an entire generation of weapons technology.",
-      "category": "special",
+      "category": "racial",
       "age": "fusion",
       "cost": 3000,
       "prerequisites": [
@@ -821,7 +821,7 @@
       "id": "psionic_sensitivity",
       "name": "Psionic Sensitivity",
       "description": "Neurological amplification techniques that sharpen latent psionic potential. Though weak at first, the gift can be trained into something formidable.",
-      "category": "special",
+      "category": "racial",
       "age": "fusion",
       "cost": 3200,
       "prerequisites": [
@@ -844,7 +844,7 @@
       "id": "cloaking_theory",
       "name": "Cloaking Theory",
       "description": "Theoretical models for bending electromagnetic radiation around a hull using shaped graviton fields. Practical cloaking remains out of reach, but the physics are now understood.",
-      "category": "special",
+      "category": "racial",
       "age": "fusion",
       "cost": 3400,
       "prerequisites": [
@@ -864,7 +864,7 @@
       "id": "nano_fusion_threshold",
       "name": "Nano-Fusion Threshold",
       "description": "The synthesis of mature fusion-era technology into a unified strategic doctrine — nano-engineering and fusion power merge into something greater than either could achieve alone.",
-      "category": "special",
+      "category": "racial",
       "age": "fusion",
       "cost": 5000,
       "prerequisites": [
@@ -886,7 +886,7 @@
       "id": "quantum_field_theory",
       "name": "Quantum Field Theory",
       "description": "A grand unification of quantum mechanics and field theory that describes the fundamental forces as manifestations of underlying quantum fields. The theoretical key to phase technology and teleportation.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 6000,
       "prerequisites": [
@@ -906,7 +906,7 @@
       "id": "artificial_intelligence",
       "name": "Artificial Intelligence",
       "description": "Self-improving neural architectures capable of general reasoning, creative problem-solving, and autonomous decision-making. The line between tool and colleague begins to blur.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 6000,
       "prerequisites": [
@@ -1006,7 +1006,7 @@
       "id": "ai_governor",
       "name": "AI Governor",
       "description": "Autonomous administrative intelligence capable of optimising an entire colony's production, logistics, and resource allocation without organic oversight. Bureaucracy perfected.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 6500,
       "prerequisites": [
@@ -1349,7 +1349,7 @@
       "id": "precursor_archaeology",
       "name": "Precursor Archaeology",
       "description": "Systematic excavation and analysis of artefacts left by civilisations that transcended the physical plane millions of years ago. What they built by instinct, we learn through patience.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 7000,
       "prerequisites": [
@@ -1372,7 +1372,7 @@
       "id": "dimensional_scanning",
       "name": "Dimensional Scanning",
       "description": "Sensor arrays tuned to detect quantum-state fluctuations in subspace — the ripple left by cloaked ships, hidden installations, and fold-space conduits.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 6500,
       "prerequisites": [
@@ -1396,7 +1396,7 @@
       "id": "anti_matter_threshold",
       "name": "Anti-Matter Threshold",
       "description": "The empire stands at the threshold of true galactic power. Its science surpasses what most civilisations ever achieve; its fleets are instruments of precision destruction.",
-      "category": "special",
+      "category": "racial",
       "age": "nano_fusion",
       "cost": 10000,
       "prerequisites": [
@@ -1418,7 +1418,7 @@
       "id": "unified_field_theory",
       "name": "Unified Field Theory",
       "description": "The grand unification of all fundamental forces — electromagnetic, gravitational, strong and weak nuclear — into a single elegant mathematical framework. The key that unlocks antimatter mastery.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 11000,
       "prerequisites": [
@@ -1463,7 +1463,7 @@
       "id": "dark_matter_physics",
       "name": "Dark Matter Physics",
       "description": "Experimental techniques for detecting, containing, and manipulating dark matter — the invisible scaffolding of the universe. What was once unobservable becomes a resource.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 12000,
       "prerequisites": [
@@ -1541,7 +1541,7 @@
       "id": "psionic_amplifiers",
       "name": "Psionic Amplifiers",
       "description": "Technology that magnifies latent psionic abilities a thousandfold — turning whispered intuitions into galaxy-spanning perception. The amplified mind sees through walls, across systems, and into the intentions of others.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 12000,
       "prerequisites": [
@@ -1569,7 +1569,7 @@
       "id": "mind_control",
       "name": "Mind Control",
       "description": "Orbital psionic projection arrays capable of subliminal suggestion on a planetary scale. Populations can be pacified, loyalties rewritten, and enemy worlds turned without a shot being fired.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 13000,
       "prerequisites": [
@@ -1846,7 +1846,7 @@
       "id": "temporal_mechanics",
       "name": "Temporal Mechanics",
       "description": "Exploiting micro-scale temporal variance near extreme gravitational gradients to achieve limited predictive modelling. The future is not fixed — but its probabilities can be mapped.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 13500,
       "prerequisites": [
@@ -1871,7 +1871,7 @@
       "id": "singularity_threshold",
       "name": "Singularity Threshold",
       "description": "The penultimate synthesis — an empire that has mastered matter, energy, biology, and the geometry of space itself. Only one threshold remains: the dissolution of all limits.",
-      "category": "special",
+      "category": "racial",
       "age": "anti_matter",
       "cost": 18000,
       "prerequisites": [
@@ -1893,7 +1893,7 @@
       "id": "singularity_mathematics",
       "name": "Singularity Mathematics",
       "description": "Mathematical frameworks that describe the behaviour of space-time at infinite curvature — the point where physics as known collapses and something new emerges. The equations of godhood.",
-      "category": "special",
+      "category": "racial",
       "age": "singularity",
       "cost": 18000,
       "prerequisites": [
@@ -2155,7 +2155,7 @@
       "id": "omniscience",
       "name": "Omniscience",
       "description": "A galaxy-wide sensor network woven through subspace, quantum entanglement, and psionic resonance that reveals every fleet, every colony, every secret in real time.",
-      "category": "special",
+      "category": "racial",
       "age": "singularity",
       "cost": 18000,
       "prerequisites": [
@@ -2208,7 +2208,7 @@
       "id": "ascension_project",
       "name": "Ascension Project",
       "description": "The culmination of all knowledge, all power, all sacrifice. Your civilisation transcends the game entirely, reshaping the galaxy in its own image and ascending to a plane of existence beyond comprehension.",
-      "category": "special",
+      "category": "racial",
       "age": "singularity",
       "cost": 25000,
       "prerequisites": [

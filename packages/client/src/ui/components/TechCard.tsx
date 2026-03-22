@@ -19,7 +19,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   propulsion:   '[PRO]',
   biology:      '[BIO]',
   construction: '[CON]',
-  special:      '[SPE]',
+  racial:       '[RAC]',
 };
 
 export function TechCard({

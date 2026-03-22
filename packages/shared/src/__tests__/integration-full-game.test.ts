@@ -411,7 +411,7 @@ describe('Test 3: Research progresses and techs complete', () => {
       name: 'Gate Technology',
       description: 'Unlocks next age',
       age: 'nano_atomic',
-      category: 'special',
+      category: 'racial',
       cost: 5,
       prerequisites: [],
       effects: [{ type: 'age_unlock', age: 'fusion' }],

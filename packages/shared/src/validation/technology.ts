@@ -16,7 +16,7 @@ export const TechCategorySchema = z.enum([
   'propulsion',
   'biology',
   'construction',
-  'special',
+  'racial',
 ]);
 
 export const HullClassSchema = z.enum([

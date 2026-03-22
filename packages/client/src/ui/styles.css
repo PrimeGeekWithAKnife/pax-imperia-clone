@@ -2268,7 +2268,7 @@
   --cat-propulsion:   #cc9900;
   --cat-biology:      #22aa44;
   --cat-construction: #bb6611;
-  --cat-special:      #8833cc;
+  --cat-racial:       #8833cc;
 }
 
 /* ── Outer container ── */
@@ -2479,7 +2479,7 @@
 .tech-tree__row--propulsion   { border-left-color: var(--cat-propulsion); }
 .tech-tree__row--biology      { border-left-color: var(--cat-biology); }
 .tech-tree__row--construction { border-left-color: var(--cat-construction); }
-.tech-tree__row--special      { border-left-color: var(--cat-special); }
+.tech-tree__row--racial       { border-left-color: var(--cat-racial); }
 
 .tech-tree__category-label {
   width: 97px;
@@ -2796,7 +2796,7 @@
 .tech-detail-panel__badge--cat-propulsion   { color: var(--cat-propulsion);   border-color: rgba(204, 153, 0, 0.4); }
 .tech-detail-panel__badge--cat-biology      { color: var(--cat-biology);      border-color: rgba(34, 170, 68, 0.4); }
 .tech-detail-panel__badge--cat-construction { color: var(--cat-construction); border-color: rgba(187, 102, 17, 0.4); }
-.tech-detail-panel__badge--cat-special      { color: var(--cat-special);      border-color: rgba(136, 51, 204, 0.4); }
+.tech-detail-panel__badge--cat-racial       { color: var(--cat-racial);       border-color: rgba(136, 51, 204, 0.4); }
 
 /* Status badge */
 .tech-detail-panel__badge--completed { color: #32a050; border-color: rgba(50, 160, 80, 0.4); }

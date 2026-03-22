@@ -25,7 +25,7 @@ const ALL_CATEGORIES: TechCategory[] = [
   'propulsion',
   'biology',
   'construction',
-  'special',
+  'racial',
 ];
 
 /** Minimum cost for each age — costs must be at least this high. */

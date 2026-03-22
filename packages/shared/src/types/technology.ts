@@ -9,7 +9,7 @@ export type TechCategory =
   | 'propulsion'
   | 'biology'
   | 'construction'
-  | 'special';
+  | 'racial';
 
 export type TechEffect =
   | { type: 'unlock_hull'; hullClass: HullClass }

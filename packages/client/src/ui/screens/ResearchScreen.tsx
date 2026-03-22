@@ -42,7 +42,7 @@ const CATEGORIES_ORDERED: TechCategory[] = [
   'propulsion',
   'biology',
   'construction',
-  'special',
+  'racial',
 ];
 
 const CATEGORY_DISPLAY_NAMES: Record<TechCategory, string> = {
@@ -51,7 +51,7 @@ const CATEGORY_DISPLAY_NAMES: Record<TechCategory, string> = {
   propulsion:   'Propulsion',
   biology:      'Biology',
   construction: 'Construction',
-  special:      'Special',
+  racial:       'Racial',
 };
 
 const MAX_ACTIVE_RESEARCH = 5;
@@ -359,7 +359,7 @@ export function ResearchScreen({
       propulsion:   { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
       biology:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
       construction: { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
-      special:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      racial:       { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
     };
     for (const tech of allTechs) {
       if (grid[tech.category] && grid[tech.category][tech.age]) {
