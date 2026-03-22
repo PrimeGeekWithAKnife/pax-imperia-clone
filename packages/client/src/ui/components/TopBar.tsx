@@ -10,6 +10,9 @@ interface TopBarProps {
   onOpenResearch?: () => void;
   onOpenShipDesigner?: () => void;
   onOpenDiplomacy?: () => void;
+  onOpenFleet?: () => void;
+  onOpenEconomy?: () => void;
+  onOpenEspionage?: () => void;
   minerals?: number;
   energy?: number;
 }
@@ -36,6 +39,9 @@ export function TopBar({
   onOpenResearch,
   onOpenShipDesigner,
   onOpenDiplomacy,
+  onOpenFleet,
+  onOpenEconomy,
+  onOpenEspionage,
   minerals = 0,
   energy = 0,
 }: TopBarProps): React.ReactElement {
@@ -75,6 +81,9 @@ export function TopBar({
         {onOpenShipDesigner && (
           <button className="speed-btn" onClick={onOpenShipDesigner} title="Ship Designer">⚙ Ships</button>
         )}
+        <button className="speed-btn" onClick={onOpenFleet} title="Fleet Overview">⚓ Fleet</button>
+        <button className="speed-btn" onClick={onOpenEconomy} title="Economy Overview">₵ Economy</button>
+        <button className="speed-btn" onClick={onOpenEspionage} title="Espionage">🕵 Espionage</button>
         {onOpenDiplomacy && (
           <button className="speed-btn" onClick={onOpenDiplomacy} title="Diplomacy">☮ Diplomacy</button>
         )}

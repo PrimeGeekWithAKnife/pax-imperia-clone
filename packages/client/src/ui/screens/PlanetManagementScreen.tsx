@@ -67,16 +67,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   researchPoints: 'Research',
 };
 
-const ALL_BUILDING_TYPES: BuildingType[] = [
-  'population_center',
-  'factory',
-  'mining_facility',
-  'trade_hub',
-  'spaceport',
-  'research_lab',
-  'shipyard',
-  'defense_grid',
-];
+const ALL_BUILDING_TYPES: BuildingType[] = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
 
 function kelvinToCelsius(k: number): number {
   return Math.round(k - 273.15);
@@ -577,30 +568,10 @@ export function PlanetManagementScreen({
             </div>
           </div>
 
-          {/* Center column: Building slots + queue */}
+          {/* Center column: Shipyard (if present) + Building slots + queue */}
           <div className="pm-col pm-col--buildings">
-            <div className="pm-section-label">
-              BUILDING SLOTS
-              <span className="pm-section-label__count">{usedSlots}/{totalSlots}</span>
-            </div>
-
-            <BuildingSlotGrid
-              totalSlots={totalSlots}
-              buildings={planet.buildings}
-              onEmptySlotClick={handleEmptySlotClick}
-              onBuildingClick={handleBuildingClick}
-            />
-
-            <div className="pm-divider" />
-            <div className="pm-section-label">CONSTRUCTION QUEUE</div>
-            <ConstructionQueue
-              queue={planet.productionQueue}
-              onCancel={handleCancelQueue}
-            />
-
             {hasShipyard && (
               <>
-                <div className="pm-divider" />
                 <div className="pm-section-label">SHIPYARD</div>
                 <div className="pm-shipyard">
                   <button
@@ -643,8 +614,28 @@ export function PlanetManagementScreen({
                     <div className="pm-shipyard__idle">No ships in production</div>
                   )}
                 </div>
+                <div className="pm-divider" />
               </>
             )}
+
+            <div className="pm-section-label">
+              BUILDING SLOTS
+              <span className="pm-section-label__count">{usedSlots}/{totalSlots}</span>
+            </div>
+
+            <BuildingSlotGrid
+              totalSlots={totalSlots}
+              buildings={planet.buildings}
+              onEmptySlotClick={handleEmptySlotClick}
+              onBuildingClick={handleBuildingClick}
+            />
+
+            <div className="pm-divider" />
+            <div className="pm-section-label">CONSTRUCTION QUEUE</div>
+            <ConstructionQueue
+              queue={planet.productionQueue}
+              onCancel={handleCancelQueue}
+            />
           </div>
 
           {/* Right column: Production summary */}

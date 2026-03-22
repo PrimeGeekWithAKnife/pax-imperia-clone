@@ -37,6 +37,7 @@ const BUILDING_TYPE_LABELS: Record<string, string> = {
   population_center: 'Population Centre',
   mining_facility: 'Mining Facility',
   spaceport: 'Spaceport',
+  power_plant: 'Power Plant',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

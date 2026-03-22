@@ -202,6 +202,10 @@ export function App(): React.ReactElement {
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
 
+  // ── "Coming Soon" / Fleet list overlay state ──
+  const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
+  const [showFleetList, setShowFleetList] = useState(false);
+
   // ── Migration state ──
   // All active (in_progress) migrations, updated by engine events.
   const [activeMigrations, setActiveMigrations] = useState<MigrationOrder[]>([]);
@@ -367,6 +371,21 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
   }, []);
 
+  // Fleet, Economy, Espionage button handlers for TopBar
+  const handleOpenFleetList = useCallback(() => {
+    setShowFleetList(true);
+  }, []);
+
+  const handleOpenEconomy = useCallback(() => {
+    setComingSoonLabel('Economy');
+    setTimeout(() => setComingSoonLabel(null), 3000);
+  }, []);
+
+  const handleOpenEspionage = useCallback(() => {
+    setComingSoonLabel('Espionage');
+    setTimeout(() => setComingSoonLabel(null), 3000);
+  }, []);
+
   // Phaser can push updated empire data (player + known empires)
   const handleEmpireUpdate = useCallback((empire: Empire) => {
     setPlayerEmpire(empire);
@@ -422,12 +441,29 @@ export function App(): React.ReactElement {
   // Detect building completion by watching queue length transitions via engine:tick
   // We track the previous queue state to detect when an item completes.
   // Also keeps playerEmpire in sync with the engine's authoritative state.
+  // Also refreshes the selected planet so PlanetDetailPanel never shows stale
+  // ownership / migration state (fixes Bug 1 & 6).
   const handleEngineTick = useCallback(() => {
     // Sync player empire from engine state so credits/species are always accurate
     const engine: GameEngine | undefined = getGameEngine();
     if (engine) {
       const playerEmp = engine.getState().gameState.empires.find(e => !e.isAI);
       if (playerEmp) setPlayerEmpire(playerEmp);
+    }
+
+    // Refresh selected planet from engine so the panel never shows stale data
+    if (selectedPlanet) {
+      const eng: GameEngine | undefined = getGameEngine();
+      if (eng) {
+        const systems = eng.getState().gameState.galaxy.systems;
+        for (const sys of systems) {
+          const found: Planet | undefined = sys.planets.find(p => p.id === selectedPlanet.id);
+          if (found && found !== selectedPlanet) {
+            setSelectedPlanet(found);
+            break;
+          }
+        }
+      }
     }
 
     setManagedPlanet((prev) => {
@@ -456,7 +492,7 @@ export function App(): React.ReactElement {
 
       return latestPlanet;
     });
-  }, [managedSystemId]);
+  }, [managedSystemId, selectedPlanet, setSelectedPlanet]);
 
   // Engine emits 'engine:viewport_changed' each frame from GalaxyMapScene
   const handleViewportChanged = useCallback(
@@ -839,6 +875,9 @@ export function App(): React.ReactElement {
         onOpenResearch={handleOpenResearch}
         onOpenShipDesigner={handleOpenShipDesigner}
         onOpenDiplomacy={handleOpenDiplomacy}
+        onOpenFleet={handleOpenFleetList}
+        onOpenEconomy={handleOpenEconomy}
+        onOpenEspionage={handleOpenEspionage}
       />
 
       <SystemInfoPanel system={selectedSystem} />
@@ -900,6 +939,69 @@ export function App(): React.ReactElement {
           ships={fleetShips}
           onClose={handleFleetDeselected}
         />
+      )}
+
+      {/* Fleet list overlay (TopBar Fleet button) */}
+      {showFleetList && (
+        <div className="pm-overlay" onClick={() => setShowFleetList(false)}>
+          <div
+            className="pm-screen"
+            style={{ maxWidth: '600px', maxHeight: '400px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pm-header">
+              <div className="pm-header__info">
+                <h2 className="pm-header__name">Fleet Overview</h2>
+              </div>
+              <button
+                className="panel-close-btn pm-header__close"
+                onClick={() => setShowFleetList(false)}
+                aria-label="Close fleet overview"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="pm-body" style={{ padding: '16px' }}>
+              {(() => {
+                const engine = getGameEngine();
+                const ships = engine?.getState().gameState.ships ?? [];
+                const fleets = engine?.getState().gameState.fleets ?? [];
+                if (ships.length === 0 && fleets.length === 0) {
+                  return <div className="pm-prod-empty">No ships or fleets. Build a shipyard and produce ships.</div>;
+                }
+                return (
+                  <div>
+                    <div className="pm-section-label">SHIPS ({ships.length})</div>
+                    {ships.map((s) => (
+                      <div key={s.id} className="pm-stat-row">
+                        <span className="pm-stat-label">{s.name}</span>
+                        <span className="pm-stat-value">HP {s.hullPoints}/{s.maxHullPoints} &middot; System: {s.position.systemId.slice(0, 8)}...</span>
+                      </div>
+                    ))}
+                    {fleets.length > 0 && (
+                      <>
+                        <div className="pm-section-label" style={{ marginTop: '12px' }}>FLEETS ({fleets.length})</div>
+                        {fleets.map((f) => (
+                          <div key={f.id} className="pm-stat-row">
+                            <span className="pm-stat-label">{f.name}</span>
+                            <span className="pm-stat-value">{f.ships.length} ship{f.ships.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coming Soon notification */}
+      {comingSoonLabel && (
+        <div className="build-notification" role="status" aria-live="polite">
+          {comingSoonLabel} — Coming Soon
+        </div>
       )}
 
       {isPaused && (

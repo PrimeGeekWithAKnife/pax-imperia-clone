@@ -181,6 +181,12 @@ export class SystemViewScene extends Phaser.Scene {
     // Check existing migrations when entering the scene (e.g. loading a save)
     this._syncMigrationAnimations();
 
+    // Render ships already present in this system
+    this._renderShipIndicators();
+
+    // Refresh ship indicators on each engine tick so newly built ships appear
+    this.game.events.on('engine:tick', this._handleEngineTick, this);
+
     // Music track change — player selects a new mood from the Settings panel
     this.game.events.on('music:set_track', (track: unknown) => {
       this.music?.setTrack(track as MusicTrack);
@@ -195,7 +201,13 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
+      this.game.events.off('engine:tick', this._handleEngineTick, this);
       this._clearMigrationAnimations();
+      // Destroy ship indicators
+      for (const [, container] of this.shipIndicators) {
+        container.destroy();
+      }
+      this.shipIndicators.clear();
       this.game.events.emit('system:exited');
     });
   }
@@ -476,6 +488,107 @@ export class SystemViewScene extends Phaser.Scene {
     this.migrationAnimations = [];
   }
 
+  /** Called on each engine tick — refresh ship indicators and ownership visuals. */
+  private _handleEngineTick = (): void => {
+    this._renderShipIndicators();
+  };
+
+  // ── Ship rendering ───────────────────────────────────────────────────────────
+
+  /** Ship indicator graphics objects, keyed by ship.id */
+  private shipIndicators: Map<string, Phaser.GameObjects.Container> = new Map();
+
+  /**
+   * Render ship indicators for all ships currently positioned in this system.
+   * Called on create and refreshed each tick.
+   */
+  private _renderShipIndicators(): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const state = engine.getState();
+    const shipsInSystem = state.gameState.ships.filter(
+      s => s.position.systemId === this.system.id,
+    );
+
+    // Track which ship IDs are still present
+    const currentIds = new Set(shipsInSystem.map(s => s.id));
+
+    // Remove indicators for ships that are gone
+    for (const [id, container] of this.shipIndicators) {
+      if (!currentIds.has(id)) {
+        container.destroy();
+        this.shipIndicators.delete(id);
+      }
+    }
+
+    // Add/update indicators for ships in this system
+    for (const ship of shipsInSystem) {
+      if (this.shipIndicators.has(ship.id)) continue; // already shown
+
+      // Position the ship near its planet orbit, or in the center if no orbit
+      let sx = this.scale.width / 2 + 40;
+      let sy = this.scale.height / 2 - 40;
+
+      if (ship.position.orbitIndex !== undefined) {
+        const entry = this.orbitEntries[ship.position.orbitIndex];
+        if (entry) {
+          sx = entry.container.x + 18;
+          sy = entry.container.y - 18;
+        }
+      }
+
+      const container = this.add.container(sx, sy);
+      container.setDepth(160);
+
+      // Ship triangle icon
+      const gfx = this.add.graphics();
+      gfx.fillStyle(0x00d4ff, 0.9);
+      gfx.fillTriangle(0, -6, -5, 5, 5, 5);
+      gfx.lineStyle(1, 0x00d4ff, 0.5);
+      gfx.strokeCircle(0, 0, 10);
+      container.add(gfx);
+
+      // Ship name label
+      const label = this.add.text(12, -6, ship.name, {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#88ddff',
+      });
+      container.add(label);
+
+      // Make clickable
+      const hitArea = this.add.circle(0, 0, 12, 0xffffff, 0);
+      hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on('pointerdown', () => {
+        this.sfx?.playClick();
+        // Emit fleet:selected so the fleet panel opens
+        const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
+        if (fleet) {
+          const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
+          this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
+        }
+      });
+      container.add(hitArea);
+
+      this.shipIndicators.set(ship.id, container);
+    }
+  }
+
+  // ── Latest planet helper ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch the current planet state from the engine so the UI never shows stale data.
+   */
+  private _getLatestPlanet(planetId: string, engine?: ReturnType<typeof getGameEngine>): Planet | null {
+    const eng = engine ?? getGameEngine();
+    if (!eng) return null;
+    const system = eng.getState().gameState.galaxy.systems.find(
+      s => s.id === this.system.id,
+    );
+    return system?.planets.find(p => p.id === planetId) ?? null;
+  }
+
   // ── Starfield backdrop ────────────────────────────────────────────────────────
 
   private createStarfield(width: number, height: number): void {
@@ -609,10 +722,14 @@ export class SystemViewScene extends Phaser.Scene {
 
     hitArea.on('pointerdown', () => {
       this.sfx?.playClick();
-      this.game.events.emit('planet:selected', planet);
+      // Always fetch the latest planet data from the engine so the UI never
+      // shows stale ownership / migration state (fixes Bug 1 & 6).
+      const engine = getGameEngine();
+      const latestPlanet = this._getLatestPlanet(planet.id, engine) ?? planet;
+      this.game.events.emit('planet:selected', latestPlanet);
       // If the player owns this planet, also open the management screen
-      if (planet.ownerId !== null) {
-        this.game.events.emit('planet:manage', { planet, systemId: this.system.id });
+      if (latestPlanet.ownerId !== null) {
+        this.game.events.emit('planet:manage', { planet: latestPlanet, systemId: this.system.id });
       }
     });
 

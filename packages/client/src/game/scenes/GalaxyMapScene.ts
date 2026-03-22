@@ -165,6 +165,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.wormholeParticles = [];
     this.starHitAreas.clear();
     this.pulseTweens.clear();
+    this.fleetBadges.clear();
     this.selectedSystemId = null;
     this.homeSystemId = null;
     this.lastPointerDownTime = 0;
@@ -289,6 +290,9 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.setupInput();
     this.setupEngineEvents();
 
+    // Render fleet indicators for ships already in existence
+    this._renderFleetBadges();
+
     // ── Audio ──────────────────────────────────────────────────────────────────
     const audioEngine = getAudioEngine();
     if (audioEngine) {
@@ -311,6 +315,16 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.music.crossfadeTo('galaxy');
       this.ambient.startGalaxyAmbient();
     }
+
+    // Clean up listeners when the scene shuts down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('engine:tick', this._handleEngineTick);
+      // Destroy fleet badges
+      for (const [, container] of this.fleetBadges) {
+        container.destroy();
+      }
+      this.fleetBadges.clear();
+    });
   }
 
   update(_time: number, delta: number): void {
@@ -395,6 +409,9 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.game.events.on('music:set_track', (track: unknown) => {
       this.music?.setTrack(track as MusicTrack);
     });
+
+    // Refresh fleet badges each engine tick so newly produced ships appear on the map
+    this.game.events.on('engine:tick', this._handleEngineTick);
 
     // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
     this.game.events.on('ui:exit_to_menu', () => {
@@ -1159,4 +1176,81 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
     this.drawHomeRing();
   }
+
+  // ── Fleet indicators on galaxy map ──────────────────────────────────────────
+
+  /** Container for fleet badge graphics, keyed by systemId. */
+  private fleetBadges: Map<string, Phaser.GameObjects.Container> = new Map();
+
+  /**
+   * Render small fleet count badges at star systems that have ships.
+   * Called on create and on each engine tick.
+   */
+  private _renderFleetBadges(): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const ships = engine.getState().gameState.ships;
+
+    // Group ship count by systemId
+    const shipsBySystem = new Map<string, number>();
+    for (const ship of ships) {
+      const count = shipsBySystem.get(ship.position.systemId) ?? 0;
+      shipsBySystem.set(ship.position.systemId, count + 1);
+    }
+
+    // Remove badges for systems that no longer have ships
+    for (const [sysId, container] of this.fleetBadges) {
+      if (!shipsBySystem.has(sysId)) {
+        container.destroy();
+        this.fleetBadges.delete(sysId);
+      }
+    }
+
+    // Add or update badges
+    for (const [sysId, count] of shipsBySystem) {
+      const sys = this.galaxy.systems.find(s => s.id === sysId);
+      if (!sys) continue;
+
+      let badge = this.fleetBadges.get(sysId);
+      if (badge) {
+        // Update count text
+        const textObj = badge.getAt(1) as Phaser.GameObjects.Text;
+        textObj.setText(String(count));
+        continue;
+      }
+
+      // Create badge
+      const visuals = STAR_VISUALS[sys.starType];
+      const offsetX = visuals.glowRadius + 8;
+      const offsetY = -(visuals.glowRadius + 4);
+
+      badge = this.add.container(sys.position.x + offsetX, sys.position.y + offsetY);
+
+      // Background circle
+      const bg = this.add.circle(0, 0, 8, 0x003366, 0.85);
+      badge.add(bg);
+
+      // Ship count text
+      const label = this.add.text(0, 0, String(count), {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#00d4ff',
+      }).setOrigin(0.5, 0.5);
+      badge.add(label);
+
+      // Small ship triangle indicator
+      const shipIcon = this.add.graphics();
+      shipIcon.fillStyle(0x00d4ff, 0.8);
+      shipIcon.fillTriangle(-12, -3, -12, 3, -7, 0);
+      badge.add(shipIcon);
+
+      this.starLayer.add(badge);
+      this.fleetBadges.set(sysId, badge);
+    }
+  }
+
+  private _handleEngineTick = (): void => {
+    this._renderFleetBadges();
+  };
 }
