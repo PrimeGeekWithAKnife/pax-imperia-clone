@@ -3470,20 +3470,16 @@ export function renderBuildingSlotIcon(
   const cached = iconCache.get(key);
   if (cached !== undefined) return cached;
 
-  // Composite the level badge on top of the base icon.
-  // The base is already cached as a data URL; new Image() with a data URL
-  // resolves synchronously in browser environments.
-  const base   = renderBuildingIcon(buildingType, size);
+  // Draw the base building icon directly (not via Image which has async load issues)
   const canvas = makeCanvas(size);
   const ctx    = canvas.getContext('2d');
   if (ctx === null) throw new Error('BuildingGraphics: could not obtain 2D context');
 
-  const img = new Image();
-  img.src = base;
-  ctx.drawImage(img, 0, 0, size, size);
+  const accent = ACCENT[buildingType];
+  drawBackground(ctx, size);
+  DRAW_FNS[buildingType](ctx, size, accent);
 
   // ── Badge geometry ─────────────────────────────────────────────────────────
-  const accent    = ACCENT[buildingType];
   const badge     = toRoman(level);
   const badgeSize = Math.max(12, Math.round(size * 0.30));
   const badgeX    = size - badgeSize - 1;

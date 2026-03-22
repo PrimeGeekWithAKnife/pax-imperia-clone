@@ -537,43 +537,75 @@ export class SystemViewScene extends Phaser.Scene {
     }
 
     // Add/update indicators for ships in this system
+    // Spread multiple ships so they don't overlap
+    const shipsByOrbit = new Map<number, number>();
+
     for (const ship of shipsInSystem) {
       if (this.shipIndicators.has(ship.id)) continue; // already shown
 
-      // Position the ship near its planet orbit, or in the center if no orbit
-      let sx = this.scale.width / 2 + 40;
-      let sy = this.scale.height / 2 - 40;
+      // Position the ship near its planet orbit, or near the star if no orbit
+      let sx = this.scale.width / 2 + 50;
+      let sy = this.scale.height / 2 - 50;
+      const orbitIdx = ship.position.orbitIndex ?? -1;
 
-      if (ship.position.orbitIndex !== undefined) {
-        const entry = this.orbitEntries[ship.position.orbitIndex];
+      // Count how many ships share this orbit to stagger placement
+      const offsetIndex = shipsByOrbit.get(orbitIdx) ?? 0;
+      shipsByOrbit.set(orbitIdx, offsetIndex + 1);
+
+      if (orbitIdx >= 0) {
+        const entry = this.orbitEntries[orbitIdx];
         if (entry) {
-          sx = entry.container.x + 18;
-          sy = entry.container.y - 18;
+          sx = entry.container.x + 22 + offsetIndex * 24;
+          sy = entry.container.y - 22;
         }
+      } else {
+        sx += offsetIndex * 28;
       }
 
       const container = this.add.container(sx, sy);
       container.setDepth(160);
 
-      // Ship triangle icon
+      // Outer glow ring (larger, semi-transparent)
+      const glow = this.add.graphics();
+      glow.fillStyle(0x00d4ff, 0.12);
+      glow.fillCircle(0, 0, 16);
+      container.add(glow);
+
+      // Ship triangle icon (larger — 12px tall)
       const gfx = this.add.graphics();
-      gfx.fillStyle(0x00d4ff, 0.9);
-      gfx.fillTriangle(0, -6, -5, 5, 5, 5);
-      gfx.lineStyle(1, 0x00d4ff, 0.5);
-      gfx.strokeCircle(0, 0, 10);
+      gfx.fillStyle(0x00d4ff, 0.95);
+      gfx.fillTriangle(0, -10, -8, 8, 8, 8);
+      gfx.lineStyle(1.5, 0x00d4ff, 0.6);
+      gfx.strokeCircle(0, 0, 14);
       container.add(gfx);
 
-      // Ship name label
-      const label = this.add.text(12, -6, ship.name, {
+      // Ship name label (larger font)
+      const label = this.add.text(18, -8, ship.name, {
         fontFamily: 'monospace',
-        fontSize: '9px',
-        color: '#88ddff',
+        fontSize: '11px',
+        color: '#aaeeff',
+        fontStyle: 'bold',
       });
       container.add(label);
 
-      // Make clickable
-      const hitArea = this.add.circle(0, 0, 12, 0xffffff, 0);
+      // Make clickable (larger hit area)
+      const hitArea = this.add.circle(0, 0, 18, 0xffffff, 0);
       hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on('pointerover', () => {
+        gfx.clear();
+        gfx.fillStyle(0x44eeff, 1);
+        gfx.fillTriangle(0, -10, -8, 8, 8, 8);
+        gfx.lineStyle(2, 0x44eeff, 0.8);
+        gfx.strokeCircle(0, 0, 14);
+        this.sfx?.playHover();
+      });
+      hitArea.on('pointerout', () => {
+        gfx.clear();
+        gfx.fillStyle(0x00d4ff, 0.95);
+        gfx.fillTriangle(0, -10, -8, 8, 8, 8);
+        gfx.lineStyle(1.5, 0x00d4ff, 0.6);
+        gfx.strokeCircle(0, 0, 14);
+      });
       hitArea.on('pointerdown', () => {
         this.sfx?.playClick();
         // Emit fleet:selected so the fleet panel opens
@@ -849,20 +881,32 @@ export class SystemViewScene extends Phaser.Scene {
   // ── Back button ───────────────────────────────────────────────────────────────
 
   private createBackButton(): void {
+    // Background box for better visibility
+    const bg = this.add
+      .rectangle(16, 16, 200, 40, 0x0a1628, 0.85)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x335577, 0.6)
+      .setDepth(199);
+
     const btn = this.add
-      .text(20, 20, '← Galaxy Map', {
+      .text(26, 24, '\u2190  Back to Galaxy', {
         fontFamily: 'monospace',
-        fontSize: '16px',
-        color: '#7799bb',
+        fontSize: '18px',
+        color: '#88bbdd',
+        fontStyle: 'bold',
       })
       .setInteractive({ useHandCursor: true })
       .setDepth(200);
 
     btn.on('pointerover', () => {
       btn.setColor('#ffffff');
+      bg.setFillStyle(0x152a44, 0.95);
       this.sfx?.playHover();
     });
-    btn.on('pointerout', () => btn.setColor('#7799bb'));
+    btn.on('pointerout', () => {
+      btn.setColor('#88bbdd');
+      bg.setFillStyle(0x0a1628, 0.85);
+    });
     btn.on('pointerdown', () => {
       this.sfx?.playClick();
       this.ambient?.stopAll();

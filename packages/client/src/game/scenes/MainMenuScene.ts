@@ -294,20 +294,19 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5);
 
     const lines = [
-      'Ex Nihilo — A Modern Tribute',
-      'to Pax Imperia: Eminent Domain (1997)',
+      'EX NIHILO',
+      'A 4X Space Strategy Game',
       '',
-      'Design & Engineering',
-      'The Ex Nihilo Team',
-      '',
-      'Original Game by',
-      'Changeling Software',
+      'Developed by',
+      'Meridian Logic Ltd',
       '',
       'Built with Phaser 3, React, TypeScript',
+      '',
+      'All rights reserved',
     ];
 
     const creditTexts: Phaser.GameObjects.Text[] = lines.map((line, i) => {
-      const isHeading = i === 0 || line === 'Design & Engineering' || line === 'Original Game by' || line === 'Built with Phaser 3, React, TypeScript';
+      const isHeading = i === 0 || line === 'Developed by' || line === 'Built with Phaser 3, React, TypeScript' || line === 'All rights reserved';
       return this.add
         .text(0, -120 + i * 26, line, {
           fontFamily: 'monospace',

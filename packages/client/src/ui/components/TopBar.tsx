@@ -15,6 +15,7 @@ interface TopBarProps {
   onOpenEspionage?: () => void;
   minerals?: number;
   energy?: number;
+  organics?: number;
 }
 
 interface SpeedButton {
@@ -44,6 +45,7 @@ export function TopBar({
   onOpenEspionage,
   minerals = 0,
   energy = 0,
+  organics = 0,
 }: TopBarProps): React.ReactElement {
   const handleSpeedClick = useCallback(
     (speed: GameSpeedName) => {
@@ -102,6 +104,10 @@ export function TopBar({
         <span className="resource-item" title="Energy">
           <span className="resource-icon" style={{ color: energy < 0 ? '#ff4444' : undefined }}>⚡</span>
           <span className="resource-value" style={{ color: energy < 0 ? '#ff4444' : undefined }}>{Math.floor(energy).toLocaleString()}</span>
+        </span>
+        <span className="resource-item" title="Organics (Food)">
+          <span className="resource-icon" style={{ color: organics < 0 ? '#ff4444' : undefined }}>🌾</span>
+          <span className="resource-value" style={{ color: organics < 0 ? '#ff4444' : undefined }}>{Math.floor(organics).toLocaleString()}</span>
         </span>
         <span className="resource-item" title="Research">
           <span className="resource-icon">⚗</span>

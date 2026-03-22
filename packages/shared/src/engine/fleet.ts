@@ -166,14 +166,14 @@ export function removeShipFromFleet(fleet: Fleet, shipId: string): Fleet {
  * pathfinding.  Returns a FleetMovementOrder ready to pass to
  * processFleetMovement, or null if no path exists.
  *
- * ticksPerHop defaults to 1 (one tick per wormhole hop).  Pass a higher
- * value to model slower travel speeds.
+ * ticksPerHop defaults to 10 (ten ticks per wormhole hop).  Pass a different
+ * value to model faster/slower travel speeds (e.g. via propulsion tech).
  */
 export function issueMovementOrder(
   fleet: Fleet,
   galaxy: Galaxy,
   destinationId: string,
-  ticksPerHop = 1,
+  ticksPerHop = 10,
 ): FleetMovementOrder | null {
   const startId = fleet.position.systemId;
 
@@ -293,7 +293,7 @@ export function setWaypoints(fleet: Fleet, waypointSystemIds: string[]): Fleet {
 export function processWaypoints(
   fleet: Fleet,
   galaxy: Galaxy,
-  ticksPerHop = 1,
+  ticksPerHop = 10,
 ): FleetMovementOrder | null {
   if (fleet.waypoints.length === 0) return null;
 

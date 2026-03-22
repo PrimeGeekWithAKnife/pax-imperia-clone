@@ -612,6 +612,41 @@ export function PlanetManagementScreen({
               )}
             </div>
 
+            {/* Food (organics) production vs consumption for this planet */}
+            {planet.currentPopulation > 0 && (
+              <div className="pm-stat-group">
+                <div className="panel-section-label">FOOD (ORGANICS)</div>
+                <div className="pm-stat-row">
+                  <span className="pm-stat-label">Production</span>
+                  <span className="pm-stat-value pm-stat-value--positive">
+                    +{Math.round((production.organics ?? 0) * 10) / 10}
+                  </span>
+                </div>
+                <div className="pm-stat-row">
+                  <span className="pm-stat-label">Consumption</span>
+                  <span className="pm-stat-value" style={{ color: '#ff8844' }}>
+                    -{Math.round(planet.currentPopulation * 0.001 * 10) / 10}
+                  </span>
+                </div>
+                {(() => {
+                  const foodNet = (production.organics ?? 0) - planet.currentPopulation * 0.001;
+                  const isDeficit = foodNet < 0;
+                  return (
+                    <div className="pm-stat-row">
+                      <span className="pm-stat-label">Net</span>
+                      <span
+                        className="pm-stat-value"
+                        style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                      >
+                        {foodNet >= 0 ? '+' : ''}{Math.round(foodNet * 10) / 10}
+                        {isDeficit && ' (STARVATION)'}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             <div className="pm-stat-group">
               <div className="panel-section-label">NATURAL RESOURCES</div>
               <div className="pm-res-rating-track">

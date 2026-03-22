@@ -42,6 +42,8 @@ import { EconomyScreen } from './screens/EconomyScreen';
 import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
+import { EventLog, createLogEntry } from './components/EventLog';
+import type { GameLogEntry } from './components/EventLog';
 
 type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy';
 
@@ -226,6 +228,18 @@ export function App(): React.ReactElement {
   // setEspionageEventLog will be wired to engine events once the game loop is integrated
   const [espionageEventLog, _setEspionageEventLog] = useState<EspionageEvent[]>([]);
 
+  // ── Event log entries ──
+  const [eventLogEntries, setEventLogEntries] = useState<GameLogEntry[]>([]);
+
+  /** Push a new event log entry, capping at 50 to limit memory. */
+  const pushLogEntry = useCallback((tick: number, message: string, category: GameLogEntry['category'] = 'general') => {
+    setEventLogEntries(prev => {
+      const entry = createLogEntry(tick, message, category);
+      const next = [...prev, entry];
+      return next.length > 50 ? next.slice(-50) : next;
+    });
+  }, []);
+
   // ── "Coming Soon" overlay state ──
   const [comingSoonLabel, _setComingSoonLabel] = useState<string | null>(null);
 
@@ -303,6 +317,18 @@ export function App(): React.ReactElement {
     );
     return owned?.name ?? null;
   }, [selectedPlanet, activeSystemId, selectedSystem]);
+
+  // ── Determine whether the player owns at least one planet in the active system ──
+  // Required for in-system colonisation eligibility (Bug 2 fix).
+  const playerOwnsInSystem = useMemo((): boolean => {
+    const systemId = activeSystemId ?? selectedSystem?.id;
+    if (!systemId || !playerEmpire) return false;
+    const engine = getGameEngine();
+    if (!engine) return false;
+    const system = engine.getState().gameState.galaxy.systems.find(s => s.id === systemId);
+    if (!system) return false;
+    return system.planets.some(p => p.ownerId === playerEmpire.id);
+  }, [activeSystemId, selectedSystem, playerEmpire]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -574,8 +600,10 @@ export function App(): React.ReactElement {
           setSelectedPlanet(updatedPlanet);
         }
       }
+      const tick = engine?.getState().gameState.currentTick ?? 0;
+      pushLogEntry(tick, `Colony established on ${payload.planetName}`, 'colony');
     },
-    [setSelectedPlanet],
+    [setSelectedPlanet, pushLogEntry],
   );
 
   // Engine emits 'engine:planet_updated' after buildOnPlanet / cancelConstruction
@@ -641,6 +669,9 @@ export function App(): React.ReactElement {
             setBuildNotification(`Construction complete: ${def.name} on ${latestPlanet.name}`);
             // Auto-dismiss after 4 seconds
             setTimeout(() => setBuildNotification(null), 4000);
+            // Log to event log
+            const tick = state.gameState.currentTick ?? 0;
+            pushLogEntry(tick, `Construction complete: ${def.name} on ${latestPlanet.name}`, 'construction');
           }
           // Play build-complete SFX
           getSfx()?.playBuildComplete();
@@ -649,7 +680,7 @@ export function App(): React.ReactElement {
 
       return latestPlanet;
     });
-  }, [managedSystemId, selectedPlanet, setSelectedPlanet, getSfx]);
+  }, [managedSystemId, selectedPlanet, setSelectedPlanet, getSfx, pushLogEntry]);
 
   // Engine emits 'engine:viewport_changed' each frame from GalaxyMapScene
   const handleViewportChanged = useCallback(
@@ -710,8 +741,14 @@ export function App(): React.ReactElement {
       setShipProducedNotification(message);
       setTimeout(() => setShipProducedNotification(null), 4000);
       getSfx()?.playShipLaunch();
+      // Look up system name for better log message
+      const engine = getGameEngine();
+      const tick = engine?.getState().gameState.currentTick ?? 0;
+      const system = engine?.getState().gameState.galaxy.systems.find(s => s.id === payload.systemId);
+      const systemName = system?.name ?? payload.systemId;
+      pushLogEntry(tick, `Ship produced: ${payload.shipName} at ${systemName}`, 'ship');
     },
-    [getSfx],
+    [getSfx, pushLogEntry],
   );
 
   // Engine emits 'engine:migrations_updated' after any migration state change
@@ -723,7 +760,10 @@ export function App(): React.ReactElement {
   // Engine emits 'engine:migration_started' when a migration begins.
   const handleMigrationStarted = useCallback(() => {
     getSfx()?.playColoniseStart();
-  }, [getSfx]);
+    const engine = getGameEngine();
+    const tick = engine?.getState().gameState.currentTick ?? 0;
+    pushLogEntry(tick, 'Migration wave: colonists departed', 'migration');
+  }, [getSfx, pushLogEntry]);
 
   // Engine emits 'engine:migration_completed' when threshold reached.
   const handleMigrationCompleted = useCallback((migration: MigrationOrder) => {
@@ -735,15 +775,26 @@ export function App(): React.ReactElement {
         s => s.id === migration.systemId,
       );
       const updated = system?.planets.find(p => p.id === migration.targetPlanetId);
-      if (updated) setSelectedPlanet(updated);
+      if (updated) {
+        setSelectedPlanet(updated);
+        const tick = engine.getState().gameState.currentTick ?? 0;
+        pushLogEntry(tick, `Colony established on ${updated.name}`, 'colony');
+      }
     }
     getSfx()?.playColoniseComplete();
-  }, [setSelectedPlanet, getSfx]);
+  }, [setSelectedPlanet, getSfx, pushLogEntry]);
 
   // Engine emits 'engine:tech_researched' when a technology finishes.
-  const handleTechResearched = useCallback(() => {
+  const handleTechResearched = useCallback((payload: unknown) => {
     getSfx()?.playResearchComplete();
-  }, [getSfx]);
+    const data = payload as { techId?: string; tick?: number } | undefined;
+    const techId = data?.techId ?? 'Unknown';
+    const tick = data?.tick ?? 0;
+    // Look up tech name from allTechs
+    const tech = allTechs.find(t => t.id === techId);
+    const techName = tech?.name ?? techId;
+    pushLogEntry(tick, `Research complete: ${techName}`, 'research');
+  }, [getSfx, allTechs, pushLogEntry]);
 
   // Engine emits 'engine:battle_resolved' (enriched) when combat concludes.
   // The engine has already paused itself; we show the battle results overlay
@@ -756,8 +807,12 @@ export function App(): React.ReactElement {
         ? data.attacker.empireName !== 'Unknown Empire' // attacker is player
         : data.winner === 'defender';
       getSfx()?.playBattleResult(playerWon);
+      const engine = getGameEngine();
+      const tick = engine?.getState().gameState.currentTick ?? 0;
+      const systemName = data.systemName ?? 'unknown system';
+      pushLogEntry(tick, `Enemy fleet detected at ${systemName}`, 'combat');
     },
-    [getSfx],
+    [getSfx, pushLogEntry],
   );
 
   const handleBattleContinue = useCallback(() => {
@@ -807,7 +862,7 @@ export function App(): React.ReactElement {
   useGameEvent<MigrationOrder[]>('engine:migrations_updated', handleMigrationsUpdated);
   useGameEvent<void>('engine:migration_started', handleMigrationStarted);
   useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
-  useGameEvent<void>('engine:tech_researched', handleTechResearched);
+  useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
 
   const handleClosePlanet = useCallback(() => {
@@ -1141,6 +1196,7 @@ export function App(): React.ReactElement {
         researchPoints={liveResearchPoints}
         minerals={empireResources.minerals}
         energy={empireResources.energy}
+        organics={empireResources.organics}
         onOpenResearch={handleOpenResearch}
         onOpenShipDesigner={handleOpenShipDesigner}
         onOpenDiplomacy={handleOpenDiplomacy}
@@ -1161,6 +1217,7 @@ export function App(): React.ReactElement {
         onCancelMigration={handleCancelMigration}
         estimatedWaves={estimatedWavesForMigration}
         sourcePlanetName={migrationSourcePlanetName}
+        playerOwnsInSystem={playerOwnsInSystem}
       />
 
       <Minimap
@@ -1169,6 +1226,8 @@ export function App(): React.ReactElement {
         galaxyHeight={galaxy?.height ?? 1000}
         viewport={viewport}
       />
+
+      <EventLog entries={eventLogEntries} />
 
       {managedPlanet && managedSystemId && (
         <PlanetManagementScreen

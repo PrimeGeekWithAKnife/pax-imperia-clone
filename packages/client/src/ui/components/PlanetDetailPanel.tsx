@@ -179,6 +179,8 @@ interface PlanetDetailPanelProps {
   estimatedWaves?: number;
   /** Name of the suggested source planet for migration. */
   sourcePlanetName?: string | null;
+  /** Whether the player owns at least one planet in this system (required for in-system colonisation). */
+  playerOwnsInSystem?: boolean;
 }
 
 // ── PlanetDetailPanel ─────────────────────────────────────────────────────────
@@ -193,6 +195,7 @@ export function PlanetDetailPanel({
   onCancelMigration,
   estimatedWaves = 17,
   sourcePlanetName,
+  playerOwnsInSystem = false,
 }: PlanetDetailPanelProps): React.ReactElement | null {
   const visible = planet !== null;
 
@@ -354,7 +357,7 @@ export function PlanetDetailPanel({
           {/* ── Colony status by ownership ── */}
 
           {/* Unowned planet — active migration in progress */}
-          {ownership === 'unowned' && activeMigration && (
+          {ownership === 'unowned' && playerOwnsInSystem && activeMigration && (
             <>
               <div className="panel-divider" />
               <div className="panel-section-label">MIGRATION IN PROGRESS</div>
@@ -416,7 +419,7 @@ export function PlanetDetailPanel({
           )}
 
           {/* Unowned planet — no active migration: show colonise options */}
-          {ownership === 'unowned' && !activeMigration && (
+          {ownership === 'unowned' && playerOwnsInSystem && !activeMigration && (
             <>
               <div className="panel-divider" />
               <div className="panel-section-label">COLONISATION</div>

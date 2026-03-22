@@ -2,7 +2,7 @@
 
 ## Project: **Ex Nihilo**
 
-A modern real-time 4X space strategy game inspired by classic games of the genre, originally developed by Heliotrope Studios and published by THQ.
+A modern real-time 4X space strategy game. Developed by Meridian Logic Ltd.
 
 ---
 

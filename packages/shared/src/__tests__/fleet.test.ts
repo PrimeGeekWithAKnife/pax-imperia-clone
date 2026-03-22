@@ -601,6 +601,8 @@ describe('processWaypoints', () => {
     let tickCount = 0;
 
     // Run enough ticks to complete two full loops (6 hops: A→B→C→A→B→C)
+    // With ticksPerHop=10, each hop takes 10 ticks, so 6 hops = 60 ticks per loop.
+    const maxTicks = 500;
     for (let loop = 0; loop < 2; loop++) {
       for (let targetIdx = 1; targetIdx < waypoints.length; targetIdx++) {
         // Issue order to next waypoint
@@ -617,7 +619,7 @@ describe('processWaypoints', () => {
           if (result.arrivedAtSystem !== null) {
             visited.push(result.arrivedAtSystem);
           }
-          if (tickCount > 50) throw new Error('Loop did not terminate');
+          if (tickCount > maxTicks) throw new Error('Loop did not terminate');
         }
       }
       // Cycle back: issue order from C back to A
@@ -632,7 +634,7 @@ describe('processWaypoints', () => {
         if (result.arrivedAtSystem !== null) {
           visited.push(result.arrivedAtSystem);
         }
-        if (tickCount > 50) throw new Error('Loop did not terminate');
+        if (tickCount > maxTicks) throw new Error('Loop did not terminate');
       }
     }
 
