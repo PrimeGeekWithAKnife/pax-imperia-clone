@@ -30,6 +30,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.start('GalaxyMapScene', { setupData: data });
   };
 
+  private onMusicTrack = (track: unknown): void => {
+    this.music?.setTrack(track as MusicTrack);
+  };
+
   create(): void {
     const { width, height } = this.scale;
 
@@ -42,6 +46,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Remove any stale listener from a previous create() before re-registering.
     this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.off('music:set_track', this.onMusicTrack);
 
     // React emits 'game:start_with_config' with species + galaxy config when
     // the player confirms in the game setup screen.
@@ -60,10 +65,14 @@ export class MainMenuScene extends Phaser.Scene {
         this.music?.startMusic('menu');
       });
 
-      this.game.events.on('music:set_track', (track: unknown) => {
-        this.music?.setTrack(track as MusicTrack);
-      });
+      this.game.events.on('music:set_track', this.onMusicTrack);
     }
+
+    // Clean up listeners when the scene shuts down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+      this.game.events.off('music:set_track', this.onMusicTrack);
+    });
   }
 
   update(_time: number, _delta: number): void {

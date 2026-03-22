@@ -22,6 +22,9 @@ Building balance, construction costs, food mechanics, population growth, terrafo
 - Building level multiplier is 1.5x per level
 - Shipyard now requires nano_fabrication tech (not cruiser_architecture)
 - Starting buildings: research_lab, factory, population_center, spaceport, mining_facility, power_plant, hydroponics_bay
-- Building picker should hide unresearched buildings and have category tabs
-- Planet management needs left/right arrows to cycle colonised planets alphabetically
+- Building picker hides unresearched buildings and has category tabs (All/Production/Population/Military/Commerce/Infrastructure)
+- Planet management has left/right arrows to cycle colonised planets alphabetically (wrapping, hidden when <=1 planet)
 - 33 building types: 19 universal + 14 racial (2 per species)
+- Category tabs use inline styles matching FleetPanel stance buttons: monospace, compact, cyan highlight when active
+- allColonisedPlanets is built in App.tsx from engine state and passed down; onChangePlanet updates managedPlanet + managedSystemId
+- Building category membership is defined as a static Record mapping, not derived from BuildingDefinition metadata

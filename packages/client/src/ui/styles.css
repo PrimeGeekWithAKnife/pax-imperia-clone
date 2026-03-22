@@ -4600,6 +4600,40 @@
   flex: 1;
 }
 
+/* Relocation confirmation dialog */
+.fleet-panel__section--relocate {
+  border-top: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.fleet-panel__relocate-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fleet-panel__relocate-message {
+  font-size: 10px;
+  color: #aaccee;
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 2px;
+}
+
+.fleet-panel__relocate-message strong {
+  color: #00d4ff;
+}
+
+.fleet-panel__relocate-btns {
+  display: flex;
+  gap: 5px;
+}
+
+.fleet-panel__relocate-btns .fleet-panel__action-btn {
+  flex: 1;
+}
+
 /* ================================================================
    DIPLOMACY SCREEN
 ================================================================ */

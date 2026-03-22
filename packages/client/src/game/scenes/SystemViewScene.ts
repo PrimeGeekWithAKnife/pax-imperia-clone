@@ -4,9 +4,9 @@ import { StarRenderer } from '../rendering/StarRenderer';
 import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
-import { getGameEngine } from '../../engine/GameEngine';
+import { getGameEngine, destroyGameEngine } from '../../engine/GameEngine';
 import type { MigrationOrder } from '../../engine/migration';
-import type { GameTickState } from '@nova-imperia/shared';
+import type { GameTickState, GameSpeedName } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import type { HullClass } from '@nova-imperia/shared';
 
@@ -202,6 +202,15 @@ export class SystemViewScene extends Phaser.Scene {
       this.ambient.startSystemAmbient(this.system.starType);
     }
 
+    // ── Speed change listener ─────────────────────────────────────────────
+    this.game.events.on('ui:speed_change', this._handleSpeedChange, this);
+
+    // ── Music track change ─────────────────────────────────────────────────
+    this.game.events.on('music:set_track', this._handleMusicTrack, this);
+
+    // ── Exit to main menu ─────────────────────────────────────────────────
+    this.game.events.on('ui:exit_to_menu', this._handleExitToMenu, this);
+
     // ── Colonise action listener ───────────────────────────────────────────
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
 
@@ -225,16 +234,17 @@ export class SystemViewScene extends Phaser.Scene {
     // Refresh ship indicators on each engine tick so newly built ships appear
     this.game.events.on('engine:tick', this._handleEngineTick, this);
 
-    // Music track change
-    this.game.events.on('music:set_track', (track: unknown) => {
-      this.music?.setTrack(track as MusicTrack);
-    });
+    // Relocate Fleet — switch to galaxy map with move mode activated
+    this.game.events.on('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
 
     // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
-    // Clean up listeners and notify React when the scene shuts down
+    // Clean up ALL listeners and notify React when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('ui:speed_change', this._handleSpeedChange, this);
+      this.game.events.off('music:set_track', this._handleMusicTrack, this);
+      this.game.events.off('ui:exit_to_menu', this._handleExitToMenu, this);
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
@@ -244,6 +254,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
       this.game.events.off('engine:tech_researched', this._handleTechResearchedSfx, this);
       this.game.events.off('engine:tick', this._handleEngineTick, this);
+      this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
       for (const [, sprites] of this.shipSprites) {
@@ -949,6 +960,33 @@ export class SystemViewScene extends Phaser.Scene {
 
   // ── Game event SFX handlers ───────────────────────────────────────────────────
 
+  private _handleSpeedChange = (speed: unknown): void => {
+    const engine = getGameEngine();
+    if (engine) {
+      const prevSpeed = engine.getState().gameState.speed;
+      engine.setSpeed(speed as GameSpeedName);
+      // Audio feedback for speed change
+      const speedOrder: GameSpeedName[] = ['paused', 'slow', 'normal', 'fast', 'fastest'];
+      const prevIdx = speedOrder.indexOf(prevSpeed as GameSpeedName);
+      const newIdx = speedOrder.indexOf(speed as GameSpeedName);
+      if (newIdx > prevIdx) {
+        this.sfx?.playSpeedUp();
+      } else if (newIdx < prevIdx) {
+        this.sfx?.playSpeedDown();
+      }
+    }
+  };
+
+  private _handleMusicTrack = (track: unknown): void => {
+    this.music?.setTrack(track as MusicTrack);
+  };
+
+  private _handleExitToMenu = (): void => {
+    destroyGameEngine();
+    this.ambient?.stopAll();
+    this.scene.start('MainMenuScene');
+  };
+
   private _handleMigrationStartedSfx = (): void => {
     this.sfx?.playColoniseStart();
   };
@@ -1210,4 +1248,21 @@ export class SystemViewScene extends Phaser.Scene {
       this.scene.start('GalaxyMapScene');
     });
   }
+
+  /**
+   * Handle 'scene:request_galaxy_view' — switch to the galaxy map and
+   * activate fleet move mode so the player can pick a relocation target.
+   *
+   * We stash the fleet ID on the window so GalaxyMapScene can pick it up
+   * after initialisation (the SystemViewScene is destroyed during transition
+   * so we cannot use delayed calls).
+   */
+  private _handleRequestGalaxyView = (data: unknown): void => {
+    const { fleetId } = data as { fleetId: string };
+    // Stash on window for the galaxy scene to pick up in create()
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_PENDING_MOVE_MODE__ = fleetId;
+    this.ambient?.stopAll();
+    this.music?.crossfadeTo('galaxy');
+    this.scene.start('GalaxyMapScene');
+  };
 }

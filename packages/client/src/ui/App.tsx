@@ -1126,6 +1126,28 @@ export function App(): React.ReactElement {
 
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
   const handleStartGame = useCallback((config: GameConfig) => {
+    // Reset stale game-session state so the new game starts clean
+    setSelectedSystem(null);
+    setSelectedPlanet(null);
+    setActiveSystemId(null);
+    setGalaxy(null);
+    setLiveCredits(undefined);
+    setLiveResearchPoints(undefined);
+    setEmpireResources(EMPTY_RESOURCES);
+    setResearchState(MOCK_RESEARCH_STATE);
+    setAllTechs(UNIVERSAL_TECHNOLOGIES);
+    setKnownEmpires([]);
+    setSavedDesigns([]);
+    setSelectedFleet(null);
+    setFleetShips([]);
+    setBattleResults(null);
+    setActiveMigrations([]);
+    setPlayerVictoryProgress(null);
+    setCurrentTick(0);
+    setEventLogEntries([]);
+    setManagedPlanet(null);
+    setManagedSystemId(null);
+    setGameSpeed('normal');
     // Apply empire name and government from setup to the player empire state
     setPlayerEmpire(prev => ({
       ...prev,
@@ -1135,7 +1157,7 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
     setGameStarted(true);
     setIsPaused(false);
-  }, []);
+  }, [setSelectedSystem, setSelectedPlanet, setGameSpeed]);
 
   // Pause menu
   const handleResume = useCallback(() => {
@@ -1164,6 +1186,29 @@ export function App(): React.ReactElement {
     setIsPaused(false);
     setGameStarted(false);
     setCurrentScreen('game');
+    // Reset all game-session state so a new game starts fresh
+    setSelectedSystem(null);
+    setSelectedPlanet(null);
+    setActiveSystemId(null);
+    setGalaxy(null);
+    setLiveCredits(undefined);
+    setLiveResearchPoints(undefined);
+    setEmpireResources(EMPTY_RESOURCES);
+    setResearchState(MOCK_RESEARCH_STATE);
+    setAllTechs(UNIVERSAL_TECHNOLOGIES);
+    setPlayerEmpire(MOCK_PLAYER_EMPIRE);
+    setKnownEmpires([]);
+    setSavedDesigns([]);
+    setSelectedFleet(null);
+    setFleetShips([]);
+    setBattleResults(null);
+    setActiveMigrations([]);
+    setPlayerVictoryProgress(null);
+    setCurrentTick(0);
+    setEventLogEntries([]);
+    setManagedPlanet(null);
+    setManagedSystemId(null);
+    setGameSpeed('normal');
     // Tell Phaser to go back to the main menu scene
     const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { scene: { start: (key: string) => void }; events: { emit: (e: string) => void } }
@@ -1172,7 +1217,7 @@ export function App(): React.ReactElement {
       // Stop all scenes and restart main menu
       game.events.emit('ui:exit_to_menu');
     }
-  }, []);
+  }, [setSelectedSystem, setSelectedPlanet, setGameSpeed]);
 
   // Render species creator as full-screen overlay
   if (currentScreen === 'species-creator') {

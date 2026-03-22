@@ -27,3 +27,10 @@ Fleet movement bugs, ship type changes, fleet display/rendering, fleet naming, f
 - Fleet panel "Move to Galaxy View" needs renaming to "Relocate Fleet"
 - Fleet display should show single icon per fleet (not individual ships overlapping)
 - Weapon categories: energy, kinetic, propulsion, mechanical
+- Fleet badges on galaxy map are keyed by fleetId (not systemId) — one icon per fleet, offset vertically when multiple fleets share a system
+- ShipDesigns live on GameTickState.shipDesigns (Map<string, ShipDesign>), not on GameState directly
+- Fleet move mode uses event chain: FleetPanel emits `fleet:move_mode` → GalaxyMapScene stores moveModeFleetId → on system click emits `fleet:destination_selected` → FleetPanel shows confirmation dialog → on confirm calls engine.moveFleet() then emits `fleet:move_mode_clear`
+- "Relocate Fleet" from system view stashes fleet ID on window.__EX_NIHILO_PENDING_MOVE_MODE__ before scene transition, then GalaxyMapScene picks it up in create()
+- Travel time estimation: hops from findPath * ticksPerHop from determineTravelMode (slow_ftl=20, wormhole=10, advanced_wormhole=5)
+- renderShipThumbnail() returns a PNG data URL; for Phaser usage, load via Image() then addImage() to texture manager
+- Event cleanup in Phaser scenes: use named arrow-function class properties (not anonymous lambdas) so .off() can remove them

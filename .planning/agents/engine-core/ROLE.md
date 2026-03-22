@@ -29,3 +29,10 @@ Engine bugs (speed buttons, scene transitions), save/load issues, auto-save, tic
 - Main menu needs Resume button when game is in progress
 - processGameTick returns { newState, events }
 - Escape key handling must respect current screen state
+- **CRITICAL**: `this.game.events` is GLOBAL across all Phaser scenes. Listeners registered with `.on()` persist even after the registering scene shuts down. EVERY `game.events.on()` MUST have a matching `game.events.off()` in the SHUTDOWN handler, using a named/stored callback reference (not an anonymous arrow function).
+- **CRITICAL**: Anonymous arrow functions passed to `game.events.on()` cannot be removed with `.off()` — always use named methods or stored arrow properties (e.g. `private _handleFoo = (): void => { ... };`).
+- Calling `game.events.off('event_name')` without a callback reference removes ALL listeners for that event, including those from React hooks via `useGameEvent()`. Always pass the specific callback.
+- When starting a new game, the old engine MUST be destroyed via `destroyGameEngine()` before creating a new one. Otherwise `getGameEngine()` returns the stale engine and GalaxyMapScene reuses old game state.
+- `handleExitToMainMenu` in App.tsx must reset ALL React game-session state (selections, galaxy, resources, research, empires, fleets, etc.) — not just `gameStarted` and `isPaused`.
+- Both GalaxyMapScene AND SystemViewScene must handle `ui:speed_change`, `music:set_track`, and `ui:exit_to_menu` events, since only one scene is active at a time.
+- The "← Main Menu" back button in GalaxyMapScene must destroy the engine (via `destroyGameEngine()`) to prevent stale state when starting a new game.

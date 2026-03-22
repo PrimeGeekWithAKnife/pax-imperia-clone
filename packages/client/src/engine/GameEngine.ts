@@ -1156,5 +1156,17 @@ export function getGameEngine(): GameEngine | undefined {
   return (window as unknown as Record<string, unknown>).__GAME_ENGINE__ as GameEngine | undefined;
 }
 
+/**
+ * Destroy the running GameEngine: pause the tick loop and clear the global
+ * reference so a subsequent createGameEngine() call starts fresh.
+ */
+export function destroyGameEngine(): void {
+  const engine = getGameEngine();
+  if (engine) {
+    engine.pause();
+  }
+  (window as unknown as Record<string, unknown>).__GAME_ENGINE__ = undefined;
+}
+
 // Re-export initializeTickState so callers can import from one place
 export { initializeTickState };

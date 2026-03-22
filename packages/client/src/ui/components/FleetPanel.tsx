@@ -1,6 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Fleet, Ship, FleetStance, ShipDesign } from '@nova-imperia/shared';
+import { findPath, determineTravelMode } from '@nova-imperia/shared';
 import { renderShipThumbnail } from '../../assets/graphics';
+import { getGameEngine } from '../../engine/GameEngine';
+import { useGameEvent } from '../hooks/useGameEvents';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +83,78 @@ export function FleetPanel({
   const [splitMode, setSplitMode] = useState(false);
   const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set());
   const [showDisband, setShowDisband] = useState(false);
+
+  // ── Relocation confirmation state ─────────────────────────────────────────
+  const [relocateTarget, setRelocateTarget] = useState<{
+    systemId: string;
+    systemName: string;
+    estimatedTurns: number;
+  } | null>(null);
+
+  // Listen for destination selection from the galaxy map while in move mode
+  const handleDestinationSelected = useCallback(
+    (data: { fleetId: string; systemId: string; systemName: string }) => {
+      if (data.fleetId !== fleet.id) return;
+
+      // Calculate estimated travel time
+      const engine = getGameEngine();
+      let estimatedTurns = 1;
+      if (engine) {
+        const tickState = engine.getState();
+        const galaxy = tickState.gameState.galaxy;
+        const playerEmpire = tickState.gameState.empires.find(e => !e.isAI);
+        const empireTechs = playerEmpire?.technologies ?? [];
+        const travelMode = determineTravelMode(empireTechs);
+
+        // Ticks per hop by travel mode
+        const ticksPerHopMap: Record<string, number> = {
+          slow_ftl: 20,
+          wormhole: 10,
+          advanced_wormhole: 5,
+        };
+        const ticksPerHop = ticksPerHopMap[travelMode] ?? 10;
+
+        const pathResult = findPath(galaxy, fleet.position.systemId, data.systemId);
+        if (pathResult.found) {
+          const hops = pathResult.path.length - 1;
+          estimatedTurns = Math.max(1, hops * ticksPerHop);
+        }
+      }
+
+      setRelocateTarget({
+        systemId: data.systemId,
+        systemName: data.systemName,
+        estimatedTurns,
+      });
+    },
+    [fleet.id, fleet.position.systemId],
+  );
+
+  useGameEvent<{ fleetId: string; systemId: string; systemName: string }>(
+    'fleet:destination_selected',
+    handleDestinationSelected,
+  );
+
+  const handleRelocateConfirm = useCallback(() => {
+    if (!relocateTarget) return;
+    const engine = getGameEngine();
+    if (engine) {
+      engine.moveFleet(fleet.id, relocateTarget.systemId);
+    }
+    setRelocateTarget(null);
+    setMoveToActive(false);
+    emitToPhaser('fleet:move_mode_clear', {});
+  }, [fleet.id, relocateTarget]);
+
+  const handleRelocateCancel = useCallback(() => {
+    setRelocateTarget(null);
+    // Keep move mode active so the player can pick a different target
+  }, []);
+
+  // Clear relocation state if the fleet changes
+  useEffect(() => {
+    setRelocateTarget(null);
+  }, [fleet.id]);
 
   // ── Name editing ────────────────────────────────────────────────────────────
 
@@ -382,6 +457,35 @@ export function FleetPanel({
           )}
         </div>
       </section>
+
+      {/* Relocation confirmation dialog */}
+      {relocateTarget && (
+        <section className="fleet-panel__section fleet-panel__section--relocate">
+          <div className="fleet-panel__relocate-confirm">
+            <div className="fleet-panel__relocate-message">
+              Relocate <strong>{fleetName}</strong> to <strong>{relocateTarget.systemName}</strong>?
+              <br />
+              Estimated travel: {relocateTarget.estimatedTurns} {relocateTarget.estimatedTurns === 1 ? 'turn' : 'turns'}
+            </div>
+            <div className="fleet-panel__relocate-btns">
+              <button
+                type="button"
+                className="fleet-panel__action-btn fleet-panel__action-btn--confirm"
+                onClick={handleRelocateConfirm}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="fleet-panel__action-btn fleet-panel__action-btn--cancel"
+                onClick={handleRelocateCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Disband */}
       <section className="fleet-panel__section fleet-panel__section--danger">
