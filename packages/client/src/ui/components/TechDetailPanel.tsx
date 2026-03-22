@@ -55,7 +55,7 @@ const AGE_LABELS: Record<string, string> = {
 // Category display names
 const CATEGORY_LABELS: Record<string, string> = {
   weapons:      'Weapons',
-  defense:      'Defense',
+  defense:      'Defence',
   propulsion:   'Propulsion',
   biology:      'Biology',
   construction: 'Construction',

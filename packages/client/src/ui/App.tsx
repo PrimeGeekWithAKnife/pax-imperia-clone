@@ -46,6 +46,7 @@ import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
 import type { GameLogEntry } from './components/EventLog';
+import { VictoryTracker } from './components/VictoryTracker';
 import { calculateVictoryProgress } from '@nova-imperia/shared';
 import type { VictoryProgress } from '@nova-imperia/shared';
 
@@ -208,6 +209,11 @@ export function App(): React.ReactElement {
     empireColours: Record<string, string>;
     statistics: GameStatistics;
   } | null>(null);
+
+  // ── Victory tracker (in-game HUD) ──
+  const [playerVictoryProgress, setPlayerVictoryProgress] = useState<VictoryProgress | null>(null);
+  const [victoryTrackerCollapsed, setVictoryTrackerCollapsed] = useState(true);
+  const [currentTick, setCurrentTick] = useState(0);
 
   // ── Event log entries ──
   const [eventLogEntries, setEventLogEntries] = useState<GameLogEntry[]>([]);
@@ -633,10 +639,24 @@ export function App(): React.ReactElement {
     // Sync player empire and diplomacy state from engine
     const engine: GameEngine | undefined = getGameEngine();
     if (engine) {
-      const playerEmp = engine.getState().gameState.empires.find(e => !e.isAI);
+      const state = engine.getState();
+      const tick = state.gameState.currentTick;
+      setCurrentTick(tick);
+      const playerEmp = state.gameState.empires.find(e => !e.isAI);
       if (playerEmp) setPlayerEmpire(playerEmp);
       // Refresh known empires from live engine state
       setKnownEmpires(buildKnownEmpiresFromEngine(engine));
+
+      // Update VictoryTracker every 10 ticks to avoid per-tick overhead
+      if (playerEmp && tick % 10 === 0) {
+        const progress = calculateVictoryProgress(
+          playerEmp,
+          state.gameState,
+          state.gameState.empires,
+          state.empireResourcesMap,
+        );
+        setPlayerVictoryProgress(progress);
+      }
     }
 
     // Refresh selected planet from engine so the panel never shows stale data
@@ -1325,6 +1345,7 @@ export function App(): React.ReactElement {
         onOpenEspionage={handleOpenEspionage}
         government={playerEmpire.government}
         empireName={playerEmpire.name}
+        currentTick={currentTick}
       />
 
       <SystemInfoPanel system={selectedSystem} empireNameMap={empireNameMap} />
@@ -1350,6 +1371,14 @@ export function App(): React.ReactElement {
       />
 
       <EventLog entries={eventLogEntries} />
+
+      {playerVictoryProgress && (
+        <VictoryTracker
+          playerProgress={playerVictoryProgress}
+          collapsed={victoryTrackerCollapsed}
+          onToggleCollapse={() => setVictoryTrackerCollapsed(prev => !prev)}
+        />
+      )}
 
       {managedPlanet && managedSystemId && (
         <PlanetManagementScreen
@@ -1389,6 +1418,10 @@ export function App(): React.ReactElement {
           fleet={selectedFleet}
           ships={fleetShips}
           isSystemView={activeSystemId !== null}
+          systemName={
+            galaxy?.systems.find(s => s.id === selectedFleet.position.systemId)?.name
+            ?? selectedFleet.position.systemId
+          }
           onClose={handleFleetDeselected}
         />
       )}

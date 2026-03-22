@@ -59,6 +59,8 @@ export interface FleetPanelProps {
   designs?: ShipDesign[];
   /** When true, the fleet panel is shown inside the system view (not the galaxy map). */
   isSystemView?: boolean;
+  /** Human-readable name of the system the fleet is in (avoids showing raw UUIDs). */
+  systemName?: string;
   onClose: () => void;
 }
 
@@ -67,8 +69,10 @@ export function FleetPanel({
   ships,
   designs = [],
   isSystemView = false,
+  systemName,
   onClose,
 }: FleetPanelProps): React.ReactElement {
+  const displaySystemName = systemName ?? fleet.position.systemId;
   const [fleetName, setFleetName] = useState(fleet.name);
   const [editingName, setEditingName] = useState(false);
   const [stance, setStance] = useState<FleetStance>(fleet.stance);
@@ -192,7 +196,7 @@ export function FleetPanel({
           </button>
         </div>
         <div className="fleet-panel__subtitle">
-          {ships.length} {ships.length === 1 ? 'ship' : 'ships'} &mdash; {fleet.position.systemId}
+          {ships.length} {ships.length === 1 ? 'ship' : 'ships'} &mdash; {displaySystemName}
         </div>
       </div>
 
@@ -392,7 +396,7 @@ export function FleetPanel({
         ) : (
           <div className="fleet-panel__disband-confirm">
             <div className="fleet-panel__disband-warning">
-              Disband this fleet? All ships will be left at {fleet.position.systemId}.
+              Disband this fleet? All ships will be left at {displaySystemName}.
             </div>
             <div className="fleet-panel__disband-btns">
               <button

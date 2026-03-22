@@ -20,6 +20,8 @@ interface TopBarProps {
   government?: GovernmentType;
   /** Empire name for display. */
   empireName?: string;
+  /** Current game tick, displayed as "Turn N". */
+  currentTick?: number;
 }
 
 interface SpeedButton {
@@ -52,6 +54,7 @@ export function TopBar({
   organics = 0,
   government,
   empireName,
+  currentTick,
 }: TopBarProps): React.ReactElement {
   const govName = government ? (GOVERNMENTS[government]?.name ?? government) : null;
   const handleSpeedClick = useCallback(
@@ -70,6 +73,11 @@ export function TopBar({
       {govName && (
         <div className="top-bar__gov-badge" title={`Government: ${govName}`}>
           {govName}
+        </div>
+      )}
+      {currentTick !== undefined && (
+        <div className="top-bar__turn" title="Current game turn">
+          Turn {currentTick}
         </div>
       )}
 

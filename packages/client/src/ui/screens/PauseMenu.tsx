@@ -24,12 +24,6 @@ function emitToPhaser(eventName: string, data?: unknown): void {
   game?.events.emit(eventName, data ?? null);
 }
 
-/** Persist the selected music track in the session (stored alongside the audio engine). */
-function getSessionTrack(): MusicTrack {
-  const win = window as unknown as Record<string, unknown>;
-  return (win.__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined) ?? 'deep_space';
-}
-
 function setSessionTrack(track: MusicTrack): void {
   (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ = track;
 }
@@ -184,7 +178,6 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
       audio.setMusicVolume(musicVolume / 100);
       audio.setSfxVolume(sfxVolume / 100);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedTrackOption = TRACK_OPTIONS.find((t) => t.id === musicTrack) ?? TRACK_OPTIONS[0]!;

@@ -12,9 +12,13 @@ const ATMOSPHERE_LABELS: Record<string, string> = {
   carbon_dioxide: 'Carbon Dioxide',
   methane: 'Methane',
   ammonia: 'Ammonia',
+  nitrogen: 'Nitrogen',
+  hydrogen: 'Hydrogen',
+  hydrogen_helium: 'Hydrogen-Helium',
+  sulfur_dioxide: 'Sulphur Dioxide',
   none: 'None (Vacuum)',
   toxic: 'Toxic',
-  hydrogen_helium: 'Hydrogen-Helium',
+  vacuum: 'Vacuum',
 };
 
 const PLANET_TYPE_LABELS: Record<string, string> = {
