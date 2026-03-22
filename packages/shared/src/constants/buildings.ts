@@ -12,6 +12,11 @@ export interface BuildingDefinition {
   maintenanceCost: Partial<ResourceProduction>;
   maxLevel: number;
   description: string;
+  /**
+   * If set, only empires whose species id matches this value may construct the
+   * building. Leave undefined for buildings available to all species.
+   */
+  racialSpeciesId?: string;
 }
 
 export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
@@ -184,5 +189,213 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
+  },
+
+  // ── Vaelori unique buildings ────────────────────────────────────────────────
+
+  crystal_resonance_chamber: {
+    name: 'Crystal Resonance Chamber',
+    racialSpeciesId: 'vaelori',
+    baseCost: { credits: 200, minerals: 80 },
+    baseProduction: { researchPoints: 10 },
+    buildTime: 7,
+    maintenanceCost: { credits: 3, energy: 2 },
+    maxLevel: 4,
+    description:
+      'A lattice of piezoelectric crystal spires tuned to the Vaelori collective resonance frequency. Dramatically amplifies research output by synchronising the minds of every researcher on the planet. Vaelori only.',
+  },
+
+  psionic_amplifier: {
+    name: 'Psionic Amplifier',
+    racialSpeciesId: 'vaelori',
+    baseCost: { credits: 180, minerals: 40 },
+    baseProduction: { researchPoints: 2 },
+    buildTime: 6,
+    maintenanceCost: { credits: 2, energy: 3 },
+    maxLevel: 4,
+    description:
+      'A deep-space relay array that boosts the range and acuity of Vaelori psionic projection. Provides a significant bonus to espionage operations launched from this planet and passively detects cloaked vessels in the system. Vaelori only.',
+  },
+
+  // ── Khazari unique buildings ────────────────────────────────────────────────
+
+  war_forge: {
+    name: 'War Forge',
+    racialSpeciesId: 'khazari',
+    baseCost: { credits: 250, minerals: 200 },
+    baseProduction: { minerals: 3, energy: -3 },
+    buildTime: 8,
+    maintenanceCost: { credits: 3, energy: 3 },
+    maxLevel: 3,
+    description:
+      'A Khazari mega-foundry that integrates smelting, hull fabrication, and weapons assembly in a single volcanic-heat-powered facility. Reduces ship construction time on this planet significantly. Performs best on volcanic worlds. Khazari only.',
+  },
+
+  magma_tap: {
+    name: 'Magma Tap',
+    racialSpeciesId: 'khazari',
+    baseCost: { credits: 100, minerals: 60 },
+    baseProduction: { energy: 15, minerals: 2 },
+    buildTime: 5,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'Geothermal bore sunk directly into a volcanic world\'s mantle, extracting enormous quantities of thermal energy and trace exotic minerals from magma-proximal ore veins. Functions only on volcanic planets. Khazari only.',
+  },
+
+  // ── Sylvani unique buildings ────────────────────────────────────────────────
+
+  living_archive: {
+    name: 'Living Archive',
+    racialSpeciesId: 'sylvani',
+    baseCost: { credits: 160, organics: 80 },
+    baseProduction: { researchPoints: 8, organics: 2 },
+    buildTime: 9,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 4,
+    description:
+      'A vast biological library encoded in living crystal-fungal chemistry, drawing research output from the accumulated ecological memory of the planet\'s biosphere. Output scales with planetary biodiversity. Sylvani only.',
+  },
+
+  growth_vat: {
+    name: 'Growth Vat',
+    racialSpeciesId: 'sylvani',
+    baseCost: { credits: 90, organics: 60 },
+    baseProduction: { organics: 8 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'Accelerated-growth biological chambers that cultivate new Sylvani node-clusters from spore stock. Provides a substantial bonus to population growth each tick. Sylvani only.',
+  },
+
+  // ── Nexari unique buildings ─────────────────────────────────────────────────
+
+  neural_network_hub: {
+    name: 'Neural Network Hub',
+    racialSpeciesId: 'nexari',
+    baseCost: { credits: 300, minerals: 100 },
+    baseProduction: { researchPoints: 4, credits: 4 },
+    buildTime: 8,
+    maintenanceCost: { credits: 4, energy: 4 },
+    maxLevel: 3,
+    description:
+      'A planet-spanning cybernetic coordination layer that links every building\'s operational processes into a single optimised network. All other buildings on this planet operate at +10% efficiency per hub level. Nexari only.',
+  },
+
+  assimilation_node: {
+    name: 'Assimilation Node',
+    racialSpeciesId: 'nexari',
+    baseCost: { credits: 220, minerals: 80 },
+    baseProduction: { energy: -2, researchPoints: 3 },
+    buildTime: 7,
+    maintenanceCost: { credits: 3, energy: 2 },
+    maxLevel: 3,
+    description:
+      'A cybernetic integration facility that steadily converts alien population units on this planet into Nexari-substrate citizens, absorbing their cultural knowledge into the collective. Reduces unrest among assimilated groups. Nexari only.',
+  },
+
+  // ── Drakmari unique buildings ───────────────────────────────────────────────
+
+  abyssal_processor: {
+    name: 'Abyssal Processor',
+    racialSpeciesId: 'drakmari',
+    baseCost: { credits: 110, minerals: 50 },
+    baseProduction: { minerals: 8, rareElements: 2 },
+    buildTime: 5,
+    maintenanceCost: { credits: 1, energy: 1 },
+    maxLevel: 5,
+    description:
+      'Pressure-adapted extraction rigs anchored to ocean world sea floors. Harvests mineral-rich sediment and hydrothermal vent deposits at yields impossible for surface-based facilities. Performs at maximum output on ocean worlds only. Drakmari only.',
+  },
+
+  predator_arena: {
+    name: 'Predator Arena',
+    racialSpeciesId: 'drakmari',
+    baseCost: { credits: 130, minerals: 40 },
+    baseProduction: { organics: 1 },
+    buildTime: 5,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 4,
+    description:
+      'A ritual combat facility where Drakmari warriors hone ambush tactics and deep-pressure combat reflexes against live prey. Provides a combat training bonus to ground forces and ship crews recruited on this planet. Drakmari only.',
+  },
+
+  // ── Teranos unique buildings ────────────────────────────────────────────────
+
+  diplomatic_quarter: {
+    name: 'Diplomatic Quarter',
+    racialSpeciesId: 'teranos',
+    baseCost: { credits: 200, minerals: 30 },
+    baseProduction: { credits: 6, faith: 2 },
+    buildTime: 6,
+    maintenanceCost: { credits: 2 },
+    maxLevel: 4,
+    description:
+      'A dedicated embassy district that hosts foreign trade missions and facilitates treaty negotiations. Improves diplomatic attitude with all known empires and boosts the success chance of trade and alliance proposals initiated from this planet. Teranos only.',
+  },
+
+  innovation_lab: {
+    name: 'Innovation Lab',
+    racialSpeciesId: 'teranos',
+    baseCost: { credits: 150, minerals: 20 },
+    baseProduction: { researchPoints: 6, credits: 2 },
+    buildTime: 5,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 5,
+    description:
+      'A rapid-iteration research facility staffed by Teranos generalist engineers. Reduces the number of turns required to unlock the next technology in the queue. Output benefits from the Teranos adaptability trait. Teranos only.',
+  },
+
+  // ── Zorvathi unique buildings ───────────────────────────────────────────────
+
+  deep_hive: {
+    name: 'Deep Hive',
+    racialSpeciesId: 'zorvathi',
+    baseCost: { credits: 120, minerals: 80 },
+    baseProduction: { organics: 4 },
+    buildTime: 6,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'An extensive underground population chamber bored deep beneath the surface, adding pressurised living galleries insulated from hostile surface conditions. Increases the planet\'s maximum population capacity significantly. Zorvathi only.',
+  },
+
+  tunnel_network: {
+    name: 'Tunnel Network',
+    racialSpeciesId: 'zorvathi',
+    baseCost: { credits: 160, minerals: 120 },
+    baseProduction: { energy: -1 },
+    buildTime: 7,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 4,
+    description:
+      'A planet-spanning subterranean logistics and fortification grid. Ground defenders using Zorvathi tunnel doctrine gain a substantial defence bonus, and the network provides advance warning of landing operations. Zorvathi only.',
+  },
+
+  // ── Ashkari unique buildings ────────────────────────────────────────────────
+
+  salvage_yard: {
+    name: 'Salvage Yard',
+    racialSpeciesId: 'ashkari',
+    baseCost: { credits: 80, minerals: 30 },
+    baseProduction: { minerals: 5, rareElements: 2, credits: 2 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'A specialist disassembly and reclamation facility operated by Ashkari reverse-engineers. Converts destroyed or derelict ships in the system into usable minerals and rare elements each turn. Ashkari only.',
+  },
+
+  black_market: {
+    name: 'Black Market',
+    racialSpeciesId: 'ashkari',
+    baseCost: { credits: 100 },
+    baseProduction: { credits: 10, rareElements: 1 },
+    buildTime: 4,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description:
+      'An off-the-books trading network that funnels goods through the grey margins of interstellar commerce. Provides a substantial boost to trade income and generates a trickle of rare elements from contraband deals. Ashkari only.',
   },
 };

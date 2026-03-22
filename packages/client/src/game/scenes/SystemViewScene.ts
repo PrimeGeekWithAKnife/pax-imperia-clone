@@ -178,6 +178,13 @@ export class SystemViewScene extends Phaser.Scene {
     // Engine emits 'engine:migration_wave' each time a wave departs.
     this.game.events.on('engine:migration_wave', this.handleMigrationWave, this);
 
+    // ── Game event SFX listeners ───────────────────────────────────────────────
+    this.game.events.on('engine:migration_started', this._handleMigrationStartedSfx, this);
+    this.game.events.on('engine:migration_completed', this._handleMigrationCompletedSfx, this);
+    this.game.events.on('engine:ship_produced', this._handleShipProducedSfx, this);
+    this.game.events.on('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
+    this.game.events.on('engine:tech_researched', this._handleTechResearchedSfx, this);
+
     // Check existing migrations when entering the scene (e.g. loading a save)
     this._syncMigrationAnimations();
 
@@ -201,6 +208,11 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
+      this.game.events.off('engine:migration_started', this._handleMigrationStartedSfx, this);
+      this.game.events.off('engine:migration_completed', this._handleMigrationCompletedSfx, this);
+      this.game.events.off('engine:ship_produced', this._handleShipProducedSfx, this);
+      this.game.events.off('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
+      this.game.events.off('engine:tech_researched', this._handleTechResearchedSfx, this);
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
@@ -276,6 +288,8 @@ export class SystemViewScene extends Phaser.Scene {
     const { migration } = payload as { migration: MigrationOrder };
     if (migration.systemId !== this.system?.id) return;
     this._spawnWaveAnimation(migration);
+    // Play soft departure sound for each departing wave
+    this.sfx?.playMigrationWave();
   };
 
   // ── Colony ship animations ────────────────────────────────────────────────────
@@ -575,6 +589,51 @@ export class SystemViewScene extends Phaser.Scene {
     }
   }
 
+  // ── Game event SFX handlers ───────────────────────────────────────────────────
+
+  /** Play coloniseStart when a migration begins (first wave departs). */
+  private _handleMigrationStartedSfx = (): void => {
+    this.sfx?.playColoniseStart();
+  };
+
+  /** Play coloniseComplete when migration reaches threshold and a colony forms. */
+  private _handleMigrationCompletedSfx = (): void => {
+    this.sfx?.playColoniseComplete();
+  };
+
+  /** Play shipLaunch when a ship is produced in this system. */
+  private _handleShipProducedSfx = (payload: unknown): void => {
+    const { systemId } = payload as { systemId: string };
+    if (systemId === this.system?.id) {
+      this.sfx?.playShipLaunch();
+    }
+  };
+
+  /**
+   * Play buildComplete when a planet's construction queue shortens,
+   * indicating a building just finished. Only fires for this system's planets.
+   */
+  private _prevPlanetQueueLengths: Map<string, number> = new Map();
+
+  private _handlePlanetUpdatedSfx = (payload: unknown): void => {
+    const { systemId, planet } = payload as { systemId: string; planet: Planet };
+    if (systemId !== this.system?.id) return;
+
+    const prevLen = this._prevPlanetQueueLengths.get(planet.id) ?? planet.productionQueue.length;
+    const currLen = planet.productionQueue.length;
+
+    if (currLen < prevLen) {
+      // A queue item just completed — check it was a building (not a ship)
+      this.sfx?.playBuildComplete();
+    }
+    this._prevPlanetQueueLengths.set(planet.id, currLen);
+  };
+
+  /** Play researchComplete when a tech finishes. */
+  private _handleTechResearchedSfx = (): void => {
+    this.sfx?.playResearchComplete();
+  };
+
   // ── Latest planet helper ─────────────────────────────────────────────────────
 
   /**
@@ -730,6 +789,8 @@ export class SystemViewScene extends Phaser.Scene {
       // If the player owns this planet, also open the management screen
       if (latestPlanet.ownerId !== null) {
         this.game.events.emit('planet:manage', { planet: latestPlanet, systemId: this.system.id });
+        // Start planet surface ambient for the management screen
+        this.ambient?.startSurfaceAmbient(latestPlanet.type, latestPlanet.buildings.length);
       }
     });
 

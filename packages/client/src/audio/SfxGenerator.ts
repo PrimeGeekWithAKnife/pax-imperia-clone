@@ -1,9 +1,9 @@
 /**
- * SfxGenerator — UI sound effects for Ex Nihilo.
+ * SfxGenerator — UI and game-event sound effects for Ex Nihilo.
  *
- * All sounds are very subtle and procedurally synthesised.
+ * All sounds are procedurally synthesised.
  *
- * Effects:
+ * UI effects:
  *   click         — short soft blip  (sine 800 Hz, 50 ms)
  *   selectSystem  — soft ascending two-tone chime
  *   hover         — barely audible tick (1 ms noise burst)
@@ -11,7 +11,20 @@
  *   menuClose     — reverse of open (400→200 Hz)
  *   speedUp       — quick ascending blip
  *   speedDown     — quick descending blip
- *   error         — low buzz (100 Hz, 100 ms)
+ *   error         — short buzz (sawtooth 150 Hz, bandpass filtered, 120 ms)
+ *
+ * Game event effects:
+ *   buildComplete    — rising chime (C5→E5→G5, 200 ms)
+ *   coloniseStart    — hopeful ascending tones (C4→E4→G4, 300 ms, soft attack)
+ *   coloniseComplete — triumphant chord (C4+E4+G4, 500 ms, with reverb)
+ *   shipLaunch       — noise sweep low→high + engine ignition (400 ms)
+ *   researchComplete — sparkle discovery sound (high randomised tones, 250 ms)
+ *   warDeclared      — ominous brass-like hit (50 Hz sawtooth, 800 ms, distortion)
+ *   treatySign       — gentle bell (sine 880 Hz, long exponential decay, 600 ms)
+ *   migrationWave    — soft departure sound (descending tone, 200 ms)
+ *   fleetMove        — engine engage (filtered noise burst + rising sine, 300 ms)
+ *   battleStart      — alarm klaxon (alternating 400/600 Hz, 500 ms)
+ *   battleResult     — victory fanfare (ascending phrase + chord) or defeat sting (descending smear + thud)
  */
 
 import type { AudioEngine } from './AudioEngine';
@@ -27,7 +40,7 @@ export class SfxGenerator {
     this.bus = engine.sfxBus;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
+  // ── UI effects ──────────────────────────────────────────────────────────────
 
   playClick(): void {
     this._playSineBurst(800, 0.055, 0.05, 0.02);
@@ -69,9 +82,522 @@ export class SfxGenerator {
     this._playToneAt(600, 0.045, now + 0.055, 0.08, 0.06);
   }
 
+  /**
+   * Error: short buzz — sawtooth filtered to midrange, brief and recognisable
+   * without being harsh.
+   */
   playError(): void {
-    // Low buzz: 100 Hz sine, square-ish via waveshaper, 100 ms
-    this._playSineBurst(100, 0.055, 0.10, 0.04);
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 150;
+
+    // Bandpass to soften the harshness
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 300;
+    bp.Q.value = 1.5;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.055, now + 0.008);
+    env.gain.setValueAtTime(0.055, now + 0.08);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+    osc.connect(bp);
+    bp.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.14);
+    osc.onended = () => env.disconnect();
+  }
+
+  // ── Game event effects ──────────────────────────────────────────────────────
+
+  /**
+   * Build complete: satisfying rising chime.
+   * C5 (523 Hz) → E5 (659 Hz) → G5 (784 Hz), 200 ms total.
+   */
+  playBuildComplete(): void {
+    const now = this.ctx.currentTime;
+    // C5
+    this._playToneAt(523.25, 0.09, now, 0.05, 0.08);
+    // E5 — starts 65 ms after C5
+    this._playToneAt(659.25, 0.08, now + 0.065, 0.06, 0.09);
+    // G5 — starts 130 ms after C5
+    this._playToneAt(783.99, 0.075, now + 0.13, 0.07, 0.10);
+  }
+
+  /**
+   * Colonise start: hopeful ascending tones.
+   * C4 → E4 → G4 over 300 ms, with a soft attack (slow fade-in per note).
+   */
+  playColoniseStart(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const notes = [261.63, 329.63, 392.00]; // C4 E4 G4
+    const gap = 0.1; // 100 ms between notes
+
+    notes.forEach((freq, i) => {
+      const t = now + i * gap;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      // Soft attack: 30 ms fade-in instead of 5 ms
+      env.gain.linearRampToValueAtTime(0.07, t + 0.03);
+      env.gain.setValueAtTime(0.07, t + 0.07);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+      osc.connect(env);
+      env.connect(this.bus);
+      osc.start(t);
+      osc.stop(t + 0.18);
+      osc.onended = () => env.disconnect();
+    });
+  }
+
+  /**
+   * Colonise complete: triumphant C major chord with reverb.
+   * C4 + E4 + G4 sounding together, 500 ms with reverb tail.
+   */
+  playColoniseComplete(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Build a small reverb IR
+    const reverb = this._createQuickReverb(2.5, 3.0);
+    reverb.connect(this.bus);
+
+    const chord = [261.63, 329.63, 392.00]; // C4 E4 G4
+    for (const freq of chord) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.07, now + 0.01);
+      env.gain.setValueAtTime(0.07, now + 0.35);
+      env.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+
+      osc.connect(env);
+      env.connect(reverb);
+      osc.start(now);
+      osc.stop(now + 0.52);
+    }
+
+    // Disconnect reverb after tail
+    setTimeout(() => reverb.disconnect(), 3500);
+  }
+
+  /**
+   * Ship launch: noise sweep low→high followed by engine ignition drone.
+   * Total duration ~400 ms.
+   */
+  playShipLaunch(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Whoosh: noise with a highpass sweep from 100→4000 Hz over 250 ms
+    const bufLen = Math.floor(ctx.sampleRate * 0.25);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(i / bufLen, 0.5) * Math.pow(1 - i / bufLen, 2);
+    }
+    const whoosh = ctx.createBufferSource();
+    whoosh.buffer = buf;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(80, now);
+    hp.frequency.exponentialRampToValueAtTime(3500, now + 0.25);
+
+    const whooshEnv = ctx.createGain();
+    whooshEnv.gain.setValueAtTime(0.09, now);
+    whooshEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+    whoosh.connect(hp);
+    hp.connect(whooshEnv);
+    whooshEnv.connect(this.bus);
+    whoosh.start(now);
+    whoosh.onended = () => whooshEnv.disconnect();
+
+    // Engine ignition: short sawtooth burst with fast decay
+    const engOsc = ctx.createOscillator();
+    engOsc.type = 'sawtooth';
+    engOsc.frequency.setValueAtTime(60, now + 0.18);
+    engOsc.frequency.exponentialRampToValueAtTime(120, now + 0.4);
+
+    const engLp = ctx.createBiquadFilter();
+    engLp.type = 'lowpass';
+    engLp.frequency.value = 350;
+
+    const engEnv = ctx.createGain();
+    engEnv.gain.setValueAtTime(0, now + 0.18);
+    engEnv.gain.linearRampToValueAtTime(0.07, now + 0.22);
+    engEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+    engOsc.connect(engLp);
+    engLp.connect(engEnv);
+    engEnv.connect(this.bus);
+    engOsc.start(now + 0.18);
+    engOsc.stop(now + 0.42);
+    engOsc.onended = () => engEnv.disconnect();
+  }
+
+  /**
+   * Research complete: sparkle/discovery sound.
+   * 5–7 randomised high sine tones in quick succession (200 ms).
+   */
+  playResearchComplete(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // High notes in C major pentatonic above C5
+    const sparkMidi = [72, 74, 76, 79, 81, 84, 86];
+    const count = 5 + Math.floor(Math.random() * 3);
+    const stepMs = 35;
+
+    for (let i = 0; i < count; i++) {
+      const midi = sparkMidi[Math.floor(Math.random() * sparkMidi.length)]!;
+      const freq = 440 * Math.pow(2, (midi - 69) / 12);
+      const t = now + i * stepMs / 1000;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.065, t + 0.008);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+
+      osc.connect(env);
+      env.connect(this.bus);
+      osc.start(t);
+      osc.stop(t + 0.20);
+      osc.onended = () => env.disconnect();
+    }
+  }
+
+  /**
+   * War declared: ominous brass-like hit with soft distortion.
+   * 800 ms, 50 Hz sawtooth hit then descending sweep, dark and menacing.
+   */
+  playWarDeclared(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    // Start at 50 Hz for ominous impact, then descend to 40 Hz
+    osc.frequency.setValueAtTime(50, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.8);
+
+    // Soft distortion via waveshaper
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeDistortionCurve(200, 8);
+
+    // Lowpass to remove harsh high harmonics
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 600;
+    lp.Q.value = 0.8;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.07, now + 0.06);
+    env.gain.setValueAtTime(0.07, now + 0.55);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+
+    osc.connect(shaper);
+    shaper.connect(lp);
+    lp.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.82);
+    osc.onended = () => env.disconnect();
+  }
+
+  /**
+   * Battle result: victory fanfare or defeat sting.
+   *
+   * Victory (won = true):
+   *   Ascending perfect-fourth + major-third phrase (C4→F4→A4) with reverb
+   *   tail, followed by a sustaining chord.  Triumphant but measured — not as
+   *   elaborate as coloniseComplete so it doesn't overstay its welcome.
+   *
+   * Defeat (won = false):
+   *   Descending chromatic smear from G3 to D3 over 600 ms on a sawtooth with
+   *   lowpass, plus a low resonant thud — ominous and final.
+   */
+  playBattleResult(won: boolean): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    if (won) {
+      // ── Victory fanfare ──────────────────────────────────────────────────────
+      const reverb = this._createQuickReverb(1.8, 2.5);
+      reverb.connect(this.bus);
+
+      // Three ascending tones: C4 (261.63) → F4 (349.23) → A4 (440)
+      const fanfare: Array<[number, number]> = [
+        [261.63, 0.00],
+        [349.23, 0.12],
+        [440.00, 0.24],
+      ];
+      for (const [freq, delay] of fanfare) {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+
+        const env = ctx.createGain();
+        const t = now + delay;
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.09, t + 0.01);
+        env.gain.setValueAtTime(0.09, t + 0.10);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+
+        osc.connect(env);
+        env.connect(reverb);
+        osc.start(t);
+        osc.stop(t + 0.57);
+        osc.onended = () => env.disconnect();
+      }
+
+      // Sustained chord: C4 + E4 + G4 starting at 0.36 s
+      const chord = [261.63, 329.63, 392.00];
+      for (const freq of chord) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+
+        const env = ctx.createGain();
+        const t = now + 0.36;
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.065, t + 0.02);
+        env.gain.setValueAtTime(0.065, t + 0.30);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.70);
+
+        osc.connect(env);
+        env.connect(reverb);
+        osc.start(t);
+        osc.stop(t + 0.72);
+        osc.onended = () => env.disconnect();
+      }
+
+      // Disconnect reverb after tail
+      setTimeout(() => reverb.disconnect(), 2800);
+
+    } else {
+      // ── Defeat sting ─────────────────────────────────────────────────────────
+      // Descending smear: G3 (196) → D3 (146.83) over 600 ms, sawtooth + lowpass
+      const oscSmear = ctx.createOscillator();
+      oscSmear.type = 'sawtooth';
+      oscSmear.frequency.setValueAtTime(196, now);
+      oscSmear.frequency.exponentialRampToValueAtTime(146.83, now + 0.6);
+
+      const defeatLp = ctx.createBiquadFilter();
+      defeatLp.type = 'lowpass';
+      defeatLp.frequency.setValueAtTime(600, now);
+      defeatLp.frequency.exponentialRampToValueAtTime(200, now + 0.6);
+      defeatLp.Q.value = 1.0;
+
+      const envSmear = ctx.createGain();
+      envSmear.gain.setValueAtTime(0, now);
+      envSmear.gain.linearRampToValueAtTime(0.07, now + 0.04);
+      envSmear.gain.setValueAtTime(0.07, now + 0.40);
+      envSmear.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+
+      oscSmear.connect(defeatLp);
+      defeatLp.connect(envSmear);
+      envSmear.connect(this.bus);
+      oscSmear.start(now);
+      oscSmear.stop(now + 0.67);
+      oscSmear.onended = () => envSmear.disconnect();
+
+      // Low thud: very short sine at A1 (55 Hz) → 30 Hz
+      const thudOsc = ctx.createOscillator();
+      thudOsc.type = 'sine';
+      thudOsc.frequency.setValueAtTime(55, now + 0.50);
+      thudOsc.frequency.exponentialRampToValueAtTime(30, now + 0.90);
+
+      const thudEnv = ctx.createGain();
+      thudEnv.gain.setValueAtTime(0, now + 0.50);
+      thudEnv.gain.linearRampToValueAtTime(0.10, now + 0.52);
+      thudEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.92);
+
+      thudOsc.connect(thudEnv);
+      thudEnv.connect(this.bus);
+      thudOsc.start(now + 0.50);
+      thudOsc.stop(now + 0.94);
+      thudOsc.onended = () => thudEnv.disconnect();
+    }
+  }
+
+  /**
+   * Treaty sign: gentle bell tone.
+   * Pure sine at 880 Hz (A5) with a long exponential decay — 600 ms.
+   */
+  playTreatySign(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+
+    // Second partial (slightly detuned) for bell character
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = 880 * 2.75; // inharmonic partial — bell-like
+    osc2.detune.value = 15;
+
+    // Long exponential decay out to 600 ms
+    const env1 = ctx.createGain();
+    env1.gain.setValueAtTime(0, now);
+    env1.gain.linearRampToValueAtTime(0.08, now + 0.005);
+    env1.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+
+    const env2 = ctx.createGain();
+    env2.gain.setValueAtTime(0, now);
+    env2.gain.linearRampToValueAtTime(0.025, now + 0.005);
+    env2.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    osc.connect(env1);
+    osc2.connect(env2);
+    env1.connect(this.bus);
+    env2.connect(this.bus);
+    osc.start(now);
+    osc2.start(now);
+    osc.stop(now + 0.62);
+    osc2.stop(now + 0.24);
+    osc.onended = () => env1.disconnect();
+    osc2.onended = () => env2.disconnect();
+  }
+
+  /**
+   * Migration wave: soft departure sound.
+   * Descending tone from G4 (392 Hz) to D4 (294 Hz), 200 ms.
+   */
+  playMigrationWave(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(392, now);
+    osc.frequency.linearRampToValueAtTime(294, now + 0.16);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.055, now + 0.02);
+    env.gain.setValueAtTime(0.055, now + 0.12);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+    osc.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.22);
+    osc.onended = () => env.disconnect();
+  }
+
+  /**
+   * Fleet move: engine engage sound.
+   * Short filtered noise burst followed by a rising sine, 300 ms total.
+   */
+  playFleetMove(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Filtered noise burst — engine ignition
+    const bufLen = Math.floor(ctx.sampleRate * 0.15);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 1.5);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const noiseLp = ctx.createBiquadFilter();
+    noiseLp.type = 'lowpass';
+    noiseLp.frequency.value = 600;
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0.07, now);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    noiseSrc.connect(noiseLp);
+    noiseLp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+    noiseSrc.start(now);
+    noiseSrc.onended = () => noiseEnv.disconnect();
+
+    // Rising sine — engine spooling up
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, now + 0.08);
+    osc.frequency.exponentialRampToValueAtTime(340, now + 0.30);
+
+    const oscEnv = ctx.createGain();
+    oscEnv.gain.setValueAtTime(0, now + 0.08);
+    oscEnv.gain.linearRampToValueAtTime(0.06, now + 0.14);
+    oscEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+
+    osc.connect(oscEnv);
+    oscEnv.connect(this.bus);
+    osc.start(now + 0.08);
+    osc.stop(now + 0.32);
+    osc.onended = () => oscEnv.disconnect();
+  }
+
+  /**
+   * Battle start: alarm klaxon.
+   * Alternating 400 Hz / 600 Hz tones, three pulses, 500 ms total.
+   */
+  playBattleStart(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Three alternating klaxon pulses: low–high–low
+    const pulses = [
+      { freq: 400, t: 0 },
+      { freq: 600, t: 0.17 },
+      { freq: 400, t: 0.34 },
+    ];
+
+    for (const p of pulses) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = p.freq;
+
+      // Bandpass to give it a klaxon character
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = p.freq * 1.5;
+      bp.Q.value = 1.2;
+
+      const env = ctx.createGain();
+      const t = now + p.t;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.065, t + 0.01);
+      env.gain.setValueAtTime(0.065, t + 0.10);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+      osc.connect(bp);
+      bp.connect(env);
+      env.connect(this.bus);
+      osc.start(t);
+      osc.stop(t + 0.18);
+      osc.onended = () => env.disconnect();
+    }
   }
 
   // ── Internal builders ───────────────────────────────────────────────────────
@@ -79,7 +605,7 @@ export class SfxGenerator {
   /**
    * Play a single sine burst:
    *   freq     — frequency in Hz
-   *   vol      — peak gain (into SFX bus, already attenuated)
+   *   vol      — peak gain
    *   sustain  — seconds at full volume
    *   release  — fade-out duration in seconds
    */
@@ -187,4 +713,42 @@ export class SfxGenerator {
     src.start(now);
     src.onended = () => env.disconnect();
   }
+
+  /**
+   * Create a lightweight impulse-response reverb for one-shot effects.
+   * Shorter than the music reverbs since SFX should be snappier.
+   */
+  private _createQuickReverb(duration: number, decay: number): ConvolverNode {
+    const ctx = this.ctx;
+    const sampleRate = ctx.sampleRate;
+    const length = Math.floor(sampleRate * duration);
+    const ir = ctx.createBuffer(2, length, sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    const conv = ctx.createConvolver();
+    conv.buffer = ir;
+    return conv;
+  }
+}
+
+// ── Utility: distortion waveshaper ───────────────────────────────────────────
+
+/**
+ * Create a waveshaper curve for soft/hard distortion.
+ * @param samples  Number of curve samples
+ * @param amount   Distortion amount (higher = more distorted)
+ */
+function makeDistortionCurve(samples: number, amount: number): Float32Array<ArrayBuffer> {
+  const buf = new ArrayBuffer(samples * Float32Array.BYTES_PER_ELEMENT);
+  const curve = new Float32Array(buf);
+  const k = amount;
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1;
+    curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
 }

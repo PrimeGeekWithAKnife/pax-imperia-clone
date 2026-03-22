@@ -225,6 +225,29 @@ export interface GameOverEvent {
   tick: number;
 }
 
+/** Emitted each tick when a planet's terraforming advances to a new stage. */
+export interface TerraformingProgressEvent {
+  type: 'TerraformingProgress';
+  empireId: string;
+  systemId: string;
+  planetId: string;
+  planetName: string;
+  stage: 'atmosphere' | 'temperature' | 'biosphere' | 'complete';
+  progressPercent: number;
+  tick: number;
+}
+
+/** Emitted when a planet's terraforming project finishes entirely. */
+export interface TerraformingCompleteEvent {
+  type: 'TerraformingComplete';
+  empireId: string;
+  systemId: string;
+  planetId: string;
+  planetName: string;
+  newPlanetType: string;
+  tick: number;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -241,4 +264,6 @@ export type GameEvent =
   | GameSpeedChangedEvent
   | PlayerConnectedEvent
   | PlayerDisconnectedEvent
-  | GameOverEvent;
+  | GameOverEvent
+  | TerraformingProgressEvent
+  | TerraformingCompleteEvent;

@@ -3,6 +3,15 @@
  *
  * All functions are side-effect free. Game state must be updated by the caller
  * using the values returned from these functions.
+ *
+ * Energy deficit effects (applied when empire energy stockpile = 0):
+ *   - Buildings that consume energy operate at 50 % efficiency.
+ *   - Research speed is halved.
+ *   - Ship production is slowed (50 % of normal construction rate).
+ *
+ * Food / organics consumption:
+ *   - Population consumes 1 organic unit per 1 000 population per tick.
+ *   - If organics reach zero, population declines (starvation).
  */
 
 import type { Planet } from '../types/galaxy.js';
@@ -288,5 +297,142 @@ export function subtractResources(
     exoticMaterials: Math.max(0, resources.exoticMaterials - (cost.exoticMaterials ?? 0)),
     faith: Math.max(0, resources.faith - (cost.faith ?? 0)),
     researchPoints: Math.max(0, resources.researchPoints - (cost.researchPoints ?? 0)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Energy deficit effects
+// ---------------------------------------------------------------------------
+
+/**
+ * The set of building types whose energy-consuming operation is disrupted by an
+ * energy deficit.  Only buildings that list a negative energy value in their
+ * baseProduction / maintenanceCost are meaningful to include here, but we
+ * apply the penalty to ALL non-credit production when the empire has no energy
+ * because lights-off affects everyone.
+ *
+ * The actual production scaling is handled by `applyEnergyDeficitPenalties`.
+ */
+
+/** Result describing the energy status for an empire this tick. */
+export interface EnergyStatus {
+  /** True when the empire's energy stockpile is zero (or would go negative). */
+  isDeficit: boolean;
+  /**
+   * Production multiplier to apply to non-credit, non-energy resource production
+   * (minerals, rareElements, organics, exoticMaterials, faith, researchPoints).
+   * 1.0 = normal; 0.5 = deficit penalty.
+   */
+  productionMultiplier: number;
+  /**
+   * Research speed multiplier. 1.0 = normal; 0.5 = halved during energy deficit.
+   * The game loop must apply this to the researchPoints value passed to
+   * `processResearchTick`.
+   */
+  researchMultiplier: number;
+  /**
+   * Ship construction rate multiplier. 1.0 = normal; 0.5 = slowed during
+   * energy deficit.  The game loop must apply this to the constructionRate
+   * passed to `processConstructionQueue` for ship/building queues.
+   */
+  constructionMultiplier: number;
+  /**
+   * Human-readable tooltip message for the UI TopBar warning indicator.
+   * Empty string when there is no deficit.
+   */
+  warningTooltip: string;
+}
+
+/**
+ * Determine the energy status for an empire given its current resource stockpile
+ * *after* this tick's production and upkeep have been applied.
+ *
+ * The caller should pass the resources value that has already gone through
+ * `applyResourceTick` so that the clamp-to-zero behaviour is reflected.
+ */
+export function getEnergyStatus(resources: EmpireResources): EnergyStatus {
+  const isDeficit = resources.energy <= 0;
+
+  if (!isDeficit) {
+    return {
+      isDeficit: false,
+      productionMultiplier: 1.0,
+      researchMultiplier: 1.0,
+      constructionMultiplier: 1.0,
+      warningTooltip: '',
+    };
+  }
+
+  return {
+    isDeficit: true,
+    productionMultiplier: 0.5,
+    researchMultiplier: 0.5,
+    constructionMultiplier: 0.5,
+    warningTooltip:
+      'Energy deficit — buildings are running at 50 % capacity, research is halved, ' +
+      'and ship construction is slowed. Build Power Plants or Fusion Reactors to resolve.',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Food / organics consumption
+// ---------------------------------------------------------------------------
+
+/** Population units per organic consumed per tick. */
+export const ORGANICS_PER_POPULATION = 1_000;
+
+/**
+ * Calculate how many organics an empire's total population consumes per tick.
+ *
+ * Formula: floor(totalPopulation / ORGANICS_PER_POPULATION)
+ * Minimum 0 (an empire with < 1 000 population consumes 0).
+ */
+export function calculateOrganicsConsumption(totalPopulation: number): number {
+  return Math.floor(Math.max(0, totalPopulation) / ORGANICS_PER_POPULATION);
+}
+
+/** Result of applying the food-consumption step to empire resources. */
+export interface FoodConsumptionResult {
+  /** Updated resource stockpile after organics have been deducted. */
+  resources: EmpireResources;
+  /**
+   * True when the empire ran out of organics (starvation this tick).
+   * The caller is responsible for applying population-decline penalties.
+   */
+  isStarving: boolean;
+  /** Organics consumed this tick (may be 0). */
+  consumed: number;
+}
+
+/**
+ * Deduct organics consumption from the empire's stockpile and report whether
+ * the empire is starving.
+ *
+ * This must be called *after* `applyResourceTick` so that this tick's food
+ * production is already in the stockpile before consumption is deducted.
+ *
+ * @param resources       Current empire resources (post-production tick).
+ * @param totalPopulation Sum of `currentPopulation` across all empire-owned planets.
+ */
+export function applyFoodConsumption(
+  resources: EmpireResources,
+  totalPopulation: number,
+): FoodConsumptionResult {
+  const consumed = calculateOrganicsConsumption(totalPopulation);
+
+  if (consumed === 0) {
+    return { resources, isStarving: false, consumed: 0 };
+  }
+
+  const remaining = resources.organics - consumed;
+  const isStarving = remaining < 0;
+
+  return {
+    resources: {
+      ...resources,
+      organics: Math.max(0, remaining),
+    },
+    isStarving,
+    consumed,
   };
 }

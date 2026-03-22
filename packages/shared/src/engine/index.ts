@@ -1,4 +1,5 @@
 export * from './economy.js';
+export * from './happiness.js';
 export * from './colony.js';
 export * from './fleet.js';
 export * from './game-init.js';
@@ -8,3 +9,7 @@ export * from './combat.js';
 export * from './diplomacy.js';
 export * from './ai.js';
 export * from './game-loop.js';
+export * from './terraforming.js';
+export * from './trade.js';
+export * from './espionage.js';
+export * from './victory.js';

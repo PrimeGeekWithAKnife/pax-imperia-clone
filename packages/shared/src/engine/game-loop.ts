@@ -9,15 +9,18 @@
  *  0.  Player Actions       (colonise/start migration, build, speed change)
  *  1.  Fleet Movement
  *  2.  Combat Resolution
- *  3.  Population Growth
+ *  3.  Population Growth    (applies happiness growth bonus/revolt loss)
  *  3b. Migration Processing (wave departures, arrivals, colony establishment)
- *  4.  Resource Production
+ *  3c. Happiness Processing (unrest/revolt effects, production multipliers)
+ *  4.  Resource Production  (energy deficit penalties applied here)
+ *  4b. Food Consumption     (organics deducted; starvation population loss)
  *  5.  Construction Queues
+ *  5b. Terraforming        (atmosphere, temperature, biosphere, planet conversion)
  *  6.  Ship Production
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
  *  9.  AI Decisions         (stub)
- *  10. Victory Check        (stub)
+ *  10. Victory Check        (conquest / economic / technological / diplomatic)
  *  11. Advance Tick
  */
 
@@ -35,13 +38,21 @@ import type {
   MigrationStartedEvent,
   MigrationWaveEvent,
   ColonyEstablishedEvent,
+  TerraformingProgressEvent,
+  TerraformingCompleteEvent,
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
   calculateEmpireProduction,
   calculateUpkeep,
   applyResourceTick,
+  getEnergyStatus,
+  applyFoodConsumption,
 } from './economy.js';
+import {
+  calculatePlanetHappiness,
+  empireIsAtWar,
+} from './happiness.js';
 import {
   calculateHabitability,
   calculatePopulationGrowth,
@@ -70,6 +81,15 @@ import {
   type CombatSetup,
 } from './combat.js';
 import { generateId } from '../utils/id.js';
+import { processTradeRoutes, type TradeRoute } from './trade.js';
+import {
+  checkVictoryConditions,
+  updateEconomicLeadTicks,
+} from './victory.js';
+import {
+  processTerraformingTick,
+  type TerraformingProgress,
+} from './terraforming.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -140,6 +160,30 @@ export interface GameTickState {
    * Persisted between ticks. Key = empireId.
    */
   empireResourcesMap: Map<string, EmpireResources>;
+  /**
+   * Active trade routes between star systems.
+   * Each route generates credits per tick for the owning empire provided both
+   * endpoint systems still have spaceports.  Routes are added via player actions
+   * and persist until explicitly cancelled.
+   */
+  tradeRoutes: TradeRoute[];
+  /**
+   * Consecutive-tick counters used for the economic victory condition.
+   * Key = empireId; value = number of ticks the empire has maintained the
+   * required credit lead over all rivals.  Reset to 0 whenever the lead is lost.
+   */
+  economicLeadTicks: Map<string, number>;
+  /**
+   * Total number of technologies in the tech tree.  Passed to victory checking
+   * so it can evaluate technological completion without importing the full tree.
+   */
+  allTechCount: number;
+  /**
+   * Terraforming progress records, keyed by planetId.
+   * A record is created when a planet with a Terraforming Station is first
+   * processed and persists until the stage reaches 'complete'.
+   */
+  terraformingProgressMap: Map<string, TerraformingProgress>;
 }
 
 /** The result returned by processGameTick. */
@@ -699,9 +743,19 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
       }
 
       const habitability = calculateHabitability(planet, empire.species);
-      const growth = calculatePopulationGrowth(planet, empire.species, habitability.score);
+      let growth = calculatePopulationGrowth(planet, empire.species, habitability.score);
 
       if (growth <= 0) continue;
+
+      // Apply happiness growth bonus: high-happiness planets grow faster.
+      const empireResources = getEmpireResources(state, empire.id);
+      const isAtWar = empireIsAtWar(empire);
+      const happiness = calculatePlanetHappiness(planet, empireResources, isAtWar);
+
+      if (happiness.growthModifier !== 0) {
+        growth = Math.floor(growth * (1 + happiness.growthModifier));
+        if (growth <= 0) growth = 1;
+      }
 
       const newPop = Math.min(planet.currentPopulation + growth, planet.maxPopulation);
       const updatedPlanet: Planet = { ...planet, currentPopulation: newPop };
@@ -812,9 +866,52 @@ function stepMigrations(
     // Cancelled orders are also dropped.
   }
 
-  return {
+  const result = {
     ...state,
     migrationOrders: remainingOrders,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Step 3c: Happiness Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply happiness-driven population effects:
+ *   - Revolt (happiness < 10): lose a fraction of population each tick.
+ *
+ * The production penalty (happiness < 30 → ×0.5 output) is applied inside
+ * `stepResourceProduction` where per-planet production is calculated.
+ */
+function stepHappiness(state: GameTickState): GameTickState {
+  let systems = state.gameState.galaxy.systems;
+
+  for (const system of state.gameState.galaxy.systems) {
+    for (const planet of system.planets) {
+      if (planet.ownerId === null || planet.currentPopulation <= 0) continue;
+
+      const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
+      if (!empire) continue;
+
+      const empireResources = getEmpireResources(state, empire.id);
+      const isAtWar = empireIsAtWar(empire);
+      const happiness = calculatePlanetHappiness(planet, empireResources, isAtWar);
+
+      if (happiness.revoltPopulationLoss > 0) {
+        const newPop = Math.max(0, planet.currentPopulation - happiness.revoltPopulationLoss);
+        const updatedPlanet: Planet = { ...planet, currentPopulation: newPop };
+        systems = replacePlanet(systems, updatedPlanet);
+      }
+    }
+  }
+
+  return {
+    ...state,
     gameState: {
       ...state.gameState,
       galaxy: { ...state.gameState.galaxy, systems },
@@ -827,13 +924,60 @@ function stepMigrations(
 // ---------------------------------------------------------------------------
 
 function stepResourceProduction(state: GameTickState): GameTickState {
+  // Process trade routes once per tick to get per-empire income totals.
+  const { income: tradeIncome } = processTradeRoutes(
+    state.tradeRoutes,
+    state.gameState.galaxy,
+  );
+
   for (const empire of state.gameState.empires) {
     const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
-    const { total: production } = calculateEmpireProduction(
+    const isAtWar = empireIsAtWar(empire);
+    const currentResources = getEmpireResources(state, empire.id);
+
+    // Determine per-planet happiness production multipliers before aggregating.
+    // Credits and energy are not penalised (credits fund recovery; energy is
+    // needed to escape any deficit).
+    const happinessMultipliers = new Map<string, number>();
+    for (const planet of ownedPlanets) {
+      const happiness = calculatePlanetHappiness(planet, currentResources, isAtWar);
+      if (happiness.productionMultiplier !== 1.0) {
+        happinessMultipliers.set(planet.id, happiness.productionMultiplier);
+      }
+    }
+
+    // Compute per-planet production and re-aggregate with happiness multipliers.
+    const { perPlanet } = calculateEmpireProduction(
       ownedPlanets,
       empire.species,
       empire,
     );
+
+    const production = {
+      credits: 0,
+      minerals: 0,
+      rareElements: 0,
+      energy: 0,
+      organics: 0,
+      exoticMaterials: 0,
+      faith: 0,
+      researchPoints: 0,
+    };
+    for (const pp of perPlanet) {
+      const mult = happinessMultipliers.get(pp.planetId) ?? 1.0;
+      production.credits += pp.production.credits;
+      production.energy += pp.production.energy;
+      production.minerals += pp.production.minerals * mult;
+      production.rareElements += pp.production.rareElements * mult;
+      production.organics += pp.production.organics * mult;
+      production.exoticMaterials += pp.production.exoticMaterials * mult;
+      production.faith += pp.production.faith * mult;
+      production.researchPoints += pp.production.researchPoints * mult;
+    }
+
+    // Add trade route income to this empire's credit production.
+    const tradeCredits = tradeIncome.get(empire.id) ?? 0;
+    production.credits += tradeCredits;
 
     const shipCount = countEmpireShipsViaFleets(
       state.gameState.ships,
@@ -843,14 +987,68 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     const buildingCount = countBuildings(ownedPlanets);
     const upkeep = calculateUpkeep(empire, shipCount, buildingCount);
 
-    const currentResources = getEmpireResources(state, empire.id);
-    const newResources = applyResourceTick(currentResources, production, upkeep);
+    let newResources = applyResourceTick(currentResources, production, upkeep);
+
+    // Apply energy deficit research penalty: halve accumulated research points.
+    // Construction and ship production penalties are handled in their own steps.
+    const energyStatus = getEnergyStatus(newResources);
+    if (energyStatus.isDeficit) {
+      newResources = {
+        ...newResources,
+        researchPoints: Math.floor(newResources.researchPoints * energyStatus.researchMultiplier),
+      };
+    }
 
     // Update both the resource map and empire credits/researchPoints
     state = applyResources(state, empire.id, newResources);
   }
 
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// Step 4b: Food Consumption
+// ---------------------------------------------------------------------------
+
+/**
+ * Deduct organics consumed by the empire's total population this tick.
+ * If the empire has insufficient organics, apply starvation population loss
+ * proportionally across all owned planets.
+ */
+function stepFoodConsumption(state: GameTickState): GameTickState {
+  let systems = state.gameState.galaxy.systems;
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    const totalPopulation = ownedPlanets.reduce((sum, p) => sum + p.currentPopulation, 0);
+
+    const currentResources = getEmpireResources(state, empire.id);
+    const { resources: updatedResources, isStarving } = applyFoodConsumption(
+      currentResources,
+      totalPopulation,
+    );
+
+    state = applyResources(state, empire.id, updatedResources);
+
+    if (isStarving && ownedPlanets.length > 0) {
+      // Each planet loses 0.5 % of its population (minimum 1) when starving.
+      for (const planet of ownedPlanets) {
+        if (planet.currentPopulation <= 0) continue;
+        const loss = Math.max(1, Math.floor(planet.currentPopulation * 0.005));
+        const newPop = Math.max(0, planet.currentPopulation - loss);
+        const updatedPlanet = { ...planet, currentPopulation: newPop };
+        systems = replacePlanet(systems, updatedPlanet);
+      }
+    }
+  }
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -877,6 +1075,111 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
 
   return {
     ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Step 5b: Terraforming
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of terraforming for every colonised planet that has a
+ * Terraforming Station building.
+ *
+ * Emits:
+ * - TerraformingProgress when a stage is actively advancing.
+ * - TerraformingComplete when all stages finish and the planet type changes.
+ */
+function stepTerraforming(
+  state: GameTickState,
+  events: GameEvent[],
+): GameTickState {
+  const tick = state.gameState.currentTick;
+  let systems = state.gameState.galaxy.systems;
+  const newProgressMap = new Map(state.terraformingProgressMap);
+
+  for (const system of state.gameState.galaxy.systems) {
+    for (const planet of system.planets) {
+      if (planet.ownerId === null) continue;
+
+      // Find a terraforming station (any level).
+      const station = planet.buildings.find(b => b.type === 'terraforming_station');
+      const hasTerraformingStation = station !== undefined;
+      const stationLevel = station?.level ?? 1;
+
+      // Only process if there's a station or existing progress to resume.
+      const existingProgress = newProgressMap.get(planet.id) ?? null;
+      if (!hasTerraformingStation && existingProgress === null) continue;
+
+      const result = processTerraformingTick(
+        planet,
+        hasTerraformingStation,
+        stationLevel,
+        existingProgress,
+      );
+
+      if (result.progress === null) {
+        // Planet is not terraformable — remove any stale record.
+        newProgressMap.delete(planet.id);
+        continue;
+      }
+
+      const progress = result.progress;
+
+      // Supply systemId if the record was freshly created.
+      const storedProgress: TerraformingProgress = progress.systemId
+        ? progress
+        : { ...progress, systemId: system.id };
+      newProgressMap.set(planet.id, storedProgress);
+
+      // Update the planet in the systems array if it changed.
+      if (result.planet !== planet) {
+        const updatedPlanets = system.planets.map(p =>
+          p.id === planet.id ? result.planet : p,
+        );
+        systems = systems.map(s =>
+          s.id === system.id ? { ...s, planets: updatedPlanets } : s,
+        );
+      }
+
+      const empireId = planet.ownerId ?? '';
+
+      // Emit TerraformingComplete when fully done.
+      if (storedProgress.stage === 'complete') {
+        const completeEvent: TerraformingCompleteEvent = {
+          type: 'TerraformingComplete',
+          empireId,
+          systemId: system.id,
+          planetId: planet.id,
+          planetName: planet.name,
+          newPlanetType: result.planet.type,
+          tick,
+        };
+        events.push(completeEvent);
+      } else if (hasTerraformingStation) {
+        // Emit progress every tick while station is active.
+        const progressEvent: TerraformingProgressEvent = {
+          type: 'TerraformingProgress',
+          empireId,
+          systemId: system.id,
+          planetId: planet.id,
+          planetName: planet.name,
+          stage: storedProgress.stage,
+          progressPercent: Math.floor(storedProgress.progress),
+          tick,
+        };
+        events.push(progressEvent);
+      }
+    }
+  }
+
+  return {
+    ...state,
+    terraformingProgressMap: newProgressMap,
     gameState: {
       ...state.gameState,
       galaxy: { ...state.gameState.galaxy, systems },
@@ -1089,25 +1392,33 @@ function stepAIDecisions(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
-// Step 10: Victory Check (stub)
+// Step 10: Victory Check
 // ---------------------------------------------------------------------------
 
 /**
  * Check whether any victory condition has been met.
- * Returns over=false as a stub until victory logic is implemented.
+ *
+ * Delegates to checkVictoryConditions from the victory engine.  The
+ * economicLeadTicks counter stored in state is evaluated this tick; the game
+ * loop updates it (via updateEconomicLeadTicks) before calling this function.
  */
 export function isGameOver(
   state: GameTickState,
 ): { over: boolean; winnerId?: string; reason?: string } {
-  // TODO: implement victory condition checks:
-  //  - 'conquest': one empire owns all colonised systems
-  //  - 'economic': one empire's credits exceed a threshold
-  //  - 'research': one empire has completed all technologies
-  //  - 'diplomatic': one empire holds alliances with all other empires
-
   if (state.gameState.status === 'finished') {
     // If status was set externally (e.g., by a direct command), respect it.
     return { over: true, reason: 'game_finished' };
+  }
+
+  const result = checkVictoryConditions(
+    state.gameState,
+    state.empireResourcesMap,
+    state.economicLeadTicks,
+    state.allTechCount,
+  );
+
+  if (result) {
+    return { over: true, winnerId: result.winner, reason: result.condition };
   }
 
   return { over: false };
@@ -1157,11 +1468,20 @@ export function processGameTick(
   // 3b. Migration Processing (after population growth so wave logistics are current)
   s = stepMigrations(s, events);
 
-  // 4. Resource Production
+  // 3c. Happiness Processing (revolt population loss; production multipliers collected next step)
+  s = stepHappiness(s);
+
+  // 4. Resource Production (applies happiness production multipliers and energy deficit penalties)
   s = stepResourceProduction(s);
+
+  // 4b. Food Consumption (deduct organics; apply starvation loss if starving)
+  s = stepFoodConsumption(s);
 
   // 5. Construction Queues
   s = stepConstructionQueues(s);
+
+  // 5b. Terraforming (after construction so newly built stations take effect next tick)
+  s = stepTerraforming(s, events);
 
   // 6. Ship Production
   s = stepShipProduction(s);
@@ -1175,9 +1495,28 @@ export function processGameTick(
   // 9. AI Decisions (stub)
   s = stepAIDecisions(s);
 
-  // 10. Victory Check (stub — set status to finished if over)
+  // 10. Victory Check — update economic lead counters then evaluate all conditions
+  s = {
+    ...s,
+    economicLeadTicks: updateEconomicLeadTicks(
+      s.gameState.empires,
+      s.empireResourcesMap,
+      s.economicLeadTicks,
+    ),
+  };
+
   const victoryCheck = isGameOver(s);
   if (victoryCheck.over) {
+    const winnerId = victoryCheck.winnerId ?? '';
+    if (winnerId) {
+      const gameOverEvent = {
+        type: 'GameOver' as const,
+        winnerEmpireId: winnerId,
+        victoryCriteria: victoryCheck.reason ?? 'unknown',
+        tick: s.gameState.currentTick,
+      };
+      events.push(gameOverEvent);
+    }
     s = {
       ...s,
       gameState: { ...s.gameState, status: 'finished' },
@@ -1218,15 +1557,26 @@ export function initializeTickState(gameState: GameState): GameTickState {
     });
   }
 
-  // Seed per-empire resource stockpiles from starting values
+  // Seed per-empire resource stockpiles from starting values.
+  // Organics are seeded proportionally to starting population.  We provide a
+  // generous buffer of 200 ticks of consumption so that the early game is not
+  // dominated by food micromanagement before the player has had a chance to
+  // build Hydroponics Bays.  Food pressure increases naturally as the stockpile
+  // is consumed faster than planets produce.
   const empireResourcesMap = new Map<string, EmpireResources>();
   for (const empire of gameState.empires) {
+    const startingPop = gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .filter(p => p.ownerId === empire.id)
+      .reduce((sum, p) => sum + p.currentPopulation, 0);
+    // 1 organic per 1 000 pop per tick; seed 200 ticks worth as a comfortable buffer.
+    const startingOrganics = Math.max(100, Math.floor(startingPop / 1_000) * 200);
     empireResourcesMap.set(empire.id, {
       credits: empire.credits,
       minerals: 200,
       rareElements: 0,
       energy: 50,
-      organics: 50,
+      organics: startingOrganics,
       exoticMaterials: 0,
       faith: 0,
       researchPoints: empire.researchPoints,
@@ -1242,6 +1592,10 @@ export function initializeTickState(gameState: GameState): GameTickState {
     migrationOrders: [],
     pendingActions: [],
     empireResourcesMap,
+    tradeRoutes: [],
+    economicLeadTicks: new Map<string, number>(),
+    allTechCount: 0,
+    terraformingProgressMap: new Map<string, TerraformingProgress>(),
   };
 }
 

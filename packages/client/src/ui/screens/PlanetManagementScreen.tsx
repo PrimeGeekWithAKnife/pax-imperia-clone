@@ -1,11 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
+import type { TerraformingProgress } from '@nova-imperia/shared';
+import { estimateTicksRemaining } from '@nova-imperia/shared';
 import { BuildingSlotGrid } from '../components/BuildingSlotGrid';
 import { ResourceBar } from '../components/ResourceBar';
 import { ConstructionQueue } from '../components/ConstructionQueue';
 import { renderBuildingIcon } from '../../assets/graphics';
+import { getAudioEngine, AmbientSounds } from '../../audio';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +46,13 @@ const ATMOSPHERE_LABELS: Record<string, string> = {
   none: 'None (Vacuum)',
   toxic: 'Toxic',
   vacuum: 'Vacuum',
+};
+
+const TERRAFORMING_STAGE_LABELS: Record<string, string> = {
+  atmosphere:  'Atmospheric Processing',
+  temperature: 'Thermal Regulation',
+  biosphere:   'Biosphere Engineering',
+  complete:    'Complete',
 };
 
 const RESOURCE_ICONS: Record<string, string> = {
@@ -368,6 +378,8 @@ interface PlanetManagementScreenProps {
   empireResources: EmpireResources;
   /** All saved ship designs available for production. */
   savedDesigns: ShipDesign[];
+  /** Terraforming progress for this planet, if active. */
+  terraformingProgress?: TerraformingProgress | null;
   onClose: () => void;
   onBuild: (planetId: string, buildingType: BuildingType) => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
@@ -379,6 +391,7 @@ export function PlanetManagementScreen({
   systemId: _systemId,
   empireResources,
   savedDesigns,
+  terraformingProgress = null,
   onClose,
   onBuild,
   onCancelQueue,
@@ -387,11 +400,57 @@ export function PlanetManagementScreen({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [shipPickerOpen, setShipPickerOpen] = useState(false);
 
+  // ── Ambient sound management ─────────────────────────────────────────────────
+  const ambientRef = useRef<AmbientSounds | null>(null);
+
+  // Start planet surface ambient when the screen mounts; stop on unmount.
+  useEffect(() => {
+    const audioEngine = getAudioEngine();
+    if (!audioEngine) return;
+
+    if (!ambientRef.current) {
+      ambientRef.current = new AmbientSounds(audioEngine);
+    }
+
+    const ambient = ambientRef.current;
+    ambient.startPlanetAmbient(planet.type, planet.buildings.length);
+
+    return () => {
+      ambient.stopAllAmbients();
+    };
+  // Re-run only when the planet type changes (navigating between planets).
+  }, [planet.type]);
+
+  // Start shipyard ambient when the shipyard section becomes visible.
+  // Check whether the planet has a shipyard (also used by the render below).
+  const hasShipyard = planet.buildings.some(b => b.type === 'shipyard');
+
+  // Switch to shipyard ambient when the planet has a shipyard; revert when not.
+  useEffect(() => {
+    const ambient = ambientRef.current;
+    if (!ambient) return;
+    if (hasShipyard) {
+      ambient.startShipyardAmbient();
+    } else {
+      ambient.stopShipyardAmbient();
+    }
+  }, [hasShipyard]);
+
   const totalSlots = PLANET_BUILDING_SLOTS[planet.type];
   const usedSlots = planet.buildings.length;
 
   const production = estimatePlanetProduction(planet);
   const maintenance = estimateMaintenance(planet);
+
+  // Terraforming state
+  const terraformingStation = planet.buildings.find(b => b.type === 'terraforming_station');
+  const stationLevel = terraformingStation?.level ?? 1;
+  const activeTerraforming = terraformingProgress && terraformingProgress.stage !== 'complete'
+    ? terraformingProgress
+    : null;
+  const turnsToCompletion = activeTerraforming
+    ? estimateTicksRemaining(activeTerraforming, stationLevel)
+    : null;
 
   const handleEmptySlotClick = useCallback(() => {
     setPickerOpen(true);
@@ -423,9 +482,6 @@ export function PlanetManagementScreen({
     },
     [planet.id, onProduceShip],
   );
-
-  // Check whether the planet has a shipyard
-  const hasShipyard = planet.buildings.some(b => b.type === 'shipyard');
 
   // Ship production queue entries (type === 'ship')
   const shipQueue = planet.productionQueue.filter(item => item.type === 'ship');
@@ -566,6 +622,63 @@ export function PlanetManagementScreen({
                 <span className="pm-res-rating-label">{planet.naturalResources}/100</span>
               </div>
             </div>
+
+            {/* Terraforming progress section — only shown when active */}
+            {activeTerraforming && (
+              <div className="pm-stat-group pm-terraforming">
+                <div className="panel-section-label">TERRAFORMING</div>
+
+                <div className="pm-stat-row">
+                  <span className="pm-stat-label">Stage</span>
+                  <span className="pm-stat-value pm-stat-value--terraforming">
+                    {TERRAFORMING_STAGE_LABELS[activeTerraforming.stage]}
+                  </span>
+                </div>
+
+                <div className="pm-stat-row">
+                  <span className="pm-stat-label">Stage progress</span>
+                </div>
+                <div className="pm-res-rating-track">
+                  <div
+                    className="pm-res-rating-fill pm-terraforming__stage-fill"
+                    style={{ width: `${Math.floor(activeTerraforming.progress)}%` }}
+                  />
+                  <span className="pm-res-rating-label">
+                    {Math.floor(activeTerraforming.progress)}/100
+                  </span>
+                </div>
+
+                {activeTerraforming.targetType && (
+                  <div className="pm-stat-row">
+                    <span className="pm-stat-label">Target type</span>
+                    <span className="pm-stat-value">
+                      {PLANET_TYPE_LABELS[activeTerraforming.targetType] ?? activeTerraforming.targetType}
+                    </span>
+                  </div>
+                )}
+
+                {turnsToCompletion !== null && (
+                  <div className="pm-stat-row">
+                    <span className="pm-stat-label">Est. completion</span>
+                    <span className="pm-stat-value pm-stat-value--muted">
+                      {turnsToCompletion.toLocaleString()} turns
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Show a hint when a station is built but the planet can't be terraformed */}
+            {terraformingStation && !activeTerraforming && (
+              <div className="pm-stat-group pm-terraforming">
+                <div className="panel-section-label">TERRAFORMING</div>
+                <div className="pm-prod-empty">
+                  {planet.type === 'terran'
+                    ? 'Planet is already terran — no further terraforming needed'
+                    : 'Terraforming complete'}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Center column: Shipyard (if present) + Building slots + queue */}

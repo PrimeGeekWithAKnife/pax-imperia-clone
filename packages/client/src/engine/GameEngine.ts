@@ -19,6 +19,7 @@
  *  'engine:resources_updated' { empireId: string; credits: number; researchPoints: number }[]
  *  'engine:fleet_moved'       FleetMovedEvent
  *  'engine:combat_resolved'   CombatResolvedEvent
+ *  'engine:battle_resolved'   BattleResultsData  (enriched; engine pauses until player continues)
  *  'engine:tech_researched'   TechResearchedEvent
  *  'engine:game_over'         { winnerId?: string; reason?: string }
  *  'engine:galaxy_updated'      Galaxy   (emitted every tick so minimap can refresh)
@@ -47,11 +48,13 @@ import {
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
+import type { Fleet, Ship } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
 } from '@nova-imperia/shared';
+import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
 import {
   createMigrationOrder,
   cancelMigration,
@@ -140,7 +143,12 @@ export class GameEngine {
 
   /** Process exactly one tick and emit events.  Called by the interval. */
   tick(): void {
+    // Snapshot ship list and fleet membership before the tick so we can look
+    // up pre-battle data when building battle result details.
     const prevShipIds = new Set(this.tickState.gameState.ships.map(s => s.id));
+    const prevShips = [...this.tickState.gameState.ships];
+    const prevFleets = [...this.tickState.gameState.fleets];
+
     const { newState, events } = processGameTick(this.tickState);
     this.tickState = newState;
 
@@ -150,9 +158,17 @@ export class GameEngine {
         case 'FleetMoved':
           this.game.events.emit('engine:fleet_moved', event as FleetMovedEvent);
           break;
-        case 'CombatResolved':
-          this.game.events.emit('engine:combat_resolved', event as CombatResolvedEvent);
+        case 'CombatResolved': {
+          const combatEvent = event as CombatResolvedEvent;
+          this.game.events.emit('engine:combat_resolved', combatEvent);
+          // Pause the engine so the player can read the battle results
+          this._clearInterval();
+          this.running = false;
+          // Build enriched battle result data for the UI
+          const battleData = this._buildBattleResultData(combatEvent, prevShips, prevFleets);
+          this.game.events.emit('engine:battle_resolved', battleData);
           break;
+        }
         case 'TechResearched':
           this.game.events.emit('engine:tech_researched', event as TechResearchedEvent);
           break;
@@ -793,6 +809,9 @@ export class GameEngine {
     // Notify React so the fleet screen updates immediately
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
 
+    // Notify audio / SFX listeners that a movement order has been issued
+    this.game.events.emit('engine:fleet_order_issued', { fleetId });
+
     return true;
   }
 
@@ -815,6 +834,123 @@ export class GameEngine {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+  }
+
+  /**
+   * Build a BattleResultsData payload from a raw CombatResolvedEvent.
+   *
+   * Uses pre-battle ship and fleet snapshots (captured before processGameTick
+   * ran) so destroyed ships are still visible in the results panel.
+   */
+  private _buildBattleResultData(
+    event: CombatResolvedEvent,
+    prevShips: Ship[],
+    prevFleets: Fleet[],
+  ): BattleResultsData {
+    const { systemId, winnerEmpireId, casualties, tick } = event;
+    const empires = this.tickState.gameState.empires;
+
+    // Resolve system name
+    const system = this.tickState.gameState.galaxy.systems.find(s => s.id === systemId);
+    const systemName = system?.name ?? systemId;
+
+    // Determine which fleet was attacking vs defending by looking at the pre-tick
+    // state.  The attacker is any fleet that just moved into this system (i.e. its
+    // previous position was different), but since we don't have per-fleet combat
+    // role metadata in CombatResolvedEvent we do a best-effort split: fleets whose
+    // empire owns the system are the defender; others are the attacker.
+    const systemOwnerId = system?.ownerId ?? null;
+
+    // Build a casualties map: fleetId → shipsLost count
+    const casualtyMap = new Map<string, number>();
+    for (const c of casualties) {
+      casualtyMap.set(c.fleetId, c.shipsLost);
+    }
+
+    // Partition pre-battle fleets in this system into attacker / defender sides.
+    const fleetsInSystem = prevFleets.filter(f => f.position.systemId === systemId);
+
+    let attackerFleet: Fleet | undefined;
+    let defenderFleet: Fleet | undefined;
+
+    for (const f of fleetsInSystem) {
+      if (f.empireId === systemOwnerId) {
+        defenderFleet = f;
+      } else {
+        attackerFleet = f;
+      }
+    }
+
+    // Fallback: if we can't distinguish, treat first fleet as attacker
+    if (!attackerFleet && fleetsInSystem.length >= 1) {
+      attackerFleet = fleetsInSystem[0];
+    }
+    if (!defenderFleet && fleetsInSystem.length >= 2) {
+      defenderFleet = fleetsInSystem[1];
+    }
+
+    const attackerEmpireId = attackerFleet?.empireId ?? '';
+    const defenderEmpireId = defenderFleet?.empireId ?? '';
+
+    const attackerEmpire = empires.find(e => e.id === attackerEmpireId);
+    const defenderEmpire = empires.find(e => e.id === defenderEmpireId);
+
+    // Build ship record lists using pre-battle ship snapshots
+    const attackerShipIds = new Set(attackerFleet?.ships ?? []);
+    const defenderShipIds = new Set(defenderFleet?.ships ?? []);
+    const attackerCasualties = casualtyMap.get(attackerFleet?.id ?? '') ?? 0;
+    const defenderCasualties = casualtyMap.get(defenderFleet?.id ?? '') ?? 0;
+
+    // Resolve hull class from ship designs map for display icons
+    const designs = this.tickState.shipDesigns ?? new Map();
+    const buildShipRecords = (shipIds: Set<string>, shipsLost: number): BattleShipRecord[] => {
+      const shipList = prevShips.filter(s => shipIds.has(s.id));
+      return shipList.map((ship, i): BattleShipRecord => {
+        const design = designs.get(ship.designId);
+        const hull = design?.hull ?? 'destroyer';
+        const isDestroyed = i < shipsLost;
+        return {
+          id: ship.id,
+          name: ship.name,
+          hull,
+          status: isDestroyed ? 'destroyed' : 'survived',
+        };
+      });
+    };
+
+    // Determine winner side from empire IDs
+    const winnerEmpire = empires.find(e => e.id === winnerEmpireId);
+    const winner: BattleResultsData['winner'] =
+      winnerEmpireId === attackerEmpireId
+        ? 'attacker'
+        : winnerEmpireId === defenderEmpireId
+          ? 'defender'
+          : 'draw';
+
+    // System control changes hands when the attacker wins a previously-owned system
+    const systemControlChanged = Boolean(
+      winner !== 'draw' &&
+      winnerEmpireId &&
+      winnerEmpireId !== systemOwnerId,
+    );
+
+    return {
+      systemName,
+      attacker: {
+        empireName: attackerEmpire?.name ?? 'Unknown Empire',
+        empireColor: attackerEmpire?.color ?? '#aabbcc',
+        ships: buildShipRecords(attackerShipIds, attackerCasualties),
+      },
+      defender: {
+        empireName: defenderEmpire?.name ?? 'Unknown Empire',
+        empireColor: defenderEmpire?.color ?? '#aabbcc',
+        ships: buildShipRecords(defenderShipIds, defenderCasualties),
+      },
+      winner,
+      systemControlChanged,
+      newOwnerName: systemControlChanged ? winnerEmpire?.name : undefined,
+      ticksElapsed: tick,
+    };
   }
 }
 

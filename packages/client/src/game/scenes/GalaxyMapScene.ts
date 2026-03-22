@@ -321,6 +321,10 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('engine:tick', this._handleEngineTick);
       this.game.events.off('engine:fleet_moved', this._handleFleetMoved);
+      this.game.events.off('engine:combat_resolved', this._handleCombatResolved);
+      this.game.events.off('engine:fleet_order_issued');
+      this.game.events.off('engine:tech_researched');
+      this.game.events.off('engine:ship_produced');
       // Destroy fleet badges
       for (const [, container] of this.fleetBadges) {
         container.destroy();
@@ -423,6 +427,21 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Play arrival flash when a fleet reaches its destination (or any intermediate hop)
     this.game.events.on('engine:fleet_moved', this._handleFleetMoved);
+
+    // Play battle flash + "Battle!" label when two opposing fleets meet
+    this.game.events.on('engine:combat_resolved', this._handleCombatResolved);
+
+    // Game event SFX
+    this.game.events.on('engine:tech_researched', () => {
+      this.sfx?.playResearchComplete();
+    });
+    this.game.events.on('engine:ship_produced', () => {
+      this.sfx?.playShipLaunch();
+    });
+    // Play fleet move SFX when a movement order is issued
+    this.game.events.on('engine:fleet_order_issued', () => {
+      this.sfx?.playFleetMove();
+    });
 
     // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
     this.game.events.on('ui:exit_to_menu', () => {
@@ -1389,4 +1408,73 @@ export class GalaxyMapScene extends Phaser.Scene {
       this._playArrivalFlash(systemId);
     }
   };
+
+  /**
+   * Handler for 'engine:combat_resolved'.
+   *
+   * Plays a red multi-ring flash at the battle location and briefly shows a
+   * "Battle!" text label.  The engine has already paused itself so the React
+   * layer can display the BattleResultsScreen overlay.
+   */
+  private _handleCombatResolved = (event: unknown): void => {
+    const evt = event as { systemId?: string };
+    if (evt?.systemId) {
+      this._playCombatFlash(evt.systemId);
+    }
+  };
+
+  /**
+   * Red expanding ring + "Battle!" text at the given system.
+   * Distinct from the blue arrival flash so it's immediately recognisable.
+   */
+  private _playCombatFlash(systemId: string): void {
+    const sys = this.galaxy.systems.find(s => s.id === systemId);
+    if (!sys) return;
+
+    const { x, y } = sys.position;
+
+    // ── Expanding red rings ────────────────────────────────────────────────────
+    const ringColors = [0xff4422, 0xff8800, 0xff4422];
+    for (let i = 0; i < ringColors.length; i++) {
+      const ring = this.add.circle(x, y, 8, ringColors[i]!, 0.65);
+      this.starLayer.add(ring);
+      this.tweens.add({
+        targets: ring,
+        scaleX: 5 + i * 2,
+        scaleY: 5 + i * 2,
+        alpha: 0,
+        duration: 600 + i * 120,
+        delay: i * 80,
+        ease: 'Quad.easeOut',
+        onComplete: () => ring.destroy(),
+      });
+    }
+
+    // ── "Battle!" text label ───────────────────────────────────────────────────
+    const screenPos = this.galaxyToScreen(x, y);
+    const battleLabel = this.add.text(
+      screenPos.x,
+      screenPos.y - 28,
+      'Battle!',
+      {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ff6622',
+        stroke: '#000000',
+        strokeThickness: 3,
+      },
+    )
+      .setOrigin(0.5, 1)
+      .setDepth(200);
+    this.uiLayer.add(battleLabel);
+
+    this.tweens.add({
+      targets: battleLabel,
+      y: screenPos.y - 52,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Quad.easeOut',
+      onComplete: () => battleLabel.destroy(),
+    });
+  }
 }

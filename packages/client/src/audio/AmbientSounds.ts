@@ -146,6 +146,27 @@ export class AmbientSounds {
     }
   }
 
+  // ── Planet management screen ambient (public API) ───────────────────────────
+
+  /**
+   * Start a planet-type ambient for the planet management screen.
+   * Wraps startSurfaceAmbient — callers should pass building count for the
+   * industrial variant.
+   */
+  startPlanetAmbient(planetType: PlanetType, buildingCount = 0): void {
+    this.startSurfaceAmbient(planetType, buildingCount);
+  }
+
+  // ── Stop all ambients (clean-up helper) ─────────────────────────────────────
+
+  /**
+   * Stop all active ambient layers.  Alias for stopAll() for clarity at
+   * call-sites that manage screen-level audio lifecycle.
+   */
+  stopAllAmbients(): void {
+    this.stopAll();
+  }
+
   // ── Fleet ambient ────────────────────────────────────────────────────────────
 
   startFleetAmbient(shipCount: number): void {

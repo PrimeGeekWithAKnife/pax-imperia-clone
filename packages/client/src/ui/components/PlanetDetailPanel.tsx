@@ -46,6 +46,30 @@ const BUILDING_TYPE_LABELS: Record<string, string> = {
   terraforming_station: 'Terraforming Station',
   military_academy: 'Military Academy',
   fusion_reactor: 'Fusion Reactor',
+  // ── Vaelori ─────────────────────────────────────────────────────────────
+  crystal_resonance_chamber: 'Crystal Resonance Chamber',
+  psionic_amplifier: 'Psionic Amplifier',
+  // ── Khazari ─────────────────────────────────────────────────────────────
+  war_forge: 'War Forge',
+  magma_tap: 'Magma Tap',
+  // ── Sylvani ─────────────────────────────────────────────────────────────
+  living_archive: 'Living Archive',
+  growth_vat: 'Growth Vat',
+  // ── Nexari ──────────────────────────────────────────────────────────────
+  neural_network_hub: 'Neural Network Hub',
+  assimilation_node: 'Assimilation Node',
+  // ── Drakmari ────────────────────────────────────────────────────────────
+  abyssal_processor: 'Abyssal Processor',
+  predator_arena: 'Predator Arena',
+  // ── Teranos ─────────────────────────────────────────────────────────────
+  diplomatic_quarter: 'Diplomatic Quarter',
+  innovation_lab: 'Innovation Lab',
+  // ── Zorvathi ────────────────────────────────────────────────────────────
+  deep_hive: 'Deep Hive',
+  tunnel_network: 'Tunnel Network',
+  // ── Ashkari ─────────────────────────────────────────────────────────────
+  salvage_yard: 'Salvage Yard',
+  black_market: 'Black Market',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

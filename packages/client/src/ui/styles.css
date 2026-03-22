@@ -6439,3 +6439,1045 @@
   border-color: rgba(68, 204, 136, 0.5);
   box-shadow: 0 0 16px rgba(68, 204, 136, 0.15);
 }
+
+/* ===========================================================================
+   Fleet Management Screen
+   =========================================================================== */
+
+/* Override the standard pm-body grid for a three-column fleet layout */
+.fleet-screen .pm-body {
+  grid-template-columns: 240px 1fr 260px;
+}
+
+.fleet-screen__left-col {
+  border-right: 1px solid var(--color-border);
+  background: rgba(5, 5, 14, 0.6);
+  overflow-y: auto;
+}
+
+.fleet-screen__centre-col {
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fleet-screen__right-col {
+  background: rgba(5, 5, 14, 0.5);
+  overflow-y: auto;
+}
+
+/* ── Fleet list ── */
+
+.fleet-screen__system-group {
+  margin-bottom: 12px;
+}
+
+.fleet-screen__system-group-label {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.fleet-screen__fleet-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: rgba(0, 30, 50, 0.35);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.fleet-screen__fleet-item:hover {
+  background: rgba(0, 212, 255, 0.07);
+  border-color: var(--color-accent-dim);
+}
+
+.fleet-screen__fleet-item--selected {
+  background: rgba(0, 212, 255, 0.12);
+  border-color: var(--color-accent);
+}
+
+.fleet-screen__fleet-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.fleet-screen__fleet-item-name {
+  font-size: 12px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fleet-screen__fleet-item-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.fleet-screen__fleet-hp-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.fleet-screen__fleet-hp-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.3s;
+}
+
+/* ── Stance badge ── */
+
+.fleet-screen__stance-badge {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  border-radius: 2px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.fleet-screen__stance-badge--aggressive { background: rgba(212, 66, 34, 0.25); color: #e07050; border: 1px solid rgba(212, 66, 34, 0.4); }
+.fleet-screen__stance-badge--defensive  { background: rgba(34, 128, 212, 0.25); color: #6aabee; border: 1px solid rgba(34, 128, 212, 0.4); }
+.fleet-screen__stance-badge--evasive    { background: rgba(212, 160, 34, 0.25); color: #e0c060; border: 1px solid rgba(212, 160, 34, 0.4); }
+.fleet-screen__stance-badge--patrol     { background: rgba(34, 212, 128, 0.25); color: #60e0a0; border: 1px solid rgba(34, 212, 128, 0.4); }
+
+/* ── Centre: fleet detail ── */
+
+.fleet-screen__detail-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fleet-screen__detail-section--ships {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fleet-screen__name-btn {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--color-text);
+  letter-spacing: 0.1em;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.fleet-screen__name-btn:hover {
+  color: var(--color-accent);
+}
+
+.fleet-screen__name-input {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--color-text);
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid var(--color-accent-dim);
+  border-radius: 3px;
+  padding: 3px 8px;
+  width: 100%;
+  outline: none;
+  margin-bottom: 4px;
+}
+
+.fleet-screen__location-line {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* Stance selector */
+
+.fleet-screen__stance-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.fleet-screen__stance-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: rgba(0, 30, 50, 0.4);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.fleet-screen__stance-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: var(--color-accent-dim);
+  color: var(--color-text);
+}
+
+.fleet-screen__stance-btn--active {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.fleet-screen__stance-label {
+  font-size: 8px;
+  opacity: 0.75;
+}
+
+/* HP bar */
+
+.fleet-screen__hp-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+
+.fleet-screen__hp-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.fleet-screen__hp-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Ship list */
+
+.fleet-screen__ship-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.fleet-screen__ship-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  grid-template-rows: auto 3px;
+  column-gap: 6px;
+  row-gap: 3px;
+  align-items: center;
+  padding: 5px 6px;
+  background: rgba(0, 20, 40, 0.3);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+.fleet-screen__ship-thumb {
+  grid-row: 1;
+  grid-column: 1;
+  opacity: 0.8;
+}
+
+.fleet-screen__ship-name {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fleet-screen__ship-hp {
+  grid-row: 1;
+  grid-column: 3;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.fleet-screen__ship-hp-track {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.fleet-screen__ship-hp-fill {
+  height: 100%;
+  border-radius: 1px;
+}
+
+/* Move button */
+
+.fleet-screen__move-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid var(--color-accent-dim);
+  border-radius: 3px;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.fleet-screen__move-btn:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.18);
+  border-color: var(--color-accent);
+}
+
+.fleet-screen__move-btn--active {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.12);
+}
+
+.fleet-screen__move-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fleet-screen__no-selection {
+  padding: 32px 20px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Right: movement orders ── */
+
+.fleet-screen__active-order {
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid var(--color-accent-dim);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.fleet-screen__active-order-label {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  margin-bottom: 6px;
+}
+
+.fleet-screen__active-order-dest {
+  font-size: 12px;
+  color: var(--color-text);
+  margin-bottom: 3px;
+}
+
+.fleet-screen__active-order-dest strong {
+  color: var(--color-accent);
+}
+
+.fleet-screen__active-order-eta,
+.fleet-screen__active-order-path {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 3px;
+}
+
+.fleet-screen__cancel-order-btn {
+  margin-top: 8px;
+  padding: 5px 10px;
+  background: rgba(212, 66, 34, 0.1);
+  border: 1px solid rgba(212, 66, 34, 0.35);
+  border-radius: 2px;
+  color: #e07050;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fleet-screen__cancel-order-btn:hover {
+  background: rgba(212, 66, 34, 0.2);
+}
+
+.fleet-screen__dest-picker-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.fleet-screen__dest-none {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.fleet-screen__dest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.fleet-screen__dest-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 10px;
+  background: rgba(0, 20, 40, 0.35);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.fleet-screen__dest-item:hover,
+.fleet-screen__dest-item--hovered {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--color-accent-dim);
+}
+
+.fleet-screen__dest-name {
+  font-size: 12px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fleet-screen__dest-hops {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.fleet-screen__dest-eta {
+  font-size: 10px;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.fleet-screen__order-idle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* Route preview */
+
+.fleet-screen__path-preview {
+  margin-top: 14px;
+  padding: 8px 10px;
+  background: rgba(0, 30, 50, 0.3);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+}
+
+.fleet-screen__path-preview-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.fleet-screen__path-step {
+  font-size: 11px;
+  color: var(--color-text);
+}
+
+.fleet-screen__path-arrow {
+  color: var(--color-accent-dim);
+  margin: 0 4px;
+  font-size: 10px;
+}
+
+/* Empty state */
+
+.fleet-screen__empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* ================================================================
+   BATTLE RESULTS SCREEN
+================================================================ */
+
+.brs-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 2, 10, 0.82);
+  z-index: 600;
+  font-family: var(--font-mono);
+  pointer-events: auto;
+}
+
+.brs-modal {
+  width: min(680px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 4px;
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.18), 0 8px 32px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Header ── */
+
+.brs-header {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.brs-title {
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.55);
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.brs-empires {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.brs-empire-name {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+
+.brs-vs {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.25em;
+}
+
+/* ── Ship comparison ── */
+
+.brs-ships {
+  display: grid;
+  grid-template-columns: 1fr 2px 1fr;
+  gap: 0;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brs-ships-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.brs-ships-divider {
+  background: var(--color-border);
+  margin: 0 16px;
+  border-radius: 1px;
+}
+
+.brs-col-heading {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--color-text-muted);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.brs-ships-col:last-child .brs-col-heading {
+  text-align: right;
+}
+
+.brs-ship-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brs-ship-list--right .brs-ship-row {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.brs-ship-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 0;
+}
+
+.brs-ship-row--survived {
+  color: #55dd88;
+}
+
+.brs-ship-row--destroyed {
+  color: #ee4444;
+  opacity: 0.85;
+}
+
+.brs-ship-row--routed {
+  color: #ddaa33;
+}
+
+.brs-ship-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.brs-ship-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brs-ship-status {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+/* ── Battle summary ── */
+
+.brs-summary {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.brs-victory-text {
+  font-size: 16px;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+  text-align: center;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.brs-victory-text--draw {
+  color: var(--color-text-muted);
+  text-shadow: none;
+}
+
+.brs-stats {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.brs-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.brs-stat-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.brs-stat-value {
+  font-size: 22px;
+  color: var(--color-text);
+}
+
+/* ── Consequences ── */
+
+.brs-consequences {
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 100, 50, 0.08);
+}
+
+.brs-consequence-item {
+  font-size: 12px;
+  color: var(--color-text);
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.brs-consequence-owner {
+  color: #55dd88;
+}
+
+/* ── Footer ── */
+
+.brs-footer {
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.brs-continue-btn {
+  background: transparent;
+  border: 1px solid var(--color-border-bright);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  padding: 9px 40px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.brs-continue-btn:hover,
+.brs-continue-btn:focus-visible {
+  background: rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+  outline: none;
+}
+
+.brs-continue-hint {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin: 0;
+  letter-spacing: 0.08em;
+}
+
+/* ===========================================================================
+   Economy Screen
+   =========================================================================== */
+
+/* ── Income/expense breakdown ── */
+
+.econ-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 11px;
+  border-bottom: 1px solid rgba(0, 180, 220, 0.06);
+}
+
+.econ-breakdown-row__label {
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.econ-breakdown-row__value {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.econ-net-income {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--color-border-bright);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+.econ-net-income__label {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+
+.econ-net-income__value {
+  font-size: 14px;
+}
+
+/* ── Resource bar row ── */
+
+.econ-resource-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 10px;
+}
+
+.econ-resource-row__label-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.econ-resource-row__icon {
+  font-size: 9px;
+  font-weight: bold;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.econ-resource-row__label {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.econ-resource-row__bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.econ-resource-row__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.econ-resource-row__values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 80px;
+  flex-shrink: 0;
+  gap: 1px;
+}
+
+.econ-resource-row__stockpile {
+  color: var(--color-text);
+  font-size: 10px;
+}
+
+.econ-resource-row__rate {
+  font-size: 9px;
+  letter-spacing: 0.03em;
+}
+
+.econ-resource-row__warn {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+/* ── Planet contributions table ── */
+
+.econ-planet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.econ-planet-table__th {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  border-bottom: 1px solid var(--color-border-bright);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  background: rgba(0, 20, 40, 0.5);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.econ-planet-table__th:hover {
+  color: var(--color-text);
+  background: rgba(0, 40, 70, 0.6);
+}
+
+.econ-planet-table__th--active {
+  color: var(--color-text);
+}
+
+.econ-planet-table__sort-arrow {
+  opacity: 0.8;
+}
+
+.econ-planet-table__row {
+  border-bottom: 1px solid rgba(0, 180, 220, 0.07);
+  transition: background 0.1s;
+}
+
+.econ-planet-table__row:hover {
+  background: rgba(0, 100, 160, 0.18);
+}
+
+.econ-planet-table__td {
+  padding: 5px 8px;
+  color: var(--color-text);
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.econ-planet-table__td--muted {
+  color: var(--color-text-muted);
+}
+
+.econ-planet-table__td--name {
+  font-size: 12px;
+}
+
+.econ-planet-table__td--num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── Trade route card ── */
+
+.econ-trade-route-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(0, 20, 40, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.econ-trade-route-card__path {
+  flex: 1;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.econ-trade-route-card__system {
+  color: var(--color-accent);
+}
+
+.econ-trade-route-card__arrow {
+  color: var(--color-text-muted);
+}
+
+.econ-trade-route-card__income {
+  color: #f5c518;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.econ-trade-route-card__cancel {
+  flex-shrink: 0;
+  font-size: 9px;
+  padding: 2px 6px;
+  color: #ff7777;
+  border-color: rgba(255, 80, 80, 0.4);
+}
+
+.econ-trade-route-card__cancel:hover {
+  background: rgba(255, 60, 60, 0.15);
+  border-color: rgba(255, 80, 80, 0.7);
+  color: #ffaaaa;
+}
+
+/* ── Trade route form ── */
+
+.econ-trade-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  display: block;
+}
+
+.econ-trade-select {
+  width: 100%;
+  background: rgba(6, 6, 18, 0.9);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.econ-trade-select:focus {
+  border-color: var(--color-accent-dim);
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.2);
+}
+
+.econ-trade-select option {
+  background: #05050f;
+  color: var(--color-text);
+}
+
+.econ-trade-error {
+  font-size: 10px;
+  color: #ff7777;
+  background: rgba(255, 60, 60, 0.08);
+  border: 1px solid rgba(255, 60, 60, 0.25);
+  border-radius: 2px;
+  padding: 4px 8px;
+  line-height: 1.4;
+}

@@ -48,6 +48,30 @@ const ACCENT: Record<BuildingType, string> = {
   terraforming_station:  '#22ddaa',
   military_academy:      '#cc4422',
   fusion_reactor:        '#ff8800',
+  // ── Vaelori ─────────────────────────────────────────────────────────────
+  crystal_resonance_chamber: '#c084fc',
+  psionic_amplifier:         '#a855f7',
+  // ── Khazari ─────────────────────────────────────────────────────────────
+  war_forge:                 '#f97316',
+  magma_tap:                 '#ef4444',
+  // ── Sylvani ─────────────────────────────────────────────────────────────
+  living_archive:            '#22c55e',
+  growth_vat:                '#4ade80',
+  // ── Nexari ──────────────────────────────────────────────────────────────
+  neural_network_hub:        '#06b6d4',
+  assimilation_node:         '#0ea5e9',
+  // ── Drakmari ────────────────────────────────────────────────────────────
+  abyssal_processor:         '#1d4ed8',
+  predator_arena:            '#dc2626',
+  // ── Teranos ─────────────────────────────────────────────────────────────
+  diplomatic_quarter:        '#f59e0b',
+  innovation_lab:            '#84cc16',
+  // ── Zorvathi ────────────────────────────────────────────────────────────
+  deep_hive:                 '#d97706',
+  tunnel_network:            '#78716c',
+  // ── Ashkari ─────────────────────────────────────────────────────────────
+  salvage_yard:              '#64748b',
+  black_market:              '#7c3aed',
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -2520,6 +2544,835 @@ const drawFusionReactor: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, cx, cy, sc(28, s), accent, 0.14);
 };
 
+// ── Vaelori: Crystal Resonance Chamber ────────────────────────────────────────
+
+const drawCrystalResonanceChamber: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Three tall crystal spires rising from a dais
+  const spires = [
+    { x: cx,             h: sc(36, s), w: sc(5, s) },
+    { x: cx - sc(12, s), h: sc(26, s), w: sc(4, s) },
+    { x: cx + sc(12, s), h: sc(26, s), w: sc(4, s) },
+  ];
+
+  spires.forEach(({ x, h, w }) => {
+    const spireGrad = ctx.createLinearGradient(x - w, baseY - h, x + w, baseY);
+    spireGrad.addColorStop(0, '#ffffff');
+    spireGrad.addColorStop(0.3, accent);
+    spireGrad.addColorStop(1, '#1a1a2e');
+    ctx.save();
+    ctx.fillStyle = spireGrad;
+    ctx.beginPath();
+    ctx.moveTo(x,     baseY - h);
+    ctx.lineTo(x + w, baseY);
+    ctx.lineTo(x - w, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.stroke();
+    ctx.restore();
+    drawGlow(ctx, x, baseY - h, sc(5, s), accent, 0.6);
+  });
+
+  // Resonance ring connecting the spires
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - sc(14, s), sc(18, s), sc(5, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, baseY - sc(18, s), sc(22, s), accent, 0.2);
+};
+
+// ── Vaelori: Psionic Amplifier ────────────────────────────────────────────────
+
+const drawPsionicAmplifier: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(10, s), baseY, sc(44, s), accent);
+
+  // Dish / parabolic array
+  ctx.save();
+  const dishGrad = ctx.createRadialGradient(cx, baseY - sc(12, s), sc(2, s), cx, baseY - sc(12, s), sc(18, s));
+  dishGrad.addColorStop(0, accent);
+  dishGrad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = dishGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - sc(12, s), sc(18, s), sc(8, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Central focal emitter
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx, baseY - sc(20, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, baseY - sc(20, s), sc(10, s), accent, 0.7);
+
+  // Tripod legs
+  [cx - sc(14, s), cx, cx + sc(14, s)].forEach(lx => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1.2, s);
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(lx, baseY);
+    ctx.lineTo(cx, baseY - sc(12, s));
+    ctx.stroke();
+    ctx.restore();
+  });
+};
+
+// ── Khazari: War Forge ────────────────────────────────────────────────────────
+
+const drawWarForge: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Massive blocky forge body
+  const bodyGrad = ctx.createLinearGradient(cx - sc(20, s), sc(16, s), cx + sc(20, s), baseY);
+  bodyGrad.addColorStop(0, '#333344');
+  bodyGrad.addColorStop(0.5, '#555566');
+  bodyGrad.addColorStop(1, '#1a1a2e');
+  ctx.save();
+  ctx.fillStyle = bodyGrad;
+  ctx.fillRect(cx - sc(20, s), sc(20, s), sc(40, s), baseY - sc(20, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.strokeRect(cx - sc(20, s), sc(20, s), sc(40, s), baseY - sc(20, s));
+  ctx.restore();
+
+  // Chimneys / exhaust stacks
+  [cx - sc(10, s), cx + sc(10, s)].forEach(tx => {
+    ctx.save();
+    ctx.fillStyle = '#222233';
+    ctx.fillRect(tx - sc(4, s), sc(8, s), sc(8, s), sc(14, s));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1, s);
+    ctx.strokeRect(tx - sc(4, s), sc(8, s), sc(8, s), sc(14, s));
+    ctx.restore();
+    drawGlow(ctx, tx, sc(8, s), sc(8, s), accent, 0.5);
+  });
+
+  // Molten iron window
+  ctx.save();
+  const moltenGrad = ctx.createRadialGradient(cx, sc(36, s), sc(2, s), cx, sc(36, s), sc(10, s));
+  moltenGrad.addColorStop(0, '#ffffff');
+  moltenGrad.addColorStop(0.4, accent);
+  moltenGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = moltenGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(36, s), sc(9, s), sc(6, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+};
+
+// ── Khazari: Magma Tap ────────────────────────────────────────────────────────
+
+const drawMagmaTap: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Bore shaft descending into ground
+  ctx.save();
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(cx - sc(6, s), sc(30, s), sc(12, s), baseY - sc(30, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(6, s), sc(30, s), sc(12, s), baseY - sc(30, s));
+  ctx.restore();
+
+  // Magma rising inside bore
+  const magmaGrad = ctx.createLinearGradient(cx, sc(30, s), cx, baseY);
+  magmaGrad.addColorStop(0, accent);
+  magmaGrad.addColorStop(1, '#ff6600');
+  ctx.save();
+  ctx.fillStyle = magmaGrad;
+  ctx.globalAlpha = 0.7;
+  ctx.fillRect(cx - sc(4, s), sc(38, s), sc(8, s), baseY - sc(38, s));
+  ctx.restore();
+
+  // Geothermal collector drum at surface
+  const drumGrad = ctx.createLinearGradient(cx - sc(16, s), sc(20, s), cx + sc(16, s), sc(32, s));
+  drumGrad.addColorStop(0, '#445566');
+  drumGrad.addColorStop(1, '#1a1a2e');
+  ctx.save();
+  ctx.fillStyle = drumGrad;
+  ctx.fillRect(cx - sc(16, s), sc(20, s), sc(32, s), sc(12, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.strokeRect(cx - sc(16, s), sc(20, s), sc(32, s), sc(12, s));
+  ctx.restore();
+
+  // Pressure valves
+  [cx - sc(10, s), cx + sc(10, s)].forEach(vx => {
+    ctx.save();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(vx, sc(18, s), sc(3, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawGlow(ctx, vx, sc(18, s), sc(6, s), accent, 0.5);
+  });
+
+  drawGlow(ctx, cx, sc(30, s), sc(14, s), accent, 0.3);
+};
+
+// ── Sylvani: Living Archive ───────────────────────────────────────────────────
+
+const drawLivingArchive: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Organic dome formed by interlocking root-branches
+  ctx.save();
+  const domeGrad = ctx.createRadialGradient(cx, baseY - sc(16, s), sc(4, s), cx, baseY - sc(16, s), sc(20, s));
+  domeGrad.addColorStop(0, accent + 'aa');
+  domeGrad.addColorStop(0.6, accent + '44');
+  domeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = domeGrad;
+  ctx.beginPath();
+  ctx.arc(cx, baseY - sc(16, s), sc(20, s), Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Branch tendrils
+  const tendrils = [
+    { ax: cx - sc(18, s), ay: baseY, bx: cx - sc(8, s), by: baseY - sc(24, s) },
+    { ax: cx + sc(18, s), ay: baseY, bx: cx + sc(8, s), by: baseY - sc(24, s) },
+    { ax: cx - sc(10, s), ay: baseY, bx: cx,             by: baseY - sc(32, s) },
+    { ax: cx + sc(10, s), ay: baseY, bx: cx,             by: baseY - sc(32, s) },
+  ];
+  tendrils.forEach(({ ax, ay, bx, by }) => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1.5, s);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo((ax + bx) / 2 + sc(4, s), (ay + by) / 2, bx, by);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Central crystalline seed at apex
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx, baseY - sc(32, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, baseY - sc(32, s), sc(8, s), accent, 0.6);
+};
+
+// ── Sylvani: Growth Vat ───────────────────────────────────────────────────────
+
+const drawGrowthVat: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Large cylindrical vat
+  const vatGrad = ctx.createLinearGradient(cx - sc(14, s), sc(18, s), cx + sc(14, s), baseY);
+  vatGrad.addColorStop(0, '#223322');
+  vatGrad.addColorStop(0.5, '#335533');
+  vatGrad.addColorStop(1, '#1a1a2e');
+  ctx.save();
+  ctx.fillStyle = vatGrad;
+  ctx.fillRect(cx - sc(14, s), sc(18, s), sc(28, s), baseY - sc(18, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.strokeRect(cx - sc(14, s), sc(18, s), sc(28, s), baseY - sc(18, s));
+  ctx.restore();
+
+  // Nutrient fluid inside
+  ctx.save();
+  ctx.fillStyle = accent + '55';
+  ctx.fillRect(cx - sc(12, s), sc(22, s), sc(24, s), baseY - sc(24, s));
+  ctx.restore();
+
+  // Bubbles / spore clusters
+  [[cx - sc(5, s), sc(30, s)], [cx + sc(4, s), sc(38, s)], [cx - sc(2, s), sc(44, s)]].forEach(([bx, by]) => {
+    ctx.save();
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(bx, by, sc(2.5, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Dome lid
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(18, s), sc(14, s), sc(5, s), 0, Math.PI, 0);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(32, s), sc(16, s), accent, 0.2);
+};
+
+// ── Nexari: Neural Network Hub ────────────────────────────────────────────────
+
+const drawNeuralNetworkHub: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Central node
+  ctx.save();
+  const nodeGrad = ctx.createRadialGradient(cx, sc(28, s), sc(2, s), cx, sc(28, s), sc(10, s));
+  nodeGrad.addColorStop(0, '#ffffff');
+  nodeGrad.addColorStop(0.4, accent);
+  nodeGrad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = nodeGrad;
+  ctx.beginPath();
+  ctx.arc(cx, sc(28, s), sc(8, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(28, s), sc(14, s), accent, 0.4);
+
+  // Sub-nodes connected by data lines
+  const subNodes = [
+    { x: cx - sc(16, s), y: sc(18, s) },
+    { x: cx + sc(16, s), y: sc(18, s) },
+    { x: cx - sc(18, s), y: sc(38, s) },
+    { x: cx + sc(18, s), y: sc(38, s) },
+    { x: cx,             y: sc(12, s) },
+  ];
+
+  subNodes.forEach(node => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, sc(28, s));
+    ctx.lineTo(node.x, node.y);
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, sc(3, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawGlow(ctx, node.x, node.y, sc(6, s), accent, 0.4);
+  });
+};
+
+// ── Nexari: Assimilation Node ─────────────────────────────────────────────────
+
+const drawAssimilationNode: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Hexagonal housing
+  ctx.save();
+  const hexGrad = ctx.createLinearGradient(cx - sc(14, s), sc(14, s), cx + sc(14, s), baseY - sc(6, s));
+  hexGrad.addColorStop(0, '#223344');
+  hexGrad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = hexGrad;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    const hx = cx + sc(14, s) * Math.cos(angle);
+    const hy = sc(32, s) + sc(16, s) * Math.sin(angle);
+    if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Integration tendrils
+  for (let i = 0; i < 4; i++) {
+    const angle = (Math.PI / 2) * i;
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(cx, sc(32, s));
+    ctx.lineTo(cx + sc(18, s) * Math.cos(angle), sc(32, s) + sc(18, s) * Math.sin(angle));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Core eye
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(32, s), sc(4, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(32, s), sc(10, s), accent, 0.5);
+};
+
+// ── Drakmari: Abyssal Processor ───────────────────────────────────────────────
+
+const drawAbyssalProcessor: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Underwater rig platform
+  const rigGrad = ctx.createLinearGradient(cx - sc(18, s), sc(22, s), cx + sc(18, s), baseY);
+  rigGrad.addColorStop(0, '#112233');
+  rigGrad.addColorStop(1, '#0a1520');
+  ctx.save();
+  ctx.fillStyle = rigGrad;
+  ctx.fillRect(cx - sc(18, s), sc(26, s), sc(36, s), baseY - sc(26, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(18, s), sc(26, s), sc(36, s), baseY - sc(26, s));
+  ctx.restore();
+
+  // Drill/extractor columns
+  [cx - sc(10, s), cx, cx + sc(10, s)].forEach(dx => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(2, s);
+    ctx.beginPath();
+    ctx.moveTo(dx, sc(22, s));
+    ctx.lineTo(dx, sc(12, s));
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(dx, sc(10, s));
+    ctx.lineTo(dx - sc(3, s), sc(14, s));
+    ctx.lineTo(dx + sc(3, s), sc(14, s));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    drawGlow(ctx, dx, sc(12, s), sc(5, s), accent, 0.4);
+  });
+
+  // Sediment collector tank
+  ctx.save();
+  const tankGrad = ctx.createLinearGradient(cx - sc(12, s), sc(28, s), cx + sc(12, s), sc(40, s));
+  tankGrad.addColorStop(0, accent + '66');
+  tankGrad.addColorStop(1, '#1a2a3a');
+  ctx.fillStyle = tankGrad;
+  ctx.fillRect(cx - sc(12, s), sc(30, s), sc(24, s), sc(10, s));
+  ctx.restore();
+};
+
+// ── Drakmari: Predator Arena ──────────────────────────────────────────────────
+
+const drawPredatorArena: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Arena ring
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(2.5, s);
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(32, s), sc(18, s), sc(12, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Inner sand floor
+  ctx.save();
+  ctx.fillStyle = '#3a2a1a';
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(32, s), sc(16, s), sc(10, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Claw marks at centre
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  [-sc(4, s), 0, sc(4, s)].forEach((ox, i) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + ox, sc(38, s));
+    ctx.quadraticCurveTo(cx + ox + (i === 0 ? -sc(2, s) : i === 2 ? sc(2, s) : 0), sc(30, s), cx + ox, sc(26, s));
+    ctx.stroke();
+  });
+  ctx.restore();
+
+  // Battle glow
+  drawGlow(ctx, cx, sc(32, s), sc(16, s), accent, 0.25);
+
+  // Spectator stands
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.7, s);
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(32, s), sc(22, s), sc(15, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+};
+
+// ── Teranos: Diplomatic Quarter ───────────────────────────────────────────────
+
+const drawDiplomaticQuarter: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Grand hall building
+  const hallGrad = ctx.createLinearGradient(cx - sc(18, s), sc(20, s), cx + sc(18, s), baseY);
+  hallGrad.addColorStop(0, '#2a2a3a');
+  hallGrad.addColorStop(1, '#1a1a2e');
+  ctx.save();
+  ctx.fillStyle = hallGrad;
+  ctx.fillRect(cx - sc(18, s), sc(24, s), sc(36, s), baseY - sc(24, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.strokeRect(cx - sc(18, s), sc(24, s), sc(36, s), baseY - sc(24, s));
+  ctx.restore();
+
+  // Portico columns
+  [cx - sc(12, s), cx - sc(4, s), cx + sc(4, s), cx + sc(12, s)].forEach(colX => {
+    ctx.save();
+    ctx.fillStyle = accent + '88';
+    ctx.fillRect(colX - sc(1.5, s), sc(24, s), sc(3, s), baseY - sc(24, s));
+    ctx.restore();
+  });
+
+  // Pediment / triangular roof
+  ctx.save();
+  const pedGrad = ctx.createLinearGradient(cx, sc(12, s), cx, sc(24, s));
+  pedGrad.addColorStop(0, accent);
+  pedGrad.addColorStop(1, '#2a2a3a');
+  ctx.fillStyle = pedGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx,             sc(12, s));
+  ctx.lineTo(cx + sc(20, s), sc(24, s));
+  ctx.lineTo(cx - sc(20, s), sc(24, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Flag at apex
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(cx, sc(12, s));
+  ctx.lineTo(cx, sc(6, s));
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(cx, sc(6, s));
+  ctx.lineTo(cx + sc(6, s), sc(8, s));
+  ctx.lineTo(cx, sc(10, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(24, s), sc(20, s), accent, 0.12);
+};
+
+// ── Teranos: Innovation Lab ───────────────────────────────────────────────────
+
+const drawInnovationLab: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Main lab building
+  ctx.save();
+  ctx.fillStyle = '#252535';
+  ctx.fillRect(cx - sc(16, s), sc(22, s), sc(32, s), baseY - sc(22, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(16, s), sc(22, s), sc(32, s), baseY - sc(22, s));
+  ctx.restore();
+
+  // Roof antenna array
+  [cx - sc(8, s), cx, cx + sc(8, s)].forEach((ax, i) => {
+    const h = i === 1 ? sc(14, s) : sc(8, s);
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1, s);
+    ctx.beginPath();
+    ctx.moveTo(ax, sc(22, s));
+    ctx.lineTo(ax, sc(22, s) - h);
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(ax, sc(22, s) - h, sc(2, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawGlow(ctx, ax, sc(22, s) - h, sc(5, s), accent, 0.45);
+  });
+
+  // Windows
+  [[cx - sc(10, s), sc(30, s)], [cx + sc(4, s), sc(30, s)], [cx - sc(4, s), sc(40, s)]].forEach(([wx, wy]) => {
+    ctx.save();
+    ctx.fillStyle = accent + '66';
+    ctx.fillRect(wx - sc(3, s), wy - sc(3, s), sc(6, s), sc(6, s));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.7, s);
+    ctx.strokeRect(wx - sc(3, s), wy - sc(3, s), sc(6, s), sc(6, s));
+    ctx.restore();
+  });
+
+  drawGlow(ctx, cx, sc(28, s), sc(18, s), accent, 0.12);
+};
+
+// ── Zorvathi: Deep Hive ───────────────────────────────────────────────────────
+
+const drawDeepHive: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Surface entrance mound
+  ctx.save();
+  const moundGrad = ctx.createRadialGradient(cx, baseY, sc(4, s), cx, baseY, sc(22, s));
+  moundGrad.addColorStop(0, '#3a3030');
+  moundGrad.addColorStop(1, '#1a1a1a');
+  ctx.fillStyle = moundGrad;
+  ctx.beginPath();
+  ctx.arc(cx, baseY, sc(22, s), Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Tunnel bore entrance
+  ctx.save();
+  ctx.fillStyle = '#0a0a0a';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - sc(6, s), sc(8, s), sc(5, s), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Chamber vents
+  [cx - sc(12, s), cx + sc(12, s)].forEach(vx => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1, s);
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(vx, baseY - sc(4, s));
+    ctx.lineTo(vx, baseY - sc(16, s));
+    ctx.stroke();
+    ctx.restore();
+    drawGlow(ctx, vx, baseY - sc(16, s), sc(5, s), accent, 0.4);
+  });
+
+  // Underground level indicators
+  [sc(38, s), sc(44, s)].forEach(ly => {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.6, s);
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.moveTo(cx - sc(16, s), ly);
+    ctx.lineTo(cx + sc(16, s), ly);
+    ctx.stroke();
+    ctx.restore();
+  });
+};
+
+// ── Zorvathi: Tunnel Network ──────────────────────────────────────────────────
+
+const drawTunnelNetwork: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Surface nodes
+  const nodes = [
+    { x: cx - sc(16, s), y: baseY - sc(8, s)  },
+    { x: cx + sc(16, s), y: baseY - sc(8, s)  },
+    { x: cx - sc(8, s),  y: baseY - sc(20, s) },
+    { x: cx + sc(8, s),  y: baseY - sc(20, s) },
+    { x: cx,             y: baseY - sc(30, s) },
+  ];
+
+  // Tunnel connections
+  const pairs = [[0, 2], [1, 3], [2, 4], [3, 4], [0, 1]];
+  pairs.forEach(([a, b]) => {
+    const na = nodes[a]!;
+    const nb = nodes[b]!;
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(1.5, s);
+    ctx.globalAlpha = 0.35;
+    ctx.setLineDash([sc(3, s), sc(2, s)]);
+    ctx.beginPath();
+    ctx.moveTo(na.x, na.y);
+    ctx.lineTo(nb.x, nb.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+
+  nodes.forEach(node => {
+    ctx.save();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, sc(3.5, s), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    drawGlow(ctx, node.x, node.y, sc(7, s), accent, 0.4);
+  });
+};
+
+// ── Ashkari: Salvage Yard ─────────────────────────────────────────────────────
+
+const drawSalvageYard: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Scrap pile — irregular heap
+  ctx.save();
+  ctx.fillStyle = '#333344';
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(20, s), baseY);
+  ctx.lineTo(cx - sc(16, s), sc(36, s));
+  ctx.lineTo(cx - sc(8, s),  sc(30, s));
+  ctx.lineTo(cx,             sc(26, s));
+  ctx.lineTo(cx + sc(10, s), sc(32, s));
+  ctx.lineTo(cx + sc(18, s), sc(38, s));
+  ctx.lineTo(cx + sc(20, s), baseY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Derelict ship hull fragment
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(6, s), sc(24, s));
+  ctx.lineTo(cx + sc(6, s), sc(28, s));
+  ctx.lineTo(cx + sc(8, s), sc(22, s));
+  ctx.lineTo(cx - sc(4, s), sc(18, s));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  // Crane arm
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(18, s), baseY);
+  ctx.lineTo(cx - sc(18, s), sc(18, s));
+  ctx.lineTo(cx - sc(4, s),  sc(18, s));
+  ctx.stroke();
+  ctx.lineWidth = sc(1.2, s);
+  ctx.beginPath();
+  ctx.arc(cx - sc(4, s), sc(22, s), sc(4, s), -Math.PI / 2, Math.PI / 2);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(30, s), sc(16, s), accent, 0.15);
+};
+
+// ── Ashkari: Black Market ─────────────────────────────────────────────────────
+
+const drawBlackMarket: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Low-profile warehouse
+  ctx.save();
+  ctx.fillStyle = '#1a1a22';
+  ctx.fillRect(cx - sc(20, s), sc(30, s), sc(40, s), baseY - sc(30, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(20, s), sc(30, s), sc(40, s), baseY - sc(30, s));
+  ctx.restore();
+
+  // Slanted roof
+  ctx.save();
+  ctx.fillStyle = '#222230';
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(22, s), sc(30, s));
+  ctx.lineTo(cx + sc(22, s), sc(30, s));
+  ctx.lineTo(cx + sc(18, s), sc(22, s));
+  ctx.lineTo(cx - sc(18, s), sc(22, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Credit symbol
+  ctx.save();
+  ctx.font = `bold ${sc(12, s)}px monospace`;
+  ctx.fillStyle = accent;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('\u00a2', cx, sc(37, s));
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(36, s), sc(14, s), accent, 0.2);
+
+  // Signal light above door
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(22, s), sc(2.5, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(22, s), sc(7, s), accent, 0.55);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -2540,6 +3393,23 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   terraforming_station:  drawTerraformingStation,
   military_academy:      drawMilitaryAcademy,
   fusion_reactor:        drawFusionReactor,
+  // ── Race-specific buildings (generic placeholder icon) ─────────────────────
+  crystal_resonance_chamber: drawCrystalResonanceChamber,
+  psionic_amplifier:         drawPsionicAmplifier,
+  war_forge:                 drawWarForge,
+  magma_tap:                 drawMagmaTap,
+  living_archive:            drawLivingArchive,
+  growth_vat:                drawGrowthVat,
+  neural_network_hub:        drawNeuralNetworkHub,
+  assimilation_node:         drawAssimilationNode,
+  abyssal_processor:         drawAbyssalProcessor,
+  predator_arena:            drawPredatorArena,
+  diplomatic_quarter:        drawDiplomaticQuarter,
+  innovation_lab:            drawInnovationLab,
+  deep_hive:                 drawDeepHive,
+  tunnel_network:            drawTunnelNetwork,
+  salvage_yard:              drawSalvageYard,
+  black_market:              drawBlackMarket,
 };
 
 // ── Roman numeral level badge ─────────────────────────────────────────────────

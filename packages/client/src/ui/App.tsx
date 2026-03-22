@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StarSystem, Planet, BuildingType, Galaxy, ProductionItem } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
@@ -13,6 +13,7 @@ import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
 import type { Empire } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
 import { useGameEvent } from './hooks/useGameEvents';
+import { getAudioEngine, SfxGenerator } from '../audio';
 import { TopBar } from './components/TopBar';
 import { SystemInfoPanel } from './components/SystemInfoPanel';
 import { PlanetDetailPanel } from './components/PlanetDetailPanel';
@@ -30,8 +31,14 @@ import { ShipDesignerScreen } from './screens/ShipDesignerScreen';
 import { DiplomacyScreen } from './screens/DiplomacyScreen';
 import type { KnownEmpire } from './screens/DiplomacyScreen';
 import { FleetScreen } from './screens/FleetScreen';
+import { BattleResultsScreen } from './screens/BattleResultsScreen';
+import type { BattleResultsData } from './screens/BattleResultsScreen';
+import { EspionageScreen } from './screens/EspionageScreen';
+import type { EspionageState, EspionageEvent, SpyAgent, SpyMission } from '@nova-imperia/shared';
+import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
+import { EconomyScreen } from './screens/EconomyScreen';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -203,12 +210,38 @@ export function App(): React.ReactElement {
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   const [fleetShips, setFleetShips] = useState<Ship[]>([]);
 
+  // ── Battle results overlay (shown when a CombatResolved event fires) ──
+  const [battleResults, setBattleResults] = useState<BattleResultsData | null>(null);
+
+  // ── Espionage state ──
+  const [espionageState, setEspionageState] = useState<EspionageState>(() =>
+    initialiseEspionage(['player', 'nk_hegemony', 'veth_republic']),
+  );
+  // setEspionageEventLog will be wired to engine events once the game loop is integrated
+  const [espionageEventLog, _setEspionageEventLog] = useState<EspionageEvent[]>([]);
+
   // ── "Coming Soon" overlay state ──
-  const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
+  const [comingSoonLabel, _setComingSoonLabel] = useState<string | null>(null);
 
   // ── Migration state ──
   // All active (in_progress) migrations, updated by engine events.
   const [activeMigrations, setActiveMigrations] = useState<MigrationOrder[]>([]);
+
+  // ── Audio SFX ──────────────────────────────────────────────────────────────
+  // Lazily initialised when the AudioEngine becomes available (requires user
+  // interaction to unlock the Web Audio context).
+  const sfxRef = useRef<SfxGenerator | null>(null);
+
+  /** Return the SFX generator, creating it on first access if possible. */
+  const getSfx = useCallback((): SfxGenerator | null => {
+    if (!sfxRef.current) {
+      const audioEngine = getAudioEngine();
+      if (audioEngine) {
+        sfxRef.current = new SfxGenerator(audioEngine);
+      }
+    }
+    return sfxRef.current;
+  }, []);
 
   // Estimated total waves for migration UI (constant for now)
   const estimatedWavesForMigration = useMemo(() => estimateTotalWaves(), []);
@@ -371,20 +404,64 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
   }, []);
 
+  // Play ominous horn when the player declares war
+  const handleDeclareWar = useCallback((_targetEmpireId: string) => {
+    const audioEngine = getAudioEngine();
+    if (audioEngine) {
+      const sfx = new SfxGenerator(audioEngine);
+      sfx.playWarDeclared();
+    }
+  }, []);
+
+  // Play gentle bell when a treaty is signed
+  const handleProposeTreaty = useCallback((_targetEmpireId: string, _type: import('@nova-imperia/shared').TreatyType) => {
+    const audioEngine = getAudioEngine();
+    if (audioEngine) {
+      const sfx = new SfxGenerator(audioEngine);
+      sfx.playTreatySign();
+    }
+  }, []);
+
   // Fleet, Economy, Espionage button handlers for TopBar
   const handleOpenFleetList = useCallback(() => {
     setCurrentScreen('fleet');
   }, []);
 
   const handleOpenEconomy = useCallback(() => {
-    setComingSoonLabel('Economy');
-    setTimeout(() => setComingSoonLabel(null), 3000);
+    setCurrentScreen('economy');
   }, []);
 
   const handleOpenEspionage = useCallback(() => {
-    setComingSoonLabel('Espionage');
-    setTimeout(() => setComingSoonLabel(null), 3000);
+    setCurrentScreen('espionage');
   }, []);
+
+  const handleCloseEspionage = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleCloseEconomy = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleRecruitSpy = useCallback((agent: SpyAgent) => {
+    setEspionageState((prev) => addAgentToState(prev, agent));
+  }, []);
+
+  const handleAssignMission = useCallback(
+    (agentId: string, targetEmpireId: string, mission: SpyMission) => {
+      setEspionageState((prev) => {
+        const agent = prev.agents.find((a) => a.id === agentId);
+        if (!agent) return prev;
+        const updated = assignMission(agent, targetEmpireId, mission);
+        return {
+          ...prev,
+          agents: prev.agents.map((a) => (a.id === agentId ? updated : a)),
+          counterIntelLevel: new Map(prev.counterIntelLevel),
+        };
+      });
+    },
+    [],
+  );
 
   // Phaser can push updated empire data (player + known empires)
   const handleEmpireUpdate = useCallback((empire: Empire) => {
@@ -487,12 +564,14 @@ export function App(): React.ReactElement {
             // Auto-dismiss after 4 seconds
             setTimeout(() => setBuildNotification(null), 4000);
           }
+          // Play build-complete SFX
+          getSfx()?.playBuildComplete();
         }
       }
 
       return latestPlanet;
     });
-  }, [managedSystemId, selectedPlanet, setSelectedPlanet]);
+  }, [managedSystemId, selectedPlanet, setSelectedPlanet, getSfx]);
 
   // Engine emits 'engine:viewport_changed' each frame from GalaxyMapScene
   const handleViewportChanged = useCallback(
@@ -552,8 +631,9 @@ export function App(): React.ReactElement {
       const message = `Ship produced: ${payload.shipName}`;
       setShipProducedNotification(message);
       setTimeout(() => setShipProducedNotification(null), 4000);
+      getSfx()?.playShipLaunch();
     },
-    [],
+    [getSfx],
   );
 
   // Engine emits 'engine:migrations_updated' after any migration state change
@@ -561,6 +641,11 @@ export function App(): React.ReactElement {
   const handleMigrationsUpdated = useCallback((migrations: MigrationOrder[]) => {
     setActiveMigrations([...migrations]);
   }, []);
+
+  // Engine emits 'engine:migration_started' when a migration begins.
+  const handleMigrationStarted = useCallback(() => {
+    getSfx()?.playColoniseStart();
+  }, [getSfx]);
 
   // Engine emits 'engine:migration_completed' when threshold reached.
   const handleMigrationCompleted = useCallback((migration: MigrationOrder) => {
@@ -574,7 +659,35 @@ export function App(): React.ReactElement {
       const updated = system?.planets.find(p => p.id === migration.targetPlanetId);
       if (updated) setSelectedPlanet(updated);
     }
-  }, [setSelectedPlanet]);
+    getSfx()?.playColoniseComplete();
+  }, [setSelectedPlanet, getSfx]);
+
+  // Engine emits 'engine:tech_researched' when a technology finishes.
+  const handleTechResearched = useCallback(() => {
+    getSfx()?.playResearchComplete();
+  }, [getSfx]);
+
+  // Engine emits 'engine:battle_resolved' (enriched) when combat concludes.
+  // The engine has already paused itself; we show the battle results overlay
+  // and resume when the player dismisses it.
+  const handleBattleResolved = useCallback(
+    (data: BattleResultsData) => {
+      setBattleResults(data);
+      // Determine if the player empire won
+      const playerWon = data.winner === 'attacker'
+        ? data.attacker.empireName !== 'Unknown Empire' // attacker is player
+        : data.winner === 'defender';
+      getSfx()?.playBattleResult(playerWon);
+    },
+    [getSfx],
+  );
+
+  const handleBattleContinue = useCallback(() => {
+    setBattleResults(null);
+    // Resume the engine
+    const engine = getGameEngine();
+    if (engine) engine.start();
+  }, []);
 
   // Player clicks "Cancel Migration" in PlanetDetailPanel
   const handleCancelMigration = useCallback(() => {
@@ -613,7 +726,10 @@ export function App(): React.ReactElement {
   useGameEvent<{ planetName: string; systemId: string; planetId: string }>('engine:planet_colonised', handlePlanetColonised);
   useGameEvent<{ shipName: string; systemId: string }>('engine:ship_produced', handleShipProduced);
   useGameEvent<MigrationOrder[]>('engine:migrations_updated', handleMigrationsUpdated);
+  useGameEvent<void>('engine:migration_started', handleMigrationStarted);
   useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
+  useGameEvent<void>('engine:tech_researched', handleTechResearched);
+  useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -843,6 +959,8 @@ export function App(): React.ReactElement {
           knownEmpires={knownEmpires}
           currentTurn={1}
           onClose={handleCloseDiplomacy}
+          onDeclareWar={handleDeclareWar}
+          onProposeTreaty={handleProposeTreaty}
         />
       </div>
     );
@@ -853,6 +971,37 @@ export function App(): React.ReactElement {
     return (
       <div className="ui-overlay">
         <FleetScreen onClose={() => setCurrentScreen('game')} />
+      </div>
+    );
+  }
+
+  // Render espionage screen as full-screen overlay
+  if (currentScreen === 'espionage') {
+    const knownEmpiresList = knownEmpires
+      .filter((ke) => ke.isKnown)
+      .map((ke) => ke.empire);
+    return (
+      <div className="ui-overlay">
+        <EspionageScreen
+          playerEmpire={playerEmpire}
+          knownEmpires={knownEmpiresList}
+          espionageState={espionageState}
+          eventLog={espionageEventLog}
+          playerCredits={liveCredits ?? playerEmpire.credits}
+          onClose={handleCloseEspionage}
+          onRecruitSpy={handleRecruitSpy}
+          onAssignMission={handleAssignMission}
+        />
+      </div>
+    );
+  }
+
+  if (currentScreen === 'economy') {
+    return (
+      <div className="ui-overlay">
+        <EconomyScreen
+          onClose={handleCloseEconomy}
+        />
       </div>
     );
   }
@@ -961,6 +1110,14 @@ export function App(): React.ReactElement {
         <PauseMenu
           onResume={handleResume}
           onExitToMainMenu={handleExitToMainMenu}
+        />
+      )}
+
+      {/* Battle results modal — sits above all other overlays */}
+      {battleResults !== null && (
+        <BattleResultsScreen
+          data={battleResults}
+          onContinue={handleBattleContinue}
         />
       )}
     </div>

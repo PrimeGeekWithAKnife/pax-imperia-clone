@@ -30,6 +30,30 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   terraforming_station: 'TF',
   military_academy: 'MA',
   fusion_reactor: 'FR',
+  // ── Vaelori ─────────────────────────────────────────────────────────────
+  crystal_resonance_chamber: 'CR',
+  psionic_amplifier: 'PA',
+  // ── Khazari ─────────────────────────────────────────────────────────────
+  war_forge: 'WF',
+  magma_tap: 'MT',
+  // ── Sylvani ─────────────────────────────────────────────────────────────
+  living_archive: 'LA',
+  growth_vat: 'GV',
+  // ── Nexari ──────────────────────────────────────────────────────────────
+  neural_network_hub: 'NN',
+  assimilation_node: 'AN',
+  // ── Drakmari ────────────────────────────────────────────────────────────
+  abyssal_processor: 'AP',
+  predator_arena: 'PR',
+  // ── Teranos ─────────────────────────────────────────────────────────────
+  diplomatic_quarter: 'DQ',
+  innovation_lab: 'IL',
+  // ── Zorvathi ────────────────────────────────────────────────────────────
+  deep_hive: 'DH',
+  tunnel_network: 'TN',
+  // ── Ashkari ─────────────────────────────────────────────────────────────
+  salvage_yard: 'SV',
+  black_market: 'BM',
 };
 
 /** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */

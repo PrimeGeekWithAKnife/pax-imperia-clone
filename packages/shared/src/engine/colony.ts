@@ -16,6 +16,7 @@ import {
   HABITABLE_THRESHOLD,
   HABITABILITY_WEIGHTS,
 } from '../constants/planets.js';
+import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
 import { generateId } from '../utils/id.js';
 
 // ── Migration interfaces ─────────────────────────────────────────────────────
@@ -739,10 +740,16 @@ const BUILDING_PREREQUISITES: Partial<Record<BuildingType, BuildingType>> = {
  * - Gas giants may only host spaceport (orbital platform) buildings.
  * - Building slots must not be exhausted.
  * - Prerequisite buildings must already exist.
+ * - Racial-unique buildings may only be built by the matching species.
+ *
+ * @param species - The empire's species. Required for racial building checks;
+ *   if omitted, racial restrictions are not enforced (useful for server-side
+ *   replay validation where species data may not be loaded).
  */
 export function canBuildOnPlanet(
   planet: Planet,
   buildingType: BuildingType,
+  species?: Species,
 ): { allowed: boolean; reason?: string } {
   // Gas giant restriction
   if (planet.type === 'gas_giant' && buildingType !== 'spaceport') {
@@ -759,6 +766,17 @@ export function canBuildOnPlanet(
       allowed: false,
       reason: `No building slots available (${slots.used}/${slots.total} used)`,
     };
+  }
+
+  // Racial species check — only enforce when a species is supplied
+  const def = BUILDING_DEFINITIONS[buildingType];
+  if (def.racialSpeciesId !== undefined && species !== undefined) {
+    if (species.id !== def.racialSpeciesId) {
+      return {
+        allowed: false,
+        reason: `${def.name} can only be built by the ${def.racialSpeciesId} species`,
+      };
+    }
   }
 
   // Prerequisite check
@@ -781,9 +799,16 @@ export function canBuildOnPlanet(
 /**
  * Adds a building to the planet's production queue.
  * Returns a new Planet — does not mutate the original.
+ *
+ * @param species - The empire's species. When provided, racial building
+ *   restrictions are enforced before queuing.
  */
-export function addBuildingToQueue(planet: Planet, buildingType: BuildingType): Planet {
-  const check = canBuildOnPlanet(planet, buildingType);
+export function addBuildingToQueue(
+  planet: Planet,
+  buildingType: BuildingType,
+  species?: Species,
+): Planet {
+  const check = canBuildOnPlanet(planet, buildingType, species);
   if (!check.allowed) {
     throw new Error(`Cannot queue building: ${check.reason}`);
   }
@@ -808,6 +833,23 @@ export function addBuildingToQueue(planet: Planet, buildingType: BuildingType): 
     terraforming_station: 10,
     military_academy: 6,
     fusion_reactor: 5,
+    // ── Racial unique buildings ─────────────────────────────────────────────
+    crystal_resonance_chamber: 7,
+    psionic_amplifier: 6,
+    war_forge: 8,
+    magma_tap: 5,
+    living_archive: 9,
+    growth_vat: 4,
+    neural_network_hub: 8,
+    assimilation_node: 7,
+    abyssal_processor: 5,
+    predator_arena: 5,
+    diplomatic_quarter: 6,
+    innovation_lab: 5,
+    deep_hive: 6,
+    tunnel_network: 7,
+    salvage_yard: 4,
+    black_market: 4,
   };
 
   const turnsRemaining = BASE_BUILD_TURNS[buildingType];

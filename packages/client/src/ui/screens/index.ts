@@ -12,3 +12,14 @@ export { DiplomacyScreen } from './DiplomacyScreen';
 export type { DiplomacyScreenProps, KnownEmpire, DiplomaticIncident } from './DiplomacyScreen';
 export { FleetScreen } from './FleetScreen';
 export type { FleetScreenProps } from './FleetScreen';
+export { BattleResultsScreen } from './BattleResultsScreen';
+export type {
+  BattleResultsScreenProps,
+  BattleResultsData,
+  BattleSide,
+  BattleShipRecord,
+} from './BattleResultsScreen';
+export { VictoryScreen } from './VictoryScreen';
+export type { VictoryScreenProps, GameStatistics } from './VictoryScreen';
+export { EspionageScreen } from './EspionageScreen';
+export type { EspionageScreenProps } from './EspionageScreen';

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Fleet, Ship, FleetStance, ShipDesign } from '@nova-imperia/shared';
+import type { Fleet, Ship, FleetStance, ShipDesign, FleetMovementOrder, HullClass } from '@nova-imperia/shared';
 import { findPath } from '@nova-imperia/shared';
 import { getGameEngine } from '../../engine/GameEngine';
 import { renderShipThumbnail } from '../../assets/graphics';
@@ -28,7 +28,7 @@ const STANCE_LABELS: Record<FleetStance, string> = {
 
 const STANCES: FleetStance[] = ['aggressive', 'defensive', 'evasive', 'patrol'];
 
-function resolveHullClass(ship: Ship, designs: ShipDesign[]): import('@nova-imperia/shared').HullClass {
+function resolveHullClass(ship: Ship, designs: ShipDesign[]): HullClass {
   return designs.find((d) => d.id === ship.designId)?.hull ?? 'scout';
 }
 
@@ -53,7 +53,7 @@ interface ReachableSystem {
 interface FleetListItemProps {
   fleet: Fleet;
   ships: Ship[];
-  movementOrders: import('@nova-imperia/shared').FleetMovementOrder[];
+  movementOrders: FleetMovementOrder[];
   allSystems: Array<{ id: string; name: string }>;
   isSelected: boolean;
   onClick: () => void;
