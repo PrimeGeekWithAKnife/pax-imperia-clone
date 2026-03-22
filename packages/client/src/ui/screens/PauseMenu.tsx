@@ -36,6 +36,56 @@ function setSessionTrack(track: MusicTrack): void {
 
 let toastCounter = 0;
 
+// ── Settings persistence ────────────────────────────────────────────────────
+
+const SETTINGS_STORAGE_KEY = 'ex_nihilo_settings';
+
+interface PersistedSettings {
+  masterVolume: number;
+  musicVolume: number;
+  sfxVolume: number;
+  ambientVolume: number;
+  musicTrack: MusicTrack;
+  defaultGameSpeed: string;
+  showTooltips: boolean;
+}
+
+const DEFAULT_SETTINGS: PersistedSettings = {
+  masterVolume: 30,
+  musicVolume: 40,
+  sfxVolume: 50,
+  ambientVolume: 30,
+  musicTrack: 'deep_space',
+  defaultGameSpeed: 'normal',
+  showTooltips: true,
+};
+
+function loadSettings(): PersistedSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<PersistedSettings>;
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    }
+  } catch {
+    // Corrupted data — fall back to defaults
+  }
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings: PersistedSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Storage full or unavailable — silently ignore
+  }
+}
+
+/** Exported so other components can read the persisted settings. */
+export function getPersistedSettings(): PersistedSettings {
+  return loadSettings();
+}
+
 // ── Music track metadata ───────────────────────────────────────────────────────
 
 interface TrackOption {
@@ -74,41 +124,83 @@ interface SettingsPanelProps {
 }
 
 function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
-  // Initialise sliders from current AudioEngine values (defaults: master 30%, music 40%, sfx 50%)
-  const [masterVolume, setMasterVolume] = useState(30);
-  const [musicVolume, setMusicVolume] = useState(40);
-  const [sfxVolume, setSfxVolume] = useState(50);
-  const [musicTrack, setMusicTrack] = useState<MusicTrack>(getSessionTrack);
+  // Load persisted settings (or defaults) on mount
+  const [settings, setSettings] = useState<PersistedSettings>(loadSettings);
+
+  // Derive individual values from the settings object
+  const { masterVolume, musicVolume, sfxVolume, ambientVolume, musicTrack, defaultGameSpeed, showTooltips } = settings;
+
+  // Helper to update a single setting, persist, and apply side-effects
+  const updateSetting = useCallback(<K extends keyof PersistedSettings>(key: K, value: PersistedSettings[K]) => {
+    setSettings(prev => {
+      const next = { ...prev, [key]: value };
+      saveSettings(next);
+      return next;
+    });
+  }, []);
 
   const handleMasterVolume = useCallback((v: number) => {
-    setMasterVolume(v);
+    updateSetting('masterVolume', v);
     getAudioEngine()?.setMasterVolume(v / 100);
-  }, []);
+  }, [updateSetting]);
 
   const handleMusicVolume = useCallback((v: number) => {
-    setMusicVolume(v);
+    updateSetting('musicVolume', v);
     getAudioEngine()?.setMusicVolume(v / 100);
-  }, []);
+  }, [updateSetting]);
 
   const handleSfxVolume = useCallback((v: number) => {
-    setSfxVolume(v);
+    updateSetting('sfxVolume', v);
     getAudioEngine()?.setSfxVolume(v / 100);
-  }, []);
+  }, [updateSetting]);
+
+  const handleAmbientVolume = useCallback((v: number) => {
+    updateSetting('ambientVolume', v);
+    // Ambient audio shares the SFX bus for now
+    getAudioEngine()?.setSfxVolume(v / 100);
+  }, [updateSetting]);
 
   const handleTrackChange = useCallback((track: MusicTrack) => {
-    setMusicTrack(track);
+    updateSetting('musicTrack', track);
     setSessionTrack(track);
-    // Dispatch to the active Phaser scene which owns the MusicGenerator
     emitToPhaser('music:set_track', track);
+  }, [updateSetting]);
+
+  const handleDefaultSpeedChange = useCallback((speed: string) => {
+    updateSetting('defaultGameSpeed', speed);
+  }, [updateSetting]);
+
+  const handleTooltipsToggle = useCallback(() => {
+    updateSetting('showTooltips', !showTooltips);
+    // Broadcast so the Tooltip component can react
+    emitToPhaser('settings:tooltips_changed', !showTooltips);
+  }, [showTooltips, updateSetting]);
+
+  // Apply persisted audio levels on mount
+  useEffect(() => {
+    const audio = getAudioEngine();
+    if (audio) {
+      audio.setMasterVolume(masterVolume / 100);
+      audio.setMusicVolume(musicVolume / 100);
+      audio.setSfxVolume(sfxVolume / 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedTrackOption = TRACK_OPTIONS.find((t) => t.id === musicTrack) ?? TRACK_OPTIONS[0]!;
+
+  const SPEED_OPTIONS = [
+    { value: 'slow', label: 'Slow' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'fast', label: 'Fast' },
+    { value: 'fastest', label: 'Fastest' },
+  ];
 
   return (
     <div className="pm-settings-panel">
       <div className="pm-settings-panel__header">
         <span className="pm-settings-panel__title">SETTINGS</span>
-        <button type="button" className="pm-settings-panel__close panel-close-btn" onClick={onClose}>✕</button>
+        <button type="button" className="pm-settings-panel__close panel-close-btn" onClick={onClose}>&#10005;</button>
       </div>
 
       <div className="pm-settings-section">
@@ -160,6 +252,21 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
         </div>
 
         <div className="pm-settings-row">
+          <span className="pm-settings-label">Ambient</span>
+          <div className="pm-settings-slider-row">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={ambientVolume}
+              onChange={(e) => handleAmbientVolume(Number(e.target.value))}
+              className="sc-range pm-range"
+            />
+            <span className="pm-settings-val">{ambientVolume}%</span>
+          </div>
+        </div>
+
+        <div className="pm-settings-row">
           <span className="pm-settings-label">Music Track</span>
           <div className="pm-track-selector">
             {TRACK_OPTIONS.map((opt) => (
@@ -175,6 +282,40 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
             ))}
           </div>
           <p className="pm-track-desc">{selectedTrackOption.description}</p>
+        </div>
+      </div>
+
+      <div className="pm-settings-section">
+        <div className="pm-settings-section__label">GAME</div>
+
+        <div className="pm-settings-row">
+          <span className="pm-settings-label">Default Game Speed</span>
+          <div className="pm-track-selector">
+            {SPEED_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`pm-track-btn ${defaultGameSpeed === opt.value ? 'pm-track-btn--active' : ''}`}
+                onClick={() => handleDefaultSpeedChange(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pm-settings-row">
+          <span className="pm-settings-label">Show Tooltips</span>
+          <label className="pm-toggle">
+            <input
+              type="checkbox"
+              checked={showTooltips}
+              onChange={handleTooltipsToggle}
+              className="pm-toggle__input"
+            />
+            <span className="pm-toggle__slider" />
+            <span className="pm-toggle__label">{showTooltips ? 'On' : 'Off'}</span>
+          </label>
         </div>
       </div>
 
