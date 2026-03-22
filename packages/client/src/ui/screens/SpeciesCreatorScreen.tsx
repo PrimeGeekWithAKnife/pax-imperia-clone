@@ -752,7 +752,7 @@ export function SpeciesCreatorScreen({
                 >
                   <div className="sc-template-card__name">{t.name}</div>
                   <div className="sc-template-card__origin">{t.origin}</div>
-                  <div className="sc-template-card__desc">{t.description}</div>
+                  <div className="sc-template-card__desc">{t.description.length > 200 ? t.description.slice(0, 200) + '…' : t.description}</div>
                   <div className="sc-template-card__traits">
                     {Object.entries(t.traits).map(([k, v]) => (
                       <span key={k} className="sc-template-card__trait">

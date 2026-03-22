@@ -802,14 +802,14 @@ describe('7. Trade routes', () => {
 
   it('maturity increases over time', () => {
     const galaxy = makeLinearGalaxy();
-    let routes = [{
+    let routes: import('../../src/types/trade-routes.js').TradeRoute[] = [{
       id: 'route-1',
       empireId: 'empire-1',
       partnerEmpireId: 'empire-2',
       sourceSystemId: 'sys-a',
       destinationSystemId: 'sys-d',
       path: ['sys-a', 'sys-b', 'sys-c', 'sys-d'],
-      status: 'active' as const,
+      status: 'active',
       goods: { exports: {}, imports: {} },
       revenuePerTick: 10,
       partnerRevenuePerTick: 8,
