@@ -44,7 +44,10 @@ export function useGameState(): GameState & GameStateActions {
 
   const setGameSpeed = useCallback((speed: GameSpeedName) => {
     setGameSpeedRaw(speed);
-    // Emit to Phaser so the engine picks up the change
+    // Only emit to Phaser when an active game engine exists; otherwise the
+    // event could be mishandled by whichever scene is currently running.
+    const engine = (window as unknown as Record<string, unknown>).__GAME_ENGINE__;
+    if (!engine) return;
     const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;

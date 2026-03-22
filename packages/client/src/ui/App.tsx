@@ -1413,6 +1413,9 @@ export function App(): React.ReactElement {
           empireResources={empireResources}
           savedDesigns={savedDesigns}
           empireTechs={researchState.completedTechs}
+          allColonisedPlanets={allColonisedPlanets}
+          onChangePlanet={handleChangePlanet}
+          playerSpeciesId={playerEmpire.species.id}
           onClose={handleCloseManagedPlanet}
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}

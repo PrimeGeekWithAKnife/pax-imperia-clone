@@ -24,9 +24,12 @@ import type { GameTickState } from '@nova-imperia/shared';
 
 const SAVE_KEY_PREFIX = 'nova-imperia:save:';
 const INDEX_KEY = 'nova-imperia:save-index';
-const AUTO_SAVE_NAME = '__autosave__';
-/** Trigger an auto-save every this many ticks. */
-const AUTO_SAVE_INTERVAL = 100;
+/** Prefix for rolling auto-save slots. */
+const AUTO_SAVE_PREFIX = '__autosave_';
+/** Maximum number of rolling auto-save slots to keep. */
+const MAX_AUTO_SAVES = 5;
+/** Auto-save interval in milliseconds of real (wall-clock) time. */
+const AUTO_SAVE_INTERVAL_MS = 60_000;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,7 +98,7 @@ export class SaveManager {
   /**
    * Return metadata for all save slots, sorted newest-first.
    *
-   * Auto-saves are included with name `__autosave__`.
+   * Auto-saves are included with names `__autosave_1__` through `__autosave_5__`.
    */
   listSaves(): SaveSlotInfo[] {
     const index = this._readIndex();
@@ -113,26 +116,68 @@ export class SaveManager {
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
 
+  /** Timestamp of the last auto-save (wall-clock ms). */
+  private lastAutoSaveTime = 0;
+
   /**
-   * Overwrite the auto-save slot if the current tick is a multiple of
-   * AUTO_SAVE_INTERVAL (100).
+   * Create a rolling auto-save if enough real time has elapsed since the
+   * last one. Keeps at most MAX_AUTO_SAVES slots (`__autosave_1__` through
+   * `__autosave_5__`), rotating the oldest out each time.
    *
-   * Call this inside the GameEngine tick loop; it is a no-op for most ticks.
+   * Call this inside the GameEngine tick loop; it is a cheap no-op for
+   * most ticks since it compares wall-clock timestamps.
    */
   autoSave(tickState: GameTickState): void {
-    const tick = tickState.gameState.currentTick;
-    if (tick > 0 && tick % AUTO_SAVE_INTERVAL === 0) {
-      try {
-        this.save(AUTO_SAVE_NAME, tickState);
-      } catch (err) {
-        console.warn('[SaveManager.autoSave] Auto-save failed:', err);
+    const now = Date.now();
+    if (this.lastAutoSaveTime > 0 && now - this.lastAutoSaveTime < AUTO_SAVE_INTERVAL_MS) {
+      return;
+    }
+
+    try {
+      this._rotateAutoSaves();
+      const slotName = `${AUTO_SAVE_PREFIX}1__`;
+      this.save(slotName, tickState);
+      this.lastAutoSaveTime = now;
+    } catch (err) {
+      console.warn('[SaveManager.autoSave] Auto-save failed:', err);
+    }
+  }
+
+  /**
+   * Shift auto-save slots down (5 deleted, 4 to 5, ..., 1 to 2) to make
+   * room for a new save at slot 1.
+   */
+  private _rotateAutoSaves(): void {
+    const oldestName = `${AUTO_SAVE_PREFIX}${MAX_AUTO_SAVES}__`;
+    this.deleteSave(oldestName);
+
+    for (let i = MAX_AUTO_SAVES - 1; i >= 1; i--) {
+      const currentName = `${AUTO_SAVE_PREFIX}${i}__`;
+      const nextName = `${AUTO_SAVE_PREFIX}${i + 1}__`;
+      const key = SAVE_KEY_PREFIX + currentName;
+      const raw = localStorage.getItem(key);
+      if (raw !== null) {
+        localStorage.setItem(SAVE_KEY_PREFIX + nextName, raw);
+        localStorage.removeItem(key);
+        const index = this._readIndex();
+        const entry = index.find(s => s.name === currentName);
+        if (entry) {
+          entry.name = nextName;
+          this._writeIndex(index);
+        }
       }
     }
   }
 
-  /** Return the SaveSlotInfo for the auto-save, or null if none exists. */
+  /** Return the SaveSlotInfo for the most recent auto-save (slot 1), or null if none exists. */
   getAutoSaveInfo(): SaveSlotInfo | null {
-    return this._readIndex().find(s => s.name === AUTO_SAVE_NAME) ?? null;
+    const index = this._readIndex();
+    for (let i = 1; i <= MAX_AUTO_SAVES; i++) {
+      const slotName = `${AUTO_SAVE_PREFIX}${i}__`;
+      const entry = index.find(s => s.name === slotName);
+      if (entry) return entry;
+    }
+    return index.find(s => s.name === '__autosave__') ?? null;
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

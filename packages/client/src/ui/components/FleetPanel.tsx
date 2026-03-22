@@ -122,8 +122,8 @@ export function FleetPanel({
     emitToPhaser('fleet:move_mode', { fleetId: fleet.id, active: next });
   }, [fleet.id, moveToActive]);
 
-  /** In system view, navigate back to galaxy map so the player can pick a target. */
-  const handleGoToGalaxyView = useCallback(() => {
+  /** In system view, navigate to the galaxy map so the player can pick a relocation target. */
+  const handleRelocateFleet = useCallback(() => {
     emitToPhaser('scene:request_galaxy_view', { fleetId: fleet.id });
   }, [fleet.id]);
 
@@ -332,10 +332,10 @@ export function FleetPanel({
             <button
               type="button"
               className="fleet-panel__action-btn"
-              onClick={handleGoToGalaxyView}
-              title="Return to the galaxy map to select a movement target"
+              onClick={handleRelocateFleet}
+              title="Switch to galaxy view to select a relocation target"
             >
-              Move To Galaxy View
+              Relocate Fleet
             </button>
           ) : (
             <button

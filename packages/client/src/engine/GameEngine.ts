@@ -248,7 +248,7 @@ export class GameEngine {
     // Broadcast updated migration list so React stays in sync
     this.game.events.emit('engine:migrations_updated', getMigrationOrders());
 
-    // ── Auto-save (every 100 ticks) ─────────────────────────────────────────
+    // ── Auto-save (time-based, every 60 seconds of real time) ──────────────
     try {
       getSaveManager().autoSave(this.tickState);
     } catch {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
+import { getSaveManager } from '../../engine/SaveManager';
 
 const STAR_COUNT = 200;
 const GALAXY_ARMS = 3;
@@ -224,10 +225,36 @@ export class MainMenuScene extends Phaser.Scene {
       },
     };
 
-    const buttons: Array<{ label: string; yFrac: number; action: () => void }> = [
+    const buttons: Array<{ label: string; yFrac: number; action: () => void }> = [];
+
+    // Check whether a game is already in progress (active engine) or there is
+    // an auto-save available. If so, offer a Resume button first.
+    const hasActiveEngine = !!(window as unknown as Record<string, unknown>).__GAME_ENGINE__;
+    const hasAutoSave = getSaveManager().getAutoSaveInfo() !== null;
+
+    if (hasActiveEngine || hasAutoSave) {
+      buttons.push({
+        label: 'Resume',
+        yFrac: 0.51,
+        action: () => {
+          this.sfx?.playClick();
+          if (hasActiveEngine) {
+            // Return to the running game
+            this.scene.start('GalaxyMapScene');
+          } else {
+            // Load auto-save (TODO: wire up auto-save load path)
+            this.game.events.emit('ui:load_autosave');
+          }
+        },
+      });
+    }
+
+    const resumeOffset = (hasActiveEngine || hasAutoSave) ? 0.08 : 0;
+
+    buttons.push(
       {
         label: 'New Game',
-        yFrac: 0.55,
+        yFrac: 0.51 + resumeOffset,
         action: () => {
           console.log('[MainMenuScene] New Game clicked – opening species creator');
           this.sfx?.playClick();
@@ -236,7 +263,7 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         label: 'Multiplayer',
-        yFrac: 0.63,
+        yFrac: 0.59 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.game.events.emit('ui:multiplayer');
@@ -244,7 +271,7 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         label: 'Settings',
-        yFrac: 0.71,
+        yFrac: 0.67 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.game.events.emit('ui:settings');
@@ -252,13 +279,13 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         label: 'Credits',
-        yFrac: 0.79,
+        yFrac: 0.75 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.showCreditsOverlay(width, height);
         },
       },
-    ];
+    );
 
     for (const btn of buttons) {
       const text = this.add
