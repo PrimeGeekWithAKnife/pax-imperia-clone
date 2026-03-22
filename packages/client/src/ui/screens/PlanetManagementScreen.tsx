@@ -897,11 +897,11 @@ export function PlanetManagementScreen({
                 <div className="pm-stat-row">
                   <span className="pm-stat-label">Consumption</span>
                   <span className="pm-stat-value" style={{ color: '#ff8844' }}>
-                    -{Math.round(planet.currentPopulation * 0.001 * 10) / 10}
+                    -{Math.round(planet.currentPopulation / 50_000 * 10) / 10}
                   </span>
                 </div>
                 {(() => {
-                  const foodNet = (production.organics ?? 0) - planet.currentPopulation * 0.001;
+                  const foodNet = (production.organics ?? 0) - planet.currentPopulation / 50_000;
                   const isDeficit = foodNet < 0;
                   return (
                     <div className="pm-stat-row">

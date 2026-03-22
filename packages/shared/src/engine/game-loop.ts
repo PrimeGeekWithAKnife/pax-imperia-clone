@@ -1682,8 +1682,8 @@ export function initializeTickState(gameState: GameState): GameTickState {
       .flatMap(s => s.planets)
       .filter(p => p.ownerId === empire.id)
       .reduce((sum, p) => sum + p.currentPopulation, 0);
-    // 1 organic per 1 000 pop per tick; seed 200 ticks worth as a comfortable buffer.
-    const startingOrganics = Math.max(100, Math.floor(startingPop / 1_000) * 200);
+    // 1 organic per 50 000 pop per tick; seed 200 ticks worth as a comfortable buffer.
+    const startingOrganics = Math.max(100, Math.floor(startingPop / 50_000) * 200);
     empireResourcesMap.set(empire.id, {
       credits: empire.credits,
       minerals: 200,

@@ -54,7 +54,7 @@ type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 're
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
-  completedTechs: ['pulse_lasers', 'composite_armour', 'ion_drives', 'growth_stimulants'],
+  completedTechs: [],
   activeResearch: [],
   currentAge: 'nano_atomic',
   totalResearchGenerated: 0,
