@@ -57,6 +57,13 @@ export const HullTemplateSchema = z.object({
 
 // ── ShipComponent ─────────────────────────────────────────────────────────────
 
+export const WeaponCategorySchema = z.enum([
+  'energy',
+  'kinetic',
+  'propulsion',
+  'mechanical',
+]);
+
 export const ShipComponentSchema = z.object({
   id: z
     .string()
@@ -64,6 +71,8 @@ export const ShipComponentSchema = z.object({
     .regex(/^[a-z][a-z0-9_]*$/, 'ID must be lowercase snake_case'),
   name: z.string().min(1),
   type: ComponentTypeSchema,
+  category: WeaponCategorySchema.optional(),
+  description: z.string().optional(),
   stats: z.record(z.string(), z.number()),
   cost: z.number().int().positive(),
   requiredTech: z.string().nullable(),

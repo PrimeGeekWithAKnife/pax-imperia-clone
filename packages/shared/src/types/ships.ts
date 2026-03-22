@@ -7,7 +7,10 @@ export type HullClass =
   | 'cruiser'
   | 'carrier'
   | 'battleship'
-  | 'coloniser';
+  | 'coloniser'
+  | 'dreadnought'
+  | 'battle_station'
+  | 'deep_space_probe';
 
 export interface HullTemplate {
   class: HullClass;
@@ -43,10 +46,18 @@ export type ComponentType =
   | 'repair_drone'
   | 'special';
 
+export type WeaponCategory =
+  | 'energy'
+  | 'kinetic'
+  | 'propulsion'
+  | 'mechanical';
+
 export interface ShipComponent {
   id: string;
   name: string;
   type: ComponentType;
+  category?: WeaponCategory;
+  description?: string;
   stats: Record<string, number>;
   cost: number;
   requiredTech: string | null;

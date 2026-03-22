@@ -82,7 +82,7 @@ const MOCK_PLAYER_EMPIRE: Empire = {
   technologies: [],
   currentAge: 'nano_atomic',
   isAI: false,
-  government: 'representative_democracy',
+  government: 'democracy',
 };
 
 /**
@@ -349,8 +349,12 @@ export function App(): React.ReactElement {
       if (currentScreen === 'game') {
         switch (e.key) {
           case 'Escape':
-            setIsPaused((prev) => !prev);
-            e.preventDefault();
+            // Only toggle pause when a game is in progress; on the main menu
+            // there is nothing to pause.
+            if (gameStarted) {
+              setIsPaused((prev) => !prev);
+              e.preventDefault();
+            }
             break;
           case ' ':
             // Space: toggle pause (only while game is running)
@@ -360,19 +364,19 @@ export function App(): React.ReactElement {
             }
             break;
           case '1':
-            setGameSpeed('paused');
+            if (gameStarted) setGameSpeed('paused');
             break;
           case '2':
-            setGameSpeed('slow');
+            if (gameStarted) setGameSpeed('slow');
             break;
           case '3':
-            setGameSpeed('normal');
+            if (gameStarted) setGameSpeed('normal');
             break;
           case '4':
-            setGameSpeed('fast');
+            if (gameStarted) setGameSpeed('fast');
             break;
           case '5':
-            setGameSpeed('fastest');
+            if (gameStarted) setGameSpeed('fastest');
             break;
           case 'r':
           case 'R':
@@ -957,6 +961,29 @@ export function App(): React.ReactElement {
     setManagedSystemId(null);
   }, []);
 
+  // ── All colonised planets owned by the player (for planet navigation arrows) ──
+  const allColonisedPlanets = useMemo((): Array<{ planet: Planet; systemId: string }> => {
+    const engine = getGameEngine();
+    if (!engine) return [];
+    const state = engine.getState();
+    const player = state.gameState.empires.find(e => !e.isAI);
+    if (!player) return [];
+    const result: Array<{ planet: Planet; systemId: string }> = [];
+    for (const system of state.gameState.galaxy.systems) {
+      for (const p of system.planets) {
+        if (p.ownerId === player.id) {
+          result.push({ planet: p, systemId: system.id });
+        }
+      }
+    }
+    return result;
+  }, [galaxy, playerEmpire]);
+
+  const handleChangePlanet = useCallback((planet: Planet, systemId: string) => {
+    setManagedPlanet(planet);
+    setManagedSystemId(systemId);
+  }, []);
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
       if (!managedSystemId) {
@@ -1166,7 +1193,6 @@ export function App(): React.ReactElement {
         <GameSetupScreen
           species={creatorData.species}
           originStory={creatorData.originStory}
-          governmentType={creatorData.governmentType}
           onBack={handleBackFromSetup}
           onStartGame={handleStartGame}
         />

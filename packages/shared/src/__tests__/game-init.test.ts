@@ -127,7 +127,7 @@ describe('initializeGame – home planet colonisation', () => {
     }
   });
 
-  it('each home planet has the 4 required starting buildings', () => {
+  it('each home planet has the required starting buildings', () => {
     const config: GameSetupConfig = {
       galaxyConfig: galaxyConfig('medium', 2),
       players: [makePlayerSetup('x'), makePlayerSetup('y')],
@@ -190,7 +190,7 @@ describe('initializeGame – starting fleet composition', () => {
     expect(state.fleets).toHaveLength(2);
   });
 
-  it('starting fleet has exactly 4 ships', () => {
+  it('starting fleet has exactly 1 ship (deep space probe)', () => {
     const config: GameSetupConfig = {
       galaxyConfig: galaxyConfig('medium', 2),
       players: [makePlayerSetup('a'), makePlayerSetup('b')],
@@ -198,11 +198,11 @@ describe('initializeGame – starting fleet composition', () => {
     const state = initializeGame(config);
 
     for (const fleet of state.fleets) {
-      expect(fleet.ships).toHaveLength(4);
+      expect(fleet.ships).toHaveLength(1);
     }
   });
 
-  it('fleet contains 2 scouts, 1 destroyer, 1 transport', () => {
+  it('fleet contains 1 deep space probe', () => {
     const { fleet, ships } = createStartingFleet('empire-1', 'sys-1', 'Test Empire');
 
     const hullCounts = ships.reduce<Record<string, number>>((acc, ship) => {
@@ -212,16 +212,14 @@ describe('initializeGame – starting fleet composition', () => {
       return acc;
     }, {});
 
-    expect(hullCounts['scout']).toBe(2);
-    expect(hullCounts['destroyer']).toBe(1);
-    expect(hullCounts['transport']).toBe(1);
-    expect(fleet.ships).toHaveLength(4);
+    expect(hullCounts['deep_space_probe']).toBe(1);
+    expect(fleet.ships).toHaveLength(1);
   });
 
-  it('fleet name contains empire name and "Home Fleet"', () => {
+  it('fleet name contains empire name and "Expeditionary Fleet"', () => {
     const { fleet } = createStartingFleet('empire-1', 'sys-1', 'Nova Republic');
     expect(fleet.name).toContain('Nova Republic');
-    expect(fleet.name).toContain('Home Fleet');
+    expect(fleet.name).toContain('Expeditionary Fleet');
   });
 
   it('fleet is positioned in the home system', () => {

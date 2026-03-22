@@ -308,25 +308,25 @@ describe('calculateOrganicsConsumption', () => {
     expect(calculateOrganicsConsumption(0)).toBe(0);
   });
 
-  it('returns 1 for exactly 5 000 population', () => {
-    expect(calculateOrganicsConsumption(5_000)).toBe(1);
+  it('returns 1 for exactly 50 000 population', () => {
+    expect(calculateOrganicsConsumption(50_000)).toBe(1);
   });
 
-  it('returns 0 for population below 5 000', () => {
+  it('returns 0 for population below 50 000', () => {
     expect(calculateOrganicsConsumption(1_000)).toBe(0);
-    expect(calculateOrganicsConsumption(4_999)).toBe(0);
+    expect(calculateOrganicsConsumption(49_999)).toBe(0);
   });
 
   it('floors fractional consumption', () => {
-    expect(calculateOrganicsConsumption(7_500)).toBe(1);
-    expect(calculateOrganicsConsumption(14_999)).toBe(2);
+    expect(calculateOrganicsConsumption(75_000)).toBe(1);
+    expect(calculateOrganicsConsumption(149_999)).toBe(2);
   });
 });
 
 describe('applyFoodConsumption — starvation causes population loss', () => {
   it('deducts organics from the stockpile when population consumes food', () => {
     const resources = makeResources({ organics: 20 });
-    const totalPop = 25_000; // consumes 5 organics (25_000 / 5_000)
+    const totalPop = 250_000; // consumes 5 organics (250_000 / 50_000)
 
     const { resources: updated, isStarving, consumed } = applyFoodConsumption(resources, totalPop);
 
@@ -337,7 +337,7 @@ describe('applyFoodConsumption — starvation causes population loss', () => {
 
   it('reports starvation when organics are insufficient', () => {
     const resources = makeResources({ organics: 2 });
-    const totalPop = 50_000; // consumes 10 organics (50_000 / 5_000), only 2 available
+    const totalPop = 500_000; // consumes 10 organics (500_000 / 50_000), only 2 available
 
     const { resources: updated, isStarving, consumed } = applyFoodConsumption(resources, totalPop);
 
@@ -348,7 +348,7 @@ describe('applyFoodConsumption — starvation causes population loss', () => {
 
   it('no organics in stockpile (starvation from tick one) causes isStarving=true', () => {
     const resources = makeResources({ organics: 0 });
-    const totalPop = 5_000; // consumes 1 organic (5_000 / 5_000)
+    const totalPop = 50_000; // consumes 1 organic (50_000 / 50_000)
 
     const { isStarving } = applyFoodConsumption(resources, totalPop);
 
@@ -366,7 +366,7 @@ describe('applyFoodConsumption — starvation causes population loss', () => {
 
   it('stockpile organics do not go negative', () => {
     const resources = makeResources({ organics: 0 });
-    const totalPop = 50_000;
+    const totalPop = 500_000;
 
     const { resources: updated } = applyFoodConsumption(resources, totalPop);
 

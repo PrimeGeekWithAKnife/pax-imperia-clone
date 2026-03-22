@@ -3,6 +3,7 @@
     "id": "pulse_laser",
     "name": "Pulse Laser",
     "type": "weapon_beam",
+    "category": "energy",
     "stats": {
       "damage": 10,
       "range": 5,
@@ -15,6 +16,7 @@
     "id": "kinetic_cannon",
     "name": "Kinetic Cannon",
     "type": "weapon_projectile",
+    "category": "kinetic",
     "stats": {
       "damage": 15,
       "range": 3,
@@ -27,6 +29,7 @@
     "id": "basic_missile",
     "name": "Basic Missile",
     "type": "weapon_missile",
+    "category": "propulsion",
     "stats": {
       "damage": 20,
       "range": 8,
@@ -39,6 +42,7 @@
     "id": "point_defense_turret",
     "name": "Point Defense Turret",
     "type": "weapon_point_defense",
+    "category": "kinetic",
     "stats": {
       "damage": 5,
       "range": 2,
@@ -51,6 +55,7 @@
     "id": "light_fighter_bay",
     "name": "Light Fighter Bay",
     "type": "fighter_bay",
+    "category": "propulsion",
     "stats": {
       "fighterCount": 4,
       "damage": 8,
@@ -129,6 +134,7 @@
     "id": "phased_array",
     "name": "Phased Array",
     "type": "weapon_beam",
+    "category": "energy",
     "stats": {
       "damage": 20,
       "range": 6,
@@ -142,6 +148,7 @@
     "id": "guided_torpedo",
     "name": "Guided Torpedo",
     "type": "weapon_missile",
+    "category": "propulsion",
     "stats": {
       "damage": 35,
       "range": 10,
@@ -191,6 +198,7 @@
     "id": "heavy_fighter_bay",
     "name": "Heavy Fighter Bay",
     "type": "fighter_bay",
+    "category": "propulsion",
     "stats": {
       "fighterCount": 8,
       "damage": 15,
@@ -204,6 +212,7 @@
     "id": "disruptor_beam",
     "name": "Disruptor Beam",
     "type": "weapon_beam",
+    "category": "energy",
     "stats": {
       "damage": 35,
       "range": 7,
@@ -241,6 +250,7 @@
     "id": "plasma_lance",
     "name": "Plasma Lance",
     "type": "weapon_beam",
+    "category": "energy",
     "stats": {
       "damage": 50,
       "range": 8,
@@ -273,5 +283,33 @@
     },
     "cost": 200,
     "requiredTech": "dimensional_scanning"
+  },
+  {
+    "id": "battering_ram",
+    "name": "Battering Ram",
+    "type": "weapon_projectile",
+    "category": "mechanical",
+    "description": "A reinforced prow spike for ramming manoeuvres",
+    "stats": {
+      "damage": 25,
+      "range": 1,
+      "accuracy": 95
+    },
+    "cost": 70,
+    "requiredTech": null
+  },
+  {
+    "id": "grappling_claws",
+    "name": "Grappling Claws",
+    "type": "special",
+    "category": "mechanical",
+    "description": "Mechanical appendages that latch onto and crush enemy hulls",
+    "stats": {
+      "damage": 15,
+      "range": 1,
+      "accuracy": 90
+    },
+    "cost": 90,
+    "requiredTech": "modular_architecture"
   }
 ]

@@ -54,7 +54,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 3, energy: 2 },
     maxLevel: 3,
     description: 'Enables ship construction on this planet. Higher levels reduce ship build time.',
-    requiredTech: 'cruiser_architecture',
+    requiredTech: 'nano_fabrication',
   },
 
   trade_hub: {

@@ -441,7 +441,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: false,
-      government: 'representative_democracy',
+      government: 'democracy',
     };
 
     const system: StarSystem = {

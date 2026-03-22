@@ -506,31 +506,125 @@ function generateIrregular(
   count: number,
   minDist: number,
 ): CandidatePoint[] {
-  // 3–5 density blobs anywhere in the field
-  const numBlobs = 3 + rng.nextInt(0, 2);
-  const blobs: Array<{ cx: number; cy: number; r: number }> = [];
-  for (let i = 0; i < numBlobs; i++) {
-    blobs.push({
-      cx: rng.nextFloat(GALAXY_WIDTH * 0.15, GALAXY_WIDTH * 0.85),
-      cy: rng.nextFloat(GALAXY_HEIGHT * 0.15, GALAXY_HEIGHT * 0.85),
-      r: rng.nextFloat(GALAXY_WIDTH * 0.10, GALAXY_WIDTH * 0.32),
+  // Cosmic web: dense clusters connected by thin chains of stars (filaments).
+  const numClusters = 3 + rng.nextInt(0, 3); // 3-6 clusters
+
+  interface Cluster {
+    cx: number;
+    cy: number;
+    rx: number; // half-width (may differ from ry for elongated clusters)
+    ry: number; // half-height
+    angle: number; // rotation angle for elongation
+  }
+
+  const clusters: Cluster[] = [];
+  for (let i = 0; i < numClusters; i++) {
+    const isElongated = rng.next() < 0.5;
+    const baseR = rng.nextFloat(GALAXY_WIDTH * 0.08, GALAXY_WIDTH * 0.18);
+    clusters.push({
+      cx: rng.nextFloat(GALAXY_WIDTH * 0.12, GALAXY_WIDTH * 0.88),
+      cy: rng.nextFloat(GALAXY_HEIGHT * 0.12, GALAXY_HEIGHT * 0.88),
+      rx: isElongated ? baseR * rng.nextFloat(1.5, 2.5) : baseR,
+      ry: isElongated ? baseR * rng.nextFloat(0.5, 0.8) : baseR,
+      angle: rng.nextFloat(0, Math.PI),
+    });
+  }
+
+  // Build filament corridors between clusters (connect each to its nearest
+  // unconnected neighbour, then add 1-2 extra links for variety).
+  interface Filament {
+    ax: number; ay: number;
+    bx: number; by: number;
+    width: number;
+  }
+
+  const filaments: Filament[] = [];
+  const connected = new Set<number>([0]);
+  const unconnected = new Set<number>();
+  for (let i = 1; i < numClusters; i++) unconnected.add(i);
+
+  // Minimum spanning tree-style connectivity
+  while (unconnected.size > 0) {
+    let bestDist = Infinity;
+    let bestFrom = 0;
+    let bestTo = 0;
+    for (const ci of connected) {
+      for (const ui of unconnected) {
+        const dx = clusters[ci]!.cx - clusters[ui]!.cx;
+        const dy = clusters[ci]!.cy - clusters[ui]!.cy;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bestDist) {
+          bestDist = d;
+          bestFrom = ci;
+          bestTo = ui;
+        }
+      }
+    }
+    connected.add(bestTo);
+    unconnected.delete(bestTo);
+    filaments.push({
+      ax: clusters[bestFrom]!.cx,
+      ay: clusters[bestFrom]!.cy,
+      bx: clusters[bestTo]!.cx,
+      by: clusters[bestTo]!.cy,
+      width: rng.nextFloat(minDist * 1.5, minDist * 3),
+    });
+  }
+
+  // Add 1-2 extra filaments for a more web-like feel
+  const extraLinks = rng.nextInt(1, 2);
+  for (let e = 0; e < extraLinks && numClusters > 2; e++) {
+    const a = rng.nextInt(0, numClusters - 1);
+    let b = rng.nextInt(0, numClusters - 1);
+    if (b === a) b = (b + 1) % numClusters;
+    filaments.push({
+      ax: clusters[a]!.cx,
+      ay: clusters[a]!.cy,
+      bx: clusters[b]!.cx,
+      by: clusters[b]!.cy,
+      width: rng.nextFloat(minDist * 1.2, minDist * 2.5),
     });
   }
 
   const inBounds = (x: number, y: number): boolean => {
-    for (const b of blobs) {
-      const dx = x - b.cx;
-      const dy = y - b.cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < b.r) {
-        const threshold = 0.3 + 0.7 * (1 - dist / b.r);
+    // Check if point is inside any cluster (rotated ellipse test)
+    for (const c of clusters) {
+      const dx = x - c.cx;
+      const dy = y - c.cy;
+      // Rotate point into cluster's local frame
+      const cos = Math.cos(-c.angle);
+      const sin = Math.sin(-c.angle);
+      const lx = dx * cos - dy * sin;
+      const ly = dx * sin + dy * cos;
+      const normDist = (lx * lx) / (c.rx * c.rx) + (ly * ly) / (c.ry * c.ry);
+      if (normDist < 1) {
+        // Density falls off from centre
+        const threshold = 0.25 + 0.75 * (1 - normDist);
         if (rng.next() < threshold) return true;
       }
     }
+
+    // Check if point is inside any filament corridor
+    for (const f of filaments) {
+      const fx = f.bx - f.ax;
+      const fy = f.by - f.ay;
+      const lenSq = fx * fx + fy * fy;
+      if (lenSq === 0) continue;
+      // Project point onto filament line segment
+      const t = Math.max(0, Math.min(1, ((x - f.ax) * fx + (y - f.ay) * fy) / lenSq));
+      const px = f.ax + t * fx;
+      const py = f.ay + t * fy;
+      const distToLine = Math.sqrt((x - px) * (x - px) + (y - py) * (y - py));
+      if (distToLine < f.width) {
+        // Sparser in filaments than clusters
+        if (rng.next() < 0.4) return true;
+      }
+    }
+
     return false;
   };
 
-  const pts = poissonDisk(rng, count * 4, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
+  const pts = poissonDisk(rng, count * 5, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
   return pts.slice(0, count);
 }
 
