@@ -79,6 +79,7 @@ export const TechnologySchema = z.object({
   prerequisites: z.array(z.string()),
   effects: z.array(TechEffectSchema).min(1),
   icon: z.string().optional(),
+  speciesId: z.string().min(1).optional(),
 });
 
 // ── TechTree ──────────────────────────────────────────────────────────────────

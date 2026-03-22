@@ -30,6 +30,8 @@ export interface Technology {
   prerequisites: string[];
   effects: TechEffect[];
   icon?: string;
+  /** If set, this tech is only available to empires whose species ID matches. */
+  speciesId?: string;
 }
 
 export interface TechTree {

@@ -65,10 +65,12 @@ function isAgeAccessible(techAge: string, currentAge: TechAge): boolean {
  * - It is not already completed
  * - It is not already in activeResearch
  * - Its age gate is satisfied (tech's age index <= current age index)
+ * - If the tech has a speciesId, it matches the empire's species
  */
 export function getAvailableTechs(
   allTechs: Technology[],
   state: ResearchState,
+  speciesId?: string,
 ): Technology[] {
   const completedSet = new Set(state.completedTechs);
   const activeSet = new Set(state.activeResearch.map(r => r.techId));
@@ -77,6 +79,7 @@ export function getAvailableTechs(
     if (completedSet.has(tech.id)) return false;
     if (activeSet.has(tech.id)) return false;
     if (!isAgeAccessible(tech.age, state.currentAge)) return false;
+    if (tech.speciesId && speciesId && tech.speciesId !== speciesId) return false;
     return tech.prerequisites.every(prereqId => completedSet.has(prereqId));
   });
 }
@@ -91,14 +94,16 @@ export function getAvailableTechs(
  * @param state       Current research state.
  * @param techId      ID of the technology to start.
  * @param allocation  Percentage of research points to allocate (0–100).
+ * @param speciesId   Optional species ID for filtering species-specific techs.
  */
 export function startResearch(
   state: ResearchState,
   techId: string,
   allTechs: Technology[],
   allocation: number,
+  speciesId?: string,
 ): ResearchState {
-  const available = getAvailableTechs(allTechs, state);
+  const available = getAvailableTechs(allTechs, state, speciesId);
   const tech = available.find(t => t.id === techId);
 
   if (!tech) {

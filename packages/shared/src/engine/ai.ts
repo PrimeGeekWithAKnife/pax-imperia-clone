@@ -311,7 +311,7 @@ export function evaluateResearchPriority(
   personality: AIPersonality,
   allTechs: Technology[],
 ): AIDecision[] {
-  const available = getAvailableTechs(allTechs, researchState);
+  const available = getAvailableTechs(allTechs, researchState, empire.species.id);
   if (available.length === 0) return [];
 
   const preferred = PERSONALITY_TECH_PREFERENCE[personality];

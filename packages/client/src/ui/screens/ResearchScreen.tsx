@@ -74,6 +74,8 @@ export interface ResearchScreenProps {
   researchPerTick: number;
   /** Species research multiplier (species.traits.research / 5) */
   speciesBonus: number;
+  /** Species ID used to filter species-specific techs */
+  speciesId?: string;
   onStartResearch: (techId: string, allocation: number) => void;
   onCancelResearch: (techId: string) => void;
   onAdjustAllocation: (techId: string, allocation: number) => void;
@@ -321,6 +323,7 @@ export function ResearchScreen({
   researchState,
   researchPerTick,
   speciesBonus,
+  speciesId,
   onStartResearch,
   onCancelResearch,
   onAdjustAllocation,
@@ -331,8 +334,8 @@ export function ResearchScreen({
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const availableTechs = useMemo(
-    () => getAvailableTechs(allTechs, researchState),
-    [allTechs, researchState],
+    () => getAvailableTechs(allTechs, researchState, speciesId),
+    [allTechs, researchState, speciesId],
   );
 
   const availableIds = useMemo(

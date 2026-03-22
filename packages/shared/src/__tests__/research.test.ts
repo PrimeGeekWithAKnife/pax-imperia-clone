@@ -700,3 +700,98 @@ describe('applyTechEffects', () => {
     expect(updated.currentAge).toBe('nano_fusion');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Species filtering (speciesId on Technology)
+// ---------------------------------------------------------------------------
+
+describe('getAvailableTechs — species filtering', () => {
+  const SPECIES_TECHS: Technology[] = [
+    {
+      id: 'universal_tech',
+      name: 'Universal Tech',
+      description: 'Available to all species',
+      category: 'weapons',
+      age: 'nano_atomic',
+      cost: 100,
+      prerequisites: [],
+      effects: [{ type: 'stat_bonus', stat: 'combat', value: 1 }],
+    },
+    {
+      id: 'vaelori_psionic',
+      name: 'Vaelori Psionics',
+      description: 'Only available to Vaelori species',
+      category: 'racial',
+      age: 'nano_atomic',
+      cost: 100,
+      prerequisites: [],
+      effects: [{ type: 'enable_ability', ability: 'psionics' }],
+      speciesId: 'vaelori',
+    },
+    {
+      id: 'khazari_forge',
+      name: 'Khazari Forge Mastery',
+      description: 'Only available to Khazari species',
+      category: 'racial',
+      age: 'nano_atomic',
+      cost: 100,
+      prerequisites: [],
+      effects: [{ type: 'stat_bonus', stat: 'construction', value: 5 }],
+      speciesId: 'khazari',
+    },
+  ];
+
+  it('returns all techs when no speciesId is provided', () => {
+    const state = makeResearchState();
+    const available = getAvailableTechs(SPECIES_TECHS, state);
+    const ids = available.map(t => t.id);
+
+    expect(ids).toContain('universal_tech');
+    expect(ids).toContain('vaelori_psionic');
+    expect(ids).toContain('khazari_forge');
+  });
+
+  it('includes universal techs and matching species techs', () => {
+    const state = makeResearchState();
+    const available = getAvailableTechs(SPECIES_TECHS, state, 'vaelori');
+    const ids = available.map(t => t.id);
+
+    expect(ids).toContain('universal_tech');
+    expect(ids).toContain('vaelori_psionic');
+    expect(ids).not.toContain('khazari_forge');
+  });
+
+  it('excludes techs belonging to a different species', () => {
+    const state = makeResearchState();
+    const available = getAvailableTechs(SPECIES_TECHS, state, 'khazari');
+    const ids = available.map(t => t.id);
+
+    expect(ids).toContain('universal_tech');
+    expect(ids).toContain('khazari_forge');
+    expect(ids).not.toContain('vaelori_psionic');
+  });
+
+  it('includes techs without speciesId for any species', () => {
+    const state = makeResearchState();
+    const available = getAvailableTechs(SPECIES_TECHS, state, 'teranos');
+    const ids = available.map(t => t.id);
+
+    expect(ids).toContain('universal_tech');
+    expect(ids).not.toContain('vaelori_psionic');
+    expect(ids).not.toContain('khazari_forge');
+  });
+
+  it('startResearch respects species filtering', () => {
+    const state = makeResearchState();
+
+    // Vaelori can start their own psionic tech
+    const nextState = startResearch(state, 'vaelori_psionic', SPECIES_TECHS, 50, 'vaelori');
+    expect(nextState.activeResearch).toHaveLength(1);
+    expect(nextState.activeResearch[0].techId).toBe('vaelori_psionic');
+
+    // Khazari cannot start Vaelori psionic tech
+    expect(() =>
+      startResearch(state, 'vaelori_psionic', SPECIES_TECHS, 50, 'khazari'),
+    ).toThrow();
+  });
+});
