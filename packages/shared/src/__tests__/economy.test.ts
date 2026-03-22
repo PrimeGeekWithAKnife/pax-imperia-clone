@@ -54,7 +54,7 @@ function makeEmpire(species: Species): Empire {
     knownSystems: [],
     diplomacy: [],
     technologies: [],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     isAI: false,
   };
 }

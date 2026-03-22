@@ -3,11 +3,11 @@ import { z } from 'zod';
 // ── Enums matching the TypeScript union types ─────────────────────────────────
 
 export const TechAgeSchema = z.enum([
-  'diamond_age',
-  'spatial_dark_age',
-  'neo_renaissance',
-  'fusion_age',
-  'age_of_star_empires',
+  'nano_atomic',
+  'fusion',
+  'nano_fusion',
+  'anti_matter',
+  'singularity',
 ]);
 
 export const TechCategorySchema = z.enum([

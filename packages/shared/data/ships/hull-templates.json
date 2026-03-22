@@ -32,7 +32,7 @@
     ],
     "baseCost": 100,
     "baseSpeed": 8,
-    "requiredAge": "diamond_age"
+    "requiredAge": "nano_atomic"
   },
   {
     "class": "destroyer",
@@ -83,7 +83,7 @@
     ],
     "baseCost": 250,
     "baseSpeed": 6,
-    "requiredAge": "diamond_age"
+    "requiredAge": "nano_atomic"
   },
   {
     "class": "transport",
@@ -126,7 +126,7 @@
     ],
     "baseCost": 200,
     "baseSpeed": 5,
-    "requiredAge": "diamond_age"
+    "requiredAge": "nano_atomic"
   },
   {
     "class": "cruiser",
@@ -201,7 +201,7 @@
     ],
     "baseCost": 500,
     "baseSpeed": 5,
-    "requiredAge": "neo_renaissance"
+    "requiredAge": "nano_fusion"
   },
   {
     "class": "carrier",
@@ -292,7 +292,7 @@
     ],
     "baseCost": 800,
     "baseSpeed": 4,
-    "requiredAge": "fusion_age"
+    "requiredAge": "anti_matter"
   },
   {
     "class": "battleship",
@@ -399,6 +399,6 @@
     ],
     "baseCost": 1200,
     "baseSpeed": 3,
-    "requiredAge": "age_of_star_empires"
+    "requiredAge": "singularity"
   }
 ]

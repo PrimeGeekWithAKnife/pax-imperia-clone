@@ -108,7 +108,7 @@ function makeEmpire(overrides: Partial<Empire> = {}): Empire {
     knownSystems: ['sys-1'],
     diplomacy: [],
     technologies: [],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     isAI: true,
     aiPersonality: 'defensive',
     ...overrides,
@@ -167,7 +167,7 @@ function makeTech(overrides: Partial<Technology> = {}): Technology {
     name: 'Basic Weapons',
     description: 'Improved ship weapons',
     category: 'weapons',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     cost: 100,
     prerequisites: [],
     effects: [],
@@ -323,7 +323,7 @@ describe('evaluateResearchPriority', () => {
   const baseResearchState: ResearchState = {
     completedTechs: [],
     activeResearch: [],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     totalResearchGenerated: 0,
   };
 

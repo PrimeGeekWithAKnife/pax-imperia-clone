@@ -37,10 +37,11 @@ const HULL_CLASS_ICON: Record<HullClass, string> = {
 
 // Human-readable age names for locked hull display
 const AGE_DISPLAY: Record<string, string> = {
-  diamond_age:        'Diamond Age',
-  neo_renaissance:    'Neo-Renaissance',
-  fusion_age:         'Fusion Age',
-  age_of_star_empires:'Age of Star Empires',
+  nano_atomic:  'Nano-Atomic Age',
+  fusion:       'Fusion Age',
+  nano_fusion:  'Nano-Fusion Age',
+  anti_matter:  'Anti-Matter Age',
+  singularity:  'Singularity Age',
 };
 
 // Component type display names
@@ -357,7 +358,7 @@ export function ShipDesignerScreen({
             <div className="sd-hull-list">
               {HULL_TEMPLATES.map((h) => {
                 const unlocked =
-                  researchedTechs.includes(h.requiredAge) || h.requiredAge === 'diamond_age';
+                  researchedTechs.includes(h.requiredAge) || h.requiredAge === 'nano_atomic';
                 const isSelected = h.class === selectedHullClass;
 
                 return (

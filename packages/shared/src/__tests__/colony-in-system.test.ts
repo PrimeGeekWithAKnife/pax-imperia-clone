@@ -439,7 +439,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
       knownSystems: ['system-loop'],
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: false,
     };
 

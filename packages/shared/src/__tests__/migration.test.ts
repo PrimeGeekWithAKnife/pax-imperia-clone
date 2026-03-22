@@ -526,7 +526,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       knownSystems: ['system-int'],
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: false,
     };
 

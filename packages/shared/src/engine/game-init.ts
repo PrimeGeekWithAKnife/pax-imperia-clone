@@ -340,7 +340,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       knownSystems: knownSystemIds,
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
       ...(playerSetup.aiPersonality !== undefined
         ? { aiPersonality: playerSetup.aiPersonality }

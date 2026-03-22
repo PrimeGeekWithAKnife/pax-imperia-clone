@@ -18,16 +18,16 @@ import type { Empire, Species } from '../types/species.js';
 /**
  * Minimal mock tech tree:
  *
- *   [diamond_age]
+ *   [nano_atomic]
  *     basic_propulsion   (no prereqs)
  *     basic_weapons      (no prereqs)
  *     basic_shields      (requires basic_propulsion)
- *     spatial_theory     (requires basic_propulsion + basic_weapons)  → unlocks spatial_dark_age
+ *     fusion_theory      (requires basic_propulsion + basic_weapons)  -> unlocks fusion
  *
- *   [spatial_dark_age]
+ *   [fusion]
  *     advanced_weapons   (requires basic_weapons)
- *     wormhole_nav       (requires spatial_theory)
- *     advanced_shields   (requires basic_shields, advanced_weapons)   → unlocks neo_renaissance
+ *     wormhole_nav       (requires fusion_theory)
+ *     advanced_shields   (requires basic_shields, advanced_weapons)   -> unlocks nano_fusion
  */
 const MOCK_TECHS: Technology[] = [
   {
@@ -35,7 +35,7 @@ const MOCK_TECHS: Technology[] = [
     name: 'Basic Propulsion',
     description: 'Rudimentary drive technology',
     category: 'propulsion',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     cost: 100,
     prerequisites: [],
     effects: [],
@@ -45,7 +45,7 @@ const MOCK_TECHS: Technology[] = [
     name: 'Basic Weapons',
     description: 'Simple energy weapons',
     category: 'weapons',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     cost: 80,
     prerequisites: [],
     effects: [{ type: 'stat_bonus', stat: 'combat', value: 2 }],
@@ -55,27 +55,27 @@ const MOCK_TECHS: Technology[] = [
     name: 'Basic Shields',
     description: 'Energy shielding',
     category: 'defense',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     cost: 120,
     prerequisites: ['basic_propulsion'],
     effects: [{ type: 'unlock_component', componentId: 'shield_mk1' }],
   },
   {
-    id: 'spatial_theory',
-    name: 'Spatial Theory',
-    description: 'Theoretical framework for spatial dark age',
+    id: 'fusion_theory',
+    name: 'Fusion Theory',
+    description: 'Theoretical framework for the fusion age',
     category: 'special',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     cost: 200,
     prerequisites: ['basic_propulsion', 'basic_weapons'],
-    effects: [{ type: 'age_unlock', age: 'spatial_dark_age' }],
+    effects: [{ type: 'age_unlock', age: 'fusion' }],
   },
   {
     id: 'advanced_weapons',
     name: 'Advanced Weapons',
     description: 'Improved energy weapons',
     category: 'weapons',
-    age: 'spatial_dark_age',
+    age: 'fusion',
     cost: 150,
     prerequisites: ['basic_weapons'],
     effects: [
@@ -88,9 +88,9 @@ const MOCK_TECHS: Technology[] = [
     name: 'Wormhole Navigation',
     description: 'Navigate through wormholes efficiently',
     category: 'propulsion',
-    age: 'spatial_dark_age',
+    age: 'fusion',
     cost: 180,
-    prerequisites: ['spatial_theory'],
+    prerequisites: ['fusion_theory'],
     effects: [{ type: 'enable_ability', ability: 'wormhole_travel' }],
   },
   {
@@ -98,12 +98,12 @@ const MOCK_TECHS: Technology[] = [
     name: 'Advanced Shields',
     description: 'Next-generation shielding',
     category: 'defense',
-    age: 'spatial_dark_age',
+    age: 'fusion',
     cost: 300,
     prerequisites: ['basic_shields', 'advanced_weapons'],
     effects: [
       { type: 'resource_bonus', resource: 'researchPoints', multiplier: 1.1 },
-      { type: 'age_unlock', age: 'neo_renaissance' },
+      { type: 'age_unlock', age: 'nano_fusion' },
     ],
   },
 ];
@@ -147,7 +147,7 @@ function makeEmpire(overrides: Partial<Empire> = {}): Empire {
     knownSystems: [],
     diplomacy: [],
     technologies: [],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     isAI: false,
     ...overrides,
   };
@@ -157,7 +157,7 @@ function makeResearchState(overrides: Partial<ResearchState> = {}): ResearchStat
   return {
     completedTechs: [],
     activeResearch: [],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     totalResearchGenerated: 0,
     ...overrides,
   };
@@ -177,7 +177,7 @@ describe('getAvailableTechs', () => {
     expect(ids).toContain('basic_weapons');
     // These have prerequisites
     expect(ids).not.toContain('basic_shields');
-    expect(ids).not.toContain('spatial_theory');
+    expect(ids).not.toContain('fusion_theory');
   });
 
   it('unlocks techs once prerequisites are completed', () => {
@@ -188,8 +188,8 @@ describe('getAvailableTechs', () => {
     const ids = available.map(t => t.id);
 
     expect(ids).toContain('basic_shields');
-    // spatial_theory still requires basic_weapons too
-    expect(ids).not.toContain('spatial_theory');
+    // fusion_theory still requires basic_weapons too
+    expect(ids).not.toContain('fusion_theory');
   });
 
   it('unlocks multi-prerequisite tech when all prereqs are met', () => {
@@ -199,7 +199,7 @@ describe('getAvailableTechs', () => {
     const available = getAvailableTechs(MOCK_TECHS, state);
     const ids = available.map(t => t.id);
 
-    expect(ids).toContain('spatial_theory');
+    expect(ids).toContain('fusion_theory');
     expect(ids).toContain('basic_shields');
   });
 
@@ -223,10 +223,10 @@ describe('getAvailableTechs', () => {
     expect(ids).not.toContain('basic_weapons');
   });
 
-  it('respects age gates — spatial_dark_age techs not available in diamond_age', () => {
+  it('respects age gates — fusion techs not available in nano_atomic age', () => {
     const state = makeResearchState({
       completedTechs: ['basic_weapons'],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
     });
     const available = getAvailableTechs(MOCK_TECHS, state);
     const ids = available.map(t => t.id);
@@ -238,8 +238,8 @@ describe('getAvailableTechs', () => {
 
   it('age-gated techs become available once the age is unlocked', () => {
     const state = makeResearchState({
-      completedTechs: ['basic_propulsion', 'basic_weapons', 'spatial_theory'],
-      currentAge: 'spatial_dark_age',
+      completedTechs: ['basic_propulsion', 'basic_weapons', 'fusion_theory'],
+      currentAge: 'fusion',
     });
     const available = getAvailableTechs(MOCK_TECHS, state);
     const ids = available.map(t => t.id);
@@ -311,7 +311,7 @@ describe('startResearch', () => {
   it('rejects age-gated techs', () => {
     const state = makeResearchState({
       completedTechs: ['basic_weapons'],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
     });
 
     expect(() =>
@@ -475,7 +475,7 @@ describe('processResearchTick', () => {
   it('accumulates points across multiple ticks', () => {
     let state = makeResearchState({
       activeResearch: [
-        // basic_weapons costs 80; invest 40 per tick → 2 ticks
+        // basic_weapons costs 80; invest 40 per tick -> 2 ticks
         { techId: 'basic_weapons', pointsInvested: 0, allocation: 100 },
       ],
     });
@@ -486,7 +486,7 @@ describe('processResearchTick', () => {
     expect(result1.completed).toHaveLength(0);
     expect(result1.newState.activeResearch[0].pointsInvested).toBeCloseTo(40);
 
-    // Tick 2: another 40 → total 80 >= cost
+    // Tick 2: another 40 -> total 80 >= cost
     state = result1.newState;
     const result2 = processResearchTick(state, 40, species, MOCK_TECHS);
     expect(result2.completed).toHaveLength(1);
@@ -511,18 +511,18 @@ describe('processResearchTick', () => {
     const state = makeResearchState({
       completedTechs: ['basic_propulsion', 'basic_weapons'],
       activeResearch: [
-        // spatial_theory costs 200 and unlocks spatial_dark_age
-        { techId: 'spatial_theory', pointsInvested: 190, allocation: 100 },
+        // fusion_theory costs 200 and unlocks fusion
+        { techId: 'fusion_theory', pointsInvested: 190, allocation: 100 },
       ],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
     });
     const species = makeSpecies(5);
 
-    // 10 more points → 190 + 10 = 200 >= cost of 200
+    // 10 more points -> 190 + 10 = 200 >= cost of 200
     const { newState, completed } = processResearchTick(state, 10, species, MOCK_TECHS);
 
-    expect(completed[0].id).toBe('spatial_theory');
-    expect(newState.currentAge).toBe('spatial_dark_age');
+    expect(completed[0].id).toBe('fusion_theory');
+    expect(newState.currentAge).toBe('fusion');
   });
 
   it('handles multiple simultaneous research projects', () => {
@@ -554,23 +554,23 @@ describe('processResearchTick', () => {
 describe('canAdvanceAge', () => {
   it('returns false when no tech exists that unlocks the target age', () => {
     const state = makeResearchState({ completedTechs: [] });
-    // 'fusion_age' has no gate tech in our mock tree
-    expect(canAdvanceAge(state, 'fusion_age', MOCK_TECHS)).toBe(false);
+    // 'anti_matter' has no gate tech in our mock tree
+    expect(canAdvanceAge(state, 'anti_matter', MOCK_TECHS)).toBe(false);
   });
 
   it('returns false when prerequisites for the age gate tech are not met', () => {
     const state = makeResearchState({
       completedTechs: ['basic_propulsion'], // missing basic_weapons
     });
-    // spatial_theory (gate for spatial_dark_age) requires both
-    expect(canAdvanceAge(state, 'spatial_dark_age', MOCK_TECHS)).toBe(false);
+    // fusion_theory (gate for fusion) requires both
+    expect(canAdvanceAge(state, 'fusion', MOCK_TECHS)).toBe(false);
   });
 
   it('returns true when all prerequisites for the age gate tech are met', () => {
     const state = makeResearchState({
       completedTechs: ['basic_propulsion', 'basic_weapons'],
     });
-    expect(canAdvanceAge(state, 'spatial_dark_age', MOCK_TECHS)).toBe(true);
+    expect(canAdvanceAge(state, 'fusion', MOCK_TECHS)).toBe(true);
   });
 });
 
@@ -581,17 +581,17 @@ describe('canAdvanceAge', () => {
 describe('getResearchSpeed', () => {
   it('returns estimated ticks to complete based on allocation and points per tick', () => {
     // cost=100, allocation=100%, researchPerTick=10, speciesBonus=1.0
-    // effective per tick = 10 * 1.0 * 1.0 = 10 → 10 ticks
+    // effective per tick = 10 * 1.0 * 1.0 = 10 -> 10 ticks
     expect(getResearchSpeed(100, 100, 10, 1.0)).toBe(10);
   });
 
   it('doubles ticks when allocation is halved', () => {
-    // allocation 50% → 5 effective points per tick → 20 ticks
+    // allocation 50% -> 5 effective points per tick -> 20 ticks
     expect(getResearchSpeed(100, 50, 10, 1.0)).toBe(20);
   });
 
   it('halves ticks when species bonus is 2.0', () => {
-    // speciesBonus 2.0 → 20 effective points → 5 ticks
+    // speciesBonus 2.0 -> 20 effective points -> 5 ticks
     expect(getResearchSpeed(100, 100, 10, 2.0)).toBe(5);
   });
 
@@ -601,7 +601,7 @@ describe('getResearchSpeed', () => {
   });
 
   it('rounds up partial ticks (ceiling)', () => {
-    // 100 / 30 = 3.33... → 4 ticks
+    // 100 / 30 = 3.33... -> 4 ticks
     expect(getResearchSpeed(100, 100, 30, 1.0)).toBe(4);
   });
 });
@@ -612,22 +612,22 @@ describe('getResearchSpeed', () => {
 
 describe('applyTechEffects', () => {
   it('advances currentAge when tech has age_unlock effect', () => {
-    const empire = makeEmpire({ currentAge: 'diamond_age' });
-    const spatialTheory = MOCK_TECHS.find(t => t.id === 'spatial_theory')!;
+    const empire = makeEmpire({ currentAge: 'nano_atomic' });
+    const fusionTheory = MOCK_TECHS.find(t => t.id === 'fusion_theory')!;
 
-    const updated = applyTechEffects(empire, spatialTheory);
+    const updated = applyTechEffects(empire, fusionTheory);
 
-    expect(updated.currentAge).toBe('spatial_dark_age');
+    expect(updated.currentAge).toBe('fusion');
   });
 
   it('does not downgrade currentAge if already at a later age', () => {
-    const empire = makeEmpire({ currentAge: 'neo_renaissance' });
-    const spatialTheory = MOCK_TECHS.find(t => t.id === 'spatial_theory')!;
+    const empire = makeEmpire({ currentAge: 'nano_fusion' });
+    const fusionTheory = MOCK_TECHS.find(t => t.id === 'fusion_theory')!;
 
-    const updated = applyTechEffects(empire, spatialTheory);
+    const updated = applyTechEffects(empire, fusionTheory);
 
-    // spatial_dark_age is earlier than neo_renaissance — no change
-    expect(updated.currentAge).toBe('neo_renaissance');
+    // fusion is earlier than nano_fusion — no change
+    expect(updated.currentAge).toBe('nano_fusion');
   });
 
   it('applies research stat_bonus to empire researchPoints', () => {
@@ -637,7 +637,7 @@ describe('applyTechEffects', () => {
       name: 'Research Boost',
       description: 'Increases research output',
       category: 'special',
-      age: 'diamond_age',
+      age: 'nano_atomic',
       cost: 50,
       prerequisites: [],
       effects: [{ type: 'stat_bonus', stat: 'research', value: 5 }],
@@ -649,11 +649,11 @@ describe('applyTechEffects', () => {
   });
 
   it('does not mutate the original empire', () => {
-    const empire = makeEmpire({ currentAge: 'diamond_age' });
+    const empire = makeEmpire({ currentAge: 'nano_atomic' });
     const originalAge = empire.currentAge;
-    const spatialTheory = MOCK_TECHS.find(t => t.id === 'spatial_theory')!;
+    const fusionTheory = MOCK_TECHS.find(t => t.id === 'fusion_theory')!;
 
-    applyTechEffects(empire, spatialTheory);
+    applyTechEffects(empire, fusionTheory);
 
     expect(empire.currentAge).toBe(originalAge);
   });
@@ -665,7 +665,7 @@ describe('applyTechEffects', () => {
       name: 'Placeholder',
       description: 'No effects',
       category: 'special',
-      age: 'diamond_age',
+      age: 'nano_atomic',
       cost: 10,
       prerequisites: [],
       effects: [],
@@ -678,24 +678,24 @@ describe('applyTechEffects', () => {
   });
 
   it('applies multiple effects from a single tech', () => {
-    const empire = makeEmpire({ currentAge: 'spatial_dark_age', researchPoints: 0 });
+    const empire = makeEmpire({ currentAge: 'fusion', researchPoints: 0 });
     const tech: Technology = {
       id: 'multi_effect',
       name: 'Multi Effect',
       description: 'Has several effects',
       category: 'special',
-      age: 'spatial_dark_age',
+      age: 'fusion',
       cost: 250,
       prerequisites: [],
       effects: [
         { type: 'stat_bonus', stat: 'research', value: 10 },
-        { type: 'age_unlock', age: 'neo_renaissance' },
+        { type: 'age_unlock', age: 'nano_fusion' },
       ],
     };
 
     const updated = applyTechEffects(empire, tech);
 
     expect(updated.researchPoints).toBe(10);
-    expect(updated.currentAge).toBe('neo_renaissance');
+    expect(updated.currentAge).toBe('nano_fusion');
   });
 });

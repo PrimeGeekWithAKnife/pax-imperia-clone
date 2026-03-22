@@ -89,6 +89,8 @@ export type BuildingType =
   | 'terraforming_station'
   | 'military_academy'
   | 'fusion_reactor'
+  | 'medical_bay'
+  | 'advanced_medical_centre'
   // ── Vaelori unique buildings ──────────────────────────────────────────────
   | 'crystal_resonance_chamber'
   | 'psionic_amplifier'

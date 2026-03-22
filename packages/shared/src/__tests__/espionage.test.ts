@@ -70,7 +70,7 @@ function makeEmpire(id: string, overrides: Partial<Empire> = {}): Empire {
     knownSystems: ['sys_a', 'sys_b'],
     diplomacy: [],
     technologies: ['pulse_lasers', 'ion_drives'],
-    currentAge: 'diamond_age',
+    currentAge: 'nano_atomic',
     isAI: true,
     aiPersonality: 'diplomatic',
     ...overrides,
@@ -444,7 +444,7 @@ describe('processEspionageTick — gather_intel', () => {
     const state = initialiseEspionage(['alpha', 'beta']);
     const agent = makeFullyActiveAgent('a1', 'gather_intel', 'beta');
     const stateWithAgent = addAgentToState(state, agent);
-    const targetEmpire = makeEmpire('beta', { credits: 2500, technologies: ['pulse_lasers', 'composite_armor', 'ion_drives'] });
+    const targetEmpire = makeEmpire('beta', { credits: 2500, technologies: ['pulse_lasers', 'composite_armour', 'ion_drives'] });
 
     const { events } = processEspionageTick(
       stateWithAgent,

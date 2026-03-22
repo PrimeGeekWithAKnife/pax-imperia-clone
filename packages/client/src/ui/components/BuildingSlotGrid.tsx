@@ -30,6 +30,8 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   terraforming_station: 'TF',
   military_academy: 'MA',
   fusion_reactor: 'FR',
+  medical_bay: 'MB',
+  advanced_medical_centre: 'AM',
   // ── Vaelori ─────────────────────────────────────────────────────────────
   crystal_resonance_chamber: 'CR',
   psionic_amplifier: 'PA',

@@ -76,7 +76,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2, energy: 2 },
     maxLevel: 4,
     description: 'Provides planetary defences. Does not produce resources but consumes energy.',
-    requiredTech: 'reactive_plating',
+    requiredTech: 'automated_defence',
   },
 
   population_center: {
@@ -108,7 +108,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 3,
     description: 'Facilitates trade and logistics, boosting credit income and enabling trade routes. Requires minerals.',
-    requiredTech: 'orbital_fabrication',
+    requiredTech: 'nano_fabrication',
   },
 
   power_plant: {
@@ -150,7 +150,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2, energy: 1 },
     maxLevel: 3,
     description: 'An orbital structure extending the planet\'s capabilities. Provides additional building capacity.',
-    requiredTech: 'megastructure_theory',
+    requiredTech: 'gravity_generators',
   },
 
   recycling_plant: {
@@ -161,7 +161,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 0 },
     maxLevel: 5,
     description: 'Converts waste into usable materials. Reduces environmental impact and building maintenance.',
-    requiredTech: 'genetic_optimization',
+    requiredTech: 'genetic_optimisation',
   },
 
   communications_hub: {
@@ -172,7 +172,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 1 },
     maxLevel: 5,
     description: 'Planetary network connecting all buildings for improved coordination. Boosts research and trade.',
-    requiredTech: 'diplomatic_cipher',
+    requiredTech: 'quantum_ciphers',
   },
 
   terraforming_station: {
@@ -205,7 +205,28 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Advanced power generation using nuclear fusion. Produces significantly more energy than a basic power plant.',
-    requiredTech: 'hyperspace_conduits',
+    requiredTech: 'plasma_physics',
+  },
+
+  medical_bay: {
+    name: 'Medical Bay',
+    baseCost: { credits: 80 },
+    baseProduction: {},
+    buildTime: 3,
+    maintenanceCost: { credits: 1 },
+    maxLevel: 5,
+    description: 'A well-equipped medical facility that reduces population loss from disease and improves overall colony health.',
+  },
+
+  advanced_medical_centre: {
+    name: 'Advanced Medical Centre',
+    baseCost: { credits: 150, minerals: 50 },
+    baseProduction: {},
+    buildTime: 5,
+    maintenanceCost: { credits: 2, energy: 1 },
+    maxLevel: 4,
+    description: 'A state-of-the-art xenobiological healthcare facility providing superior disease resistance and population recovery rates.',
+    requiredTech: 'xenobiology',
   },
 
   // ── Vaelori unique buildings ────────────────────────────────────────────────

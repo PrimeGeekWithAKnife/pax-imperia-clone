@@ -338,7 +338,7 @@ describe('initializeGame – starting resources', () => {
     }
   });
 
-  it('each empire starts in diamond_age', () => {
+  it('each empire starts in nano_atomic age', () => {
     const config: GameSetupConfig = {
       galaxyConfig: galaxyConfig('medium', 2),
       players: [makePlayerSetup('a'), makePlayerSetup('b')],
@@ -346,7 +346,7 @@ describe('initializeGame – starting resources', () => {
     const state = initializeGame(config);
 
     for (const empire of state.empires) {
-      expect(empire.currentAge).toBe('diamond_age');
+      expect(empire.currentAge).toBe('nano_atomic');
     }
   });
 

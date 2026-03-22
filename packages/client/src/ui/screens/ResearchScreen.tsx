@@ -13,27 +13,27 @@ export type TechCardStatus = 'completed' | 'available' | 'active' | 'locked' | '
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const TECH_AGES_ORDERED: TechAge[] = [
-  'diamond_age',
-  'spatial_dark_age',
-  'neo_renaissance',
-  'fusion_age',
-  'age_of_star_empires',
+  'nano_atomic',
+  'fusion',
+  'nano_fusion',
+  'anti_matter',
+  'singularity',
 ];
 
 const AGE_DISPLAY_NAMES: Record<TechAge, string> = {
-  diamond_age:         'Diamond Age',
-  spatial_dark_age:    'Spatial Dark Age',
-  neo_renaissance:     'Neo-Renaissance',
-  fusion_age:          'Fusion Age',
-  age_of_star_empires: 'Age of Star Empires',
+  nano_atomic:  'Nano-Atomic Age',
+  fusion:       'Fusion Age',
+  nano_fusion:  'Nano-Fusion Age',
+  anti_matter:  'Anti-Matter Age',
+  singularity:  'Singularity Age',
 };
 
 const AGE_SHORT_NAMES: Record<TechAge, string> = {
-  diamond_age:         'Diamond',
-  spatial_dark_age:    'Dark Age',
-  neo_renaissance:     'Renaissance',
-  fusion_age:          'Fusion',
-  age_of_star_empires: 'Star Empires',
+  nano_atomic:  'Nano-Atomic',
+  fusion:       'Fusion',
+  nano_fusion:  'Nano-Fusion',
+  anti_matter:  'Anti-Matter',
+  singularity:  'Singularity',
 };
 
 const CATEGORIES_ORDERED: TechCategory[] = [
@@ -91,6 +91,219 @@ function getTechStatus(
   return 'locked';
 }
 
+// ── ActiveResearchList sub-component ─────────────────────────────────────────
+
+interface ActiveResearchListProps {
+  activeResearch: ActiveResearch[];
+  techById: Map<string, Technology>;
+  totalAllocation: number;
+  researchPerTick: number;
+  speciesBonus: number;
+  selectedTechId: string | undefined;
+  maxActiveResearch: number;
+  onCardClick: (tech: Technology) => void;
+  onCancelResearch: (techId: string) => void;
+  onAdjustAllocation: (techId: string, allocation: number) => void;
+}
+
+/** Inline active-research item with its own allocation slider and cancel button. */
+function ActiveResearchItem({
+  active,
+  tech,
+  researchPerTick,
+  speciesBonus,
+  otherAllocation,
+  isSelected,
+  onCardClick,
+  onCancelResearch,
+  onAdjustAllocation,
+}: {
+  active: ActiveResearch;
+  tech: Technology;
+  researchPerTick: number;
+  speciesBonus: number;
+  otherAllocation: number;
+  isSelected: boolean;
+  onCardClick: (tech: Technology) => void;
+  onCancelResearch: (techId: string) => void;
+  onAdjustAllocation: (techId: string, allocation: number) => void;
+}): React.ReactElement {
+  const [localAlloc, setLocalAlloc] = useState<number>(active.allocation);
+  const progressPercent = (active.pointsInvested / tech.cost) * 100;
+  const maxAlloc = Math.min(100, 100 - otherAllocation + active.allocation);
+
+  // Keep local value in sync when the parent allocation changes (e.g. after apply)
+  React.useEffect(() => {
+    setLocalAlloc(active.allocation);
+  }, [active.allocation]);
+
+  const ticks = getResearchSpeed(
+    tech.cost - active.pointsInvested,
+    localAlloc,
+    researchPerTick,
+    speciesBonus,
+  );
+
+  const overLimit = otherAllocation + localAlloc > 100;
+
+  const handleApply = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onAdjustAllocation(active.techId, localAlloc);
+    },
+    [active.techId, localAlloc, onAdjustAllocation],
+  );
+
+  const handleCancel = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onCancelResearch(active.techId);
+    },
+    [active.techId, onCancelResearch],
+  );
+
+  return (
+    <div
+      className={`research-active-item ${isSelected ? 'research-active-item--selected' : ''}`}
+      onClick={() => onCardClick(tech)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onCardClick(tech);
+      }}
+    >
+      {/* Name + cancel */}
+      <div className="research-active-item__top">
+        <span className="research-active-item__name">{tech.name}</span>
+        <button
+          type="button"
+          className="research-active-item__cancel-btn"
+          onClick={handleCancel}
+          aria-label={`Cancel research on ${tech.name}`}
+        >
+          &#10005;
+        </button>
+      </div>
+
+      {/* Progress bar + percentage */}
+      <div className="research-active-item__progress-row">
+        <div className="research-active-item__progress-track">
+          <div
+            className="research-active-item__progress-fill"
+            style={{ width: `${Math.min(100, progressPercent)}%` }}
+          />
+        </div>
+        <span className="research-active-item__progress-pct">
+          {Math.floor(progressPercent)}%
+        </span>
+      </div>
+
+      {/* RP progress + ETA */}
+      <div className="research-active-item__bottom">
+        <span className="research-active-item__points">
+          {Math.floor(active.pointsInvested)} / {tech.cost} RP
+        </span>
+        <span className="research-active-item__eta">
+          {ticks === Infinity ? '— turns' : `~${ticks} turns`}
+        </span>
+      </div>
+
+      {/* Inline allocation slider */}
+      <div
+        className="research-active-item__alloc-row"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="research-active-item__alloc-label">Alloc</span>
+        <input
+          type="range"
+          className="research-active-item__alloc-slider"
+          min={0}
+          max={maxAlloc}
+          value={localAlloc}
+          onChange={(e) => setLocalAlloc(Number(e.target.value))}
+          aria-label={`Allocation for ${tech.name}`}
+        />
+        <span className={`research-active-item__alloc-val ${overLimit ? 'research-active-item__alloc-val--over' : ''}`}>
+          {localAlloc}%
+        </span>
+        {localAlloc !== active.allocation && (
+          <button
+            type="button"
+            className="research-active-item__apply-btn"
+            onClick={handleApply}
+            disabled={overLimit}
+          >
+            Apply
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActiveResearchList({
+  activeResearch,
+  techById,
+  totalAllocation,
+  researchPerTick,
+  speciesBonus,
+  selectedTechId,
+  maxActiveResearch,
+  onCardClick,
+  onCancelResearch,
+  onAdjustAllocation,
+}: ActiveResearchListProps): React.ReactElement {
+  return (
+    <div className="research-active-list">
+      <div className="research-active-list__header">
+        <span className="research-active-list__title">ACTIVE RESEARCH</span>
+        <span className="research-active-list__count">
+          {activeResearch.length} / {maxActiveResearch}
+        </span>
+      </div>
+
+      {activeResearch.length === 0 && (
+        <div className="research-active-list__empty">
+          No research in progress.<br />
+          Click &#9654; Start on any available technology.
+        </div>
+      )}
+
+      {activeResearch.map((active: ActiveResearch) => {
+        const tech = techById.get(active.techId);
+        if (!tech) return null;
+
+        const otherAllocation = activeResearch
+          .filter((r) => r.techId !== active.techId)
+          .reduce((sum, r) => sum + r.allocation, 0);
+
+        return (
+          <ActiveResearchItem
+            key={active.techId}
+            active={active}
+            tech={tech}
+            researchPerTick={researchPerTick}
+            speciesBonus={speciesBonus}
+            otherAllocation={otherAllocation}
+            isSelected={selectedTechId === active.techId}
+            onCardClick={onCardClick}
+            onCancelResearch={onCancelResearch}
+            onAdjustAllocation={onAdjustAllocation}
+          />
+        );
+      })}
+
+      {/* Total allocation summary */}
+      {activeResearch.length > 0 && (
+        <div className={`research-active-list__total ${totalAllocation > 100 ? 'research-active-list__total--over' : ''}`}>
+          <span>Total Allocation</span>
+          <span>{totalAllocation}% / 100%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ResearchScreen({
@@ -140,12 +353,12 @@ export function ResearchScreen({
   // Grid: techGrid[category][age] = Technology[]
   const techGrid = useMemo(() => {
     const grid: Record<TechCategory, Record<TechAge, Technology[]>> = {
-      weapons:      { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
-      defense:      { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
-      propulsion:   { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
-      biology:      { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
-      construction: { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
-      special:      { diamond_age: [], spatial_dark_age: [], neo_renaissance: [], fusion_age: [], age_of_star_empires: [] },
+      weapons:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      defense:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      propulsion:   { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      biology:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      construction: { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
+      special:      { nano_atomic: [], fusion: [], nano_fusion: [], anti_matter: [], singularity: [] },
     };
     for (const tech of allTechs) {
       if (grid[tech.category] && grid[tech.category][tech.age]) {
@@ -182,6 +395,15 @@ export function ResearchScreen({
     onCancelResearch(techId);
     setSelectedTech(null);
   }, [onCancelResearch]);
+
+  // Quick-start: begin research at 25% allocation (or remaining capacity if less)
+  const handleQuickStart = useCallback((tech: Technology) => {
+    const used = researchState.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
+    const remaining = Math.max(0, 100 - used);
+    if (remaining === 0 || researchState.activeResearch.length >= MAX_ACTIVE_RESEARCH) return;
+    const allocation = Math.min(25, remaining);
+    onStartResearch(tech.id, allocation);
+  }, [researchState.activeResearch, onStartResearch]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -285,6 +507,7 @@ export function ResearchScreen({
                             status={status}
                             progressPercent={progressPercent}
                             onClick={handleCardClick}
+                            onStartResearch={handleQuickStart}
                             isSelected={selectedTech?.id === tech.id}
                           />
                         );
@@ -304,7 +527,21 @@ export function ResearchScreen({
         {/* ── Right Panel ────────────────────────────────────────────── */}
         <div className="research-screen__right-panel">
 
-          {/* Detail panel for selected tech */}
+          {/* Active research list — always at the top */}
+          <ActiveResearchList
+            activeResearch={researchState.activeResearch}
+            techById={techById}
+            totalAllocation={totalAllocation}
+            researchPerTick={researchPerTick}
+            speciesBonus={speciesBonus}
+            selectedTechId={selectedTech?.id}
+            maxActiveResearch={MAX_ACTIVE_RESEARCH}
+            onCardClick={handleCardClick}
+            onCancelResearch={handleCancelResearch}
+            onAdjustAllocation={onAdjustAllocation}
+          />
+
+          {/* Detail panel for selected tech — below active list */}
           {selectedTech && (
             <TechDetailPanel
               tech={selectedTech}
@@ -320,75 +557,6 @@ export function ResearchScreen({
               onClose={handleCloseDetail}
             />
           )}
-
-          {/* Active research list */}
-          <div className="research-active-list">
-            <div className="research-active-list__header">
-              <span className="research-active-list__title">ACTIVE RESEARCH</span>
-              <span className="research-active-list__count">
-                {researchState.activeResearch.length} / {MAX_ACTIVE_RESEARCH}
-              </span>
-            </div>
-
-            {researchState.activeResearch.length === 0 && (
-              <div className="research-active-list__empty">
-                No research in progress.<br />
-                Select an available technology to begin.
-              </div>
-            )}
-
-            {researchState.activeResearch.map((active: ActiveResearch) => {
-              const tech = techById.get(active.techId);
-              if (!tech) return null;
-              const progressPercent = (active.pointsInvested / tech.cost) * 100;
-              const ticks = getResearchSpeed(
-                tech.cost - active.pointsInvested,
-                active.allocation,
-                researchPerTick,
-                speciesBonus,
-              );
-
-              return (
-                <div
-                  key={active.techId}
-                  className={`research-active-item ${selectedTech?.id === active.techId ? 'research-active-item--selected' : ''}`}
-                  onClick={() => handleCardClick(tech)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') handleCardClick(tech);
-                  }}
-                >
-                  <div className="research-active-item__top">
-                    <span className="research-active-item__name">{tech.name}</span>
-                    <span className="research-active-item__alloc">{active.allocation}%</span>
-                  </div>
-                  <div className="research-active-item__progress-track">
-                    <div
-                      className="research-active-item__progress-fill"
-                      style={{ width: `${Math.min(100, progressPercent)}%` }}
-                    />
-                  </div>
-                  <div className="research-active-item__bottom">
-                    <span className="research-active-item__points">
-                      {Math.floor(active.pointsInvested)} / {tech.cost} RP
-                    </span>
-                    <span className="research-active-item__eta">
-                      {ticks === Infinity ? '— turns' : `~${ticks} turns`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Total allocation summary */}
-            {researchState.activeResearch.length > 0 && (
-              <div className={`research-active-list__total ${totalAllocation > 100 ? 'research-active-list__total--over' : ''}`}>
-                <span>Total Allocation</span>
-                <span>{totalAllocation}% / 100%</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -39,27 +39,27 @@ export interface TechAgeDefinition {
 
 export const TECH_AGES: TechAgeDefinition[] = [
   {
-    name: 'diamond_age',
+    name: 'nano_atomic',
     combatBonus: 0,
     unlockedHulls: ['scout', 'transport'],
   },
   {
-    name: 'spatial_dark_age',
+    name: 'fusion',
     combatBonus: 5,
     unlockedHulls: ['scout', 'transport', 'destroyer'],
   },
   {
-    name: 'neo_renaissance',
+    name: 'nano_fusion',
     combatBonus: 10,
     unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser'],
   },
   {
-    name: 'fusion_age',
+    name: 'anti_matter',
     combatBonus: 20,
     unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser', 'carrier'],
   },
   {
-    name: 'age_of_star_empires',
+    name: 'singularity',
     combatBonus: 35,
     unlockedHulls: ['scout', 'transport', 'destroyer', 'cruiser', 'carrier', 'battleship'],
   },

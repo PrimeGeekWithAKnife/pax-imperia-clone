@@ -68,11 +68,11 @@ const ECONOMIC_DURATION_TICKS = 50;
 
 /** Ordered list of tech ages for scoring purposes (index = relative advancement). */
 const AGE_ORDER = [
-  'diamond_age',
-  'spatial_dark_age',
-  'neo_renaissance',
-  'fusion_age',
-  'age_of_star_empires',
+  'nano_atomic',
+  'fusion',
+  'nano_fusion',
+  'anti_matter',
+  'singularity',
 ] as const;
 
 // ---------------------------------------------------------------------------

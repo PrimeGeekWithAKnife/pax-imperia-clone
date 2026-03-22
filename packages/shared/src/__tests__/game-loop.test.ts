@@ -80,7 +80,7 @@ function makeTech(id: string, cost: number, prerequisites: string[] = []): Techn
     id,
     name: `Tech ${id}`,
     description: 'A test technology',
-    age: 'diamond_age',
+    age: 'nano_atomic',
     category: 'weapons',
     cost,
     prerequisites,

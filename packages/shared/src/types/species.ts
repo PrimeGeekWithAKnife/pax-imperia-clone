@@ -55,11 +55,11 @@ export interface Empire {
 }
 
 export type TechAge =
-  | 'diamond_age'
-  | 'spatial_dark_age'
-  | 'neo_renaissance'
-  | 'fusion_age'
-  | 'age_of_star_empires';
+  | 'nano_atomic'
+  | 'fusion'
+  | 'nano_fusion'
+  | 'anti_matter'
+  | 'singularity';
 
 export type AIPersonality =
   | 'aggressive'

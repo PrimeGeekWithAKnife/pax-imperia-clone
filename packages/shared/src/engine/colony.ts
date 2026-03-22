@@ -855,6 +855,8 @@ export function addBuildingToQueue(
     terraforming_station: 10,
     military_academy: 6,
     fusion_reactor: 5,
+    medical_bay: 3,
+    advanced_medical_centre: 5,
     // ── Racial unique buildings ─────────────────────────────────────────────
     crystal_resonance_chamber: 7,
     psionic_amplifier: 6,

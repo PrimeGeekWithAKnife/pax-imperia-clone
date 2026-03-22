@@ -96,7 +96,7 @@ function makeTwoEmpireGame(seed = 42): GameTickState {
 }
 
 /** Minimal Technology fixture. */
-function makeTech(id: string, cost: number, prerequisites: string[] = [], age: Technology['age'] = 'diamond_age'): Technology {
+function makeTech(id: string, cost: number, prerequisites: string[] = [], age: Technology['age'] = 'nano_atomic'): Technology {
   return {
     id,
     name: `Tech ${id}`,
@@ -410,11 +410,11 @@ describe('Test 3: Research progresses and techs complete', () => {
       id: 'gate_tech',
       name: 'Gate Technology',
       description: 'Unlocks next age',
-      age: 'diamond_age',
+      age: 'nano_atomic',
       category: 'special',
       cost: 5,
       prerequisites: [],
-      effects: [{ type: 'age_unlock', age: 'spatial_dark_age' }],
+      effects: [{ type: 'age_unlock', age: 'fusion' }],
     };
     const allTechs: Technology[] = [gateTech];
 
@@ -430,10 +430,10 @@ describe('Test 3: Research progresses and techs complete', () => {
     const updatedEmpire = afterState.gameState.empires.find(e => e.id === empire.id)!;
     // Either the tech completed and age advanced, or empire still has base age
     // (depends on research point generation rate)
-    expect(['diamond_age', 'spatial_dark_age']).toContain(updatedEmpire.currentAge);
+    expect(['nano_atomic', 'fusion']).toContain(updatedEmpire.currentAge);
     // If tech was researched, age must have advanced
     if (updatedEmpire.technologies.includes('gate_tech')) {
-      expect(updatedEmpire.currentAge).toBe('spatial_dark_age');
+      expect(updatedEmpire.currentAge).toBe('fusion');
     }
   });
 

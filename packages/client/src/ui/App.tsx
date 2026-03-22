@@ -49,9 +49,9 @@ type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 're
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
-  completedTechs: ['pulse_lasers', 'composite_armor', 'ion_drives', 'growth_stimulants'],
+  completedTechs: ['pulse_lasers', 'composite_armour', 'ion_drives', 'growth_stimulants'],
   activeResearch: [],
-  currentAge: 'diamond_age',
+  currentAge: 'nano_atomic',
   totalResearchGenerated: 0,
 };
 
@@ -75,7 +75,7 @@ const MOCK_PLAYER_EMPIRE: Empire = {
   knownSystems: [],
   diplomacy: [],
   technologies: [],
-  currentAge: 'diamond_age',
+  currentAge: 'nano_atomic',
   isAI: false,
 };
 
@@ -92,7 +92,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       knownSystems: [],
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: true,
       aiPersonality: 'aggressive',
     },
@@ -115,7 +115,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       knownSystems: [],
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: true,
       aiPersonality: 'diplomatic',
     },
@@ -139,7 +139,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       knownSystems: [],
       diplomacy: [],
       technologies: [],
-      currentAge: 'diamond_age',
+      currentAge: 'nano_atomic',
       isAI: true,
     },
     relation: { empireId: 'player', status: 'unknown', treaties: [], attitude: 0, tradeRoutes: 0 },

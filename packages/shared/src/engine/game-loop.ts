@@ -1550,7 +1550,7 @@ export function processGameTick(
  * Build an initial GameTickState from a freshly created (or loaded) GameState.
  * All supplementary fields (research states, orders, pending combats) start empty.
  *
- * Each empire receives an empty ResearchState in the 'diamond_age'.
+ * Each empire receives an empty ResearchState in the 'nano_atomic' age.
  */
 export function initializeTickState(gameState: GameState): GameTickState {
   const researchStates = new Map<string, ResearchState>();

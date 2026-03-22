@@ -7,6 +7,8 @@ interface TechCardProps {
   status: TechCardStatus;
   progressPercent?: number; // 0-100, only for 'active'
   onClick: (tech: Technology) => void;
+  /** Called when the quick-start button is clicked; only relevant for 'available' cards */
+  onStartResearch?: (tech: Technology) => void;
   isSelected?: boolean;
 }
 
@@ -25,6 +27,7 @@ export function TechCard({
   status,
   progressPercent = 0,
   onClick,
+  onStartResearch,
   isSelected = false,
 }: TechCardProps): React.ReactElement {
   const [hovered, setHovered] = useState(false);
@@ -64,6 +67,27 @@ export function TechCard({
       {/* Completed checkmark */}
       {status === 'completed' && (
         <div className="tech-card__done-mark">&#10003;</div>
+      )}
+
+      {/* Quick-start button — available cards only */}
+      {status === 'available' && onStartResearch && (
+        <button
+          type="button"
+          className="tech-card__start-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartResearch(tech);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.stopPropagation();
+              onStartResearch(tech);
+            }
+          }}
+          aria-label={`Start researching ${tech.name}`}
+        >
+          &#9654; Start
+        </button>
       )}
 
       {/* Hover tooltip */}

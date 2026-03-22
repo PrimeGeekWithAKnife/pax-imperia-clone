@@ -47,7 +47,9 @@ const ACCENT: Record<BuildingType, string> = {
   communications_hub:    '#44aaff',
   terraforming_station:  '#22ddaa',
   military_academy:      '#cc4422',
-  fusion_reactor:        '#ff8800',
+  fusion_reactor:           '#ff8800',
+  medical_bay:              '#55ddaa',
+  advanced_medical_centre:  '#33bbcc',
   // ── Vaelori ─────────────────────────────────────────────────────────────
   crystal_resonance_chamber: '#c084fc',
   psionic_amplifier:         '#a855f7',
@@ -3373,6 +3375,36 @@ const drawBlackMarket: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, cx, sc(22, s), sc(7, s), accent, 0.55);
 };
 
+// ── Medical buildings ─────────────────────────────────────────────────────────
+
+const drawMedicalBay: DrawFn = (ctx, s, accent) => {
+  const cx = sc(16, s);
+  ctx.save();
+  // Cross symbol (medical)
+  ctx.fillStyle = accent;
+  ctx.fillRect(sc(12, s), sc(6, s), sc(8, s), sc(20, s));
+  ctx.fillRect(sc(6, s), sc(12, s), sc(20, s), sc(8, s));
+  // Glow
+  ctx.restore();
+  drawGlow(ctx, cx, sc(16, s), sc(10, s), accent, 0.4);
+};
+
+const drawAdvancedMedicalCentre: DrawFn = (ctx, s, accent) => {
+  const cx = sc(16, s);
+  ctx.save();
+  // Cross symbol (medical) with circle
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.arc(cx, sc(16, s), sc(12, s), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.fillRect(sc(13, s), sc(8, s), sc(6, s), sc(16, s));
+  ctx.fillRect(sc(8, s), sc(13, s), sc(16, s), sc(6, s));
+  ctx.restore();
+  drawGlow(ctx, cx, sc(16, s), sc(12, s), accent, 0.5);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -3392,7 +3424,9 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   communications_hub:    drawCommunicationsHub,
   terraforming_station:  drawTerraformingStation,
   military_academy:      drawMilitaryAcademy,
-  fusion_reactor:        drawFusionReactor,
+  fusion_reactor:           drawFusionReactor,
+  medical_bay:              drawMedicalBay,
+  advanced_medical_centre:  drawAdvancedMedicalCentre,
   // ── Race-specific buildings (generic placeholder icon) ─────────────────────
   crystal_resonance_chamber: drawCrystalResonanceChamber,
   psionic_amplifier:         drawPsionicAmplifier,

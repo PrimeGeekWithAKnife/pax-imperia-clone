@@ -2654,6 +2654,35 @@
   text-shadow: 0 0 6px rgba(50, 160, 80, 0.6);
 }
 
+/* ── Quick-start button ── */
+.tech-card__start-btn {
+  display: none;
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--color-accent);
+  background: rgba(0, 212, 255, 0.14);
+  color: var(--color-accent);
+  cursor: pointer;
+  line-height: 1.5;
+  transition: background 0.12s, box-shadow 0.12s;
+  white-space: nowrap;
+}
+
+.tech-card--available:hover .tech-card__start-btn {
+  display: block;
+}
+
+.tech-card__start-btn:hover {
+  background: rgba(0, 212, 255, 0.28);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+}
+
 /* ── Tooltip ── */
 .tech-card__tooltip {
   position: absolute;
@@ -2703,11 +2732,20 @@
 
 /* ── Tech detail panel ── */
 .tech-detail-panel {
-  padding: 16px;
   border-bottom: 1px solid var(--color-border);
-  overflow-y: auto;
-  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  max-height: 55vh;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Scrollable content area inside the detail panel */
+.tech-detail-panel__body {
+  padding: 16px 16px 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .tech-detail-panel__header {
@@ -2882,6 +2920,15 @@
   padding-top: 12px;
 }
 
+/* Sticky footer variant — sits at the bottom of the panel, always visible */
+.tech-detail-panel__controls--sticky {
+  margin-top: 0;
+  padding: 10px 16px 12px;
+  background: rgba(8, 8, 20, 0.96);
+  border-top: 1px solid var(--color-border-bright);
+  flex-shrink: 0;
+}
+
 .tech-detail-panel__alloc-row {
   display: flex;
   justify-content: space-between;
@@ -2994,12 +3041,14 @@
 
 /* ── Active research list ── */
 .research-active-list {
-  flex: 1;
+  flex-shrink: 0;
   overflow-y: auto;
+  max-height: 45vh;
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .research-active-list__header {
@@ -3060,7 +3109,7 @@
 .research-active-item__top {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 5px;
 }
 
@@ -3076,11 +3125,31 @@
   margin-right: 6px;
 }
 
-.research-active-item__alloc {
+/* Cancel button — small × in top-right of active item */
+.research-active-item__cancel-btn {
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-accent);
-  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(180, 30, 20, 0.35);
+  background: rgba(180, 30, 20, 0.1);
+  color: #ee7766;
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.research-active-item__cancel-btn:hover {
+  background: rgba(180, 30, 20, 0.25);
+}
+
+/* Progress row: bar + percentage side-by-side */
+.research-active-item__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
 }
 
 .research-active-item__progress-track {
@@ -3088,7 +3157,7 @@
   background: rgba(68, 136, 255, 0.15);
   border-radius: 2px;
   overflow: hidden;
-  margin-bottom: 5px;
+  flex: 1;
 }
 
 .research-active-item__progress-fill {
@@ -3099,10 +3168,21 @@
   box-shadow: 0 0 5px rgba(0, 212, 255, 0.4);
 }
 
+.research-active-item__progress-pct {
+  font-size: 9px;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
 .research-active-item__bottom {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  margin-bottom: 5px;
 }
 
 .research-active-item__points {
@@ -3117,6 +3197,66 @@
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
+}
+
+/* Inline allocation slider row */
+.research-active-item__alloc-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.research-active-item__alloc-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.research-active-item__alloc-slider {
+  flex: 1;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  height: 12px;
+}
+
+.research-active-item__alloc-val {
+  font-size: 10px;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+.research-active-item__alloc-val--over {
+  color: #cc3322;
+}
+
+/* Apply button — appears when local alloc differs from committed */
+.research-active-item__apply-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid rgba(85, 153, 255, 0.5);
+  background: rgba(85, 153, 255, 0.12);
+  color: #99ccff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.research-active-item__apply-btn:hover:not(:disabled) {
+  background: rgba(85, 153, 255, 0.24);
+}
+
+.research-active-item__apply-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 .research-active-list__total {

@@ -12,11 +12,11 @@ import type { HullClass } from '../types/ships.js';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ALL_AGES: TechAge[] = [
-  'diamond_age',
-  'spatial_dark_age',
-  'neo_renaissance',
-  'fusion_age',
-  'age_of_star_empires',
+  'nano_atomic',
+  'fusion',
+  'nano_fusion',
+  'anti_matter',
+  'singularity',
 ];
 
 const ALL_CATEGORIES: TechCategory[] = [
@@ -30,11 +30,11 @@ const ALL_CATEGORIES: TechCategory[] = [
 
 /** Minimum cost for each age — costs must be at least this high. */
 const AGE_MIN_COST: Record<TechAge, number> = {
-  diamond_age: 50,
-  spatial_dark_age: 200,
-  neo_renaissance: 500,
-  fusion_age: 1000,
-  age_of_star_empires: 1500,
+  nano_atomic: 50,
+  fusion: 200,
+  nano_fusion: 500,
+  anti_matter: 1000,
+  singularity: 1500,
 };
 
 const VALID_HULL_CLASSES: HullClass[] = [
@@ -173,14 +173,14 @@ describe('Universal tech tree — prerequisite integrity', () => {
     }
   });
 
-  it('Dawn age techs have no prerequisites outside Diamond Age', () => {
-    const dawnTechs = UNIVERSAL_TECHNOLOGIES.filter((t) => t.age === 'diamond_age');
-    const dawnIds = new Set(dawnTechs.map((t) => t.id));
-    for (const tech of dawnTechs) {
+  it('Nano-Atomic age techs have no prerequisites outside Nano-Atomic age', () => {
+    const nanoAtomicTechs = UNIVERSAL_TECHNOLOGIES.filter((t) => t.age === 'nano_atomic');
+    const nanoAtomicIds = new Set(nanoAtomicTechs.map((t) => t.id));
+    for (const tech of nanoAtomicTechs) {
       for (const prereq of tech.prerequisites) {
         expect(
-          dawnIds.has(prereq),
-          `Dawn tech "${tech.id}" has prerequisite "${prereq}" from a later age`,
+          nanoAtomicIds.has(prereq),
+          `Nano-Atomic tech "${tech.id}" has prerequisite "${prereq}" from a later age`,
         ).toBe(true);
       }
     }
@@ -204,10 +204,10 @@ describe('Universal tech tree — age gates', () => {
 
   it('age gates exist for every age except the first', () => {
     const gatedAges: TechAge[] = [
-      'spatial_dark_age',
-      'neo_renaissance',
-      'fusion_age',
-      'age_of_star_empires',
+      'fusion',
+      'nano_fusion',
+      'anti_matter',
+      'singularity',
     ];
     for (const age of gatedAges) {
       expect(
@@ -302,33 +302,33 @@ describe('Universal tech tree — hull unlock effects', () => {
     }
   });
 
-  it('cruiser is unlocked in the expansion age (spatial_dark_age)', () => {
+  it('cruiser is unlocked in the fusion age', () => {
     const cruiserTechs = UNIVERSAL_TECHNOLOGIES.filter((t) =>
       t.effects.some((e) => e.type === 'unlock_hull' && e.hullClass === 'cruiser'),
     );
     expect(cruiserTechs.length).toBeGreaterThan(0);
     for (const tech of cruiserTechs) {
-      expect(tech.age).toBe('spatial_dark_age');
+      expect(tech.age).toBe('fusion');
     }
   });
 
-  it('carrier is unlocked in ascendancy age (neo_renaissance)', () => {
+  it('carrier is unlocked in the nano-fusion age', () => {
     const carrierTechs = UNIVERSAL_TECHNOLOGIES.filter((t) =>
       t.effects.some((e) => e.type === 'unlock_hull' && e.hullClass === 'carrier'),
     );
     expect(carrierTechs.length).toBeGreaterThan(0);
     for (const tech of carrierTechs) {
-      expect(tech.age).toBe('neo_renaissance');
+      expect(tech.age).toBe('nano_fusion');
     }
   });
 
-  it('battleship is unlocked in the dominion age (fusion_age)', () => {
+  it('battleship is unlocked in the anti-matter age', () => {
     const bsTechs = UNIVERSAL_TECHNOLOGIES.filter((t) =>
       t.effects.some((e) => e.type === 'unlock_hull' && e.hullClass === 'battleship'),
     );
     expect(bsTechs.length).toBeGreaterThan(0);
     for (const tech of bsTechs) {
-      expect(tech.age).toBe('fusion_age');
+      expect(tech.age).toBe('anti_matter');
     }
   });
 });

@@ -45,11 +45,11 @@ function formatEffect(effect: TechEffect): string {
 
 // Age display names
 const AGE_LABELS: Record<string, string> = {
-  diamond_age:         'Diamond Age',
-  spatial_dark_age:    'Spatial Dark Age',
-  neo_renaissance:     'Neo-Renaissance',
-  fusion_age:          'Fusion Age',
-  age_of_star_empires: 'Age of Star Empires',
+  nano_atomic:  'Nano-Atomic Age',
+  fusion:       'Fusion Age',
+  nano_fusion:  'Nano-Fusion Age',
+  anti_matter:  'Anti-Matter Age',
+  singularity:  'Singularity Age',
 };
 
 // Category display names
@@ -136,6 +136,8 @@ export function TechDetailPanel({
 
   return (
     <div className="tech-detail-panel">
+      {/* Scrollable body */}
+      <div className="tech-detail-panel__body">
       {/* Header */}
       <div className="tech-detail-panel__header">
         <div className="tech-detail-panel__header-info">
@@ -226,9 +228,24 @@ export function TechDetailPanel({
         </div>
       )}
 
-      {/* Research controls — only shown when available or active */}
+      {/* Locked message */}
+      {status === 'locked' && (
+        <div className="tech-detail-panel__locked-msg">
+          Prerequisites not met. Research the required technologies first.
+        </div>
+      )}
+
+      {/* Future age message */}
+      {status === 'future' && (
+        <div className="tech-detail-panel__locked-msg">
+          This technology belongs to a future age. Advance your civilization to unlock it.
+        </div>
+      )}
+      </div>{/* end .tech-detail-panel__body */}
+
+      {/* Research controls — sticky footer, only shown when available or active */}
       {(status === 'available' || status === 'active') && (
-        <div className="tech-detail-panel__controls">
+        <div className="tech-detail-panel__controls tech-detail-panel__controls--sticky">
           <div className="panel-section-label">
             {status === 'active' ? 'Adjust Allocation' : 'Start Research'}
           </div>
@@ -293,20 +310,6 @@ export function TechDetailPanel({
               </>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Locked message */}
-      {status === 'locked' && (
-        <div className="tech-detail-panel__locked-msg">
-          Prerequisites not met. Research the required technologies first.
-        </div>
-      )}
-
-      {/* Future age message */}
-      {status === 'future' && (
-        <div className="tech-detail-panel__locked-msg">
-          This technology belongs to a future age. Advance your civilization to unlock it.
         </div>
       )}
     </div>
