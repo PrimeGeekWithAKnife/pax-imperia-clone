@@ -20,6 +20,13 @@ import type {
 } from './types.js';
 import { GameSessionManager } from '../game/GameSessionManager.js';
 import type { GameSession } from '../game/GameSessionManager.js';
+import {
+  sanitisePlayerName,
+  sanitiseGameName,
+  sanitiseChatMessage,
+  sanitisePassword,
+  sanitiseSeed,
+} from './sanitise.js';
 
 // Convenience type alias for a fully-typed socket on this server.
 type AppSocket = Socket<
@@ -42,9 +49,18 @@ export class SocketManager {
   constructor(httpServer: HttpServer, sessionManager: GameSessionManager) {
     this.sessionManager = sessionManager;
 
+    // Allow CORS origins from the EX_NIHILO_CORS_ORIGIN environment variable
+    // (comma-separated list). Falls back to same-origin only in production and
+    // permissive localhost patterns in development.
+    const corsOrigin = process.env.EX_NIHILO_CORS_ORIGIN
+      ? process.env.EX_NIHILO_CORS_ORIGIN.split(',').map(o => o.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false // same-origin only in production
+        : [/^https?:\/\/localhost(:\d+)?$/, /^https?:\/\/127\.0\.0\.1(:\d+)?$/];
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: '*',
+        origin: corsOrigin,
         methods: ['GET', 'POST'],
       },
       // Separate Socket.io path from normal HTTP traffic.
@@ -147,7 +163,8 @@ export class SocketManager {
     payload: { sessionId: string; playerName: string },
     callback: (ack: { success: boolean; error?: string }) => void,
   ): void {
-    const { sessionId, playerName } = payload;
+    const { sessionId } = payload;
+    const playerName = sanitisePlayerName(payload.playerName) ?? `Player-${socket.id.slice(0, 6)}`;
 
     // Prevent a socket from joining a second session without leaving the first.
     if (socket.data.currentSessionId && socket.data.currentSessionId !== sessionId) {
@@ -251,7 +268,26 @@ export class SocketManager {
     payload: { playerName: string; config: LobbyConfig },
     callback: (ack: { success: boolean; sessionId?: string; error?: string }) => void,
   ): void {
-    const { playerName, config } = payload;
+    const { config } = payload;
+
+    // ── Input sanitisation ─────────────────────────────────────────────────
+    const playerName = sanitisePlayerName(payload.playerName);
+    if (!playerName) {
+      callback({ success: false, error: 'Player name is required (max 40 characters).' });
+      return;
+    }
+
+    const gameName = sanitiseGameName(config.gameName);
+    if (!gameName) {
+      callback({ success: false, error: 'Game name is required (max 60 characters).' });
+      return;
+    }
+    config.gameName = gameName;
+    config.password = sanitisePassword(config.password);
+    if (config.galaxyConfig) {
+      config.galaxyConfig.seed = sanitiseSeed(config.galaxyConfig.seed);
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     if (socket.data.currentSessionId) {
       callback({ success: false, error: 'You are already in a session. Leave it first.' });
@@ -293,7 +329,16 @@ export class SocketManager {
     payload: { sessionId: string; playerName: string; password?: string },
     callback: (ack: { success: boolean; error?: string }) => void,
   ): void {
-    const { sessionId, playerName, password } = payload;
+    const { sessionId } = payload;
+
+    // ── Input sanitisation ─────────────────────────────────────────────────
+    const playerName = sanitisePlayerName(payload.playerName);
+    if (!playerName) {
+      callback({ success: false, error: 'Player name is required (max 40 characters).' });
+      return;
+    }
+    const password = sanitisePassword(payload.password);
+    // ────────────────────────────────────────────────────────────────────────
 
     if (socket.data.currentSessionId) {
       callback({ success: false, error: 'You are already in a session. Leave it first.' });
@@ -408,14 +453,14 @@ export class SocketManager {
     payload: { sessionId: string; message: string },
     callback: (ack: { success: boolean; error?: string }) => void,
   ): void {
-    const { sessionId, message } = payload;
+    const { sessionId } = payload;
     const session = this.getSessionForSocket(socket, sessionId);
     if (!session) {
       callback({ success: false, error: 'Session not found or you are not in it.' });
       return;
     }
 
-    const trimmed = message.trim().slice(0, 500);
+    const trimmed = sanitiseChatMessage(payload.message);
     if (!trimmed) {
       callback({ success: false, error: 'Message cannot be empty.' });
       return;
