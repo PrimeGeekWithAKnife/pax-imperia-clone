@@ -15,3 +15,6 @@ export * from './espionage.js';
 export * from './victory.js';
 export * from './save-load.js';
 export * from './governors.js';
+export * from './ai/personality.js';
+export * from './demographics.js';
+export * from './governor-personality.js';
