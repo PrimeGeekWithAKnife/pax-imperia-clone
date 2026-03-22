@@ -49,6 +49,8 @@ export interface PlanetRenderResult {
 
 interface MoonEntry {
   sprite: Phaser.GameObjects.Arc;
+  shadow: Phaser.GameObjects.Graphics;
+  moonRadius: number;
   orbitRadius: number;
   angle: number;
   speed: number; // rad per ms
@@ -86,9 +88,16 @@ export class PlanetRenderer {
         callback: () => {
           for (const m of moonEntries) {
             m.angle += m.speed * 16;
-            m.sprite.setPosition(
-              Math.cos(m.angle) * m.orbitRadius,
-              Math.sin(m.angle) * m.orbitRadius,
+            const mx = Math.cos(m.angle) * m.orbitRadius;
+            const my = Math.sin(m.angle) * m.orbitRadius;
+            m.sprite.setPosition(mx, my);
+            // Redraw shadow at new moon position
+            m.shadow.clear();
+            m.shadow.fillStyle(0x000000, 0.45);
+            m.shadow.fillCircle(
+              mx + m.moonRadius * 0.3,
+              my,
+              m.moonRadius * 0.85,
             );
           }
         },
@@ -554,6 +563,8 @@ export class PlanetRenderer {
       // Keep shade in sync — we'll update both together via the timer
       moonEntries.push({
         sprite: moonSprite,
+        shadow: moonShade,
+        moonRadius,
         orbitRadius: orbitR,
         angle: startAngle,
         speed,
