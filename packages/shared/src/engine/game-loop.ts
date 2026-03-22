@@ -28,6 +28,7 @@ import type { GameState } from '../types/game-state.js';
 import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
+import type { Governor } from '../types/governor.js';
 import { GOVERNMENTS } from '../types/government.js';
 import type {
   GameAction,
@@ -41,6 +42,8 @@ import type {
   ColonyEstablishedEvent,
   TerraformingProgressEvent,
   TerraformingCompleteEvent,
+  GovernorDiedEvent,
+  GovernorAppointedEvent,
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
@@ -91,6 +94,11 @@ import {
   processTerraformingTick,
   type TerraformingProgress,
 } from './terraforming.js';
+import {
+  generateGovernor,
+  processGovernorsTick,
+  applyGovernorModifiers,
+} from './governors.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -185,6 +193,12 @@ export interface GameTickState {
    * processed and persists until the stage reaches 'complete'.
    */
   terraformingProgressMap: Map<string, TerraformingProgress>;
+  /**
+   * All active governors across all empires.
+   * Each governor is assigned to one planet (governor.planetId).
+   * At most one governor should exist per planet at any time.
+   */
+  governors: Governor[];
 }
 
 /** The result returned by processGameTick. */
@@ -874,6 +888,19 @@ function stepMigrations(
         tick,
       };
       events.push(establishedEvent);
+
+      // Auto-assign a random governor to the newly established colony.
+      const newGovernor = generateGovernor(order.empireId, order.targetPlanetId);
+      state = { ...state, governors: [...state.governors, newGovernor] };
+
+      const appointedEvent: GovernorAppointedEvent = {
+        type: 'GovernorAppointed',
+        empireId: order.empireId,
+        planetId: order.targetPlanetId,
+        governorName: newGovernor.name,
+        tick,
+      };
+      events.push(appointedEvent);
       // Established orders are not retained.
     } else if (updatedOrder.status === 'migrating') {
       remainingOrders.push(updatedOrder);
@@ -944,6 +971,40 @@ function stepHappiness(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 3d: Governors
+// ---------------------------------------------------------------------------
+
+/**
+ * Age all active governors by one tick.
+ *
+ * Governors whose turnsServed reaches their lifespan die this tick.
+ * A GovernorDied event is emitted for each death, leaving the planet without
+ * a governor (the player must appoint a replacement via the UI).
+ */
+function stepGovernors(
+  state: GameTickState,
+  events: GameEvent[],
+): GameTickState {
+  if (state.governors.length === 0) return state;
+
+  const tick = state.gameState.currentTick;
+  const { updated, died } = processGovernorsTick(state.governors);
+
+  for (const gov of died) {
+    const diedEvent: GovernorDiedEvent = {
+      type: 'GovernorDied',
+      empireId: gov.empireId,
+      planetId: gov.planetId,
+      governorName: gov.name,
+      tick,
+    };
+    events.push(diedEvent);
+  }
+
+  return { ...state, governors: updated };
+}
+
+// ---------------------------------------------------------------------------
 // Step 4: Resource Production
 // ---------------------------------------------------------------------------
 
@@ -994,14 +1055,29 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     };
     for (const pp of perPlanet) {
       const mult = happinessMultipliers.get(pp.planetId) ?? 1.0;
-      production.credits += pp.production.credits;
-      production.energy += pp.production.energy;
-      production.minerals += pp.production.minerals * mult;
-      production.rareElements += pp.production.rareElements * mult;
-      production.organics += pp.production.organics * mult;
-      production.exoticMaterials += pp.production.exoticMaterials * mult;
-      production.faith += pp.production.faith * mult;
-      production.researchPoints += pp.production.researchPoints * mult;
+
+      // Apply governor modifiers to this planet's production before accumulating.
+      const governor = state.governors.find(g => g.planetId === pp.planetId);
+      const rawPlanetProduction = {
+        credits:          pp.production.credits,
+        minerals:         pp.production.minerals * mult,
+        rareElements:     pp.production.rareElements * mult,
+        energy:           pp.production.energy,
+        organics:         pp.production.organics * mult,
+        exoticMaterials:  pp.production.exoticMaterials * mult,
+        faith:            pp.production.faith * mult,
+        researchPoints:   pp.production.researchPoints * mult,
+      };
+      const boostedProduction = applyGovernorModifiers(rawPlanetProduction, governor);
+
+      production.credits        += boostedProduction.credits;
+      production.energy         += boostedProduction.energy;
+      production.minerals       += boostedProduction.minerals;
+      production.rareElements   += boostedProduction.rareElements;
+      production.organics       += boostedProduction.organics;
+      production.exoticMaterials += boostedProduction.exoticMaterials;
+      production.faith          += boostedProduction.faith;
+      production.researchPoints += boostedProduction.researchPoints;
     }
 
     // Add trade route income to this empire's credit production.
@@ -1505,7 +1581,10 @@ export function processGameTick(
   // 3c. Happiness Processing (revolt population loss; production multipliers collected next step)
   s = stepHappiness(s);
 
-  // 4. Resource Production (applies happiness production multipliers and energy deficit penalties)
+  // 3d. Governor ageing (age all governors; emit GovernorDied for those that expire)
+  s = stepGovernors(s, events);
+
+  // 4. Resource Production (applies happiness production multipliers, governor modifiers, and energy deficit penalties)
   s = stepResourceProduction(s);
 
   // 4b. Food Consumption (deduct organics; apply starvation loss if starving)
@@ -1617,6 +1696,16 @@ export function initializeTickState(gameState: GameState): GameTickState {
     });
   }
 
+  // Auto-assign a governor to every planet that is already colonised at game start.
+  const startingGovernors: Governor[] = [];
+  for (const system of gameState.galaxy.systems) {
+    for (const planet of system.planets) {
+      if (planet.ownerId !== null && planet.currentPopulation > 0) {
+        startingGovernors.push(generateGovernor(planet.ownerId, planet.id));
+      }
+    }
+  }
+
   return {
     gameState,
     researchStates,
@@ -1630,6 +1719,7 @@ export function initializeTickState(gameState: GameState): GameTickState {
     economicLeadTicks: new Map<string, number>(),
     allTechCount: 0,
     terraformingProgressMap: new Map<string, TerraformingProgress>(),
+    governors: startingGovernors,
   };
 }
 

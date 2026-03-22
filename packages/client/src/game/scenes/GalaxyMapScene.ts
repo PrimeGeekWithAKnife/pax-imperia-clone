@@ -17,10 +17,32 @@ const AI_PERSONALITIES: AIPersonality[] = ['aggressive', 'defensive', 'economic'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BG_COLOR = 0x02020a;
-const WORMHOLE_COLOR = 0x223344;
-const WORMHOLE_ALPHA = 0.45;
-const WORMHOLE_HIGHLIGHT_COLOR = 0x3377bb;
-const WORMHOLE_HIGHLIGHT_ALPHA = 0.85;
+// ── Lane / connection line styles ──────────────────────────────────────────
+/** Normal space lane: faint white dashes (always visible for known systems) */
+const LANE_COLOR            = 0xffffff;
+const LANE_ALPHA            = 0.15;
+const LANE_DASH_LEN         = 4;
+const LANE_GAP_LEN          = 8;
+const LANE_WIDTH            = 1;
+/** Wormhole connection: blue pulsing, thicker (with wormhole tech) */
+const WORM_COLOR            = 0x4488ff;
+const WORM_ALPHA_MIN        = 0.4;
+const WORM_ALPHA_MAX        = 0.6;
+const WORM_WIDTH            = 2;
+/** Wormhole connection without tech: very faint blue dashes */
+const WORM_NO_TECH_COLOR    = 0x4488ff;
+const WORM_NO_TECH_ALPHA    = 0.08;
+/** Advanced / artificial wormhole: gold solid line */
+const ADV_WORM_COLOR        = 0xffcc44;
+const ADV_WORM_ALPHA        = 0.5;
+const ADV_WORM_WIDTH        = 2;
+// ── Drip particle constants ────────────────────────────────────────────────
+/** Maximum drip particles across all active movement orders. */
+const MAX_DRIP_PARTICLES    = 20;
+/** Number of drip dots per fleet movement. */
+const DRIP_COUNT_PER_FLEET  = 5;
+/** Time in ms for one full pass along the lane (direction cue). */
+const DRIP_PATH_DURATION_MS = 3000;
 const SELECTION_RING_COLOR = 0xffffff;
 const SELECTION_RING_ALPHA = 0.9;
 const FOG_COLOR = 0x334455;
@@ -87,6 +109,29 @@ interface WormholeParticle {
   obj: Phaser.GameObjects.Arc;
 }
 
+/**
+ * A single "drip" particle that flows from origin to destination along an
+ * active fleet movement path to show direction of travel.
+ */
+interface DripParticle {
+  /** t in [0, 1]: 0 = origin, 1 = destination (wraps back to 0 on each pass) */
+  t: number;
+  /** Speed in t-units per ms (1 / DRIP_PATH_DURATION_MS) */
+  speed: number;
+  /** World-space origin (fleet departure system) */
+  fromX: number;
+  fromY: number;
+  /** World-space destination (fleet target system) */
+  toX: number;
+  toY: number;
+  /** Main dot graphic */
+  obj: Phaser.GameObjects.Arc;
+  /** Trailing dot graphic drawn at lower alpha */
+  trail: Phaser.GameObjects.Arc;
+  /** Which fleet movement order this belongs to */
+  fleetId: string;
+}
+
 // ── GalaxyMapScene ─────────────────────────────────────────────────────────────
 
 export class GalaxyMapScene extends Phaser.Scene {
@@ -147,6 +192,15 @@ export class GalaxyMapScene extends Phaser.Scene {
   // Wormhole drifting particles
   private wormholeParticles: WormholeParticle[] = [];
 
+  // Drip particles for fleet movement direction cues
+  private dripParticles: DripParticle[] = [];
+
+  /**
+   * Phase accumulator (radians) used to oscillate wormhole line alpha.
+   * Advanced at ~0.8 rad/s so a full pulse takes about 7–8 seconds.
+   */
+  private _wormholePhase = 0;
+
   // ── Audio ─────────────────────────────────────────────────────────────────
   private music: MusicGenerator | null = null;
   private ambient: AmbientSounds | null = null;
@@ -163,6 +217,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.parallaxStars = [];
     this.nebulaWisps = [];
     this.wormholeParticles = [];
+    this.dripParticles = [];
     this.starHitAreas.clear();
     this.pulseTweens.clear();
     this.fleetBadges.clear();
@@ -335,14 +390,20 @@ export class GalaxyMapScene extends Phaser.Scene {
         entry.gfx.destroy();
       }
       this.transitDots.clear();
+      // Destroy drip particles
+      for (const p of this.dripParticles) {
+        p.obj.destroy();
+        p.trail.destroy();
+      }
+      this.dripParticles = [];
     });
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
     this.updateZoomLerp();
     this.updateParallax();
     this.updateWormholeParticles(delta);
-    this.updateTransitDots(delta);
+    this.updateTransitDots(time, delta);
     this.emitViewport();
   }
 
@@ -735,7 +796,11 @@ export class GalaxyMapScene extends Phaser.Scene {
         const isHighlighted =
           highlightSystemId === sys.id || highlightSystemId === targetId;
 
-        this.drawWormholeLine(sys, target, isHighlighted, hasWormholeTech);
+        // Always draw the faint normal-space lane beneath any wormhole styling
+        this._drawNormalLane(sys, target);
+
+        // Draw the wormhole-tech overlay on top
+        this._drawWormholeLine(sys, target, isHighlighted, hasWormholeTech);
 
         // Only spawn drifting particles if the player has wormhole tech
         if (hasWormholeTech) {
@@ -746,14 +811,51 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   /**
-   * Draw a wormhole line as a dashed path — dim in the middle, slightly
-   * brighter near endpoints to give a gradient feel.
-   *
-   * If the player has not researched wormhole stabilisation, lines are drawn
-   * as very faint dashes to indicate theoretical knowledge of the wormhole
-   * network without the ability to traverse it.
+   * Draw a faint white dashed "normal space lane" between two known systems.
+   * These are always visible once both endpoints are discovered and represent
+   * the basic FTL routes, independent of wormhole tech.
    */
-  private drawWormholeLine(
+  private _drawNormalLane(sysA: StarSystem, sysB: StarSystem): void {
+    const ax = sysA.position.x;
+    const ay = sysA.position.y;
+    const bx = sysB.position.x;
+    const by = sysB.position.y;
+
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+
+    const lineWidth = LANE_WIDTH / this.currentZoom;
+    let d = 0;
+    while (d < len) {
+      const dashEnd = Math.min(d + LANE_DASH_LEN, len);
+
+      this.wormholeLayer.lineStyle(lineWidth, LANE_COLOR, LANE_ALPHA);
+      this.wormholeLayer.beginPath();
+      this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
+      this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+      this.wormholeLayer.strokePath();
+
+      d += LANE_DASH_LEN + LANE_GAP_LEN;
+    }
+  }
+
+  /**
+   * Draw the wormhole-tech overlay line on top of the normal-space lane.
+   *
+   * With wormhole tech: a solid blue line whose alpha oscillates between
+   * WORM_ALPHA_MIN and WORM_ALPHA_MAX using elapsed scene time (stored in
+   * `this._wormholePhase`), giving a pulsing glow effect.  A subtly wider
+   * semi-transparent version is drawn first to simulate a soft glow.
+   *
+   * Without tech: a very faint blue dashed line hinting that a wormhole
+   * connection exists but cannot yet be traversed.
+   *
+   * Advanced/artificial wormhole connections (future feature, connectionType
+   * === 'advanced') would use a gold solid line.
+   */
+  private _drawWormholeLine(
     sysA: StarSystem,
     sysB: StarSystem,
     highlighted: boolean,
@@ -769,48 +871,75 @@ export class GalaxyMapScene extends Phaser.Scene {
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1) return;
 
-    // Without wormhole tech: very faint, wider gaps (barely visible)
-    const dashLen = hasWormholeTech ? 6 : 3;
-    const gapLen = hasWormholeTech ? 5 : 10;
-    const totalUnit = dashLen + gapLen;
-
-    const color = hasWormholeTech
-      ? (highlighted ? WORMHOLE_HIGHLIGHT_COLOR : WORMHOLE_COLOR)
-      : 0x334455; // faint blue-grey when tech not researched
-    const baseAlpha = hasWormholeTech
-      ? (highlighted ? WORMHOLE_HIGHLIGHT_ALPHA : WORMHOLE_ALPHA)
-      : 0.12; // very faint
-    const lineWidth = hasWormholeTech
-      ? (highlighted ? 1.8 / this.currentZoom : 1.2 / this.currentZoom)
-      : 0.8 / this.currentZoom;
-
-    // Draw dashes along the line
-    let d = 0;
-    while (d < len) {
-      const dashEnd = Math.min(d + dashLen, len);
-
-      // t in [0,1] at the midpoint of this dash — used for alpha gradient
-      const tMid = (d + (dashEnd - d) * 0.5) / len;
-      // Peak alpha at endpoints (t=0 or t=1), lower in middle
-      const distFromCenter = Math.abs(tMid - 0.5) * 2; // 0 at center, 1 at endpoints
-      const dashAlpha = hasWormholeTech
-        ? baseAlpha * (0.45 + 0.55 * distFromCenter)
-        : baseAlpha; // uniform faintness when tech not researched
-
-      this.wormholeLayer.lineStyle(lineWidth, color, dashAlpha);
-      this.wormholeLayer.beginPath();
-      this.wormholeLayer.moveTo(
-        ax + (d / len) * dx,
-        ay + (d / len) * dy,
-      );
-      this.wormholeLayer.lineTo(
-        ax + (dashEnd / len) * dx,
-        ay + (dashEnd / len) * dy,
-      );
-      this.wormholeLayer.strokePath();
-
-      d += totalUnit;
+    if (!hasWormholeTech) {
+      // Very faint blue dashes — wormhole is known but not traversable yet
+      const lineWidth = 0.8 / this.currentZoom;
+      let d = 0;
+      while (d < len) {
+        const dashEnd = Math.min(d + 3, len);
+        this.wormholeLayer.lineStyle(lineWidth, WORM_NO_TECH_COLOR, WORM_NO_TECH_ALPHA);
+        this.wormholeLayer.beginPath();
+        this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
+        this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+        this.wormholeLayer.strokePath();
+        d += 13; // long gap — barely visible
+      }
+      return;
     }
+
+    // Pulsing blue wormhole line
+    const pulseAlpha = WORM_ALPHA_MIN +
+      (WORM_ALPHA_MAX - WORM_ALPHA_MIN) *
+      (0.5 + 0.5 * Math.sin(this._wormholePhase));
+    const highlightBoost = highlighted ? 0.15 : 0;
+    const alpha = Math.min(1, pulseAlpha + highlightBoost);
+
+    const coreWidth  = WORM_WIDTH / this.currentZoom;
+    const glowWidth  = (WORM_WIDTH + 3) / this.currentZoom;
+
+    // Glow layer — wider stroke at low alpha
+    this.wormholeLayer.lineStyle(glowWidth, WORM_COLOR, alpha * 0.35);
+    this.wormholeLayer.beginPath();
+    this.wormholeLayer.moveTo(ax, ay);
+    this.wormholeLayer.lineTo(bx, by);
+    this.wormholeLayer.strokePath();
+
+    // Core line
+    this.wormholeLayer.lineStyle(coreWidth, WORM_COLOR, alpha);
+    this.wormholeLayer.beginPath();
+    this.wormholeLayer.moveTo(ax, ay);
+    this.wormholeLayer.lineTo(bx, by);
+    this.wormholeLayer.strokePath();
+  }
+
+  /**
+   * Draw an advanced/artificial wormhole connection in yellow-gold.
+   * This is provided for future use when player-created wormholes are added.
+   */
+  private _drawAdvancedWormholeLine(sysA: StarSystem, sysB: StarSystem): void {
+    const ax = sysA.position.x;
+    const ay = sysA.position.y;
+    const bx = sysB.position.x;
+    const by = sysB.position.y;
+
+    const coreWidth = ADV_WORM_WIDTH / this.currentZoom;
+    const glowWidth = (ADV_WORM_WIDTH + 3) / this.currentZoom;
+
+    // Shimmer: slight alpha variation driven by wormhole phase offset by pi/3
+    const shimmerAlpha = ADV_WORM_ALPHA +
+      0.1 * Math.sin(this._wormholePhase + Math.PI / 3);
+
+    this.wormholeLayer.lineStyle(glowWidth, ADV_WORM_COLOR, shimmerAlpha * 0.35);
+    this.wormholeLayer.beginPath();
+    this.wormholeLayer.moveTo(ax, ay);
+    this.wormholeLayer.lineTo(bx, by);
+    this.wormholeLayer.strokePath();
+
+    this.wormholeLayer.lineStyle(coreWidth, ADV_WORM_COLOR, shimmerAlpha);
+    this.wormholeLayer.beginPath();
+    this.wormholeLayer.moveTo(ax, ay);
+    this.wormholeLayer.lineTo(bx, by);
+    this.wormholeLayer.strokePath();
   }
 
   /** Spawn 2-3 tiny particles drifting along a wormhole connection. */
@@ -836,6 +965,15 @@ export class GalaxyMapScene extends Phaser.Scene {
   // ── Wormhole particle update ──────────────────────────────────────────────────
 
   private updateWormholeParticles(delta: number): void {
+    // Advance pulse phase (~0.8 rad/s → ~7.9 s full cycle)
+    this._wormholePhase += 0.0008 * delta;
+
+    // Redraw wormhole lines each frame so the pulse animation is live.
+    // Only redraw when wormhole tech is active (otherwise lines are static).
+    if (this._playerHasWormholeTech()) {
+      this.drawWormholes(this.selectedSystemId);
+    }
+
     for (const p of this.wormholeParticles) {
       p.t += p.speed * delta;
       if (p.t > 1) p.t -= 1;
@@ -1389,17 +1527,21 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   /**
-   * Rebuild the set of animated transit dots to match the current set of
-   * active movement orders.  Called on each engine tick so the dots stay
-   * in sync when orders are added or cleared.
+   * Rebuild the set of animated drip particles to match the current set of
+   * active movement orders.  Called on each engine tick so the drips stay in
+   * sync when orders are added or cleared.
    *
-   * Fog of war: only show transit dots for the player's own fleets, or
+   * Fog of war: only show drip particles for the player's own fleets, or
    * enemy fleets travelling through observed systems.
    *
    * Visual style varies by travel mode:
-   * - slow_ftl: small red dot
-   * - wormhole: cyan dot (current default)
-   * - advanced_wormhole: bright blue dot
+   * - slow_ftl:          white/dim dots — slow FTL lane
+   * - wormhole:          cyan dots
+   * - advanced_wormhole: bright blue dots
+   *
+   * Each movement order spawns DRIP_COUNT_PER_FLEET evenly-staggered dots
+   * flowing continuously from origin to destination, capped by
+   * MAX_DRIP_PARTICLES across all orders.
    */
   private _syncTransitDots(): void {
     const engine = getGameEngine();
@@ -1428,7 +1570,17 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     const activeFleetIds = new Set(orders.map(o => o.fleetId));
 
-    // Remove dots for orders that no longer exist
+    // Remove drip particles for orders that are no longer active
+    this.dripParticles = this.dripParticles.filter(p => {
+      if (!activeFleetIds.has(p.fleetId)) {
+        p.obj.destroy();
+        p.trail.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // Also remove stale entries from the legacy transitDots map
     for (const [fleetId, entry] of this.transitDots) {
       if (!activeFleetIds.has(fleetId)) {
         entry.gfx.destroy();
@@ -1436,7 +1588,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       }
     }
 
-    // Add or update dots for active orders
+    // Determine how many new drip sets we can still add (global cap)
+    const existingFleetIds = new Set(this.dripParticles.map(p => p.fleetId));
+
     for (const order of orders) {
       const fromId = order.path[order.currentSegment - 1];
       const toId   = order.path[order.currentSegment];
@@ -1446,16 +1600,18 @@ export class GalaxyMapScene extends Phaser.Scene {
       const fleet = fleets.find(f => f.id === order.fleetId);
       const isPlayerFleet = fleet?.empireId === playerEmpireId;
       if (!isPlayerFleet) {
-        // Enemy fleet — only visible if travelling through an observed system
         const fromObserved = observedSystemIds.has(fromId);
-        const toObserved = observedSystemIds.has(toId);
+        const toObserved   = observedSystemIds.has(toId);
         if (!fromObserved && !toObserved) {
-          // Not visible — remove existing dot if present
-          const existing = this.transitDots.get(order.fleetId);
-          if (existing) {
-            existing.gfx.destroy();
-            this.transitDots.delete(order.fleetId);
-          }
+          // Not visible — remove existing drips for this fleet
+          this.dripParticles = this.dripParticles.filter(p => {
+            if (p.fleetId === order.fleetId) {
+              p.obj.destroy();
+              p.trail.destroy();
+              return false;
+            }
+            return true;
+          });
           continue;
         }
       }
@@ -1464,77 +1620,106 @@ export class GalaxyMapScene extends Phaser.Scene {
       const toSys   = this.galaxy.systems.find(s => s.id === toId);
       if (!fromSys || !toSys) continue;
 
-      // Determine dot colour and size by travel mode
+      // Determine drip colour and size by travel mode
       const travelMode = order.travelMode ?? 'wormhole';
       let dotColor: number;
-      let dotAlpha: number;
       let dotRadius: number;
       switch (travelMode) {
         case 'slow_ftl':
-          dotColor = 0xff4444;
-          dotAlpha = 0.75;
-          dotRadius = 2.5;
+          dotColor  = 0xcccccc; // white/dim
+          dotRadius = 2;
           break;
         case 'advanced_wormhole':
-          dotColor = 0x4488ff;
-          dotAlpha = 0.95;
-          dotRadius = 4.0;
+          dotColor  = 0x4488ff; // bright blue
+          dotRadius = 3;
           break;
         case 'wormhole':
         default:
-          dotColor = 0x00d4ff;
-          dotAlpha = 0.9;
-          dotRadius = 3.5;
+          dotColor  = 0x00d4ff; // cyan
+          dotRadius = 2.5;
           break;
       }
 
-      const existing = this.transitDots.get(order.fleetId);
-
-      if (existing) {
-        // Update endpoints in case the segment changed (fleet moved one hop)
-        existing.fromX = fromSys.position.x;
-        existing.fromY = fromSys.position.y;
-        existing.toX   = toSys.position.x;
-        existing.toY   = toSys.position.y;
-        // Reset t proportionally based on ticksInTransit
-        existing.t = order.ticksPerHop > 0 ? order.ticksInTransit / order.ticksPerHop : 0;
-        // Update dot colour in case travel mode changed
-        existing.gfx.setFillStyle(dotColor, dotAlpha);
-        existing.gfx.setRadius(dotRadius);
+      if (existingFleetIds.has(order.fleetId)) {
+        // Update existing drips' endpoints in case the hop segment changed
+        for (const p of this.dripParticles) {
+          if (p.fleetId !== order.fleetId) continue;
+          p.fromX = fromSys.position.x;
+          p.fromY = fromSys.position.y;
+          p.toX   = toSys.position.x;
+          p.toY   = toSys.position.y;
+          p.obj.setFillStyle(dotColor, 0.85);
+          p.obj.setRadius(dotRadius);
+          p.trail.setFillStyle(dotColor, 0.3);
+          p.trail.setRadius(dotRadius * 0.75);
+        }
       } else {
-        // Speed: complete segment in ticksPerHop ticks × ~500 ms/tick (visual only)
-        const msSPerHop = Math.max(1, order.ticksPerHop) * 500;
-        const speed = 1 / msSPerHop; // t-units per ms
-
-        const dot = this.add.circle(
-          fromSys.position.x,
-          fromSys.position.y,
-          dotRadius,
-          dotColor,
-          dotAlpha,
+        // Check global cap
+        if (this.dripParticles.length >= MAX_DRIP_PARTICLES) continue;
+        const slots = Math.min(
+          DRIP_COUNT_PER_FLEET,
+          MAX_DRIP_PARTICLES - this.dripParticles.length,
         );
-        this.starLayer.add(dot);
+        if (slots <= 0) continue;
 
-        this.transitDots.set(order.fleetId, {
-          gfx: dot,
-          t: order.ticksPerHop > 0 ? order.ticksInTransit / order.ticksPerHop : 0,
-          speed,
-          fromX: fromSys.position.x,
-          fromY: fromSys.position.y,
-          toX: toSys.position.x,
-          toY: toSys.position.y,
-        });
+        const speed = 1 / DRIP_PATH_DURATION_MS; // t-units per ms
+
+        for (let i = 0; i < slots; i++) {
+          // Stagger initial positions evenly along the path
+          const t0 = i / DRIP_COUNT_PER_FLEET;
+          const px = fromSys.position.x + t0 * (toSys.position.x - fromSys.position.x);
+          const py = fromSys.position.y + t0 * (toSys.position.y - fromSys.position.y);
+
+          // Trail dot drawn slightly behind the main dot
+          const trail = this.add.circle(px, py, dotRadius * 0.75, dotColor, 0.3);
+          this.starLayer.add(trail);
+
+          // Main dot
+          const dot = this.add.circle(px, py, dotRadius, dotColor, 0.85);
+          this.starLayer.add(dot);
+
+          this.dripParticles.push({
+            t: t0,
+            speed,
+            fromX: fromSys.position.x,
+            fromY: fromSys.position.y,
+            toX: toSys.position.x,
+            toY: toSys.position.y,
+            obj: dot,
+            trail,
+            fleetId: order.fleetId,
+          });
+        }
+
+        existingFleetIds.add(order.fleetId);
       }
     }
   }
 
-  /** Interpolate transit dots along their current hop segment each frame. */
-  private updateTransitDots(delta: number): void {
-    for (const [, entry] of this.transitDots) {
-      entry.t = Math.min(entry.t + entry.speed * delta, 1);
-      const x = entry.fromX + entry.t * (entry.toX - entry.fromX);
-      const y = entry.fromY + entry.t * (entry.toY - entry.fromY);
-      entry.gfx.setPosition(x, y);
+  /**
+   * Advance and reposition drip particles along their movement paths each
+   * frame.  The `t` value loops from 0 to 1 continuously so the dots always
+   * flow in the direction of travel.  The trailing dot is rendered a fixed
+   * fraction behind the main dot for a short "comet tail" feel.
+   */
+  private updateTransitDots(time: number, delta: number): void {
+    // Suppress unused-variable warning for `time`; reserved for future use
+    void time;
+
+    for (const p of this.dripParticles) {
+      p.t += p.speed * delta;
+      if (p.t >= 1) p.t -= 1; // loop back to origin
+
+      const x = p.fromX + p.t * (p.toX - p.fromX);
+      const y = p.fromY + p.t * (p.toY - p.fromY);
+      p.obj.setPosition(x, y);
+
+      // Trail positioned slightly behind (lower t)
+      const tTrail = p.t - 0.04;
+      const trailWrapped = tTrail < 0 ? tTrail + 1 : tTrail;
+      const tx = p.fromX + trailWrapped * (p.toX - p.fromX);
+      const ty = p.fromY + trailWrapped * (p.toY - p.fromY);
+      p.trail.setPosition(tx, ty);
     }
   }
 

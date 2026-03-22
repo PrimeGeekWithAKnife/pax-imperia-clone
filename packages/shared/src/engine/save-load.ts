@@ -18,6 +18,7 @@ import type { TradeRoute } from './trade.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { ShipDesign, ShipComponent } from '../types/ships.js';
 import type { GameState } from '../types/game-state.js';
+import type { Governor } from '../types/governor.js';
 
 export const SAVE_FORMAT_VERSION = '0.1.0';
 
@@ -44,6 +45,7 @@ export interface SerializedTickState {
   terraformingProgressMap: Array<[string, TerraformingProgress]>;
   shipDesigns: Array<[string, ShipDesign]>;
   shipComponents: ShipComponent[];
+  governors: Governor[];
 }
 
 export interface SaveGame {
@@ -81,6 +83,7 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     terraformingProgressMap: Array.from(state.terraformingProgressMap.entries()),
     shipDesigns: Array.from((state.shipDesigns ?? new Map()).entries()),
     shipComponents: state.shipComponents ?? [],
+    governors: state.governors ?? [],
   };
 }
 
@@ -104,6 +107,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     terraformingProgressMap: new Map(data.terraformingProgressMap),
     shipDesigns: new Map(data.shipDesigns),
     shipComponents: data.shipComponents,
+    governors: data.governors ?? [],
   };
 }
 

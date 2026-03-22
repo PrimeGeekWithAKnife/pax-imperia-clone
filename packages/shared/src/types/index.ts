@@ -6,3 +6,4 @@ export * from './events.js';
 export * from './resources.js';
 export * from './technology.js';
 export * from './government.js';
+export * from './governor.js';

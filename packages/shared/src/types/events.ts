@@ -248,6 +248,24 @@ export interface TerraformingCompleteEvent {
   tick: number;
 }
 
+/** Emitted when a planet's governor dies of old age. */
+export interface GovernorDiedEvent {
+  type: 'GovernorDied';
+  empireId: string;
+  planetId: string;
+  governorName: string;
+  tick: number;
+}
+
+/** Emitted when a new governor is appointed to a planet. */
+export interface GovernorAppointedEvent {
+  type: 'GovernorAppointed';
+  empireId: string;
+  planetId: string;
+  governorName: string;
+  tick: number;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -266,4 +284,6 @@ export type GameEvent =
   | PlayerDisconnectedEvent
   | GameOverEvent
   | TerraformingProgressEvent
-  | TerraformingCompleteEvent;
+  | TerraformingCompleteEvent
+  | GovernorDiedEvent
+  | GovernorAppointedEvent;

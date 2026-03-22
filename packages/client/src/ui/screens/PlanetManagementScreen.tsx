@@ -4,6 +4,8 @@ import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEM
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
+import type { Governor, GovernorModifiers } from '@nova-imperia/shared';
+import { generateCandidatePool } from '@nova-imperia/shared';
 import { BuildingSlotGrid } from '../components/BuildingSlotGrid';
 import { ResourceBar } from '../components/ResourceBar';
 import { ConstructionQueue } from '../components/ConstructionQueue';
@@ -78,6 +80,17 @@ const RESOURCE_LABELS: Record<string, string> = {
 };
 
 const ALL_BUILDING_TYPES: BuildingType[] = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
+
+const GOVERNOR_MOD_LABELS: Record<string, string> = {
+  manufacturing:    'Manufacturing',
+  research:         'Research',
+  energyProduction: 'Energy',
+  populationGrowth: 'Pop Growth',
+  happiness:        'Happiness',
+  construction:     'Construction',
+  mining:           'Mining',
+  trade:            'Trade',
+};
 
 function kelvinToCelsius(k: number): number {
   return Math.round(k - 273.15);
@@ -399,6 +412,10 @@ interface PlanetManagementScreenProps {
   terraformingProgress?: TerraformingProgress | null;
   /** Researched technology IDs — used to gate building availability. */
   empireTechs?: string[];
+  /** Currently assigned governor for this planet, if any. */
+  governor?: Governor | null;
+  /** Called when the player appoints a new governor. */
+  onAppointGovernor?: (planetId: string, governor: Governor) => void;
   onClose: () => void;
   onBuild: (planetId: string, buildingType: BuildingType) => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
@@ -412,6 +429,8 @@ export function PlanetManagementScreen({
   savedDesigns,
   terraformingProgress = null,
   empireTechs,
+  governor = null,
+  onAppointGovernor,
   onClose,
   onBuild,
   onCancelQueue,
@@ -419,6 +438,9 @@ export function PlanetManagementScreen({
 }: PlanetManagementScreenProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [shipPickerOpen, setShipPickerOpen] = useState(false);
+  const [governorModalOpen, setGovernorModalOpen] = useState(false);
+  const [candidates, setCandidates] = useState<Governor[]>([]);
+  const [candidatesGeneration, setCandidatesGeneration] = useState(0);
 
   // ── Ambient sound management ─────────────────────────────────────────────────
   const ambientRef = useRef<AmbientSounds | null>(null);
@@ -503,6 +525,29 @@ export function PlanetManagementScreen({
     [planet.id, onProduceShip],
   );
 
+  // Governor handlers
+  const handleOpenGovernorModal = useCallback(() => {
+    const pool = generateCandidatePool(planet.ownerId ?? '', planet.id, 5);
+    setCandidates(pool);
+    setGovernorModalOpen(true);
+  }, [planet.id, planet.ownerId]);
+
+  const handleRefreshCandidates = useCallback(() => {
+    const pool = generateCandidatePool(planet.ownerId ?? '', planet.id, 5);
+    setCandidates(pool);
+    setCandidatesGeneration(g => g + 1);
+  }, [planet.id, planet.ownerId]);
+
+  const handleAppointCandidate = useCallback(
+    (candidate: Governor) => {
+      setGovernorModalOpen(false);
+      if (onAppointGovernor) {
+        onAppointGovernor(planet.id, { ...candidate, planetId: planet.id, empireId: planet.ownerId ?? '' });
+      }
+    },
+    [planet.id, planet.ownerId, onAppointGovernor],
+  );
+
   // Ship production queue entries (type === 'ship')
   const shipQueue = planet.productionQueue.filter(item => item.type === 'ship');
 
@@ -563,6 +608,71 @@ export function PlanetManagementScreen({
 
           {/* Left column: Planet info */}
           <div className="pm-col pm-col--info">
+
+            {/* ── Governor section ── */}
+            <div className="pm-section-label">GOVERNOR</div>
+            {governor ? (
+              <div className="pm-governor">
+                <div className="pm-governor__name">{governor.name}</div>
+                <div className="pm-governor__trait">{governor.trait}</div>
+
+                {/* Age progress bar */}
+                {(() => {
+                  const pct = Math.min(100, Math.round((governor.turnsServed / governor.lifespan) * 100));
+                  const barColor = pct >= 75 ? '#cc4422' : pct >= 50 ? '#c9852a' : '#4a9e5c';
+                  return (
+                    <div className="pm-governor__age-row">
+                      <span className="pm-stat-label">Served</span>
+                      <span className="pm-stat-value pm-stat-value--muted">
+                        {governor.turnsServed}/{governor.lifespan} turns
+                      </span>
+                      <div className="pm-governor__age-track">
+                        <div
+                          className="pm-governor__age-fill"
+                          style={{ width: `${pct}%`, background: barColor }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Modifiers list */}
+                <div className="pm-governor__modifiers">
+                  {(Object.entries(governor.modifiers) as [keyof GovernorModifiers, number][]).map(([key, val]) => (
+                    <div key={key} className="pm-governor__mod-row">
+                      <span className="pm-governor__mod-label">{GOVERNOR_MOD_LABELS[key] ?? key}</span>
+                      <span
+                        className="pm-governor__mod-value"
+                        style={{ color: val >= 0 ? '#4a9e5c' : '#cc4422' }}
+                      >
+                        {val >= 0 ? '+' : ''}{val}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className="pm-governor__replace-btn"
+                  onClick={handleOpenGovernorModal}
+                >
+                  Replace Governor
+                </button>
+              </div>
+            ) : (
+              <div className="pm-governor pm-governor--vacancy">
+                <div className="pm-governor__vacancy-label">VACANCY</div>
+                <div className="pm-governor__vacancy-hint">Select a new governor</div>
+                <button
+                  className="pm-governor__replace-btn"
+                  onClick={handleOpenGovernorModal}
+                >
+                  Appoint Governor
+                </button>
+              </div>
+            )}
+
+            <div className="pm-divider" />
+
             <div className="pm-section-label">PLANET INFO</div>
 
             {/* Visual representation */}
@@ -913,6 +1023,69 @@ export function PlanetManagementScreen({
           onSelect={handleSelectShipDesign}
           onClose={() => setShipPickerOpen(false)}
         />
+      )}
+
+      {/* Governor candidate selection modal */}
+      {governorModalOpen && (
+        <div className="bpicker-overlay" onClick={() => setGovernorModalOpen(false)}>
+          <div
+            className="bpicker pm-governor-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Select a governor"
+          >
+            <div className="bpicker__header">
+              <span className="bpicker__title">SELECT GOVERNOR</span>
+              <button
+                className="panel-close-btn"
+                onClick={() => setGovernorModalOpen(false)}
+                aria-label="Close governor selection"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="pm-governor-modal__candidates">
+              {candidates.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  className="pm-governor-card"
+                  onClick={() => handleAppointCandidate(candidate)}
+                >
+                  <div className="pm-governor-card__name">{candidate.name}</div>
+                  <div className="pm-governor-card__trait">{candidate.trait}</div>
+                  <div className="pm-governor-card__mods">
+                    {(Object.entries(candidate.modifiers) as [string, number][]).map(([key, val]) => (
+                      <span
+                        key={key}
+                        className="pm-governor-card__mod"
+                        style={{ color: val >= 0 ? '#4a9e5c' : '#cc4422' }}
+                        title={GOVERNOR_MOD_LABELS[key] ?? key}
+                      >
+                        {GOVERNOR_MOD_LABELS[key]?.slice(0, 3).toUpperCase() ?? key}: {val >= 0 ? '+' : ''}{val}%
+                      </span>
+                    ))}
+                  </div>
+                  <div className="pm-governor-card__lifespan">
+                    Lifespan: {candidate.lifespan} turns
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="pm-governor-modal__footer">
+              <button
+                className="pm-governor__replace-btn"
+                onClick={handleRefreshCandidates}
+                title="Costs 100 credits to refresh candidates"
+              >
+                Refresh Candidates (100 CR)
+              </button>
+              {/* Key is used to suppress the unused variable warning from the generation counter */}
+              <span key={candidatesGeneration} style={{ display: 'none' }} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

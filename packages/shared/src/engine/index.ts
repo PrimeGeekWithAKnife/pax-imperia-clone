@@ -14,3 +14,4 @@ export * from './trade.js';
 export * from './espionage.js';
 export * from './victory.js';
 export * from './save-load.js';
+export * from './governors.js';
