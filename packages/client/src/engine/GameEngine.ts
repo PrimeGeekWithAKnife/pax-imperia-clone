@@ -259,7 +259,14 @@ export class GameEngine {
     if (this.tickState.gameState.status === 'finished') {
       this._clearInterval();
       this.running = false;
-      this.game.events.emit('engine:game_over', { reason: 'finished' });
+      // Extract winner info from the GameOver event emitted by the game loop
+      const gameOverEvt = events.find(e => e.type === 'GameOver') as
+        | { type: 'GameOver'; winnerEmpireId: string; victoryCriteria: string; tick: number }
+        | undefined;
+      this.game.events.emit('engine:game_over', {
+        winnerId: gameOverEvt?.winnerEmpireId,
+        reason: gameOverEvt?.victoryCriteria ?? 'finished',
+      });
     }
   }
 

@@ -39,13 +39,17 @@ import { EspionageScreen } from './screens/EspionageScreen';
 import type { EspionageState, EspionageEvent, SpyAgent, SpyMission } from '@nova-imperia/shared';
 import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
+import { VictoryScreen } from './screens/VictoryScreen';
+import type { GameStatistics } from './screens/VictoryScreen';
 import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
 import type { GameLogEntry } from './components/EventLog';
+import { calculateVictoryProgress } from '@nova-imperia/shared';
+import type { VictoryProgress } from '@nova-imperia/shared';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'victory';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -231,6 +235,17 @@ export function App(): React.ReactElement {
   );
   // setEspionageEventLog will be wired to engine events once the game loop is integrated
   const [espionageEventLog, _setEspionageEventLog] = useState<EspionageEvent[]>([]);
+
+  // ── Victory state ──
+  const [victoryData, setVictoryData] = useState<{
+    winnerEmpireId: string;
+    winnerEmpireName: string;
+    victoryCriteria: string;
+    allProgress: VictoryProgress[];
+    empireNames: Record<string, string>;
+    empireColours: Record<string, string>;
+    statistics: GameStatistics;
+  } | null>(null);
 
   // ── Event log entries ──
   const [eventLogEntries, setEventLogEntries] = useState<GameLogEntry[]>([]);
@@ -848,6 +863,62 @@ export function App(): React.ReactElement {
     if (engine) engine.start();
   }, []);
 
+  // Engine emits 'engine:game_over' when the game ends (victory / defeat).
+  const handleGameOver = useCallback((_payload: { winnerId?: string; reason?: string }) => {
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const state = engine.getState();
+    const empires = state.gameState.empires;
+    const player = empires.find(e => !e.isAI);
+    const playerId = player?.id ?? '';
+
+    // Determine winner — prefer winnerId from payload, fall back to first empire
+    const winnerId = _payload.winnerId ?? playerId;
+    const winnerEmpire = empires.find(e => e.id === winnerId);
+
+    // Build victory progress for all empires
+    const allProgress = empires.map(e =>
+      calculateVictoryProgress(e, state.gameState, empires, state.empireResourcesMap),
+    );
+
+    // Build name and colour maps
+    const empireNames: Record<string, string> = {};
+    const empireColours: Record<string, string> = {};
+    for (const e of empires) {
+      empireNames[e.id] = e.name;
+      empireColours[e.id] = e.color ?? '#888888';
+    }
+
+    // Gather statistics for the local player
+    const ownedPlanets = state.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .filter(p => p.ownerId === playerId);
+    const playerShips = state.gameState.ships.filter(s => {
+      const fleet = state.gameState.fleets.find(f => f.id === s.fleetId);
+      return fleet?.empireId === playerId;
+    });
+    const playerResearch = state.researchStates.get(playerId);
+
+    const statistics: GameStatistics = {
+      ticksPlayed: state.gameState.currentTick,
+      planetsColonised: ownedPlanets.length,
+      shipsBuilt: playerShips.length,
+      techsResearched: playerResearch?.completedTechs.length ?? 0,
+    };
+
+    setVictoryData({
+      winnerEmpireId: winnerId,
+      winnerEmpireName: winnerEmpire?.name ?? 'Unknown',
+      victoryCriteria: _payload.reason ?? 'conquest',
+      allProgress,
+      empireNames,
+      empireColours,
+      statistics,
+    });
+    setCurrentScreen('victory');
+  }, []);
+
   // Player clicks "Cancel Migration" in PlanetDetailPanel
   const handleCancelMigration = useCallback(() => {
     if (!selectedPlanet) return;
@@ -891,6 +962,7 @@ export function App(): React.ReactElement {
   useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
+  useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -1213,6 +1285,33 @@ export function App(): React.ReactElement {
           onClose={handleCloseEspionage}
           onRecruitSpy={handleRecruitSpy}
           onAssignMission={handleAssignMission}
+        />
+      </div>
+    );
+  }
+
+  // Render victory screen as full-screen overlay
+  if (currentScreen === 'victory' && victoryData) {
+    return (
+      <div className="ui-overlay">
+        <VictoryScreen
+          localEmpireId={playerEmpire.id}
+          winnerEmpireId={victoryData.winnerEmpireId}
+          winnerEmpireName={victoryData.winnerEmpireName}
+          victoryCriteria={victoryData.victoryCriteria}
+          allProgress={victoryData.allProgress}
+          empireNames={victoryData.empireNames}
+          empireColours={victoryData.empireColours}
+          statistics={victoryData.statistics}
+          onNewGame={() => {
+            setVictoryData(null);
+            setCurrentScreen('species-creator');
+            setGameStarted(false);
+          }}
+          onMainMenu={() => {
+            setVictoryData(null);
+            handleExitToMainMenu();
+          }}
         />
       </div>
     );
