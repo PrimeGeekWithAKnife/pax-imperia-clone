@@ -19,7 +19,7 @@ import {
 } from '../engine/demographics.js';
 import type { DemographicModifiers } from '../engine/demographics.js';
 import {
-  generateGovernor,
+  generateGovernorPersonality,
   calculateGovernorModifiers,
   tickGovernorLoyalty,
 } from '../engine/governor-personality.js';
@@ -254,18 +254,27 @@ describe('tickDemographics — vocation distribution', () => {
   });
 
   it('factory buildings drive demand for workers', () => {
-    const d = createInitialDemographics(10000, 'teranos');
-    const modifiers = makeDefaultModifiers({
+    // Start with a small population so workers begin below demand threshold
+    const d = createInitialDemographics(2000, 'teranos');
+    const withFactories = makeDefaultModifiers({
       educationLevel: 70,
-      availableBuildings: ['factory', 'factory', 'factory', 'mining_facility'],
+      availableBuildings: ['factory', 'factory', 'factory', 'factory', 'factory', 'mining_facility'],
+    });
+    const withoutFactories = makeDefaultModifiers({
+      educationLevel: 70,
+      availableBuildings: [],
     });
 
-    let current = d;
-    for (let i = 0; i < 10; i++) {
-      current = tickDemographics(current, modifiers);
+    let withF = d;
+    let withoutF = d;
+    for (let i = 0; i < 15; i++) {
+      withF = tickDemographics(withF, withFactories);
+      withoutF = tickDemographics(withoutF, withoutFactories);
     }
 
-    expect(current.vocations.workers).toBeGreaterThanOrEqual(d.vocations.workers);
+    // With factories demanding workers, the worker count should be higher
+    // than a colony with no factory demand
+    expect(withF.vocations.workers).toBeGreaterThan(withoutF.vocations.workers);
   });
 });
 
@@ -336,18 +345,18 @@ describe('calculateEffectiveWorkers', () => {
 
 describe('generateGovernor (personality)', () => {
   it('generates a governor with a non-empty name', () => {
-    const gov = generateGovernor('teranos', 42);
+    const gov = generateGovernorPersonality('teranos', 42);
     expect(gov.name.trim().length).toBeGreaterThan(0);
   });
 
   it('sets the species ID correctly', () => {
-    const gov = generateGovernor('orivani', 99);
+    const gov = generateGovernorPersonality('orivani', 99);
     expect(gov.speciesId).toBe('orivani');
   });
 
   it('generates traits in the range 0-10', () => {
     for (let seed = 0; seed < 50; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       const traitKeys = Object.keys(gov.traits) as (keyof typeof gov.traits)[];
       for (const key of traitKeys) {
         expect(gov.traits[key]).toBeGreaterThanOrEqual(0);
@@ -358,7 +367,7 @@ describe('generateGovernor (personality)', () => {
 
   it('generates loyalty in range 0-100', () => {
     for (let seed = 0; seed < 50; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       expect(gov.loyalty).toBeGreaterThanOrEqual(0);
       expect(gov.loyalty).toBeLessThanOrEqual(100);
     }
@@ -366,7 +375,7 @@ describe('generateGovernor (personality)', () => {
 
   it('generates corruption in range 0-100', () => {
     for (let seed = 0; seed < 50; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       expect(gov.corruption).toBeGreaterThanOrEqual(0);
       expect(gov.corruption).toBeLessThanOrEqual(100);
     }
@@ -374,15 +383,15 @@ describe('generateGovernor (personality)', () => {
 
   it('generates competence in range 30-90', () => {
     for (let seed = 0; seed < 50; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       expect(gov.competence).toBeGreaterThanOrEqual(30);
       expect(gov.competence).toBeLessThanOrEqual(90);
     }
   });
 
   it('produces different governors with different seeds', () => {
-    const gov1 = generateGovernor('teranos', 1);
-    const gov2 = generateGovernor('teranos', 2);
+    const gov1 = generateGovernorPersonality('teranos', 1);
+    const gov2 = generateGovernorPersonality('teranos', 2);
     const same = gov1.name === gov2.name
       && JSON.stringify(gov1.traits) === JSON.stringify(gov2.traits);
     expect(same).toBe(false);
@@ -392,7 +401,7 @@ describe('generateGovernor (personality)', () => {
     // Over many seeds, we should never see both above 6
     let bothHighCount = 0;
     for (let seed = 0; seed < 200; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       if (gov.traits.authoritarian > 6 && gov.traits.humanitarian > 6) {
         bothHighCount++;
       }
@@ -408,7 +417,7 @@ describe('generateGovernor (personality)', () => {
 
 describe('calculateGovernorModifiers', () => {
   it('returns multipliers >= 1.0 for positive traits', () => {
-    const gov = generateGovernor('teranos', 42);
+    const gov = generateGovernorPersonality('teranos', 42);
     const mods = calculateGovernorModifiers(gov);
     expect(mods.productionMultiplier).toBeGreaterThanOrEqual(1.0);
     expect(mods.researchMultiplier).toBeGreaterThanOrEqual(1.0);
@@ -418,7 +427,7 @@ describe('calculateGovernorModifiers', () => {
 
   it('corruption drain is between 0.0 and 0.15', () => {
     for (let seed = 0; seed < 50; seed++) {
-      const gov = generateGovernor('teranos', seed);
+      const gov = generateGovernorPersonality('teranos', seed);
       const mods = calculateGovernorModifiers(gov);
       expect(mods.corruptionDrain).toBeGreaterThanOrEqual(0.0);
       expect(mods.corruptionDrain).toBeLessThanOrEqual(0.15);
@@ -426,7 +435,7 @@ describe('calculateGovernorModifiers', () => {
   });
 
   it('high industrialist trait produces higher production multiplier', () => {
-    const gov1 = generateGovernor('teranos', 42);
+    const gov1 = generateGovernorPersonality('teranos', 42);
     // Force high industrialist
     const highIndustry = {
       ...gov1,
@@ -446,7 +455,7 @@ describe('calculateGovernorModifiers', () => {
   });
 
   it('high intellectual trait produces higher research multiplier', () => {
-    const gov1 = generateGovernor('teranos', 42);
+    const gov1 = generateGovernorPersonality('teranos', 42);
     const highIntellect = {
       ...gov1,
       traits: { ...gov1.traits, intellectual: 10 },
@@ -466,7 +475,7 @@ describe('calculateGovernorModifiers', () => {
 
   it('zero competence produces multipliers near 1.0', () => {
     const gov = {
-      ...generateGovernor('teranos', 42),
+      ...generateGovernorPersonality('teranos', 42),
       competence: 0,
       corruption: 0,
     };
@@ -482,20 +491,20 @@ describe('calculateGovernorModifiers', () => {
 
 describe('tickGovernorLoyalty', () => {
   it('does not mutate the original governor', () => {
-    const gov = generateGovernor('teranos', 42);
+    const gov = generateGovernorPersonality('teranos', 42);
     const originalLoyalty = gov.loyalty;
     tickGovernorLoyalty(gov, 50, false, 0);
     expect(gov.loyalty).toBe(originalLoyalty);
   });
 
   it('high empire happiness increases loyalty', () => {
-    const gov = generateGovernor('teranos', 42);
+    const gov = generateGovernorPersonality('teranos', 42);
     const result = tickGovernorLoyalty(gov, 50, false, 0);
     expect(result.loyalty).toBeGreaterThanOrEqual(gov.loyalty);
   });
 
   it('low empire happiness decreases loyalty', () => {
-    const gov = { ...generateGovernor('teranos', 42), loyalty: 60, corruption: 0 };
+    const gov = { ...generateGovernorPersonality('teranos', 42), loyalty: 60, corruption: 0 };
     // Make sure traits don't interfere
     gov.traits.militarist = 3;
     gov.traits.humanitarian = 3;
@@ -507,7 +516,7 @@ describe('tickGovernorLoyalty', () => {
   });
 
   it('militarist governors gain loyalty during war', () => {
-    const gov = { ...generateGovernor('teranos', 42), loyalty: 50, corruption: 0 };
+    const gov = { ...generateGovernorPersonality('teranos', 42), loyalty: 50, corruption: 0 };
     gov.traits.militarist = 8;
     gov.traits.humanitarian = 2;
 
@@ -518,12 +527,12 @@ describe('tickGovernorLoyalty', () => {
   });
 
   it('loyalty stays clamped between 0 and 100', () => {
-    const gov = { ...generateGovernor('teranos', 42), loyalty: 99 };
+    const gov = { ...generateGovernorPersonality('teranos', 42), loyalty: 99 };
     const result = tickGovernorLoyalty(gov, 80, false, 20);
     expect(result.loyalty).toBeLessThanOrEqual(100);
     expect(result.loyalty).toBeGreaterThanOrEqual(0);
 
-    const gov2 = { ...generateGovernor('teranos', 42), loyalty: 1, corruption: 50 };
+    const gov2 = { ...generateGovernorPersonality('teranos', 42), loyalty: 1, corruption: 50 };
     gov2.traits.authoritarian = 9;
     gov2.traits.charismatic = 1;
     const result2 = tickGovernorLoyalty(gov2, -80, true, 0);
@@ -531,7 +540,7 @@ describe('tickGovernorLoyalty', () => {
   });
 
   it('popularity stays clamped between -100 and 100', () => {
-    const gov = { ...generateGovernor('teranos', 42), popularity: 98 };
+    const gov = { ...generateGovernorPersonality('teranos', 42), popularity: 98 };
     gov.traits.charismatic = 10;
     const result = tickGovernorLoyalty(gov, 80, false, 0);
     expect(result.popularity).toBeLessThanOrEqual(100);
