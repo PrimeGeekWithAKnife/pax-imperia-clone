@@ -140,14 +140,14 @@ export class PlanetRenderer {
     radius: number,
   ): void {
     switch (planet.type) {
-      case 'terran':    this.drawTerran(container, radius);    break;
-      case 'ocean':     this.drawOcean(container, radius);     break;
-      case 'desert':    this.drawDesert(container, radius);    break;
-      case 'ice':       this.drawIce(container, radius);       break;
-      case 'volcanic':  this.drawVolcanic(container, planet, radius); break;
-      case 'gas_giant': this.drawGasGiant(container, planet, radius); break;
-      case 'barren':    this.drawBarren(container, radius);    break;
-      case 'toxic':     this.drawToxic(container, planet, radius);    break;
+      case 'terran':    this.drawTerran(container, planet, radius);    break;
+      case 'ocean':     this.drawOcean(container, planet, radius);     break;
+      case 'desert':    this.drawDesert(container, planet, radius);    break;
+      case 'ice':       this.drawIce(container, planet, radius);       break;
+      case 'volcanic':  this.drawVolcanic(container, planet, radius);  break;
+      case 'gas_giant': this.drawGasGiant(container, planet, radius);  break;
+      case 'barren':    this.drawBarren(container, planet, radius);    break;
+      case 'toxic':     this.drawToxic(container, planet, radius);     break;
     }
 
     // Shadow half-sphere (right side, star is to the left)
@@ -183,141 +183,158 @@ export class PlanetRenderer {
 
   // ── Surface types ───────────────────────────────────────────────────────────
 
-  private drawTerran(container: Phaser.GameObjects.Container, r: number): void {
+  private drawTerran(container: Phaser.GameObjects.Container, planet: Planet, r: number): void {
     const g = this.scene.add.graphics();
+    const id = planet.id;
 
     // Ocean base
     g.fillStyle(0x1a5fa8, 1);
     g.fillCircle(0, 0, r);
 
-    // Landmasses (irregular blobs)
-    const landSeeds = [
-      { x: -r * 0.1, y: -r * 0.2, rx: r * 0.38, ry: r * 0.28 },
-      { x:  r * 0.3, y:  r * 0.1, rx: r * 0.25, ry: r * 0.30 },
-      { x: -r * 0.3, y:  r * 0.3, rx: r * 0.20, ry: r * 0.18 },
-    ];
-    for (const ls of landSeeds) {
+    // Landmasses — positions and sizes seeded per planet
+    const continentCount = 2 + Math.floor(seededRandom(id, 0) * 3); // 2-4
+    for (let i = 0; i < continentCount; i++) {
+      const angle = seededRandom(id, i * 4 + 1) * Math.PI * 2;
+      const dist = seededRandom(id, i * 4 + 2) * r * 0.5;
+      const lx = Math.cos(angle) * dist;
+      const ly = Math.sin(angle) * dist;
+      const rx = r * (0.18 + seededRandom(id, i * 4 + 3) * 0.25);
+      const ry = r * (0.15 + seededRandom(id, i * 4 + 4) * 0.20);
       g.fillStyle(0x3a7a3a, 1);
-      g.fillEllipse(ls.x, ls.y, ls.rx * 2, ls.ry * 2);
+      g.fillEllipse(lx, ly, rx * 2, ry * 2);
       // Brown highlands
       g.fillStyle(0x7a5533, 0.6);
-      g.fillEllipse(ls.x + r * 0.05, ls.y - r * 0.04, ls.rx * 0.8, ls.ry * 0.6);
+      g.fillEllipse(lx + r * 0.05, ly - r * 0.04, rx * 0.8, ry * 0.6);
     }
 
-    // Cloud wisps
+    // Cloud wisps — seeded positions
     g.lineStyle(1, 0xffffff, 0.30);
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2 + 0.4;
-      const dist  = r * Phaser.Math.FloatBetween(0.05, 0.65);
+    const cloudCount = 4 + Math.floor(seededRandom(id, 50) * 4); // 4-7
+    for (let i = 0; i < cloudCount; i++) {
+      const angle = seededRandom(id, 60 + i) * Math.PI * 2;
+      const dist  = r * (0.05 + seededRandom(id, 70 + i) * 0.60);
       const wx    = Math.cos(angle) * dist;
       const wy    = Math.sin(angle) * dist;
-      const len   = r * Phaser.Math.FloatBetween(0.15, 0.45);
-      const a2    = angle + Phaser.Math.FloatBetween(-0.5, 0.5);
+      const len   = r * (0.15 + seededRandom(id, 80 + i) * 0.30);
+      const a2    = angle + (seededRandom(id, 90 + i) - 0.5);
       g.beginPath();
       g.moveTo(wx, wy);
       g.lineTo(wx + Math.cos(a2) * len, wy + Math.sin(a2) * len * 0.4);
       g.strokePath();
     }
 
-    // Clip to planet circle
-    g.fillStyle(0x000000, 0);
-
     container.add(g);
   }
 
-  private drawOcean(container: Phaser.GameObjects.Container, r: number): void {
+  private drawOcean(container: Phaser.GameObjects.Container, planet: Planet, r: number): void {
     const g = this.scene.add.graphics();
+    const id = planet.id;
 
     // Deep blue base
     g.fillStyle(0x0d3f7a, 1);
     g.fillCircle(0, 0, r);
 
-    // Lighter shallow ocean patches
-    g.fillStyle(0x1a6bb5, 0.6);
-    g.fillEllipse(-r * 0.2, r * 0.1, r * 1.1, r * 0.6);
+    // Lighter shallow ocean patches — seeded position and size
+    const patchCount = 1 + Math.floor(seededRandom(id, 0) * 2); // 1-2
+    for (let i = 0; i < patchCount; i++) {
+      const px = (seededRandom(id, i * 3 + 1) - 0.5) * r * 0.8;
+      const py = (seededRandom(id, i * 3 + 2) - 0.5) * r * 0.6;
+      g.fillStyle(0x1a6bb5, 0.6);
+      g.fillEllipse(px, py, r * (0.7 + seededRandom(id, i * 3 + 3) * 0.5), r * 0.6);
+    }
 
-    // Cloud spirals
+    // Cloud spirals — seeded positions
     g.lineStyle(1, 0xddeeff, 0.28);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const d = r * 0.35;
+    const cloudCount = 5 + Math.floor(seededRandom(id, 20) * 5); // 5-9
+    for (let i = 0; i < cloudCount; i++) {
+      const a = seededRandom(id, 30 + i) * Math.PI * 2;
+      const d = r * (0.15 + seededRandom(id, 40 + i) * 0.35);
       const ex = Math.cos(a) * d;
       const ey = Math.sin(a) * d;
+      const bend = 0.4 + seededRandom(id, 50 + i) * 0.8;
       g.beginPath();
       g.moveTo(ex, ey);
-      g.lineTo(ex + Math.cos(a + 0.8) * r * 0.3, ey + Math.sin(a + 0.8) * r * 0.15);
+      g.lineTo(ex + Math.cos(a + bend) * r * 0.3, ey + Math.sin(a + bend) * r * 0.15);
       g.strokePath();
     }
 
-    // Ice caps (poles)
+    // Ice caps (poles) — seeded size variation
+    const capTop = 0.65 + seededRandom(id, 60) * 0.30;
+    const capBot = 0.55 + seededRandom(id, 61) * 0.30;
     g.fillStyle(0xeef6ff, 0.70);
-    g.fillEllipse(0, -r * 0.82, r * 0.80, r * 0.30);
-    g.fillEllipse(0,  r * 0.82, r * 0.70, r * 0.26);
+    g.fillEllipse(0, -r * 0.82, r * capTop, r * 0.30);
+    g.fillEllipse(0,  r * 0.82, r * capBot, r * 0.26);
 
     container.add(g);
   }
 
-  private drawDesert(container: Phaser.GameObjects.Container, r: number): void {
+  private drawDesert(container: Phaser.GameObjects.Container, planet: Planet, r: number): void {
     const g = this.scene.add.graphics();
+    const id = planet.id;
 
     // Sandy base
     g.fillStyle(0xc89a50, 1);
     g.fillCircle(0, 0, r);
 
-    // Darker ridge bands
+    // Darker ridge bands — seeded position and count
+    const bandCount = 3 + Math.floor(seededRandom(id, 0) * 3); // 3-5
     g.fillStyle(0x9a6830, 0.45);
-    for (let i = 0; i < 4; i++) {
-      const fy = -r * 0.7 + i * r * 0.35;
-      g.fillEllipse(0, fy, r * 1.4, r * 0.18);
+    for (let i = 0; i < bandCount; i++) {
+      const fy = -r * 0.7 + seededRandom(id, i + 1) * r * 1.4;
+      const bw = r * (1.0 + seededRandom(id, i + 10) * 0.6);
+      g.fillEllipse((seededRandom(id, i + 20) - 0.5) * r * 0.3, fy, bw, r * 0.18);
     }
 
-    // Subtle dust wisps
+    // Subtle dust wisps — seeded
     g.lineStyle(1, 0xddaa66, 0.22);
-    for (let i = 0; i < 4; i++) {
-      const a  = (i / 4) * Math.PI * 2;
-      const dx = Math.cos(a) * r * 0.4;
-      const dy = Math.sin(a) * r * 0.4;
+    const dustCount = 3 + Math.floor(seededRandom(id, 30) * 3); // 3-5
+    for (let i = 0; i < dustCount; i++) {
+      const a  = seededRandom(id, 40 + i) * Math.PI * 2;
+      const dx = Math.cos(a) * r * (0.2 + seededRandom(id, 50 + i) * 0.3);
+      const dy = Math.sin(a) * r * (0.2 + seededRandom(id, 60 + i) * 0.3);
+      const bend = 0.3 + seededRandom(id, 70 + i) * 0.6;
       g.beginPath();
       g.moveTo(dx, dy);
-      g.lineTo(dx + r * 0.3 * Math.cos(a + 0.6), dy + r * 0.15 * Math.sin(a + 0.6));
+      g.lineTo(dx + r * 0.3 * Math.cos(a + bend), dy + r * 0.15 * Math.sin(a + bend));
       g.strokePath();
     }
 
     container.add(g);
   }
 
-  private drawIce(container: Phaser.GameObjects.Container, r: number): void {
+  private drawIce(container: Phaser.GameObjects.Container, planet: Planet, r: number): void {
     const g = this.scene.add.graphics();
+    const id = planet.id;
 
     // White-blue base
     g.fillStyle(0xc8e8f8, 1);
     g.fillCircle(0, 0, r);
 
-    // Cracking patterns — thin dark-blue lines
+    // Cracking patterns — seeded positions and angles
     g.lineStyle(0.8, 0x6699cc, 0.55);
-    const crackSeeds = [
-      { x: -r * 0.1, y: -r * 0.1, angle: 0.8,  len: r * 0.55 },
-      { x:  r * 0.2, y:  r * 0.2, angle: 2.5,  len: r * 0.45 },
-      { x: -r * 0.3, y:  r * 0.1, angle: 4.1,  len: r * 0.40 },
-      { x:  r * 0.1, y: -r * 0.3, angle: 1.3,  len: r * 0.35 },
-    ];
-    for (const ck of crackSeeds) {
+    const crackCount = 3 + Math.floor(seededRandom(id, 0) * 3); // 3-5
+    for (let i = 0; i < crackCount; i++) {
+      const cx = (seededRandom(id, i * 4 + 1) - 0.5) * r * 0.7;
+      const cy = (seededRandom(id, i * 4 + 2) - 0.5) * r * 0.7;
+      const angle = seededRandom(id, i * 4 + 3) * Math.PI * 2;
+      const len = r * (0.30 + seededRandom(id, i * 4 + 4) * 0.30);
       g.beginPath();
-      g.moveTo(ck.x, ck.y);
+      g.moveTo(cx, cy);
       // Jagged: two segments
-      const mx = ck.x + Math.cos(ck.angle) * ck.len * 0.5;
-      const my = ck.y + Math.sin(ck.angle) * ck.len * 0.5;
-      const ex = ck.x + Math.cos(ck.angle + 0.4) * ck.len;
-      const ey = ck.y + Math.sin(ck.angle + 0.4) * ck.len;
+      const mx = cx + Math.cos(angle) * len * 0.5;
+      const my = cy + Math.sin(angle) * len * 0.5;
+      const ex = cx + Math.cos(angle + 0.4) * len;
+      const ey = cy + Math.sin(angle + 0.4) * len;
       g.lineTo(mx, my);
       g.lineTo(ex, ey);
       g.strokePath();
     }
 
-    // Polar aurora (faint green arc at top)
+    // Polar aurora (faint green arc at top) — seeded width
+    const auroraWidth = 0.25 + seededRandom(id, 30) * 0.20;
     g.lineStyle(2, 0x44ff88, 0.22);
     g.beginPath();
-    g.arc(0, -r * 0.85, r * 0.35, 0.3, Math.PI - 0.3);
+    g.arc(0, -r * 0.85, r * auroraWidth, 0.3, Math.PI - 0.3);
     g.strokePath();
 
     container.add(g);
@@ -334,15 +351,17 @@ export class PlanetRenderer {
     g.fillStyle(0x1a1208, 1);
     g.fillCircle(0, 0, r);
 
-    // Lava fissures
+    // Lava fissures — seeded positions
+    const fissureCount = 4 + Math.floor(seededRandom(planet.id, 0) * 3); // 4-6
     const fissures: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + 0.3;
-      const d = r * Phaser.Math.FloatBetween(0.1, 0.70);
+    for (let i = 0; i < fissureCount; i++) {
+      const a = seededRandom(planet.id, i * 3 + 1) * Math.PI * 2;
+      const d = r * (0.1 + seededRandom(planet.id, i * 3 + 2) * 0.60);
       const x1 = Math.cos(a) * d * 0.4;
       const y1 = Math.sin(a) * d * 0.4;
-      const x2 = Math.cos(a + 0.3) * d;
-      const y2 = Math.sin(a + 0.3) * d;
+      const spread = 0.2 + seededRandom(planet.id, i * 3 + 3) * 0.3;
+      const x2 = Math.cos(a + spread) * d;
+      const y2 = Math.sin(a + spread) * d;
       fissures.push({ x1, y1, x2, y2 });
 
       g.lineStyle(1.5, 0xff4400, 0.85);
@@ -352,10 +371,11 @@ export class PlanetRenderer {
       g.strokePath();
     }
 
-    // Glow spots
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2 + 0.5;
-      const d = r * 0.45;
+    // Glow spots — seeded positions
+    const glowCount = 3 + Math.floor(seededRandom(planet.id, 30) * 3); // 3-5
+    for (let i = 0; i < glowCount; i++) {
+      const a = seededRandom(planet.id, 40 + i) * Math.PI * 2;
+      const d = r * (0.25 + seededRandom(planet.id, 50 + i) * 0.35);
       g.fillStyle(0xff7700, 0.40);
       g.fillCircle(Math.cos(a) * d, Math.sin(a) * d, r * 0.08);
     }
@@ -451,26 +471,26 @@ export class PlanetRenderer {
     this.timerEvents.push(timer);
   }
 
-  private drawBarren(container: Phaser.GameObjects.Container, r: number): void {
+  private drawBarren(container: Phaser.GameObjects.Container, planet: Planet, r: number): void {
     const g = this.scene.add.graphics();
+    const id = planet.id;
 
     // Gray base
     g.fillStyle(0x5a5a5a, 1);
     g.fillCircle(0, 0, r);
 
-    // Craters — small circles of slightly different shade
-    const craterData = [
-      { x: -r * 0.25, y: -r * 0.30, cr: r * 0.14 },
-      { x:  r * 0.30, y: -r * 0.10, cr: r * 0.10 },
-      { x: -r * 0.10, y:  r * 0.30, cr: r * 0.12 },
-      { x:  r * 0.20, y:  r * 0.35, cr: r * 0.08 },
-      { x: -r * 0.35, y:  r * 0.10, cr: r * 0.09 },
-    ];
-    for (const c of craterData) {
+    // Craters — seeded positions and sizes
+    const craterCount = 4 + Math.floor(seededRandom(id, 0) * 4); // 4-7
+    for (let i = 0; i < craterCount; i++) {
+      const angle = seededRandom(id, i * 3 + 1) * Math.PI * 2;
+      const dist = seededRandom(id, i * 3 + 2) * r * 0.55;
+      const cx = Math.cos(angle) * dist;
+      const cy = Math.sin(angle) * dist;
+      const cr = r * (0.06 + seededRandom(id, i * 3 + 3) * 0.10);
       g.fillStyle(0x3e3e3e, 0.70);
-      g.fillCircle(c.x, c.y, c.cr);
+      g.fillCircle(cx, cy, cr);
       g.lineStyle(0.5, 0x888888, 0.40);
-      g.strokeCircle(c.x, c.y, c.cr);
+      g.strokeCircle(cx, cy, cr);
     }
 
     container.add(g);
@@ -487,16 +507,17 @@ export class PlanetRenderer {
     g.fillStyle(0x2a3a1a, 1);
     g.fillCircle(0, 0, r);
 
-    // Swirling gas blobs
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + 0.2;
-      const d = r * 0.40;
+    // Swirling gas blobs — seeded positions
+    const blobCount = 4 + Math.floor(seededRandom(planet.id, 0) * 3); // 4-6
+    for (let i = 0; i < blobCount; i++) {
+      const a = seededRandom(planet.id, i * 2 + 1) * Math.PI * 2;
+      const d = r * (0.20 + seededRandom(planet.id, i * 2 + 2) * 0.30);
       g.fillStyle(0x448833, 0.35);
       g.fillEllipse(
         Math.cos(a) * d,
         Math.sin(a) * d,
-        r * 0.50,
-        r * 0.28,
+        r * (0.35 + seededRandom(planet.id, i + 20) * 0.20),
+        r * (0.20 + seededRandom(planet.id, i + 30) * 0.15),
       );
     }
 
