@@ -809,7 +809,12 @@ export class GameEngine {
     }
 
     const galaxy = this.tickState.gameState.galaxy;
-    const order = issueMovementOrder(fleet, galaxy, destinationSystemId);
+
+    // Determine travel mode from the empire's researched technologies
+    const empire = this.tickState.gameState.empires.find(e => e.id === fleet.empireId);
+    const empireTechs = empire?.technologies ?? [];
+
+    const order = issueMovementOrder(fleet, galaxy, destinationSystemId, undefined, empireTechs);
     if (!order) {
       console.warn(`[GameEngine.moveFleet] No path from "${fleet.position.systemId}" to "${destinationSystemId}"`);
       return false;

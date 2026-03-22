@@ -16,6 +16,7 @@ import {
   setFleetStance,
   startShipProduction,
   processShipProduction,
+  determineTravelMode,
 } from '../engine/fleet.js';
 import type { FleetMovementOrder } from '../engine/fleet.js';
 
@@ -371,6 +372,7 @@ describe('processFleetMovement', () => {
       currentSegment: 1,
       ticksPerHop: 1,
       ticksInTransit: 0,
+      travelMode: 'wormhole',
       ...overrides,
     };
   }
@@ -827,5 +829,85 @@ describe('processShipProduction', () => {
         order = result.order;
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// determineTravelMode
+// ---------------------------------------------------------------------------
+
+describe('determineTravelMode', () => {
+  it('returns slow_ftl when no wormhole techs are researched', () => {
+    expect(determineTravelMode([])).toBe('slow_ftl');
+    expect(determineTravelMode(['quantum_theory', 'pulse_lasers'])).toBe('slow_ftl');
+  });
+
+  it('returns wormhole when wormhole_stabilisation is researched', () => {
+    expect(determineTravelMode(['wormhole_stabilisation'])).toBe('wormhole');
+  });
+
+  it('returns advanced_wormhole when artificial_wormholes is researched', () => {
+    expect(determineTravelMode(['wormhole_stabilisation', 'artificial_wormholes'])).toBe('advanced_wormhole');
+  });
+
+  it('returns advanced_wormhole even if wormhole_stabilisation is not listed', () => {
+    // artificial_wormholes implies the empire has the predecessor tech
+    expect(determineTravelMode(['artificial_wormholes'])).toBe('advanced_wormhole');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// issueMovementOrder — travel mode
+// ---------------------------------------------------------------------------
+
+describe('issueMovementOrder — travel mode', () => {
+  it('sets travelMode to slow_ftl when empire has no wormhole tech', () => {
+    const galaxy = makeLinearGalaxy();
+    const fleet = makeFleet({ position: { systemId: 'A' } });
+    const order = issueMovementOrder(fleet, galaxy, 'D', undefined, []);
+
+    expect(order).not.toBeNull();
+    expect(order!.travelMode).toBe('slow_ftl');
+    expect(order!.ticksPerHop).toBe(20);
+  });
+
+  it('sets travelMode to wormhole when empire has wormhole_stabilisation', () => {
+    const galaxy = makeLinearGalaxy();
+    const fleet = makeFleet({ position: { systemId: 'A' } });
+    const order = issueMovementOrder(fleet, galaxy, 'D', undefined, ['wormhole_stabilisation']);
+
+    expect(order).not.toBeNull();
+    expect(order!.travelMode).toBe('wormhole');
+    expect(order!.ticksPerHop).toBe(10);
+  });
+
+  it('sets travelMode to advanced_wormhole when empire has artificial_wormholes', () => {
+    const galaxy = makeLinearGalaxy();
+    const fleet = makeFleet({ position: { systemId: 'A' } });
+    const order = issueMovementOrder(fleet, galaxy, 'D', undefined, ['artificial_wormholes']);
+
+    expect(order).not.toBeNull();
+    expect(order!.travelMode).toBe('advanced_wormhole');
+    expect(order!.ticksPerHop).toBe(5);
+  });
+
+  it('explicit ticksPerHop overrides tech-derived value', () => {
+    const galaxy = makeLinearGalaxy();
+    const fleet = makeFleet({ position: { systemId: 'A' } });
+    const order = issueMovementOrder(fleet, galaxy, 'D', 7, ['wormhole_stabilisation']);
+
+    expect(order).not.toBeNull();
+    expect(order!.ticksPerHop).toBe(7);
+    expect(order!.travelMode).toBe('wormhole');
+  });
+
+  it('defaults to wormhole mode when no tech info or explicit ticksPerHop given', () => {
+    const galaxy = makeLinearGalaxy();
+    const fleet = makeFleet({ position: { systemId: 'A' } });
+    const order = issueMovementOrder(fleet, galaxy, 'D');
+
+    expect(order).not.toBeNull();
+    expect(order!.travelMode).toBe('wormhole');
+    expect(order!.ticksPerHop).toBe(10);
   });
 });

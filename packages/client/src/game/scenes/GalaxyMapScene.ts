@@ -691,6 +691,19 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   // ── Wormhole drawing ──────────────────────────────────────────────────────────
 
+  /**
+   * Check whether the player empire has researched wormhole stabilisation.
+   * Used to control wormhole line visibility.
+   */
+  private _playerHasWormholeTech(): boolean {
+    const engine = getGameEngine();
+    if (!engine) return false;
+    const state = engine.getState().gameState;
+    const playerEmpire = state.empires.find(e => !e.isAI);
+    if (!playerEmpire) return false;
+    return playerEmpire.technologies.includes('wormhole_stabilisation');
+  }
+
   private drawWormholes(highlightSystemId: string | null): void {
     this.wormholeLayer.clear();
 
@@ -699,6 +712,8 @@ export class GalaxyMapScene extends Phaser.Scene {
       p.obj.destroy();
     }
     this.wormholeParticles = [];
+
+    const hasWormholeTech = this._playerHasWormholeTech();
 
     const systemMap = new Map<string, StarSystem>(
       this.galaxy.systems.map(s => [s.id, s]),
@@ -720,8 +735,12 @@ export class GalaxyMapScene extends Phaser.Scene {
         const isHighlighted =
           highlightSystemId === sys.id || highlightSystemId === targetId;
 
-        this.drawWormholeLine(sys, target, isHighlighted);
-        this.spawnWormholeParticles(sys, target, isHighlighted);
+        this.drawWormholeLine(sys, target, isHighlighted, hasWormholeTech);
+
+        // Only spawn drifting particles if the player has wormhole tech
+        if (hasWormholeTech) {
+          this.spawnWormholeParticles(sys, target, isHighlighted);
+        }
       }
     }
   }
@@ -729,8 +748,17 @@ export class GalaxyMapScene extends Phaser.Scene {
   /**
    * Draw a wormhole line as a dashed path — dim in the middle, slightly
    * brighter near endpoints to give a gradient feel.
+   *
+   * If the player has not researched wormhole stabilisation, lines are drawn
+   * as very faint dashes to indicate theoretical knowledge of the wormhole
+   * network without the ability to traverse it.
    */
-  private drawWormholeLine(sysA: StarSystem, sysB: StarSystem, highlighted: boolean): void {
+  private drawWormholeLine(
+    sysA: StarSystem,
+    sysB: StarSystem,
+    highlighted: boolean,
+    hasWormholeTech: boolean,
+  ): void {
     const ax = sysA.position.x;
     const ay = sysA.position.y;
     const bx = sysB.position.x;
@@ -741,13 +769,20 @@ export class GalaxyMapScene extends Phaser.Scene {
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1) return;
 
-    const dashLen = 6;
-    const gapLen = 5;
+    // Without wormhole tech: very faint, wider gaps (barely visible)
+    const dashLen = hasWormholeTech ? 6 : 3;
+    const gapLen = hasWormholeTech ? 5 : 10;
     const totalUnit = dashLen + gapLen;
 
-    const color = highlighted ? WORMHOLE_HIGHLIGHT_COLOR : WORMHOLE_COLOR;
-    const baseAlpha = highlighted ? WORMHOLE_HIGHLIGHT_ALPHA : WORMHOLE_ALPHA;
-    const lineWidth = highlighted ? 1.8 / this.currentZoom : 1.2 / this.currentZoom;
+    const color = hasWormholeTech
+      ? (highlighted ? WORMHOLE_HIGHLIGHT_COLOR : WORMHOLE_COLOR)
+      : 0x334455; // faint blue-grey when tech not researched
+    const baseAlpha = hasWormholeTech
+      ? (highlighted ? WORMHOLE_HIGHLIGHT_ALPHA : WORMHOLE_ALPHA)
+      : 0.12; // very faint
+    const lineWidth = hasWormholeTech
+      ? (highlighted ? 1.8 / this.currentZoom : 1.2 / this.currentZoom)
+      : 0.8 / this.currentZoom;
 
     // Draw dashes along the line
     let d = 0;
@@ -758,7 +793,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       const tMid = (d + (dashEnd - d) * 0.5) / len;
       // Peak alpha at endpoints (t=0 or t=1), lower in middle
       const distFromCenter = Math.abs(tMid - 0.5) * 2; // 0 at center, 1 at endpoints
-      const dashAlpha = baseAlpha * (0.45 + 0.55 * distFromCenter);
+      const dashAlpha = hasWormholeTech
+        ? baseAlpha * (0.45 + 0.55 * distFromCenter)
+        : baseAlpha; // uniform faintness when tech not researched
 
       this.wormholeLayer.lineStyle(lineWidth, color, dashAlpha);
       this.wormholeLayer.beginPath();
@@ -1083,9 +1120,21 @@ export class GalaxyMapScene extends Phaser.Scene {
   private showTooltip(sys: StarSystem): void {
     const screen = this.galaxyToScreen(sys.position.x, sys.position.y);
     const padding = 8;
-    const label = sys.name;
-    const typeLabel = sys.starType.replace('_', ' ');
-    const fullText = `${label}\n${typeLabel}`;
+    const known = this.knownSystemIds.has(sys.id);
+
+    let fullText: string;
+    if (!known) {
+      fullText = 'Unknown system';
+    } else {
+      const label = sys.name;
+      const typeLabel = sys.starType.replace('_', ' ');
+      fullText = `${label}\n${typeLabel}`;
+
+      // If the system has wormholes, show wormhole tech status
+      if (sys.wormholes.length > 0 && !this._playerHasWormholeTech()) {
+        fullText += '\nWormhole \u2014 Requires wormhole\nstabilisation technology';
+      }
+    }
 
     this.tooltipText.setText(fullText);
     const tw = this.tooltipText.width + padding * 2;
@@ -1231,21 +1280,64 @@ export class GalaxyMapScene extends Phaser.Scene {
   /**
    * Render small fleet count badges at star systems that have ships.
    * Called on create and on each engine tick.
+   *
+   * Fog of war rules:
+   * - Only show badges in systems the player has discovered (knownSystemIds).
+   * - Only show the player's own ships, plus enemy ships in systems the player
+   *   can currently observe (i.e. has a fleet or colony there).
    */
   private _renderFleetBadges(): void {
     const engine = getGameEngine();
     if (!engine) return;
 
-    const ships = engine.getState().gameState.ships;
+    const state = engine.getState().gameState;
+    const ships = state.ships;
+    const fleets = state.fleets;
+    const playerEmpire = state.empires.find(e => !e.isAI);
+    const playerEmpireId = playerEmpire?.id ?? null;
 
-    // Group ship count by systemId
-    const shipsBySystem = new Map<string, number>();
-    for (const ship of ships) {
-      const count = shipsBySystem.get(ship.position.systemId) ?? 0;
-      shipsBySystem.set(ship.position.systemId, count + 1);
+    // Determine which systems the player can currently observe (has fleet or colony)
+    const observedSystemIds = new Set<string>();
+    if (playerEmpireId) {
+      // Systems with player fleets
+      for (const fleet of fleets) {
+        if (fleet.empireId === playerEmpireId) {
+          observedSystemIds.add(fleet.position.systemId);
+        }
+      }
+      // Systems with player colonies (owned systems)
+      for (const sys of this.galaxy.systems) {
+        if (sys.ownerId === playerEmpireId) {
+          observedSystemIds.add(sys.id);
+        }
+      }
     }
 
-    // Remove badges for systems that no longer have ships
+    // Group visible ship counts by systemId, respecting fog of war
+    const shipsBySystem = new Map<string, number>();
+    for (const ship of ships) {
+      const sysId = ship.position.systemId;
+
+      // Skip undiscovered systems entirely
+      if (!this.knownSystemIds.has(sysId)) continue;
+
+      // Find which empire owns this ship
+      const fleet = fleets.find(f => f.ships.includes(ship.id));
+      const shipEmpireId = fleet?.empireId ?? null;
+
+      if (shipEmpireId === playerEmpireId) {
+        // Always show player's own ships
+        const count = shipsBySystem.get(sysId) ?? 0;
+        shipsBySystem.set(sysId, count + 1);
+      } else if (observedSystemIds.has(sysId)) {
+        // Show enemy ships only in systems the player can observe
+        const count = shipsBySystem.get(sysId) ?? 0;
+        shipsBySystem.set(sysId, count + 1);
+      }
+      // Otherwise: enemy ship in a system the player cannot observe — hidden
+    }
+
+    // Remove badges for systems that no longer have visible ships
     for (const [sysId, container] of this.fleetBadges) {
       if (!shipsBySystem.has(sysId)) {
         container.destroy();
@@ -1300,6 +1392,14 @@ export class GalaxyMapScene extends Phaser.Scene {
    * Rebuild the set of animated transit dots to match the current set of
    * active movement orders.  Called on each engine tick so the dots stay
    * in sync when orders are added or cleared.
+   *
+   * Fog of war: only show transit dots for the player's own fleets, or
+   * enemy fleets travelling through observed systems.
+   *
+   * Visual style varies by travel mode:
+   * - slow_ftl: small red dot
+   * - wormhole: cyan dot (current default)
+   * - advanced_wormhole: bright blue dot
    */
   private _syncTransitDots(): void {
     const engine = getGameEngine();
@@ -1307,6 +1407,25 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     const state = engine.getState();
     const orders = state.movementOrders;
+    const fleets = state.gameState.fleets;
+    const playerEmpire = state.gameState.empires.find(e => !e.isAI);
+    const playerEmpireId = playerEmpire?.id ?? null;
+
+    // Systems the player can observe (has fleet or colony)
+    const observedSystemIds = new Set<string>();
+    if (playerEmpireId) {
+      for (const fleet of fleets) {
+        if (fleet.empireId === playerEmpireId) {
+          observedSystemIds.add(fleet.position.systemId);
+        }
+      }
+      for (const sys of this.galaxy.systems) {
+        if (sys.ownerId === playerEmpireId) {
+          observedSystemIds.add(sys.id);
+        }
+      }
+    }
+
     const activeFleetIds = new Set(orders.map(o => o.fleetId));
 
     // Remove dots for orders that no longer exist
@@ -1323,9 +1442,51 @@ export class GalaxyMapScene extends Phaser.Scene {
       const toId   = order.path[order.currentSegment];
       if (!fromId || !toId) continue;
 
+      // Fog of war: check visibility
+      const fleet = fleets.find(f => f.id === order.fleetId);
+      const isPlayerFleet = fleet?.empireId === playerEmpireId;
+      if (!isPlayerFleet) {
+        // Enemy fleet — only visible if travelling through an observed system
+        const fromObserved = observedSystemIds.has(fromId);
+        const toObserved = observedSystemIds.has(toId);
+        if (!fromObserved && !toObserved) {
+          // Not visible — remove existing dot if present
+          const existing = this.transitDots.get(order.fleetId);
+          if (existing) {
+            existing.gfx.destroy();
+            this.transitDots.delete(order.fleetId);
+          }
+          continue;
+        }
+      }
+
       const fromSys = this.galaxy.systems.find(s => s.id === fromId);
       const toSys   = this.galaxy.systems.find(s => s.id === toId);
       if (!fromSys || !toSys) continue;
+
+      // Determine dot colour and size by travel mode
+      const travelMode = order.travelMode ?? 'wormhole';
+      let dotColor: number;
+      let dotAlpha: number;
+      let dotRadius: number;
+      switch (travelMode) {
+        case 'slow_ftl':
+          dotColor = 0xff4444;
+          dotAlpha = 0.75;
+          dotRadius = 2.5;
+          break;
+        case 'advanced_wormhole':
+          dotColor = 0x4488ff;
+          dotAlpha = 0.95;
+          dotRadius = 4.0;
+          break;
+        case 'wormhole':
+        default:
+          dotColor = 0x00d4ff;
+          dotAlpha = 0.9;
+          dotRadius = 3.5;
+          break;
+      }
 
       const existing = this.transitDots.get(order.fleetId);
 
@@ -1337,6 +1498,9 @@ export class GalaxyMapScene extends Phaser.Scene {
         existing.toY   = toSys.position.y;
         // Reset t proportionally based on ticksInTransit
         existing.t = order.ticksPerHop > 0 ? order.ticksInTransit / order.ticksPerHop : 0;
+        // Update dot colour in case travel mode changed
+        existing.gfx.setFillStyle(dotColor, dotAlpha);
+        existing.gfx.setRadius(dotRadius);
       } else {
         // Speed: complete segment in ticksPerHop ticks × ~500 ms/tick (visual only)
         const msSPerHop = Math.max(1, order.ticksPerHop) * 500;
@@ -1345,9 +1509,9 @@ export class GalaxyMapScene extends Phaser.Scene {
         const dot = this.add.circle(
           fromSys.position.x,
           fromSys.position.y,
-          3.5,
-          0x00d4ff,
-          0.9,
+          dotRadius,
+          dotColor,
+          dotAlpha,
         );
         this.starLayer.add(dot);
 

@@ -15,6 +15,15 @@ import { generateId } from '../utils/id.js';
 // ---------------------------------------------------------------------------
 
 /**
+ * Travel mode determines how a fleet traverses the galaxy.
+ *
+ * - `slow_ftl`: Sub-light FTL drives; no wormhole tech required. Very slow.
+ * - `wormhole`: Standard wormhole traversal; requires `wormhole_stabilisation`.
+ * - `advanced_wormhole`: Enhanced wormhole tech; requires `artificial_wormholes`.
+ */
+export type TravelMode = 'slow_ftl' | 'wormhole' | 'advanced_wormhole';
+
+/**
  * An active movement order for a fleet navigating the wormhole network.
  *
  * path[0] is always the system the fleet departed from; path[path.length-1]
@@ -32,6 +41,8 @@ export interface FleetMovementOrder {
   ticksPerHop: number;
   /** Ticks already spent on the current hop. */
   ticksInTransit: number;
+  /** How the fleet is travelling — determines speed and visual style. */
+  travelMode: TravelMode;
 }
 
 export interface FleetStrength {
@@ -161,6 +172,32 @@ export function removeShipFromFleet(fleet: Fleet, shipId: string): Fleet {
 // Fleet movement
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Travel mode helpers
+// ---------------------------------------------------------------------------
+
+/** Ticks per hop for each travel mode. */
+const TICKS_PER_HOP: Record<TravelMode, number> = {
+  slow_ftl: 20,
+  wormhole: 10,
+  advanced_wormhole: 5,
+};
+
+/**
+ * Determine the best travel mode available to an empire based on its
+ * researched technologies.
+ *
+ * - `artificial_wormholes` → `advanced_wormhole` (ticksPerHop = 5)
+ * - `wormhole_stabilisation` → `wormhole` (ticksPerHop = 10)
+ * - Neither → `slow_ftl` (ticksPerHop = 20)
+ */
+export function determineTravelMode(empireTechnologies: string[]): TravelMode {
+  const techs = new Set(empireTechnologies);
+  if (techs.has('artificial_wormholes')) return 'advanced_wormhole';
+  if (techs.has('wormhole_stabilisation')) return 'wormhole';
+  return 'slow_ftl';
+}
+
 /**
  * Plan a route from the fleet's current position to destinationId using A*
  * pathfinding.  Returns a FleetMovementOrder ready to pass to
@@ -168,12 +205,17 @@ export function removeShipFromFleet(fleet: Fleet, shipId: string): Fleet {
  *
  * ticksPerHop defaults to 10 (ten ticks per wormhole hop).  Pass a different
  * value to model faster/slower travel speeds (e.g. via propulsion tech).
+ *
+ * When empireTechnologies is provided, the travel mode and ticksPerHop are
+ * derived automatically from the empire's researched techs.  An explicit
+ * ticksPerHop still overrides the tech-derived value.
  */
 export function issueMovementOrder(
   fleet: Fleet,
   galaxy: Galaxy,
   destinationId: string,
-  ticksPerHop = 10,
+  ticksPerHop?: number,
+  empireTechnologies?: string[],
 ): FleetMovementOrder | null {
   const startId = fleet.position.systemId;
 
@@ -183,12 +225,21 @@ export function issueMovementOrder(
   const result = findPath(galaxy, startId, destinationId);
   if (!result.found || result.path.length < 2) return null;
 
+  const travelMode: TravelMode = empireTechnologies
+    ? determineTravelMode(empireTechnologies)
+    : ticksPerHop !== undefined
+      ? (ticksPerHop <= 5 ? 'advanced_wormhole' : ticksPerHop <= 10 ? 'wormhole' : 'slow_ftl')
+      : 'wormhole';
+
+  const resolvedTicksPerHop = ticksPerHop ?? TICKS_PER_HOP[travelMode];
+
   return {
     fleetId: fleet.id,
     path: result.path,
     currentSegment: 1, // heading toward path[1]
-    ticksPerHop,
+    ticksPerHop: resolvedTicksPerHop,
     ticksInTransit: 0,
+    travelMode,
   };
 }
 
@@ -294,6 +345,7 @@ export function processWaypoints(
   fleet: Fleet,
   galaxy: Galaxy,
   ticksPerHop = 10,
+  empireTechnologies?: string[],
 ): FleetMovementOrder | null {
   if (fleet.waypoints.length === 0) return null;
 
@@ -314,7 +366,7 @@ export function processWaypoints(
   // Already at the next waypoint (e.g., single-element waypoint list).
   if (nextWaypointId === currentSystemId) return null;
 
-  return issueMovementOrder(fleet, galaxy, nextWaypointId, ticksPerHop);
+  return issueMovementOrder(fleet, galaxy, nextWaypointId, ticksPerHop, empireTechnologies);
 }
 
 // ---------------------------------------------------------------------------
