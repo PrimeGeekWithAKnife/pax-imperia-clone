@@ -56,6 +56,7 @@ function makeEmpire(id: string, overrides: Partial<Empire> = {}): Empire {
     technologies: [],
     currentAge: 'nano_atomic',
     isAI: false,
+    government: 'representative_democracy',
     ...overrides,
   };
 }

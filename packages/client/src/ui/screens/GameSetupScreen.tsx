@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
-import type { Species, GalaxyShape } from '@nova-imperia/shared';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import type { Species, GalaxyShape, GovernmentType } from '@nova-imperia/shared';
+import { GOVERNMENTS } from '@nova-imperia/shared';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -12,11 +13,14 @@ export interface GameConfig {
   aiOpponents: number;
   seed: string;
   aiDifficulty: AiDifficulty;
+  empireName: string;
+  government: GovernmentType;
 }
 
 export interface GameSetupScreenProps {
   species: Species;
   originStory: string;
+  /** Initial government suggested by the species creator. */
   governmentType: string;
   onBack: () => void;
   onStartGame: (config: GameConfig) => void;
@@ -44,13 +48,38 @@ const DIFFICULTIES: Array<{ key: AiDifficulty; label: string; desc: string }> = 
   { key: 'hard',   label: 'Hard',   desc: 'Aggressive AI with economic bonuses'          },
 ];
 
+const GOVERNMENT_ORDER: GovernmentType[] = [
+  'forced_labour',
+  'representative_democracy',
+  'equality',
+  'empire',
+  'republic',
+  'dictatorship',
+];
+
+// Maps the legacy SpeciesCreator government strings to our GovernmentType keys
+const LEGACY_GOV_MAP: Record<string, GovernmentType> = {
+  Democracy:        'representative_democracy',
+  Autocracy:        'dictatorship',
+  Theocracy:        'empire',
+  Oligarchy:        'republic',
+  'Hive Mind':      'equality',
+  'Military Junta': 'dictatorship',
+  Technocracy:      'representative_democracy',
+  Federation:       'representative_democracy',
+};
+
+function resolveInitialGovernment(raw: string): GovernmentType {
+  if (raw in GOVERNMENTS) return raw as GovernmentType;
+  return LEGACY_GOV_MAP[raw] ?? 'representative_democracy';
+}
+
 // ── Galaxy shape SVG previews ──────────────────────────────────────────────────
 
 function SpiralPreview(): React.ReactElement {
   return (
     <svg viewBox="0 0 60 60" width="54" height="54" aria-hidden="true">
       <circle cx="30" cy="30" r="4" fill="currentColor" opacity="0.9" />
-      {/* Arm 1 */}
       {[0,1,2,3,4,5,6,7,8].map((i) => {
         const angle = (i / 8) * Math.PI * 2;
         const r = 5 + i * 2.5;
@@ -58,7 +87,6 @@ function SpiralPreview(): React.ReactElement {
         const y = 30 + Math.sin(angle) * r;
         return <circle key={`a1-${i}`} cx={x} cy={y} r={1.2} fill="currentColor" opacity={0.7 - i * 0.06} />;
       })}
-      {/* Arm 2 (offset by PI) */}
       {[0,1,2,3,4,5,6,7,8].map((i) => {
         const angle = Math.PI + (i / 8) * Math.PI * 2;
         const r = 5 + i * 2.5;
@@ -151,6 +179,50 @@ function emitToPhaser(eventName: string, data: unknown): void {
   game?.events.emit(eventName, data);
 }
 
+// ── Government modifier display helpers ────────────────────────────────────────
+
+interface ModifierEntry {
+  label: string;
+  value: number;
+  isPercent: boolean;
+}
+
+function getModifierEntries(govType: GovernmentType): ModifierEntry[] {
+  const mods = GOVERNMENTS[govType]?.modifiers;
+  if (!mods) return [];
+  return [
+    { label: 'Construction', value: mods.constructionSpeed, isPercent: true },
+    { label: 'Research',     value: mods.researchSpeed,     isPercent: true },
+    { label: 'Trade',        value: mods.tradeIncome,       isPercent: true },
+    { label: 'Growth',       value: mods.populationGrowth,  isPercent: true },
+    { label: 'Happiness',    value: mods.happiness,         isPercent: false },
+    { label: 'Combat',       value: mods.combatBonus,       isPercent: true },
+    { label: 'Build Cost',   value: mods.buildingCost,      isPercent: true },
+  ];
+}
+
+function formatModifier(entry: ModifierEntry): string {
+  if (entry.isPercent) {
+    const pct = Math.round((entry.value - 1) * 100);
+    return pct >= 0 ? `+${pct}%` : `${pct}%`;
+  }
+  return entry.value >= 0 ? `+${entry.value}` : String(entry.value);
+}
+
+function modifierIsPositive(entry: ModifierEntry): boolean {
+  if (entry.label === 'Build Cost') {
+    // Lower cost is better
+    return entry.value < 1.0;
+  }
+  if (entry.isPercent) return entry.value > 1.0;
+  return entry.value > 0;
+}
+
+function modifierIsNeutral(entry: ModifierEntry): boolean {
+  if (entry.isPercent) return entry.value === 1.0;
+  return entry.value === 0;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function GameSetupScreen({
@@ -165,21 +237,30 @@ export function GameSetupScreen({
   const [aiOpponents, setAiOpponents] = useState(3);
   const [seed, setSeed] = useState('');
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('normal');
+  const [selectedGov, setSelectedGov] = useState<GovernmentType>(
+    () => resolveInitialGovernment(governmentType),
+  );
+  const [empireName, setEmpireName] = useState(
+    () => `${species.name} Dominion`,
+  );
 
   const seedInputRef = useRef<HTMLInputElement>(null);
 
   const handleStartGame = useCallback(() => {
     const resolvedSeed = seed.trim() || String(Math.floor(Math.random() * 0xffffff));
+    const resolvedName = empireName.trim() || `${species.name} Dominion`;
     const config: GameConfig = {
       galaxySize,
       galaxyShape,
       aiOpponents,
       seed: resolvedSeed,
       aiDifficulty,
+      empireName: resolvedName,
+      government: selectedGov,
     };
     emitToPhaser('game:start_with_config', { species, config });
     onStartGame(config);
-  }, [galaxySize, galaxyShape, aiOpponents, seed, aiDifficulty, species, onStartGame]);
+  }, [galaxySize, galaxyShape, aiOpponents, seed, aiDifficulty, species, selectedGov, empireName, onStartGame]);
 
   const handleRandomSeed = useCallback(() => {
     const newSeed = String(Math.floor(Math.random() * 0xffffff));
@@ -190,6 +271,13 @@ export function GameSetupScreen({
   const traitKeys = Object.keys(species.traits) as Array<keyof typeof species.traits>;
   const maxTrait = Math.max(...traitKeys.map((k) => species.traits[k]));
 
+  const selectedGovDef = GOVERNMENTS[selectedGov];
+  const modifiers = useMemo(() => getModifierEntries(selectedGov), [selectedGov]);
+  const notableModifiers = useMemo(
+    () => modifiers.filter((m) => !modifierIsNeutral(m)).slice(0, 4),
+    [modifiers],
+  );
+
   return (
     <div className="game-setup-overlay">
       <div className="game-setup">
@@ -197,7 +285,7 @@ export function GameSetupScreen({
         {/* Header */}
         <div className="game-setup__header">
           <div className="game-setup__title">GAME SETUP</div>
-          <div className="game-setup__subtitle">Configure your galaxy and game settings before launch</div>
+          <div className="game-setup__subtitle">Configure your empire and galaxy before launch</div>
         </div>
 
         {/* Body: two columns */}
@@ -205,6 +293,63 @@ export function GameSetupScreen({
 
           {/* ── Left: config controls ─────────────────────────────────── */}
           <div className="game-setup__left">
+
+            {/* Empire Name */}
+            <section className="sc-section">
+              <div className="sc-section__label">EMPIRE NAME</div>
+              <input
+                type="text"
+                className="sc-input gs-empire-name-input"
+                placeholder={`${species.name} Dominion`}
+                value={empireName}
+                onChange={(e) => setEmpireName(e.target.value)}
+                maxLength={48}
+                aria-label="Empire name"
+              />
+            </section>
+
+            {/* Government */}
+            <section className="sc-section">
+              <div className="sc-section__label">GOVERNMENT</div>
+              <div className="gs-gov-grid">
+                {GOVERNMENT_ORDER.map((govKey) => {
+                  const def = GOVERNMENTS[govKey];
+                  return (
+                    <button
+                      key={govKey}
+                      type="button"
+                      className={`gs-gov-card ${selectedGov === govKey ? 'gs-gov-card--active' : ''}`}
+                      onClick={() => setSelectedGov(govKey)}
+                      title={def.description}
+                    >
+                      <span className="gs-gov-card__name">{def.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedGovDef && (
+                <div className="gs-gov-detail">
+                  <div className="gs-gov-detail__desc">{selectedGovDef.description}</div>
+                  <div className="gs-gov-detail__mods">
+                    {modifiers.map((entry) => {
+                      const positive = modifierIsPositive(entry);
+                      const neutral = modifierIsNeutral(entry);
+                      const colorClass = neutral
+                        ? 'gs-mod--neutral'
+                        : positive
+                          ? 'gs-mod--positive'
+                          : 'gs-mod--negative';
+                      return (
+                        <span key={entry.label} className={`gs-mod ${colorClass}`}>
+                          <span className="gs-mod__label">{entry.label}</span>
+                          <span className="gs-mod__value">{formatModifier(entry)}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
 
             {/* Galaxy Size */}
             <section className="sc-section">
@@ -340,13 +485,35 @@ export function GameSetupScreen({
                   }}
                 >
                   <span className="gs-summary__portrait-initial">
-                    {species.name.trim().charAt(0).toUpperCase() || '?'}
+                    {(empireName.trim() || species.name).trim().charAt(0).toUpperCase() || '?'}
                   </span>
                   <div className="gs-summary__portrait-ring" />
                 </div>
+                <div className="gs-summary__empire-name">
+                  {empireName.trim() || `${species.name} Dominion`}
+                </div>
                 <div className="gs-summary__species-name">{species.name}</div>
-                <div className="gs-summary__gov-badge">{governmentType}</div>
+                <div className="gs-summary__gov-badge">{selectedGovDef?.name ?? governmentType}</div>
               </div>
+
+              {/* Government key stats */}
+              {notableModifiers.length > 0 && (
+                <div className="gs-summary__section">
+                  <div className="gs-summary__section-label">GOVERNMENT EFFECTS</div>
+                  <div className="gs-gov-summary-mods">
+                    {notableModifiers.map((entry) => {
+                      const positive = modifierIsPositive(entry);
+                      const colorClass = positive ? 'gs-mod--positive' : 'gs-mod--negative';
+                      return (
+                        <span key={entry.label} className={`gs-mod ${colorClass}`}>
+                          <span className="gs-mod__label">{entry.label}</span>
+                          <span className="gs-mod__value">{formatModifier(entry)}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Trait bars */}
               <div className="gs-summary__section">

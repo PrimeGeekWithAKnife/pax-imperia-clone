@@ -28,6 +28,7 @@ import type { GameState } from '../types/game-state.js';
 import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
+import { GOVERNMENTS } from '../types/government.js';
 import type {
   GameAction,
   GameEvent,
@@ -764,6 +765,13 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
         if (growth <= 0) growth = 1;
       }
 
+      // Apply government population growth multiplier.
+      const govGrowthMult = GOVERNMENTS[empire.government]?.modifiers.populationGrowth ?? 1.0;
+      if (govGrowthMult !== 1.0) {
+        growth = Math.floor(growth * govGrowthMult);
+        if (growth < 0) growth = 0;
+      }
+
       const newPop = Math.min(planet.currentPopulation + growth, planet.maxPopulation);
       const updatedPlanet: Planet = { ...planet, currentPopulation: newPop };
       systems = replacePlanet(systems, updatedPlanet);
@@ -907,10 +915,19 @@ function stepHappiness(state: GameTickState): GameTickState {
 
       const empireResources = getEmpireResources(state, empire.id);
       const isAtWar = empireIsAtWar(empire);
-      const happiness = calculatePlanetHappiness(planet, empireResources, isAtWar);
+      const happinessBase = calculatePlanetHappiness(planet, empireResources, isAtWar);
 
-      if (happiness.revoltPopulationLoss > 0) {
-        const newPop = Math.max(0, planet.currentPopulation - happiness.revoltPopulationLoss);
+      // Apply government flat happiness modifier.
+      const govHappiness = GOVERNMENTS[empire.government]?.modifiers.happiness ?? 0;
+      const adjustedScore = Math.min(100, Math.max(0, happinessBase.score + govHappiness));
+      const revoltThreshold = 10;
+      const isRevolt = adjustedScore < revoltThreshold;
+      const revoltPopulationLoss = isRevolt && planet.currentPopulation > 0
+        ? Math.max(1, Math.floor(planet.currentPopulation * 0.01))
+        : 0;
+
+      if (revoltPopulationLoss > 0) {
+        const newPop = Math.max(0, planet.currentPopulation - revoltPopulationLoss);
         const updatedPlanet: Planet = { ...planet, currentPopulation: newPop };
         systems = replacePlanet(systems, updatedPlanet);
       }
@@ -945,11 +962,16 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     // Determine per-planet happiness production multipliers before aggregating.
     // Credits and energy are not penalised (credits fund recovery; energy is
     // needed to escape any deficit).
+    // Government flat happiness modifier shifts the score before threshold checks.
+    const govHappiness = GOVERNMENTS[empire.government]?.modifiers.happiness ?? 0;
     const happinessMultipliers = new Map<string, number>();
     for (const planet of ownedPlanets) {
       const happiness = calculatePlanetHappiness(planet, currentResources, isAtWar);
-      if (happiness.productionMultiplier !== 1.0) {
-        happinessMultipliers.set(planet.id, happiness.productionMultiplier);
+      const adjustedScore = Math.min(100, Math.max(0, happiness.score + govHappiness));
+      const unrestThreshold = 30;
+      const adjustedMult = adjustedScore < unrestThreshold ? 0.5 : 1.0;
+      if (adjustedMult !== 1.0) {
+        happinessMultipliers.set(planet.id, adjustedMult);
       }
     }
 
@@ -1070,8 +1092,12 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
       if (planet.productionQueue.length === 0) continue;
       if (planet.ownerId === null) continue;
 
-      // Construction rate: 1 turn per tick (factories will eventually modify this)
-      const constructionRate = 1;
+      // Construction rate: base 1 turn per tick, modified by government constructionSpeed.
+      const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
+      const govConstructionMult = empire
+        ? (GOVERNMENTS[empire.government]?.modifiers.constructionSpeed ?? 1.0)
+        : 1.0;
+      const constructionRate = govConstructionMult;
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {
@@ -1332,6 +1358,7 @@ function stepResearch(
       researchPointsGenerated,
       empire.species,
       allTechs,
+      empire,
     );
 
     newResearchStates.set(empire.id, newState);

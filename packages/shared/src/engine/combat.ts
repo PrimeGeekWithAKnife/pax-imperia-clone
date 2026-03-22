@@ -665,6 +665,9 @@ export function applyCombatResults(ships: Ship[], state: CombatState): Ship[] {
  * Power is the sum over all living ships of:
  *   effectiveDamage × hullFraction + effectiveShields + totalArmor
  *
+ * An optional `combatMultiplier` (e.g. from government bonuses) scales the
+ * final total.  Defaults to 1.0 (no bonus).
+ *
  * This is useful for AI comparisons and auto-resolve balance checks but is
  * intentionally approximate.
  */
@@ -672,6 +675,7 @@ export function calculateFleetPower(
   ships: Ship[],
   designs: Map<string, ShipDesign>,
   allComponents: ShipComponent[],
+  combatMultiplier = 1.0,
 ): number {
   const componentById = new Map(allComponents.map((c) => [c.id, c]));
   let total = 0;
@@ -691,5 +695,5 @@ export function calculateFleetPower(
       stats.totalArmor;
   }
 
-  return total;
+  return total * combatMultiplier;
 }

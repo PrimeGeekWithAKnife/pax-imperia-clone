@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import type { GameSpeedName } from '@nova-imperia/shared';
-import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '@nova-imperia/shared';
+import type { GameSpeedName, GovernmentType } from '@nova-imperia/shared';
+import { STARTING_CREDITS, STARTING_RESEARCH_POINTS, GOVERNMENTS } from '@nova-imperia/shared';
 
 interface TopBarProps {
   gameSpeed: GameSpeedName;
@@ -16,6 +16,10 @@ interface TopBarProps {
   minerals?: number;
   energy?: number;
   organics?: number;
+  /** Government type for the player's empire, shown as a badge. */
+  government?: GovernmentType;
+  /** Empire name for display. */
+  empireName?: string;
 }
 
 interface SpeedButton {
@@ -46,7 +50,10 @@ export function TopBar({
   minerals = 0,
   energy = 0,
   organics = 0,
+  government,
+  empireName,
 }: TopBarProps): React.ReactElement {
+  const govName = government ? (GOVERNMENTS[government]?.name ?? government) : null;
   const handleSpeedClick = useCallback(
     (speed: GameSpeedName) => {
       onSpeedChange(speed);
@@ -56,8 +63,15 @@ export function TopBar({
 
   return (
     <div className="top-bar">
-      {/* Title */}
-      <div className="top-bar__title">EX NIHILO</div>
+      {/* Title + empire info */}
+      <div className="top-bar__title">
+        {empireName ? empireName : 'EX NIHILO'}
+      </div>
+      {govName && (
+        <div className="top-bar__gov-badge" title={`Government: ${govName}`}>
+          {govName}
+        </div>
+      )}
 
       {/* Speed controls */}
       <div className="top-bar__speed-controls" role="group" aria-label="Game speed">

@@ -56,6 +56,7 @@ function makeEmpire(species: Species): Empire {
     technologies: [],
     currentAge: 'nano_atomic',
     isAI: false,
+    government: 'representative_democracy',
   };
 }
 
@@ -126,9 +127,9 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // 1_000_000 * 0.01 * (5/5) = 10_000
-    expect(result.taxIncome).toBeCloseTo(10_000);
-    expect(result.production.credits).toBeCloseTo(10_000);
+    // 1_000_000 * 0.01 * (5/5) * 1.2 (Democracy tradeIncome) = 12_000
+    expect(result.taxIncome).toBeCloseTo(12_000);
+    expect(result.production.credits).toBeCloseTo(12_000);
   });
 
   it('economy trait doubles tax income at trait 10 vs trait 5', () => {

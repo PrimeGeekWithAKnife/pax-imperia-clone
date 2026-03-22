@@ -77,6 +77,7 @@ const MOCK_PLAYER_EMPIRE: Empire = {
   technologies: [],
   currentAge: 'nano_atomic',
   isAI: false,
+  government: 'representative_democracy',
 };
 
 /** Mock known empires for the diplomacy screen before real data is wired up. */
@@ -95,6 +96,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       currentAge: 'nano_atomic',
       isAI: true,
       aiPersonality: 'aggressive',
+      government: 'dictatorship',
     },
     relation: { empireId: 'player', status: 'hostile', treaties: [], attitude: -45, tradeRoutes: 0 },
     trust: 12,
@@ -118,6 +120,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       currentAge: 'nano_atomic',
       isAI: true,
       aiPersonality: 'diplomatic',
+      government: 'equality',
     },
     relation: { empireId: 'player', status: 'friendly', treaties: [{ type: 'non_aggression', startTurn: 1, duration: -1 }, { type: 'trade', startTurn: 2, duration: 20 }], attitude: 52, tradeRoutes: 2 },
     trust: 68,
@@ -141,6 +144,7 @@ const MOCK_KNOWN_EMPIRES: KnownEmpire[] = [
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: true,
+      government: 'representative_democracy',
     },
     relation: { empireId: 'player', status: 'unknown', treaties: [], attitude: 0, tradeRoutes: 0 },
     trust: 0,
@@ -274,6 +278,28 @@ export function App(): React.ReactElement {
     }
     return map;
   }, [knownEmpires]);
+
+  // ── Empire name map (id → name) for SystemInfoPanel owner display ──
+  // Includes the player empire and all known empires so the system panel
+  // shows empire names rather than raw UUIDs.
+  const empireNameMap = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    map.set(playerEmpire.id, playerEmpire.name);
+    for (const ke of knownEmpires) {
+      map.set(ke.empire.id, ke.empire.name);
+    }
+    // Also include any empires from the live engine state that may not be in
+    // the mock known-empires list.
+    const engine = getGameEngine();
+    if (engine) {
+      for (const emp of engine.getState().gameState.empires) {
+        if (!map.has(emp.id)) {
+          map.set(emp.id, emp.name);
+        }
+      }
+    }
+    return map;
+  }, [playerEmpire, knownEmpires]);
 
   // ── Derive active migration info for the currently selected planet ──
   const activeMigrationForPanel = useMemo((): ActiveMigrationInfo | null => {
@@ -848,6 +874,7 @@ export function App(): React.ReactElement {
   useGameEvent<{ planet: Planet; systemId: string }>('planet:manage', handleManagePlanet);
   useGameEvent<EmpireResources>('empire:resources_updated', handleResourcesUpdate);
   useGameEvent<ResearchState>('research:state_updated', handleResearchStateUpdate);
+  useGameEvent<ResearchState>('engine:research_state', handleResearchStateUpdate);
   useGameEvent<Technology[]>('research:techs_loaded', handleTechsLoaded);
   useGameEvent<{ fleet: Fleet; ships: Ship[] }>('fleet:selected', handleFleetSelected);
   useGameEvent<void>('fleet:deselected', handleFleetDeselected);
@@ -937,6 +964,17 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleStartResearch = useCallback((techId: string, allocation: number) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      // Delegate to the engine which updates its authoritative researchStates map
+      // and emits 'engine:research_state' so the screen refreshes immediately.
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.startResearch(empireId, techId, allocation);
+        return;
+      }
+    }
+    // Fallback: engine not yet available (e.g. pre-game screen), use local state.
     setResearchState((prev) => {
       const currentTotal = prev.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
       if (currentTotal + allocation > 100) return prev;
@@ -950,25 +988,34 @@ export function App(): React.ReactElement {
         ],
       };
     });
-    // Also notify Phaser
-    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-      | { events: { emit: (e: string, d: unknown) => void } }
-      | undefined;
-    game?.events.emit('research:start', { techId, allocation });
   }, []);
 
   const handleCancelResearch = useCallback((techId: string) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.cancelResearch(empireId, techId);
+        return;
+      }
+    }
+    // Fallback
     setResearchState((prev) => ({
       ...prev,
       activeResearch: prev.activeResearch.filter((r) => r.techId !== techId),
     }));
-    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-      | { events: { emit: (e: string, d: unknown) => void } }
-      | undefined;
-    game?.events.emit('research:cancel', { techId });
   }, []);
 
   const handleAdjustAllocation = useCallback((techId: string, allocation: number) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.adjustResearchAllocation(empireId, techId, allocation);
+        return;
+      }
+    }
+    // Fallback
     setResearchState((prev) => {
       const otherTotal = prev.activeResearch
         .filter((r) => r.techId !== techId)
@@ -981,10 +1028,6 @@ export function App(): React.ReactElement {
         ),
       };
     });
-    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-      | { events: { emit: (e: string, d: unknown) => void } }
-      | undefined;
-    game?.events.emit('research:allocate', { techId, allocation });
   }, []);
 
   // Species creator → game setup
@@ -999,7 +1042,13 @@ export function App(): React.ReactElement {
   }, []);
 
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
-  const handleStartGame = useCallback((_config: GameConfig) => {
+  const handleStartGame = useCallback((config: GameConfig) => {
+    // Apply empire name and government from setup to the player empire state
+    setPlayerEmpire(prev => ({
+      ...prev,
+      name: config.empireName || prev.name,
+      government: config.government ?? prev.government,
+    }));
     setCurrentScreen('game');
     setGameStarted(true);
     setIsPaused(false);
@@ -1071,13 +1120,21 @@ export function App(): React.ReactElement {
 
   // Render research screen as full-screen overlay
   if (currentScreen === 'research') {
+    // Derive research production per tick from the engine (accurate ETA display).
+    // Falls back to a sensible default when the engine is unavailable.
+    const engineForResearch = getGameEngine();
+    const researchProductionPerTick = engineForResearch
+      ? engineForResearch.getPlayerResearchProductionPerTick()
+      : 0;
+    // Species research bonus: traits.research / 5 (5 = normal, 10 = double, etc.)
+    const speciesResearchBonus = playerEmpire.species.traits.research / 5;
     return (
       <div className="ui-overlay">
         <ResearchScreen
           allTechs={allTechs}
           researchState={researchState}
-          researchPerTick={empireResources.researchPoints > 0 ? empireResources.researchPoints : 10}
-          speciesBonus={1}
+          researchPerTick={researchProductionPerTick}
+          speciesBonus={speciesResearchBonus}
           onStartResearch={handleStartResearch}
           onCancelResearch={handleCancelResearch}
           onAdjustAllocation={handleAdjustAllocation}
@@ -1203,9 +1260,11 @@ export function App(): React.ReactElement {
         onOpenFleet={handleOpenFleetList}
         onOpenEconomy={handleOpenEconomy}
         onOpenEspionage={handleOpenEspionage}
+        government={playerEmpire.government}
+        empireName={playerEmpire.name}
       />
 
-      <SystemInfoPanel system={selectedSystem} />
+      <SystemInfoPanel system={selectedSystem} empireNameMap={empireNameMap} />
 
       <PlanetDetailPanel
         planet={selectedPlanet}

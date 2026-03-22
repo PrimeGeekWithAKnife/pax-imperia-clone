@@ -14,6 +14,7 @@ import type { EmpireResources } from '../types/resources.js';
 import type { GameState } from '../types/game-state.js';
 import type { GalaxyGenerationConfig } from '../generation/galaxy-generator.js';
 import type { AIPersonality } from '../types/species.js';
+import type { GovernmentType } from '../types/government.js';
 import { generateGalaxy } from '../generation/galaxy-generator.js';
 import { calculateHabitability } from './colony.js';
 import { generateId } from '../utils/id.js';
@@ -32,6 +33,8 @@ export interface PlayerSetup {
   color: string;
   isAI: boolean;
   aiPersonality?: AIPersonality;
+  /** Government type for this empire. Defaults to 'representative_democracy'. */
+  government?: GovernmentType;
 }
 
 /** Minimum habitability for a planet to be considered as a valid home world. */
@@ -342,6 +345,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
+      government: playerSetup.government ?? 'representative_democracy',
       ...(playerSetup.aiPersonality !== undefined
         ? { aiPersonality: playerSetup.aiPersonality }
         : {}),

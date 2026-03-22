@@ -1,5 +1,8 @@
 /** Species and empire types */
 
+import type { GovernmentType } from './government.js';
+export type { GovernmentType };
+
 export interface Species {
   id: string;
   name: string;
@@ -52,6 +55,7 @@ export interface Empire {
   currentAge: TechAge;
   isAI: boolean;
   aiPersonality?: AIPersonality;
+  government: GovernmentType;
 }
 
 export type TechAge =

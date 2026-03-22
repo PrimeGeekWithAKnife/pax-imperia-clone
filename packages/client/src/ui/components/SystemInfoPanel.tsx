@@ -3,6 +3,8 @@ import type { StarSystem } from '@nova-imperia/shared';
 
 interface SystemInfoPanelProps {
   system: StarSystem | null;
+  /** Optional map of empireId → empire name for resolving owner display names. */
+  empireNameMap?: Map<string, string>;
 }
 
 const STAR_COLORS: Record<string, string> = {
@@ -49,7 +51,7 @@ const PLANET_TYPE_COLORS: Record<string, string> = {
   toxic: '#99cc33',
 };
 
-export function SystemInfoPanel({ system }: SystemInfoPanelProps): React.ReactElement | null {
+export function SystemInfoPanel({ system, empireNameMap }: SystemInfoPanelProps): React.ReactElement | null {
   const visible = system !== null;
 
   return (
@@ -90,7 +92,9 @@ export function SystemInfoPanel({ system }: SystemInfoPanelProps): React.ReactEl
           <div className="panel-row">
             <span className="panel-label">Owner</span>
             <span className="panel-value panel-value--muted">
-              {system.ownerId ?? 'Unclaimed'}
+              {system.ownerId
+                ? (empireNameMap?.get(system.ownerId) ?? system.ownerId)
+                : 'Unclaimed'}
             </span>
           </div>
 

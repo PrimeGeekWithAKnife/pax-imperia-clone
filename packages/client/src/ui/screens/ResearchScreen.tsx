@@ -137,8 +137,9 @@ function ActiveResearchItem({
     setLocalAlloc(active.allocation);
   }, [active.allocation]);
 
+  const remainingCost = Math.max(0, tech.cost - active.pointsInvested);
   const ticks = getResearchSpeed(
-    tech.cost - active.pointsInvested,
+    remainingCost,
     localAlloc,
     researchPerTick,
     speciesBonus,

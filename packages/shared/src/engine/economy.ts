@@ -30,6 +30,7 @@ import {
   BUILDING_MAINTENANCE_BASE,
 } from '../constants/resources.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import { GOVERNMENTS } from '../types/government.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,20 +104,26 @@ function levelMultiplier(level: number): number {
  *  - Planet-type resource bonuses
  *  - Output from each building, scaled by level
  *  - Species trait bonuses applied to relevant building types
+ *  - Government tradeIncome multiplier applied to all credit production
  */
 export function calculatePlanetProduction(
   planet: Planet,
   species: Species,
-  _empire: Empire,
+  empire: Empire,
 ): PlanetProduction {
   const production = zeroProduction();
   const buildingOutputs: BuildingOutput[] = [];
 
+  // --- Government modifiers ---
+  const govDef = GOVERNMENTS[empire.government];
+  const govTradeMultiplier = govDef?.modifiers.tradeIncome ?? 1.0;
+
   // --- Tax income ---
   // Base formula: population * BASE_TAX_RATE * (economy_trait / 5)
   // Trait 5 = normal rate, 10 = double, 1 = fifth.
+  // Government tradeIncome multiplier is also applied.
   const economyFactor = species.traits.economy / 5;
-  const taxIncome = planet.currentPopulation * BASE_TAX_RATE * economyFactor;
+  const taxIncome = planet.currentPopulation * BASE_TAX_RATE * economyFactor * govTradeMultiplier;
   production.credits += taxIncome;
 
   // --- Planet type bonuses ---
@@ -157,8 +164,9 @@ export function calculatePlanetProduction(
       }
       case 'trade_hub':
       case 'spaceport': {
-        // Economy trait scales credit-producing buildings.
-        const tradeFactor = species.traits.economy / 5;
+        // Economy trait scales credit-producing buildings; government tradeIncome
+        // multiplier is applied on top.
+        const tradeFactor = (species.traits.economy / 5) * govTradeMultiplier;
         scaledOutput = scalePartial(scaledOutput, tradeFactor);
         break;
       }

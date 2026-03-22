@@ -21,6 +21,7 @@
  *  'engine:combat_resolved'   CombatResolvedEvent
  *  'engine:battle_resolved'   BattleResultsData  (enriched; engine pauses until player continues)
  *  'engine:tech_researched'   TechResearchedEvent
+ *  'engine:research_state'    ResearchState   (player empire's research state, emitted every tick)
  *  'engine:game_over'         { winnerId?: string; reason?: string }
  *  'engine:galaxy_updated'      Galaxy   (emitted every tick so minimap can refresh)
  *  'engine:planet_colonised'    { planetName: string; systemId: string; planetId: string }
@@ -44,11 +45,16 @@ import {
   HULL_TEMPLATE_BY_CLASS,
   startShipProduction,
   issueMovementOrder,
+  startResearch as startResearchFn,
+  setResearchAllocation,
+  calculateEmpireProduction,
+  UNIVERSAL_TECHNOLOGIES,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
+import type { ResearchState } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -150,7 +156,7 @@ export class GameEngine {
     const prevShips = [...this.tickState.gameState.ships];
     const prevFleets = [...this.tickState.gameState.fleets];
 
-    const { newState, events } = processGameTick(this.tickState);
+    const { newState, events } = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
     this.tickState = newState;
 
     // ── Emit per-event notifications ────────────────────────────────────────
@@ -208,6 +214,15 @@ export class GameEngine {
       };
     });
     this.game.events.emit('engine:resources_updated', resourceUpdates);
+
+    // ── Emit player empire's research state so React screen stays in sync ───
+    const playerEmpireForResearch = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (playerEmpireForResearch) {
+      const playerResearchState = this.tickState.researchStates.get(playerEmpireForResearch.id);
+      if (playerResearchState) {
+        this.game.events.emit('engine:research_state', playerResearchState);
+      }
+    }
 
     // ── Emit galaxy snapshot so the minimap can refresh ─────────────────────
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
@@ -827,6 +842,101 @@ export class GameEngine {
     return true;
   }
 
+  // ── Research management ────────────────────────────────────────────────────
+
+  /**
+   * Start researching a technology for the given empire.
+   *
+   * Returns true on success, false if the engine state cannot be found or the
+   * operation throws (e.g. prerequisites not met, allocation exceeded).
+   */
+  startResearch(empireId: string, techId: string, allocation: number): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) {
+      console.warn(`[GameEngine.startResearch] No research state for empire "${empireId}"`);
+      return false;
+    }
+    try {
+      const newResearchState = startResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES, allocation);
+      const newResearchStates = new Map(this.tickState.researchStates);
+      newResearchStates.set(empireId, newResearchState);
+      this.tickState = { ...this.tickState, researchStates: newResearchStates };
+      // Immediately notify React so the screen updates without waiting for the next tick
+      this.game.events.emit('engine:research_state', newResearchState);
+      return true;
+    } catch (err) {
+      console.warn(`[GameEngine.startResearch] Failed:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Cancel active research on a technology for the given empire.
+   *
+   * Returns true on success.
+   */
+  cancelResearch(empireId: string, techId: string): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) {
+      console.warn(`[GameEngine.cancelResearch] No research state for empire "${empireId}"`);
+      return false;
+    }
+    const newActiveResearch = researchState.activeResearch.filter(r => r.techId !== techId);
+    const newResearchState: ResearchState = { ...researchState, activeResearch: newActiveResearch };
+    const newResearchStates = new Map(this.tickState.researchStates);
+    newResearchStates.set(empireId, newResearchState);
+    this.tickState = { ...this.tickState, researchStates: newResearchStates };
+    this.game.events.emit('engine:research_state', newResearchState);
+    return true;
+  }
+
+  /**
+   * Adjust the allocation percentage for a single active research project.
+   *
+   * Returns true on success.
+   */
+  adjustResearchAllocation(empireId: string, techId: string, allocation: number): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) {
+      console.warn(`[GameEngine.adjustResearchAllocation] No research state for empire "${empireId}"`);
+      return false;
+    }
+    try {
+      const updatedAllocations = researchState.activeResearch.map(r =>
+        r.techId === techId ? { techId: r.techId, allocation } : { techId: r.techId, allocation: r.allocation },
+      );
+      const newResearchState = setResearchAllocation(researchState, updatedAllocations);
+      const newResearchStates = new Map(this.tickState.researchStates);
+      newResearchStates.set(empireId, newResearchState);
+      this.tickState = { ...this.tickState, researchStates: newResearchStates };
+      this.game.events.emit('engine:research_state', newResearchState);
+      return true;
+    } catch (err) {
+      console.warn(`[GameEngine.adjustResearchAllocation] Failed:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Return the research points produced per tick for the player empire.
+   *
+   * This is the base production value before any species bonus is applied —
+   * the species bonus is factored in by the research engine itself during
+   * processResearchTick.  The ResearchScreen uses this to compute ETA.
+   *
+   * Returns 0 if the engine has no player empire or the player owns no planets.
+   */
+  getPlayerResearchProductionPerTick(): number {
+    const playerEmpire = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (!playerEmpire) return 0;
+    const ownedPlanets = this.tickState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .filter(p => p.ownerId === playerEmpire.id);
+    if (ownedPlanets.length === 0) return 0;
+    const { total } = calculateEmpireProduction(ownedPlanets, playerEmpire.species, playerEmpire);
+    return total.researchPoints;
+  }
+
   /** Return the current tick state snapshot. */
   getState(): GameTickState {
     return this.tickState;
@@ -868,6 +978,14 @@ export class GameEngine {
       };
     });
     this.game.events.emit('engine:resources_updated', resourceUpdates);
+    // Push research state so the research screen refreshes after a load
+    const playerEmpireForResearch = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (playerEmpireForResearch) {
+      const playerResearchState = this.tickState.researchStates.get(playerEmpireForResearch.id);
+      if (playerResearchState) {
+        this.game.events.emit('engine:research_state', playerResearchState);
+      }
+    }
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

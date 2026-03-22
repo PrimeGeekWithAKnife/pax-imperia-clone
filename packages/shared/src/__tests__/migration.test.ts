@@ -528,6 +528,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: false,
+      government: 'representative_democracy',
     };
 
     const system: StarSystem = {

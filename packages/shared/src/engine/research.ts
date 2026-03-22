@@ -8,6 +8,7 @@
 import type { Empire, Species, TechAge } from '../types/species.js';
 import type { Technology, TechEffect } from '../types/technology.js';
 import { TECH_AGES } from '../constants/game.js';
+import { GOVERNMENTS } from '../types/government.js';
 
 export type { Technology, TechEffect };
 
@@ -164,6 +165,7 @@ export function setResearchAllocation(
  *
  * Species research bonus: effective points = researchPointsGenerated * (species.traits.research / 5)
  * Trait 5 = normal rate, 10 = double, 1 = one-fifth.
+ * Government researchSpeed multiplier is applied on top.
  *
  * @returns Updated state (with completed techs removed from activeResearch and
  *          added to completedTechs) and the list of Technology objects that
@@ -174,9 +176,12 @@ export function processResearchTick(
   researchPointsGenerated: number,
   species: Species,
   allTechs: Technology[],
+  empire?: Empire,
 ): { newState: ResearchState; completed: Technology[] } {
   const speciesBonus = species.traits.research / 5;
-  const effectivePoints = researchPointsGenerated * speciesBonus;
+  const govDef = empire ? GOVERNMENTS[empire.government] : undefined;
+  const govResearchMultiplier = govDef?.modifiers.researchSpeed ?? 1.0;
+  const effectivePoints = researchPointsGenerated * speciesBonus * govResearchMultiplier;
 
   const techMap = new Map(allTechs.map(t => [t.id, t]));
 
