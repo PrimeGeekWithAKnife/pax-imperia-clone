@@ -1,6 +1,20 @@
 import Phaser from 'phaser';
 import type { Planet, PlanetType, AtmosphereType } from '@nova-imperia/shared';
 
+// ── Deterministic random from planet ID ──────────────────────────────────────
+
+/**
+ * Returns a deterministic pseudo-random number in [0, 1) for a given seed
+ * string and index. Two calls with the same (seed, index) always return the
+ * same value, but different indices produce uncorrelated results.
+ */
+function seededRandom(seed: string, index: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  h = (h * 127 + index * 997) | 0;
+  return ((h & 0x7fffffff) % 1000) / 1000;
+}
+
 // ── Planet size config ────────────────────────────────────────────────────────
 
 const PLANET_RADIUS: Record<PlanetType, number> = {
@@ -148,6 +162,23 @@ export class PlanetRenderer {
     shine.fillStyle(0xffffff, 0.18);
     shine.fillEllipse(-radius * 0.28, -radius * 0.28, radius * 0.55, radius * 0.40);
     container.add(shine);
+
+    // Colony lights — tiny bright dots on the dark (right) side of populated planets
+    if (planet.currentPopulation > 0) {
+      const lightsGfx = this.scene.add.graphics();
+      const lightCount = Math.min(8, Math.max(1, Math.floor(planet.currentPopulation / 5000)));
+      for (let i = 0; i < lightCount; i++) {
+        // Place lights in the shadowed right hemisphere
+        const angle = seededRandom(planet.id, i) * Math.PI - Math.PI / 2;
+        const dist = seededRandom(planet.id, i + 100) * radius * 0.8;
+        const lx = Math.cos(angle) * dist + radius * 0.2;
+        const ly = Math.sin(angle) * dist;
+        const alpha = 0.5 + seededRandom(planet.id, i + 200) * 0.4;
+        lightsGfx.fillStyle(0xfff8c8, alpha);
+        lightsGfx.fillCircle(lx, ly, 1);
+      }
+      container.add(lightsGfx);
+    }
   }
 
   // ── Surface types ───────────────────────────────────────────────────────────
