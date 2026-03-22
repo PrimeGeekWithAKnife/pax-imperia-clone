@@ -178,53 +178,53 @@ describe('canEstablishTradeRoute', () => {
 // calculateTradeIncome
 // ---------------------------------------------------------------------------
 
-describe('calculateBasicTradeRouteIncome', () => {
+describe('calculateTradeRouteIncome', () => {
   it('returns at least 1 credit/tick for distance 0', () => {
     const route = makeRoute();
-    expect(calculateBasicTradeRouteIncome(route, 0)).toBe(1);
+    expect(calculateTradeRouteIncome(route, 0)).toBe(1);
   });
 
   it('returns 10 credits/tick for distance 100 (normalisation distance)', () => {
     const route = makeRoute();
-    expect(calculateBasicTradeRouteIncome(route, 100)).toBe(10);
+    expect(calculateTradeRouteIncome(route, 100)).toBe(10);
   });
 
   it('doubles income for double the distance', () => {
     const route = makeRoute();
-    const near = calculateBasicTradeRouteIncome(route, 100);
-    const far = calculateBasicTradeRouteIncome(route, 200);
+    const near = calculateTradeRouteIncome(route, 100);
+    const far = calculateTradeRouteIncome(route, 200);
     expect(far).toBe(near * 2);
   });
 
   it('returns proportionally higher income for longer routes', () => {
     const route = makeRoute();
-    const income50 = calculateBasicTradeRouteIncome(route, 50);
-    const income100 = calculateBasicTradeRouteIncome(route, 100);
+    const income50 = calculateTradeRouteIncome(route, 50);
+    const income100 = calculateTradeRouteIncome(route, 100);
     expect(income100).toBeGreaterThan(income50);
   });
 
   it('rounds the result to the nearest integer', () => {
     const route = makeRoute();
-    const result = calculateBasicTradeRouteIncome(route, 33);
+    const result = calculateTradeRouteIncome(route, 33);
     expect(Number.isInteger(result)).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// processBasicTradeRoutes
+// processTradeRoutes
 // ---------------------------------------------------------------------------
 
-describe('processBasicTradeRoutes', () => {
+describe('processTradeRoutes', () => {
   it('returns empty income map when there are no routes', () => {
     const galaxy = makeGalaxy();
-    const { income } = processBasicTradeRoutes([], galaxy);
+    const { income } = processTradeRoutes([], galaxy);
     expect(income.size).toBe(0);
   });
 
   it('credits the correct empire for a single route', () => {
     const galaxy = makeGalaxy();
     const route = makeRoute({ empireId: 'empire-1' });
-    const { income } = processBasicTradeRoutes([route], galaxy);
+    const { income } = processTradeRoutes([route], galaxy);
     expect(income.has('empire-1')).toBe(true);
     expect((income.get('empire-1') ?? 0)).toBeGreaterThan(0);
   });
@@ -254,7 +254,7 @@ describe('processBasicTradeRoutes', () => {
     const route1 = makeRoute({ id: 'r1', originSystemId: 'sys-a', destinationSystemId: 'sys-b' });
     const route2 = makeRoute({ id: 'r2', originSystemId: 'sys-b', destinationSystemId: 'sys-c' });
 
-    const { income } = processBasicTradeRoutes([route1, route2], galaxy);
+    const { income } = processTradeRoutes([route1, route2], galaxy);
     const total = income.get('empire-1') ?? 0;
 
     // Each route earns at least 1 credit, so total should be >= 2
@@ -304,7 +304,7 @@ describe('processBasicTradeRoutes', () => {
       established: 1,
     };
 
-    const { income } = processBasicTradeRoutes([route1, route2], galaxy);
+    const { income } = processTradeRoutes([route1, route2], galaxy);
 
     expect(income.has('empire-1')).toBe(true);
     expect(income.has('empire-2')).toBe(true);
@@ -323,7 +323,7 @@ describe('processBasicTradeRoutes', () => {
     };
 
     // Should not throw
-    const { income } = processBasicTradeRoutes([route], galaxy);
+    const { income } = processTradeRoutes([route], galaxy);
     expect(income.get('empire-1') ?? 0).toBe(0);
   });
 
@@ -363,8 +363,8 @@ describe('processBasicTradeRoutes', () => {
     }
 
     const route = makeRoute();
-    const { income: nearIncome } = processBasicTradeRoutes([route], galaxyWithDistance(50));
-    const { income: farIncome } = processBasicTradeRoutes([route], galaxyWithDistance(200));
+    const { income: nearIncome } = processTradeRoutes([route], galaxyWithDistance(50));
+    const { income: farIncome } = processTradeRoutes([route], galaxyWithDistance(200));
 
     expect((farIncome.get('empire-1') ?? 0)).toBeGreaterThan((nearIncome.get('empire-1') ?? 0));
   });

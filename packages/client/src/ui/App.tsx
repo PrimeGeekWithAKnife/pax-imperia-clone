@@ -112,6 +112,7 @@ function buildKnownEmpiresFromEngine(engine: GameEngine): KnownEmpire[] {
         treaties: [],
         attitude: 0,
         tradeRoutes: 0,
+        communicationLevel: 'none' as const,
       },
       trust: relation ? Math.max(0, Math.min(100, 50 + relation.attitude / 2)) : 0,
       incidents: [],

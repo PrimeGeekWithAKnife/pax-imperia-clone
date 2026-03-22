@@ -85,7 +85,11 @@ export interface DiplomaticRelation {
   treaties: Treaty[];
   attitude: number;      // -100 to 100
   tradeRoutes: number;
+  /** Level of communication established with this empire */
+  communicationLevel: CommunicationLevel;
 }
+
+export type CommunicationLevel = 'none' | 'basic' | 'trade' | 'scientific';
 
 export type DiplomaticStatus =
   | 'unknown'
@@ -104,6 +108,14 @@ export interface Treaty {
 export type TreatyType =
   | 'non_aggression'
   | 'trade'
+  | 'trade_agreement'
   | 'research_sharing'
   | 'mutual_defense'
-  | 'alliance';
+  | 'mutual_defence'
+  | 'military_alliance'
+  | 'alliance'
+  | 'vassalism'
+  | 'federation_membership'
+  | 'subjugation'         // "Serve us or be destroyed"
+  | 'unification'         // "Unite under one banner — mine. You keep your identity."
+  | 'assimilation';       // "Become us. Peacefully." (Nexari, Vethara only)

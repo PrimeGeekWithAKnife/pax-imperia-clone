@@ -4,27 +4,51 @@ import type { Treaty, TreatyType } from '@nova-imperia/shared';
 // ── Type labels and icons ─────────────────────────────────────────────────────
 
 const TREATY_LABELS: Record<TreatyType, string> = {
-  non_aggression:   'Non-Aggression Pact',
-  trade:            'Trade Agreement',
-  research_sharing: 'Research Sharing',
-  mutual_defense:   'Mutual Defense',
-  alliance:         'Alliance',
+  non_aggression:       'Non-Aggression Pact',
+  trade:                'Trade Agreement',
+  trade_agreement:      'Trade Agreement',
+  research_sharing:     'Research Sharing',
+  mutual_defense:       'Mutual Defence',
+  mutual_defence:       'Mutual Defence',
+  military_alliance:    'Military Alliance',
+  alliance:             'Alliance',
+  vassalism:            'Vassalism',
+  federation_membership:'Federation Membership',
+  subjugation:          'Subjugation',
+  unification:          'Unification',
+  assimilation:         'Assimilation',
 };
 
 const TREATY_ICONS: Record<TreatyType, string> = {
-  non_aggression:   '☮',
-  trade:            '⚖',
-  research_sharing: '⚗',
-  mutual_defense:   '⛊',
-  alliance:         '★',
+  non_aggression:       '☮',
+  trade:                '⚖',
+  trade_agreement:      '⚖',
+  research_sharing:     '⚗',
+  mutual_defense:       '⛊',
+  mutual_defence:       '⛊',
+  military_alliance:    '⚔',
+  alliance:             '★',
+  vassalism:            '⚐',
+  federation_membership:'⚜',
+  subjugation:          '⛓',
+  unification:          '⚙',
+  assimilation:         '◉',
 };
 
 const TREATY_DESCRIPTIONS: Record<TreatyType, string> = {
-  non_aggression:   'Neither empire will initiate hostile actions.',
-  trade:            'Establishes active trade routes and credits exchange.',
-  research_sharing: 'Both empires share research breakthroughs.',
-  mutual_defense:   'If attacked, both empires defend each other.',
-  alliance:         'Full military and diplomatic partnership.',
+  non_aggression:       'Neither empire will initiate hostile actions.',
+  trade:                'Establishes active trade routes and credits exchange.',
+  trade_agreement:      'Establishes active trade routes and credits exchange.',
+  research_sharing:     'Both empires share research breakthroughs.',
+  mutual_defense:       'If attacked, both empires defend each other.',
+  mutual_defence:       'If attacked, both empires defend each other.',
+  military_alliance:    'Combined military operations and shared fleet command.',
+  alliance:             'Full military and diplomatic partnership.',
+  vassalism:            'One empire becomes a vassal, paying tribute and following foreign policy.',
+  federation_membership:'Multiple species join a federation with shared governance and defence.',
+  subjugation:          'Serve us or face destruction. An explicit enslavement ultimatum.',
+  unification:          'Unite under one banner. The other species keeps its identity within your empire.',
+  assimilation:         'Peaceful absorption. The other species becomes part of yours.',
 };
 
 // ── Props ─────────────────────────────────────────────────────────────────────

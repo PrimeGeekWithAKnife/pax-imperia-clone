@@ -85,7 +85,7 @@ import {
   type CombatSetup,
 } from './combat.js';
 import { generateId } from '../utils/id.js';
-import { processTradeRoutes, type TradeRoute } from './trade.js';
+import { processTradeRoutes, type BasicTradeRoute } from './trade.js';
 import {
   checkVictoryConditions,
   updateEconomicLeadTicks,
@@ -175,7 +175,7 @@ export interface GameTickState {
    * endpoint systems still have spaceports.  Routes are added via player actions
    * and persist until explicitly cancelled.
    */
-  tradeRoutes: TradeRoute[];
+  tradeRoutes: BasicTradeRoute[];
   /**
    * Consecutive-tick counters used for the economic victory condition.
    * Key = empireId; value = number of ticks the empire has maintained the

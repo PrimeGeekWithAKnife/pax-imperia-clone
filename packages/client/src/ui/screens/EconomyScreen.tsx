@@ -15,7 +15,7 @@ import {
   calculatePlanetProduction,
   calculateUpkeep,
   canEstablishTradeRoute,
-  type TradeRoute,
+  type BasicTradeRoute,
 } from '@nova-imperia/shared';
 import { getGameEngine } from '../../engine/GameEngine';
 
@@ -255,7 +255,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
   }, [playerEmpire, fleets, ships, ownedPlanetRows, empireId]);
 
   // Trade route income from engine state
-  const tradeRoutes: TradeRoute[] = useMemo(
+  const tradeRoutes: BasicTradeRoute[] = useMemo(
     () => state?.tradeRoutes ?? [],
     [state],
   );

@@ -13,6 +13,9 @@ export interface EmpireResources {
   researchPoints: number;
 }
 
+/** Union of all resource property names in EmpireResources. */
+export type ResourceKey = keyof EmpireResources;
+
 /** Same shape as EmpireResources but represents per-tick production. Values can be negative (upkeep costs). */
 export interface ResourceProduction {
   credits: number;

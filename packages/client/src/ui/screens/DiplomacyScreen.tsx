@@ -42,35 +42,65 @@ const PERSONALITY_LABELS: Record<AIPersonality, string> = {
 
 /** Minimum attitude required to propose each treaty type */
 const TREATY_MIN_ATTITUDE: Record<TreatyType, number> = {
-  non_aggression:   -30,
-  trade:             0,
-  research_sharing:  20,
-  mutual_defense:    40,
-  alliance:          60,
+  non_aggression:       -30,
+  trade:                 0,
+  trade_agreement:       0,
+  research_sharing:      20,
+  mutual_defense:        40,
+  mutual_defence:        40,
+  military_alliance:     50,
+  alliance:              60,
+  vassalism:             -10,
+  federation_membership: 70,
+  subjugation:           -50,
+  unification:           80,
+  assimilation:          80,
 };
 
 const TREATY_LABELS: Record<TreatyType, string> = {
-  non_aggression:   'Non-Aggression Pact',
-  trade:            'Trade Agreement',
-  research_sharing: 'Research Sharing',
-  mutual_defense:   'Mutual Defense',
-  alliance:         'Alliance',
+  non_aggression:       'Non-Aggression Pact',
+  trade:                'Trade Agreement',
+  trade_agreement:      'Trade Agreement',
+  research_sharing:     'Research Sharing',
+  mutual_defense:       'Mutual Defence',
+  mutual_defence:       'Mutual Defence',
+  military_alliance:    'Military Alliance',
+  alliance:             'Alliance',
+  vassalism:            'Vassalism',
+  federation_membership:'Federation Membership',
+  subjugation:          'Subjugation',
+  unification:          'Unification',
+  assimilation:         'Assimilation',
 };
 
 const TREATY_DESCRIPTIONS: Record<TreatyType, string> = {
-  non_aggression:   'Prevents either party from starting hostilities. Requires attitude > -30.',
-  trade:            'Opens trade routes for mutual credits income. Requires neutral attitude.',
-  research_sharing: 'Both empires share technology breakthroughs. Requires friendly attitude.',
-  mutual_defense:   'Obligates both empires to defend each other. Requires close friendship.',
-  alliance:         'Full partnership: shared vision, coordinated fleets. Requires high trust.',
+  non_aggression:       'Prevents either party from starting hostilities. Requires attitude > -30.',
+  trade:                'Opens trade routes for mutual credits income. Requires neutral attitude.',
+  trade_agreement:      'Opens trade routes for mutual credits income. Requires neutral attitude.',
+  research_sharing:     'Both empires share technology breakthroughs. Requires friendly attitude.',
+  mutual_defense:       'Obligates both empires to defend each other. Requires close friendship.',
+  mutual_defence:       'Obligates both empires to defend each other. Requires close friendship.',
+  military_alliance:    'Combined military operations and shared fleet command.',
+  alliance:             'Full partnership: shared vision, coordinated fleets. Requires high trust.',
+  vassalism:            'One empire becomes a vassal, paying tribute and following foreign policy.',
+  federation_membership:'Multiple species join a federation with shared governance and defence.',
+  subjugation:          'Serve us or face destruction. An explicit enslavement ultimatum.',
+  unification:          'Unite under one banner. The other species keeps its identity within your empire.',
+  assimilation:         'Peaceful absorption. The other species becomes part of yours.',
 };
 
 const TREATY_TYPES_ORDERED: TreatyType[] = [
   'non_aggression',
   'trade',
   'research_sharing',
-  'mutual_defense',
+  'mutual_defence',
+  'military_alliance',
   'alliance',
+  'vassalism',
+  'federation_membership',
+  'subjugation',
+  'unification',
+  'assimilation',
 ];
 
 // ── Sub-types ─────────────────────────────────────────────────────────────────

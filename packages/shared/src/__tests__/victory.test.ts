@@ -68,6 +68,7 @@ function makeRelation(empireId: string, status: DiplomaticRelation['status'] = '
     treaties: [],
     attitude: 0,
     tradeRoutes: 0,
+    communicationLevel: 'none',
   };
 }
 

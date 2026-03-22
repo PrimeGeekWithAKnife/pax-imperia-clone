@@ -216,7 +216,7 @@ describe('evaluateEmpireState', () => {
     const galaxy = makeGalaxy([makeSystem()]);
     const empire = makeEmpire({
       diplomacy: [
-        { empireId: 'enemy-1', status: 'at_war', treaties: [], attitude: -80, tradeRoutes: 0 },
+        { empireId: 'enemy-1', status: 'at_war', treaties: [], attitude: -80, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
 
@@ -236,7 +236,7 @@ describe('evaluateEmpireState', () => {
     const galaxy = makeGalaxy([makeSystem()]);
     const empire = makeEmpire({
       diplomacy: [
-        { empireId: 'ally-1', status: 'allied', treaties: [], attitude: 80, tradeRoutes: 2 },
+        { empireId: 'ally-1', status: 'allied', treaties: [], attitude: 80, tradeRoutes: 2, communicationLevel: 'none' as const },
       ],
     });
     const allyFleet = makeFleet({ id: 'fleet-a', empireId: 'ally-1', ships: ['ship-a'] });
@@ -436,7 +436,7 @@ describe('evaluateMilitaryActions', () => {
     const empire = makeEmpire({
       aiPersonality: 'aggressive',
       diplomacy: [
-        { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0 },
+        { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const fleet = makeFleet({ empireId: 'empire-1' });
@@ -488,7 +488,7 @@ describe('evaluateMilitaryActions', () => {
       aiPersonality: 'defensive',
       knownSystems: ['sys-own', 'sys-enemy'],
       diplomacy: [
-        { empireId: 'threat-empire', status: 'hostile', treaties: [], attitude: -50, tradeRoutes: 0 },
+        { empireId: 'threat-empire', status: 'hostile', treaties: [], attitude: -50, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const fleet = makeFleet({ position: { systemId: 'sys-own' } });
@@ -590,7 +590,7 @@ describe('evaluateDiplomaticActions', () => {
     const empire = makeEmpire({
       aiPersonality: 'diplomatic',
       diplomacy: [
-        { empireId: 'other-1', status: 'neutral', treaties: [], attitude: 0, tradeRoutes: 0 },
+        { empireId: 'other-1', status: 'neutral', treaties: [], attitude: 0, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const eval_: AIEvaluation = {
@@ -611,7 +611,7 @@ describe('evaluateDiplomaticActions', () => {
     const empire = makeEmpire({
       aiPersonality: 'defensive',
       diplomacy: [
-        { empireId: 'strong-1', status: 'neutral', treaties: [], attitude: -10, tradeRoutes: 0 },
+        { empireId: 'strong-1', status: 'neutral', treaties: [], attitude: -10, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const eval_: AIEvaluation = {
@@ -632,7 +632,7 @@ describe('evaluateDiplomaticActions', () => {
     const empire = makeEmpire({
       aiPersonality: 'aggressive',
       diplomacy: [
-        { empireId: 'other-1', status: 'neutral', treaties: [], attitude: -5, tradeRoutes: 0 },
+        { empireId: 'other-1', status: 'neutral', treaties: [], attitude: -5, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const eval_: AIEvaluation = {
@@ -652,7 +652,7 @@ describe('evaluateDiplomaticActions', () => {
   it('skips at-war empires for treaty proposals', () => {
     const empire = makeEmpire({
       diplomacy: [
-        { empireId: 'enemy-1', status: 'at_war', treaties: [], attitude: -100, tradeRoutes: 0 },
+        { empireId: 'enemy-1', status: 'at_war', treaties: [], attitude: -100, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const eval_: AIEvaluation = {
@@ -955,8 +955,8 @@ describe('AI with multiple enemies', () => {
     const empire = makeEmpire({
       aiPersonality: 'defensive',
       diplomacy: [
-        { empireId: 'weak', status: 'neutral', treaties: [], attitude: -10, tradeRoutes: 0 },
-        { empireId: 'strong', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0 },
+        { empireId: 'weak', status: 'neutral', treaties: [], attitude: -10, tradeRoutes: 0, communicationLevel: 'none' as const },
+        { empireId: 'strong', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const eval_: AIEvaluation = {
@@ -985,8 +985,8 @@ describe('AI with multiple enemies', () => {
       aiPersonality: 'aggressive',
       knownSystems: ['sys-home', 'sys-weak', 'sys-strong'],
       diplomacy: [
-        { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -30, tradeRoutes: 0 },
-        { empireId: 'strong-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0 },
+        { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -30, tradeRoutes: 0, communicationLevel: 'none' as const },
+        { empireId: 'strong-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
     });
     const fleet = makeFleet({ empireId: 'empire-1', position: { systemId: 'sys-home' } });
