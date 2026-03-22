@@ -40,7 +40,13 @@ export type SpecialAbility =
   | 'cybernetic'
   | 'nomadic'
   | 'subterranean'
-  | 'photosynthetic';
+  | 'photosynthetic'
+  | 'energy_form'
+  | 'symbiotic'
+  | 'synthetic'
+  | 'nanomorphic'
+  | 'dimensional'
+  | 'devout';
 
 export interface Empire {
   id: string;

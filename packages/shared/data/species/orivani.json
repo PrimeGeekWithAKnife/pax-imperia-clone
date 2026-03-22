@@ -1,0 +1,24 @@
+{
+  "id": "orivani",
+  "name": "Orivani",
+  "description": "The Orivani believe, with absolute and unwavering conviction, that a superior race is coming to save them. This is not metaphor, not cultural mythology softened by centuries of secular reinterpretation, not a comforting story told to children. It is the foundational truth of their civilisation — codified in scripture, validated by prophecy, and reinforced by a faith so total that the concept of doubt is, in the Orivani language, a grammatical impossibility. The Prophecy of the Coming, first recorded twelve thousand years ago by the Orivani's earliest literate culture, describes a race of beings of incomprehensible power who will one day descend upon the galaxy. If the faithful have prepared — if they have united, built, fought, and proved themselves worthy — then the Coming will be salvation. If they have not, it will be judgement. The Orivani intend to be ready. They have been getting ready for twelve millennia, and the intensity of that preparation has produced one of the most formidable civilisations in the galaxy.\n\nEvery aspect of Orivani society serves the Coming. Their cities are temples. Their shipyards are cathedrals of industry where vessels are assembled with a reverence that other species reserve for art. Their military academies train not soldiers but crusaders — warriors who fight with the terrifying effectiveness of beings who believe, genuinely and without reservation, that death in service of the Coming is the highest possible honour. The Orivani are not fanatics in the pejorative sense. They are brilliant engineers, skilled administrators, and surprisingly sophisticated diplomats when the situation requires it. But every negotiation, every alliance, every act of construction is evaluated through a single lens: does this bring us closer to readiness? An Orivani trade agreement is not a commercial transaction. It is an act of faith — the acquisition of resources that will be used to prepare the galaxy for divine contact.\n\nOther species find the Orivani exhausting, admirable, and deeply unsettling in roughly equal measure. Their conviction is so absolute that it functions as a kind of gravity — difficult to resist when you are standing close to it. Orivani missionaries do not proselytise through argument but through example: their colonies are prosperous, their citizens are purposeful, their infrastructure is magnificent, and the sense of meaning that pervades every settlement is palpable. Species that have suffered existential crises — the Ashkari, the Drakmari — find the Orivani's certainty almost intoxicating. How restful it must be to know, truly know, what the universe is for. The Orivani welcome converts with open arms. They also wage war with stunning ferocity against any civilisation that threatens to destabilise the galaxy before the Coming arrives, because instability is unpreparedness, and unpreparedness is the only real sin.\n\nThe tragic irony of the Orivani — known to no one, least of all themselves — is that the Coming is real. Something is approaching the galaxy. Something vast, something of incomprehensible power, something that will indeed judge every civilisation it encounters. It is not what the Orivani expect. The Devourer does not come to save. It comes to harvest. When the Orivani finally stand before the beings they have worshipped for twelve thousand years and discover that their gods are harvesters — that the salvation they prepared for is, in fact, the extinction they were meant to prevent — the result will be either the total collapse of a civilisation or its most extraordinary transformation. The Orivani faith has survived schisms, wars, plagues, and twelve millennia of waiting. Whether it can survive the truth is the most dramatic question in the galaxy. Some Orivani, deep in the contemplative orders, have whispered a heretical possibility that the rest of the faithful refuse to hear: what if the Coming is a test not of worthiness, but of resistance? What if proving ourselves worthy means refusing to kneel?",
+  "portrait": "portrait_orivani",
+  "traits": {
+    "construction": 7,
+    "reproduction": 7,
+    "research": 3,
+    "espionage": 2,
+    "economy": 5,
+    "combat": 8,
+    "diplomacy": 5
+  },
+  "environmentPreference": {
+    "idealTemperature": 290,
+    "temperatureTolerance": 40,
+    "idealGravity": 1.1,
+    "gravityTolerance": 0.3,
+    "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen"]
+  },
+  "specialAbilities": ["devout"],
+  "isPrebuilt": true
+}

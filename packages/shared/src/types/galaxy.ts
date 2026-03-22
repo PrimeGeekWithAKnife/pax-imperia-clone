@@ -114,7 +114,28 @@ export type BuildingType =
   | 'tunnel_network'
   // ── Ashkari unique buildings ──────────────────────────────────────────────
   | 'salvage_yard'
-  | 'black_market';
+  | 'black_market'
+  // ── Luminari unique buildings ─────────────────────────────────────────────
+  | 'plasma_conduit'
+  | 'dimensional_resonator'
+  // ── Vethara unique buildings ──────────────────────────────────────────────
+  | 'bonding_chamber'
+  | 'neural_integration_centre'
+  // ── Kaelenth unique buildings ─────────────────────────────────────────────
+  | 'data_archive'
+  | 'replication_forge'
+  // ── Thyriaq unique buildings ──────────────────────────────────────────────
+  | 'reconfiguration_matrix'
+  | 'substrate_processor'
+  // ── Aethyn unique buildings ───────────────────────────────────────────────
+  | 'dimensional_anchor'
+  | 'phase_laboratory'
+  // ── Orivani unique buildings ──────────────────────────────────────────────
+  | 'grand_cathedral'
+  | 'reliquary_vault'
+  // ── Pyrenth unique buildings ──────────────────────────────────────────────
+  | 'elemental_forge'
+  | 'seismic_resonator';
 
 export interface ProductionItem {
   type: 'ship' | 'building' | 'defense';

@@ -133,6 +133,9 @@ const ORIGIN_MAP: Record<string, OriginStory> = {
   vaelori: 'Psionic', khazari: 'Industrial', sylvani: 'Bioengineering',
   nexari: 'Cybernetic', drakmari: 'Aquatic', teranos: 'Balanced',
   zorvathi: 'Subterranean', ashkari: 'Nomadic',
+  luminari: 'Psionic', vethara: 'Bioengineering', kaelenth: 'Industrial',
+  thyriaq: 'Bioengineering', aethyn: 'Psionic', orivani: 'Balanced',
+  pyrenth: 'Subterranean',
 };
 const TEMPLATE_SPECIES = PREBUILT_SPECIES.map(s => ({
   name: s.name,

@@ -74,6 +74,27 @@ const ACCENT: Record<BuildingType, string> = {
   // ── Ashkari ─────────────────────────────────────────────────────────────
   salvage_yard:              '#64748b',
   black_market:              '#7c3aed',
+  // ── Luminari ───────────────────────────────────────────────────────────
+  plasma_conduit:            '#ffdd44',
+  dimensional_resonator:     '#ff66ff',
+  // ── Vethara ────────────────────────────────────────────────────────────
+  bonding_chamber:           '#66ffaa',
+  neural_integration_centre: '#44ddcc',
+  // ── Kaelenth ───────────────────────────────────────────────────────────
+  data_archive:              '#88aaff',
+  replication_forge:         '#aaccdd',
+  // ── Thyriaq ────────────────────────────────────────────────────────────
+  reconfiguration_matrix:    '#99ff66',
+  substrate_processor:       '#77dd88',
+  // ── Aethyn ─────────────────────────────────────────────────────────────
+  dimensional_anchor:        '#cc44ff',
+  phase_laboratory:          '#aa88ff',
+  // ── Orivani ────────────────────────────────────────────────────────────
+  grand_cathedral:           '#ffcc44',
+  reliquary_vault:           '#ddaa33',
+  // ── Pyrenth ────────────────────────────────────────────────────────────
+  elemental_forge:           '#ff6622',
+  seismic_resonator:         '#dd8844',
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -3405,6 +3426,695 @@ const drawAdvancedMedicalCentre: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, cx, sc(16, s), sc(12, s), accent, 0.5);
 };
 
+// ── Luminari unique buildings ──────────────────────────────────────────────
+
+const drawPlasmaConduit: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Vertical conduit tubes
+  for (const xOff of [-12, 0, 12]) {
+    ctx.save();
+    ctx.fillStyle = '#1a1a22';
+    ctx.fillRect(cx + sc(xOff - 3, s), sc(16, s), sc(6, s), baseY - sc(16, s));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.strokeRect(cx + sc(xOff - 3, s), sc(16, s), sc(6, s), baseY - sc(16, s));
+    ctx.restore();
+  }
+
+  // Energy arcs between tubes
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.7;
+  for (const yOff of [24, 34, 44]) {
+    ctx.beginPath();
+    ctx.moveTo(cx - sc(12, s), sc(yOff, s));
+    ctx.quadraticCurveTo(cx - sc(6, s), sc(yOff - 4, s), cx, sc(yOff, s));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, sc(yOff, s));
+    ctx.quadraticCurveTo(cx + sc(6, s), sc(yOff + 4, s), cx + sc(12, s), sc(yOff, s));
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(30, s), sc(20, s), accent, 0.25);
+
+  // Top energy orb
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(12, s), sc(4, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(12, s), sc(10, s), accent, 0.6);
+};
+
+const drawDimensionalResonator: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Central spire
+  ctx.save();
+  ctx.fillStyle = '#1a1a28';
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(8, s), baseY);
+  ctx.lineTo(cx + sc(8, s), baseY);
+  ctx.lineTo(cx + sc(3, s), sc(10, s));
+  ctx.lineTo(cx - sc(3, s), sc(10, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Concentric rings
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  for (const [r, a] of [[18, 0.3], [14, 0.5], [10, 0.7]] as [number, number][]) {
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.ellipse(cx, sc(32, s), sc(r, s), sc(r * 0.4, s), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(32, s), sc(22, s), accent, 0.2);
+
+  // Top beacon
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(8, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(8, s), sc(8, s), accent, 0.7);
+};
+
+// ── Vethara unique buildings ──────────────────────────────────────────────
+
+const drawBondingChamber: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Organic dome
+  ctx.save();
+  ctx.fillStyle = '#1a2218';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY, sc(20, s), sc(22, s), 0, Math.PI, 0);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Neural tendrils
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.6;
+  for (const [dx, curve] of [[-8, -6], [0, -10], [8, -6]] as [number, number][]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + sc(dx, s), baseY - sc(8, s));
+    ctx.quadraticCurveTo(cx + sc(dx, s), baseY + sc(curve, s), cx + sc(dx, s), sc(20, s));
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Central bio-light
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(28, s), sc(4, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(28, s), sc(14, s), accent, 0.4);
+};
+
+const drawNeuralIntegrationCentre: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Building body
+  ctx.save();
+  ctx.fillStyle = '#181e22';
+  ctx.fillRect(cx - sc(18, s), sc(22, s), sc(36, s), baseY - sc(22, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(18, s), sc(22, s), sc(36, s), baseY - sc(22, s));
+  ctx.restore();
+
+  // Neural network pattern
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.globalAlpha = 0.5;
+  const niNodes = [[22, 30], [32, 26], [42, 30], [27, 38], [37, 38], [32, 44]] as [number, number][];
+  for (const [nx, ny] of niNodes) {
+    ctx.beginPath();
+    ctx.arc(sc(nx, s), sc(ny, s), sc(2, s), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(sc(22, s), sc(30, s)); ctx.lineTo(sc(32, s), sc(26, s));
+  ctx.moveTo(sc(32, s), sc(26, s)); ctx.lineTo(sc(42, s), sc(30, s));
+  ctx.moveTo(sc(22, s), sc(30, s)); ctx.lineTo(sc(27, s), sc(38, s));
+  ctx.moveTo(sc(42, s), sc(30, s)); ctx.lineTo(sc(37, s), sc(38, s));
+  ctx.moveTo(sc(27, s), sc(38, s)); ctx.lineTo(sc(32, s), sc(44, s));
+  ctx.moveTo(sc(37, s), sc(38, s)); ctx.lineTo(sc(32, s), sc(44, s));
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(36, s), sc(18, s), accent, 0.2);
+
+  // Rooftop sensor
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(18, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(18, s), sc(8, s), accent, 0.5);
+};
+
+// ── Kaelenth unique buildings ─────────────────────────────────────────────
+
+const drawDataArchive: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Monolithic rectangular structure
+  ctx.save();
+  ctx.fillStyle = '#14161c';
+  ctx.fillRect(cx - sc(16, s), sc(14, s), sc(32, s), baseY - sc(14, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(16, s), sc(14, s), sc(32, s), baseY - sc(14, s));
+  ctx.restore();
+
+  // Data rows (glowing lines)
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  for (let row = 0; row < 6; row++) {
+    const y = sc(20 + row * 5, s);
+    ctx.globalAlpha = 0.3 + (row % 3) * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(cx - sc(12, s), y);
+    ctx.lineTo(cx + sc(12, s), y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(32, s), sc(18, s), accent, 0.15);
+
+  // Access indicator
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.fillRect(cx - sc(2, s), sc(10, s), sc(4, s), sc(3, s));
+  ctx.restore();
+  drawGlow(ctx, cx, sc(10, s), sc(6, s), accent, 0.5);
+};
+
+const drawReplicationForge: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Factory structure
+  ctx.save();
+  ctx.fillStyle = '#16181e';
+  ctx.fillRect(cx - sc(18, s), sc(24, s), sc(36, s), baseY - sc(24, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(18, s), sc(24, s), sc(36, s), baseY - sc(24, s));
+  ctx.restore();
+
+  // Gear/cog symbol
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.arc(cx, sc(36, s), sc(8, s), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, sc(36, s), sc(4, s), 0, Math.PI * 2);
+  ctx.stroke();
+  // Gear teeth
+  for (let i = 0; i < 8; i++) {
+    const angle = (i * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle) * sc(8, s), sc(36, s) + Math.sin(angle) * sc(8, s));
+    ctx.lineTo(cx + Math.cos(angle) * sc(11, s), sc(36, s) + Math.sin(angle) * sc(11, s));
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(36, s), sc(16, s), accent, 0.25);
+
+  // Chimney-like exhaust
+  ctx.save();
+  ctx.fillStyle = '#16181e';
+  ctx.fillRect(cx + sc(8, s), sc(16, s), sc(6, s), sc(8, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.strokeRect(cx + sc(8, s), sc(16, s), sc(6, s), sc(8, s));
+  ctx.restore();
+  drawGlow(ctx, cx + sc(11, s), sc(14, s), sc(5, s), accent, 0.4);
+};
+
+// ── Thyriaq unique buildings ──────────────────────────────────────────────
+
+const drawReconfigurationMatrix: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Hexagonal grid pattern
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.globalAlpha = 0.5;
+  const hexSize = sc(6, s);
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 3; col++) {
+      const hx = cx + sc(-12 + col * 12, s) + (row % 2 ? sc(6, s) : 0);
+      const hy = sc(20 + row * 8, s);
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        const px = hx + hexSize * Math.cos(angle);
+        const py = hy + hexSize * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(32, s), sc(24, s), accent, 0.15);
+
+  // Central bright node
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(28, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(28, s), sc(10, s), accent, 0.5);
+};
+
+const drawSubstrateProcessor: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Layered processing tiers
+  for (let tier = 0; tier < 3; tier++) {
+    const y = sc(38 - tier * 10, s);
+    const w = sc(32 - tier * 6, s);
+    ctx.save();
+    ctx.fillStyle = tier === 0 ? '#1a1e18' : '#161a16';
+    ctx.fillRect(cx - w / 2, y, w, sc(8, s));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.strokeRect(cx - w / 2, y, w, sc(8, s));
+    ctx.restore();
+  }
+
+  // Particle dots
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.6;
+  const spParticles = [[24, 42], [40, 42], [28, 32], [36, 32], [32, 22]] as [number, number][];
+  for (const [px, py] of spParticles) {
+    ctx.beginPath();
+    ctx.arc(sc(px, s), sc(py, s), sc(1.5, s), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(30, s), sc(18, s), accent, 0.2);
+};
+
+// ── Aethyn unique buildings ───────────────────────────────────────────────
+
+const drawDimensionalAnchor: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Anchor pylons (four pillars)
+  for (const xOff of [-14, -5, 5, 14]) {
+    ctx.save();
+    ctx.fillStyle = '#1a1424';
+    ctx.fillRect(cx + sc(xOff - 2, s), sc(20, s), sc(4, s), baseY - sc(20, s));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.strokeRect(cx + sc(xOff - 2, s), sc(20, s), sc(4, s), baseY - sc(20, s));
+    ctx.restore();
+  }
+
+  // Central rift/portal
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(2, s);
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(30, s), sc(8, s), sc(12, s), 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(30, s), sc(16, s), accent, 0.35);
+
+  // Cross-brace at top
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(16, s), sc(20, s));
+  ctx.lineTo(cx + sc(16, s), sc(20, s));
+  ctx.stroke();
+  ctx.restore();
+
+  // Top stabiliser
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(14, s), sc(3, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(14, s), sc(8, s), accent, 0.6);
+};
+
+const drawPhaseLaboratory: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Building body with dashed outline for phase effect
+  ctx.save();
+  ctx.fillStyle = '#14121e';
+  ctx.globalAlpha = 0.8;
+  ctx.fillRect(cx - sc(16, s), sc(22, s), sc(32, s), baseY - sc(22, s));
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.setLineDash([sc(3, s), sc(2, s)]);
+  ctx.strokeRect(cx - sc(16, s), sc(22, s), sc(32, s), baseY - sc(22, s));
+  ctx.restore();
+
+  // Phase ripple circles
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  for (const [r, a] of [[6, 0.7], [10, 0.4], [14, 0.2]] as [number, number][]) {
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(cx, sc(36, s), sc(r, s), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(36, s), sc(18, s), accent, 0.25);
+
+  // Antenna
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.moveTo(cx, sc(22, s));
+  ctx.lineTo(cx, sc(12, s));
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(10, s), sc(2.5, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(10, s), sc(7, s), accent, 0.55);
+};
+
+// ── Orivani unique buildings ──────────────────────────────────────────────
+
+const drawGrandCathedral: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(54, s);
+
+  drawGroundPlatform(ctx, s, sc(4, s), baseY, sc(56, s), accent);
+
+  // Main cathedral body
+  ctx.save();
+  ctx.fillStyle = '#1c1a14';
+  ctx.fillRect(cx - sc(16, s), sc(24, s), sc(32, s), baseY - sc(24, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(16, s), sc(24, s), sc(32, s), baseY - sc(24, s));
+  ctx.restore();
+
+  // Central spire
+  ctx.save();
+  ctx.fillStyle = '#1c1a14';
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(5, s), sc(24, s));
+  ctx.lineTo(cx + sc(5, s), sc(24, s));
+  ctx.lineTo(cx + sc(2, s), sc(6, s));
+  ctx.lineTo(cx - sc(2, s), sc(6, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Side spires
+  for (const xOff of [-12, 12]) {
+    ctx.save();
+    ctx.fillStyle = '#1c1a14';
+    ctx.beginPath();
+    ctx.moveTo(cx + sc(xOff - 3, s), sc(24, s));
+    ctx.lineTo(cx + sc(xOff + 3, s), sc(24, s));
+    ctx.lineTo(cx + sc(xOff + 1, s), sc(14, s));
+    ctx.lineTo(cx + sc(xOff - 1, s), sc(14, s));
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = sc(0.8, s);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Rose window
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.beginPath();
+  ctx.arc(cx, sc(34, s), sc(6, s), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(34, s), sc(10, s), accent, 0.35);
+
+  // Spire top light
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, sc(4, s), sc(2, s), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(4, s), sc(6, s), accent, 0.7);
+};
+
+const drawReliquaryVault: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Fortified vault structure
+  ctx.save();
+  ctx.fillStyle = '#1a1810';
+  ctx.fillRect(cx - sc(18, s), sc(26, s), sc(36, s), baseY - sc(26, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.2, s);
+  ctx.strokeRect(cx - sc(18, s), sc(26, s), sc(36, s), baseY - sc(26, s));
+  ctx.restore();
+
+  // Vault door (arched)
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.beginPath();
+  ctx.arc(cx, sc(40, s), sc(8, s), Math.PI, 0);
+  ctx.lineTo(cx + sc(8, s), baseY);
+  ctx.lineTo(cx - sc(8, s), baseY);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+
+  // Sacred symbol (star)
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+    const spx = cx + Math.cos(angle) * sc(4, s);
+    const spy = sc(34, s) + Math.sin(angle) * sc(4, s);
+    if (i === 0) ctx.moveTo(spx, spy);
+    else ctx.lineTo(spx, spy);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(34, s), sc(12, s), accent, 0.3);
+
+  // Battlement detail
+  ctx.save();
+  ctx.fillStyle = '#1a1810';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(cx - sc(18, s) + sc(i * 8 + 1, s), sc(22, s), sc(5, s), sc(4, s));
+  }
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.6, s);
+  for (let i = 0; i < 5; i++) {
+    ctx.strokeRect(cx - sc(18, s) + sc(i * 8 + 1, s), sc(22, s), sc(5, s), sc(4, s));
+  }
+  ctx.restore();
+};
+
+// ── Pyrenth unique buildings ──────────────────────────────────────────────
+
+const drawElementalForge: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(54, s);
+
+  drawGroundPlatform(ctx, s, sc(4, s), baseY, sc(56, s), accent);
+
+  // Massive volcanic forge structure
+  ctx.save();
+  ctx.fillStyle = '#1c1208';
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(22, s), baseY);
+  ctx.lineTo(cx + sc(22, s), baseY);
+  ctx.lineTo(cx + sc(14, s), sc(18, s));
+  ctx.lineTo(cx - sc(14, s), sc(18, s));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  // Lava channels
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(2, s);
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(6, s), baseY);
+  ctx.lineTo(cx - sc(4, s), sc(30, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx + sc(6, s), baseY);
+  ctx.lineTo(cx + sc(4, s), sc(30, s));
+  ctx.stroke();
+  ctx.restore();
+
+  // Central crucible glow
+  drawGlow(ctx, cx, sc(28, s), sc(12, s), accent, 0.5);
+
+  // Chimney
+  ctx.save();
+  ctx.fillStyle = '#1c1208';
+  ctx.fillRect(cx - sc(4, s), sc(10, s), sc(8, s), sc(8, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(0.8, s);
+  ctx.strokeRect(cx - sc(4, s), sc(10, s), sc(8, s), sc(8, s));
+  ctx.restore();
+
+  // Heat emission
+  drawGlow(ctx, cx, sc(8, s), sc(8, s), accent, 0.4);
+};
+
+const drawSeismicResonator: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(6, s), baseY, sc(52, s), accent);
+
+  // Subterranean transducer array
+  ctx.save();
+  ctx.fillStyle = '#181210';
+  ctx.fillRect(cx - sc(20, s), sc(36, s), sc(40, s), baseY - sc(36, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(20, s), sc(36, s), sc(40, s), baseY - sc(36, s));
+  ctx.restore();
+
+  // Crystal transducer spikes
+  for (const xOff of [-12, -4, 4, 12]) {
+    ctx.save();
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(cx + sc(xOff - 2, s), sc(36, s));
+    ctx.lineTo(cx + sc(xOff + 2, s), sc(36, s));
+    ctx.lineTo(cx + sc(xOff, s), sc(26, s));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Seismic wave arcs
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  for (const [r, a] of [[8, 0.5], [14, 0.3], [20, 0.15]] as [number, number][]) {
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY, sc(r, s), sc(r * 0.3, s), 0, 0, Math.PI);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(40, s), sc(22, s), accent, 0.2);
+
+  // Central monitoring dome
+  ctx.save();
+  ctx.fillStyle = '#181210';
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(36, s), sc(6, s), sc(4, s), 0, Math.PI, 0);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+  drawGlow(ctx, cx, sc(32, s), sc(8, s), accent, 0.4);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -3444,6 +4154,27 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   tunnel_network:            drawTunnelNetwork,
   salvage_yard:              drawSalvageYard,
   black_market:              drawBlackMarket,
+  // ── Luminari ───────────────────────────────────────────────────────────────
+  plasma_conduit:            drawPlasmaConduit,
+  dimensional_resonator:     drawDimensionalResonator,
+  // ── Vethara ────────────────────────────────────────────────────────────────
+  bonding_chamber:           drawBondingChamber,
+  neural_integration_centre: drawNeuralIntegrationCentre,
+  // ── Kaelenth ───────────────────────────────────────────────────────────────
+  data_archive:              drawDataArchive,
+  replication_forge:         drawReplicationForge,
+  // ── Thyriaq ────────────────────────────────────────────────────────────────
+  reconfiguration_matrix:    drawReconfigurationMatrix,
+  substrate_processor:       drawSubstrateProcessor,
+  // ── Aethyn ─────────────────────────────────────────────────────────────────
+  dimensional_anchor:        drawDimensionalAnchor,
+  phase_laboratory:          drawPhaseLaboratory,
+  // ── Orivani ────────────────────────────────────────────────────────────────
+  grand_cathedral:           drawGrandCathedral,
+  reliquary_vault:           drawReliquaryVault,
+  // ── Pyrenth ────────────────────────────────────────────────────────────────
+  elemental_forge:           drawElementalForge,
+  seismic_resonator:         drawSeismicResonator,
 };
 
 // ── Roman numeral level badge ─────────────────────────────────────────────────

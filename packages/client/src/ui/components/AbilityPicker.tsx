@@ -57,6 +57,42 @@ export const ABILITY_INFO: AbilityInfo[] = [
     name: 'Photosynthetic',
     description: 'Energy harvested directly from stars. Eliminates food shortages and provides free energy in high-luminosity systems.',
   },
+  {
+    key: 'energy_form',
+    icon: '⚡',
+    name: 'Energy Form',
+    description: 'Exists as coherent energy rather than matter. Can pass through barriers and intercept communications, but struggles with physical construction.',
+  },
+  {
+    key: 'symbiotic',
+    icon: '🔗',
+    name: 'Symbiotic',
+    description: 'Bonds with host organisms to achieve full sapience. Compatible hosts gain enhanced cognition; incompatible hosts may be overridden.',
+  },
+  {
+    key: 'synthetic',
+    icon: '🤖',
+    name: 'Synthetic',
+    description: 'A machine intelligence that manufactures rather than reproduces. Immune to biological hazards, unaffected by atmosphere, tireless builders.',
+  },
+  {
+    key: 'nanomorphic',
+    icon: '🌫',
+    name: 'Nanomorphic',
+    description: 'A collective of nanoscale organisms that reconfigure into any form. Extreme adaptability to environments and rapid self-assembly of structures.',
+  },
+  {
+    key: 'dimensional',
+    icon: '🌀',
+    name: 'Dimensional',
+    description: 'Exists partially in another dimension. Ships and agents can phase through normal space, making detection and interception extraordinarily difficult.',
+  },
+  {
+    key: 'devout',
+    icon: '🕯',
+    name: 'Devout',
+    description: 'United by absolute faith. Generates high morale and faith output. Colonists work with tireless purpose, and soldiers fight with fanatical determination.',
+  },
 ];
 
 interface AbilityPickerProps {
