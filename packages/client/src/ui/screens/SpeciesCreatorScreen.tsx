@@ -319,7 +319,7 @@ export function SpeciesCreatorScreen({
     });
   }, []);
 
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(true);
 
   // Load template
   const handleLoadTemplate = useCallback((template: typeof TEMPLATE_SPECIES[0]) => {
