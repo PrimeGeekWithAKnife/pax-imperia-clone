@@ -47,11 +47,20 @@ const CATEGORIES_ORDERED: TechCategory[] = [
 
 const CATEGORY_DISPLAY_NAMES: Record<TechCategory, string> = {
   weapons:      'Weapons',
-  defense:      'Defense',
+  defense:      'Defence',
   propulsion:   'Propulsion',
   biology:      'Biology',
   construction: 'Construction',
   racial:       'Racial',
+};
+
+const CATEGORY_DESCRIPTIONS: Record<TechCategory, string> = {
+  weapons:      'Offensive systems — beams, projectiles, missiles, fighters',
+  defense:      'Protective systems — shields, armour, point defence, countermeasures',
+  propulsion:   'Movement — FTL drives, wormhole tech, tactical engines',
+  biology:      'Life sciences — medicine, terraforming, population, genetics',
+  construction: 'Engineering — buildings, shipyards, computing, materials',
+  racial:       'Species-unique technologies tied to your race\'s origin',
 };
 
 const MAX_ACTIVE_RESEARCH = 5;
@@ -478,8 +487,16 @@ export function ResearchScreen({
             {CATEGORIES_ORDERED.map((category) => (
               <div key={category} className={`tech-tree__row tech-tree__row--${category}`}>
                 {/* Category label */}
-                <div className="tech-tree__category-label">
-                  {CATEGORY_DISPLAY_NAMES[category]}
+                <div
+                  className="tech-tree__category-label"
+                  title={CATEGORY_DESCRIPTIONS[category]}
+                >
+                  <span className="tech-tree__category-name">
+                    {CATEGORY_DISPLAY_NAMES[category]}
+                  </span>
+                  <span className="tech-tree__category-desc">
+                    {CATEGORY_DESCRIPTIONS[category]}
+                  </span>
                 </div>
 
                 {/* Age cells */}
