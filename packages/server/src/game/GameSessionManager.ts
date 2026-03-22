@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import type { LobbyConfig, LobbyGalaxyConfig, LobbyPlayer, LobbyState, LobbySummary } from '../network/types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,26 @@ export class GameSession {
   private _players: Map<string, PlayerInfo> = new Map();
   private _startedAt: Date | null = null;
   private _finishedAt: Date | null = null;
+
+  // ── Lobby-specific state ──────────────────────────────────────────────────
+
+  /** The socket ID of the player who created the session. */
+  hostSocketId: string = '';
+
+  /** Display name of the game, shown in the lobby list. */
+  gameName: string = 'Unnamed Game';
+
+  /** Optional password hash (plain-text for now, good enough for dev). */
+  password: string | null = null;
+
+  /** Galaxy configuration chosen by the host. */
+  galaxyConfig: LobbyGalaxyConfig = { size: 'medium', shape: 'spiral', seed: '' };
+
+  /** Ready flags per player ID. */
+  private _readyFlags: Map<string, boolean> = new Map();
+
+  /** Selected species per player ID. */
+  private _speciesChoices: Map<string, string | null> = new Map();
 
   readonly maxPlayers: number;
   readonly minPlayers: number;
@@ -79,6 +100,15 @@ export class GameSession {
     return this._finishedAt;
   }
 
+  /** True when all players are marked ready and there are enough to start. */
+  get allReady(): boolean {
+    if (this._players.size < this.minPlayers) return false;
+    for (const player of this._players.values()) {
+      if (!this._readyFlags.get(player.playerId)) return false;
+    }
+    return true;
+  }
+
   // -- Mutators --------------------------------------------------------------
 
   /**
@@ -91,6 +121,8 @@ export class GameSession {
     if (this._players.has(info.playerId)) return false;
 
     this._players.set(info.playerId, info);
+    this._readyFlags.set(info.playerId, false);
+    this._speciesChoices.set(info.playerId, null);
     return true;
   }
 
@@ -103,6 +135,14 @@ export class GameSession {
     if (!player) return null;
 
     this._players.delete(playerId);
+    this._readyFlags.delete(playerId);
+    this._speciesChoices.delete(playerId);
+
+    // If the host left, transfer host to the next player in the map.
+    if (player.socketId === this.hostSocketId) {
+      const next = this._players.values().next().value as PlayerInfo | undefined;
+      this.hostSocketId = next?.socketId ?? '';
+    }
 
     // Finish a session that has been left with no players while playing.
     if (this._status === 'playing' && this._players.size === 0) {
@@ -119,6 +159,24 @@ export class GameSession {
 
   getPlayer(playerId: string): PlayerInfo | undefined {
     return this._players.get(playerId);
+  }
+
+  /** Set the ready flag for a player.  Returns false if the player is not in this session. */
+  setReady(playerId: string, ready: boolean): boolean {
+    if (!this._players.has(playerId)) return false;
+    this._readyFlags.set(playerId, ready);
+    return true;
+  }
+
+  /** Set the species choice for a player.  Returns false if the player is not in this session. */
+  setSpecies(playerId: string, speciesId: string | null): boolean {
+    if (!this._players.has(playerId)) return false;
+    this._speciesChoices.set(playerId, speciesId);
+    return true;
+  }
+
+  isReady(playerId: string): boolean {
+    return this._readyFlags.get(playerId) ?? false;
   }
 
   /** Transition the session from 'waiting' to 'playing'. */
@@ -148,6 +206,7 @@ export class GameSession {
       playerCount: this._players.size,
       maxPlayers: this.maxPlayers,
       minPlayers: this.minPlayers,
+      gameName: this.gameName,
       createdAt: this.createdAt,
       startedAt: this._startedAt,
       finishedAt: this._finishedAt,
@@ -156,6 +215,43 @@ export class GameSession {
         playerName,
         joinedAt,
       })),
+    };
+  }
+
+  /** Full lobby state broadcast to all members. */
+  toLobbyState(): LobbyState {
+    const players: LobbyPlayer[] = Array.from(this._players.values()).map((p) => ({
+      playerId: p.playerId,
+      playerName: p.playerName,
+      isReady: this._readyFlags.get(p.playerId) ?? false,
+      isHost: p.socketId === this.hostSocketId,
+      speciesId: this._speciesChoices.get(p.playerId) ?? null,
+    }));
+
+    return {
+      sessionId: this.id,
+      gameName: this.gameName,
+      players,
+      maxPlayers: this.maxPlayers,
+      galaxyConfig: this.galaxyConfig,
+      hasPassword: this.password !== null,
+    };
+  }
+
+  /** Summary for the lobby browser list. */
+  toLobbySummary(): LobbySummary {
+    const hostPlayer = Array.from(this._players.values()).find(
+      (p) => p.socketId === this.hostSocketId,
+    );
+
+    return {
+      sessionId: this.id,
+      gameName: this.gameName,
+      hostName: hostPlayer?.playerName ?? 'Unknown',
+      playerCount: this._players.size,
+      maxPlayers: this.maxPlayers,
+      galaxySize: this.galaxyConfig.size,
+      hasPassword: this.password !== null,
     };
   }
 }
@@ -176,6 +272,18 @@ export class GameSessionManager {
     const id = randomUUID();
     const session = new GameSession(id, options);
     this.sessions.set(id, session);
+    return session;
+  }
+
+  /**
+   * Create a session from a LobbyConfig, wiring up game name, password, and
+   * galaxy settings in a single call.
+   */
+  createLobbySession(config: LobbyConfig): GameSession {
+    const session = this.createSession({ maxPlayers: config.maxPlayers });
+    session.gameName = config.gameName;
+    session.password = config.password ?? null;
+    session.galaxyConfig = config.galaxyConfig;
     return session;
   }
 
@@ -204,6 +312,15 @@ export class GameSessionManager {
       ? all.filter((s) => s.status === statusFilter)
       : all;
     return filtered.map((s) => s.toSummary());
+  }
+
+  /**
+   * Return lobby summaries for all open (waiting) sessions.
+   */
+  listOpenLobbies(): LobbySummary[] {
+    return Array.from(this.sessions.values())
+      .filter((s) => s.status === 'waiting')
+      .map((s) => s.toLobbySummary());
   }
 
   // -- Player lifecycle ------------------------------------------------------
@@ -261,6 +378,11 @@ export class GameSessionManager {
 
     // Prune finished sessions with no remaining players.
     if (session.status === 'finished' && session.playerCount === 0) {
+      this.sessions.delete(sessionId);
+    }
+
+    // Also clean up empty waiting sessions.
+    if (session.status === 'waiting' && session.playerCount === 0) {
       this.sessions.delete(sessionId);
     }
 

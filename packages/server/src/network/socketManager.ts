@@ -16,8 +16,10 @@ import type {
   ServerToClientEvents,
   InterServerEvents,
   SocketData,
+  LobbyConfig,
 } from './types.js';
 import { GameSessionManager } from '../game/GameSessionManager.js';
+import type { GameSession } from '../game/GameSessionManager.js';
 
 // Convenience type alias for a fully-typed socket on this server.
 type AppSocket = Socket<
@@ -91,6 +93,36 @@ export class SocketManager {
       this.onGameAction(socket, payload, callback),
     );
 
+    // ── Lobby events ──────────────────────────────────────────────────────────
+
+    socket.on('lobby:create', (payload, callback) =>
+      this.onLobbyCreate(socket, payload, callback),
+    );
+
+    socket.on('lobby:join', (payload, callback) =>
+      this.onLobbyJoin(socket, payload, callback),
+    );
+
+    socket.on('lobby:ready', (payload, callback) =>
+      this.onLobbyReady(socket, payload, callback),
+    );
+
+    socket.on('lobby:start', (payload, callback) =>
+      this.onLobbyStart(socket, payload, callback),
+    );
+
+    socket.on('lobby:chat', (payload, callback) =>
+      this.onLobbyChat(socket, payload, callback),
+    );
+
+    socket.on('lobby:list', (callback) =>
+      this.onLobbyList(callback),
+    );
+
+    socket.on('lobby:species', (payload, callback) =>
+      this.onLobbySpecies(socket, payload, callback),
+    );
+
     socket.on('disconnect', (reason) => this.onDisconnect(socket, reason));
   }
 
@@ -107,7 +139,7 @@ export class SocketManager {
   }
 
   // ---------------------------------------------------------------------------
-  // Event handlers
+  // Game event handlers (legacy)
   // ---------------------------------------------------------------------------
 
   private onGameJoin(
@@ -211,6 +243,221 @@ export class SocketManager {
   }
 
   // ---------------------------------------------------------------------------
+  // Lobby event handlers
+  // ---------------------------------------------------------------------------
+
+  private onLobbyCreate(
+    socket: AppSocket,
+    payload: { playerName: string; config: LobbyConfig },
+    callback: (ack: { success: boolean; sessionId?: string; error?: string }) => void,
+  ): void {
+    const { playerName, config } = payload;
+
+    if (socket.data.currentSessionId) {
+      callback({ success: false, error: 'You are already in a session. Leave it first.' });
+      return;
+    }
+
+    const session = this.sessionManager.createLobbySession(config);
+    session.hostSocketId = socket.id;
+
+    const added = session.addPlayer({
+      playerId: socket.id,
+      playerName,
+      socketId: socket.id,
+      joinedAt: new Date(),
+    });
+
+    if (!added) {
+      this.sessionManager.destroySession(session.id);
+      callback({ success: false, error: 'Failed to add host to session.' });
+      return;
+    }
+
+    socket.data.playerName = playerName;
+    socket.data.currentSessionId = session.id;
+    void socket.join(session.id);
+
+    console.log(
+      `[Socket] Lobby created – host=${socket.id}  session=${session.id}  name="${config.gameName}"`,
+    );
+
+    callback({ success: true, sessionId: session.id });
+
+    // Broadcast initial state (just the host for now).
+    this.broadcastLobbyState(session);
+  }
+
+  private onLobbyJoin(
+    socket: AppSocket,
+    payload: { sessionId: string; playerName: string; password?: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ): void {
+    const { sessionId, playerName, password } = payload;
+
+    if (socket.data.currentSessionId) {
+      callback({ success: false, error: 'You are already in a session. Leave it first.' });
+      return;
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      callback({ success: false, error: `Session '${sessionId}' not found.` });
+      return;
+    }
+
+    // Password check.
+    if (session.password !== null && session.password !== (password ?? '')) {
+      callback({ success: false, error: 'Incorrect password.' });
+      return;
+    }
+
+    const result = this.sessionManager.joinSession(sessionId, {
+      playerId: socket.id,
+      playerName,
+      socketId: socket.id,
+    });
+
+    if (!result.success) {
+      callback({ success: false, error: result.error });
+      return;
+    }
+
+    socket.data.playerName = playerName;
+    socket.data.currentSessionId = sessionId;
+    void socket.join(sessionId);
+
+    console.log(
+      `[Socket] Player joined lobby – player=${socket.id}  session=${sessionId}`,
+    );
+
+    callback({ success: true });
+
+    this.broadcastLobbyState(session);
+  }
+
+  private onLobbyReady(
+    socket: AppSocket,
+    payload: { sessionId: string; ready: boolean },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ): void {
+    const { sessionId, ready } = payload;
+    const session = this.getSessionForSocket(socket, sessionId);
+    if (!session) {
+      callback({ success: false, error: 'Session not found or you are not in it.' });
+      return;
+    }
+
+    const updated = session.setReady(socket.id, ready);
+    if (!updated) {
+      callback({ success: false, error: 'Player not found in session.' });
+      return;
+    }
+
+    console.log(
+      `[Socket] lobby:ready – player=${socket.id}  session=${sessionId}  ready=${ready}`,
+    );
+
+    callback({ success: true });
+    this.broadcastLobbyState(session);
+  }
+
+  private onLobbyStart(
+    socket: AppSocket,
+    payload: { sessionId: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ): void {
+    const { sessionId } = payload;
+    const session = this.getSessionForSocket(socket, sessionId);
+    if (!session) {
+      callback({ success: false, error: 'Session not found or you are not in it.' });
+      return;
+    }
+
+    if (session.hostSocketId !== socket.id) {
+      callback({ success: false, error: 'Only the host can start the game.' });
+      return;
+    }
+
+    if (!session.allReady) {
+      callback({ success: false, error: 'Not all players are ready.' });
+      return;
+    }
+
+    const started = session.start();
+    if (!started) {
+      callback({ success: false, error: 'Could not start the session.' });
+      return;
+    }
+
+    console.log(
+      `[Socket] lobby:start – host=${socket.id}  session=${sessionId}  players=${session.playerCount}`,
+    );
+
+    callback({ success: true });
+
+    // Notify all players that the game is starting.
+    this.io.to(sessionId).emit('lobby:game_started', {
+      sessionId,
+      galaxyConfig: session.galaxyConfig,
+    });
+  }
+
+  private onLobbyChat(
+    socket: AppSocket,
+    payload: { sessionId: string; message: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ): void {
+    const { sessionId, message } = payload;
+    const session = this.getSessionForSocket(socket, sessionId);
+    if (!session) {
+      callback({ success: false, error: 'Session not found or you are not in it.' });
+      return;
+    }
+
+    const trimmed = message.trim().slice(0, 500);
+    if (!trimmed) {
+      callback({ success: false, error: 'Message cannot be empty.' });
+      return;
+    }
+
+    callback({ success: true });
+
+    // Broadcast to everyone in the room (including sender).
+    this.io.to(sessionId).emit('lobby:message', {
+      sessionId,
+      playerId: socket.id,
+      playerName: socket.data.playerName,
+      message: trimmed,
+      timestamp: Date.now(),
+    });
+  }
+
+  private onLobbyList(
+    callback: (ack: { success: boolean; lobbies: ReturnType<GameSession['toLobbySummary']>[]; error?: string }) => void,
+  ): void {
+    const lobbies = this.sessionManager.listOpenLobbies();
+    callback({ success: true, lobbies });
+  }
+
+  private onLobbySpecies(
+    socket: AppSocket,
+    payload: { sessionId: string; speciesId: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ): void {
+    const { sessionId, speciesId } = payload;
+    const session = this.getSessionForSocket(socket, sessionId);
+    if (!session) {
+      callback({ success: false, error: 'Session not found or you are not in it.' });
+      return;
+    }
+
+    session.setSpecies(socket.id, speciesId);
+    callback({ success: true });
+    this.broadcastLobbyState(session);
+  }
+
+  // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
@@ -237,6 +484,25 @@ export class SocketManager {
       sessionId,
       playerName: socket.data.playerName,
     });
+
+    // If the session still exists and is in waiting state, broadcast updated lobby state.
+    const session = this.sessionManager.getSession(sessionId);
+    if (session && session.status === 'waiting') {
+      this.broadcastLobbyState(session);
+    }
+  }
+
+  /** Return the session if it exists AND the socket is a member, otherwise null. */
+  private getSessionForSocket(socket: AppSocket, sessionId: string): GameSession | null {
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) return null;
+    if (!session.hasPlayer(socket.id)) return null;
+    return session;
+  }
+
+  /** Broadcast the full lobby state to all players in a session. */
+  private broadcastLobbyState(session: GameSession): void {
+    this.io.to(session.id).emit('lobby:state', session.toLobbyState());
   }
 
   // ---------------------------------------------------------------------------

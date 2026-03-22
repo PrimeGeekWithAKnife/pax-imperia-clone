@@ -33,6 +33,67 @@ export interface ErrorPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Lobby types
+// ---------------------------------------------------------------------------
+
+export type GalaxySize = 'small' | 'medium' | 'large' | 'huge';
+export type GalaxyShape = 'spiral' | 'elliptical' | 'irregular' | 'ring';
+
+/** Galaxy configuration chosen in the lobby. */
+export interface LobbyGalaxyConfig {
+  size: GalaxySize;
+  shape: GalaxyShape;
+  seed: string;
+}
+
+/** Configuration used when creating a new lobby. */
+export interface LobbyConfig {
+  gameName: string;
+  maxPlayers: number;
+  password?: string;
+  galaxyConfig: LobbyGalaxyConfig;
+}
+
+/** Per-player state visible to all lobby members. */
+export interface LobbyPlayer {
+  playerId: string;
+  playerName: string;
+  isReady: boolean;
+  isHost: boolean;
+  speciesId: string | null;
+}
+
+/** Summary of a lobby session returned by 'lobby:list'. */
+export interface LobbySummary {
+  sessionId: string;
+  gameName: string;
+  hostName: string;
+  playerCount: number;
+  maxPlayers: number;
+  galaxySize: GalaxySize;
+  hasPassword: boolean;
+}
+
+/** Full lobby state broadcast to all members. */
+export interface LobbyState {
+  sessionId: string;
+  gameName: string;
+  players: LobbyPlayer[];
+  maxPlayers: number;
+  galaxyConfig: LobbyGalaxyConfig;
+  hasPassword: boolean;
+}
+
+/** Chat message payload. */
+export interface LobbyChatMessage {
+  sessionId: string;
+  playerId: string;
+  playerName: string;
+  message: string;
+  timestamp: number;
+}
+
+// ---------------------------------------------------------------------------
 // Socket.io typed interfaces
 // ---------------------------------------------------------------------------
 
@@ -48,6 +109,49 @@ export interface ClientToServerEvents {
 
   /** Submit a game action (move, build, attack, etc.) */
   'game:action': (payload: GameActionPayload, callback: (ack: { success: boolean; error?: string }) => void) => void;
+
+  // ── Lobby events ──────────────────────────────────────────────────────────
+
+  /** Create a new lobby and become its host. */
+  'lobby:create': (
+    payload: { playerName: string; config: LobbyConfig },
+    callback: (ack: { success: boolean; sessionId?: string; error?: string }) => void,
+  ) => void;
+
+  /** Join an existing lobby by session ID. */
+  'lobby:join': (
+    payload: { sessionId: string; playerName: string; password?: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ) => void;
+
+  /** Toggle ready status for the current player. */
+  'lobby:ready': (
+    payload: { sessionId: string; ready: boolean },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ) => void;
+
+  /** Host requests to start the game (all players must be ready). */
+  'lobby:start': (
+    payload: { sessionId: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ) => void;
+
+  /** Send a chat message to the lobby. */
+  'lobby:chat': (
+    payload: { sessionId: string; message: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ) => void;
+
+  /** Request a list of open lobbies. */
+  'lobby:list': (
+    callback: (ack: { success: boolean; lobbies: LobbySummary[]; error?: string }) => void,
+  ) => void;
+
+  /** Select a species in the lobby. */
+  'lobby:species': (
+    payload: { sessionId: string; speciesId: string },
+    callback: (ack: { success: boolean; error?: string }) => void,
+  ) => void;
 }
 
 /**
@@ -65,6 +169,17 @@ export interface ServerToClientEvents {
 
   /** Server-side error notification */
   'server:error': (payload: ErrorPayload) => void;
+
+  // ── Lobby events ──────────────────────────────────────────────────────────
+
+  /** Full lobby state update, broadcast when any lobby member changes. */
+  'lobby:state': (payload: LobbyState) => void;
+
+  /** Chat message broadcast to all lobby members. */
+  'lobby:message': (payload: LobbyChatMessage) => void;
+
+  /** Server tells all players to start the game. */
+  'lobby:game_started': (payload: { sessionId: string; galaxyConfig: LobbyGalaxyConfig }) => void;
 }
 
 /**

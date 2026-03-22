@@ -7,6 +7,10 @@ import type { MusicTrack } from '../../audio';
 export interface PauseMenuProps {
   onResume: () => void;
   onExitToMainMenu: () => void;
+  /** Open the save/load screen in save mode. */
+  onSaveGame?: () => void;
+  /** Open the save/load screen in load mode. */
+  onLoadGame?: () => void;
 }
 
 type ToastMessage = { id: number; text: string };
@@ -175,16 +179,24 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
       </div>
 
       <div className="pm-settings-section">
-        <div className="pm-settings-section__label">CONTROLS</div>
+        <div className="pm-settings-section__label">KEYBOARD SHORTCUTS</div>
         <div className="pm-controls-grid">
           {[
-            { key: 'Escape',        action: 'Pause / Resume' },
-            { key: 'Scroll',        action: 'Zoom map'       },
-            { key: 'Click + Drag',  action: 'Pan map'        },
-            { key: 'Click system',  action: 'Select system'  },
-            { key: 'R',             action: 'Open Research'  },
-            { key: 'D',             action: 'Diplomacy'      },
-            { key: 'S',             action: 'Ship Designer'  },
+            { key: 'Escape',       action: 'Pause / Resume'      },
+            { key: 'Space',        action: 'Toggle pause'         },
+            { key: '1',            action: 'Speed: Pause'         },
+            { key: '2',            action: 'Speed: Slow'          },
+            { key: '3',            action: 'Speed: Normal'        },
+            { key: '4',            action: 'Speed: Fast'          },
+            { key: '5',            action: 'Speed: Fastest'       },
+            { key: 'R',            action: 'Open Research'        },
+            { key: 'S',            action: 'Open Ship Designer'   },
+            { key: 'D',            action: 'Open Diplomacy'       },
+            { key: 'F',            action: 'Open Fleet Overview'  },
+            { key: 'E',            action: 'Open Economy'         },
+            { key: 'Scroll',       action: 'Zoom map'             },
+            { key: 'Click + Drag', action: 'Pan map'              },
+            { key: 'Click system', action: 'Select system'        },
           ].map(({ key, action }) => (
             <React.Fragment key={key}>
               <span className="pm-controls-key">{key}</span>
@@ -223,7 +235,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps): Re
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function PauseMenu({ onResume, onExitToMainMenu }: PauseMenuProps): React.ReactElement {
+export function PauseMenu({ onResume, onExitToMainMenu, onSaveGame, onLoadGame }: PauseMenuProps): React.ReactElement {
   const [showSettings, setShowSettings] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -242,12 +254,20 @@ export function PauseMenu({ onResume, onExitToMainMenu }: PauseMenuProps): React
   }, [onResume]);
 
   const handleSaveGame = useCallback(() => {
-    addToast('Save Game — Coming Soon');
-  }, [addToast]);
+    if (onSaveGame) {
+      onSaveGame();
+    } else {
+      addToast('Save Game — Coming Soon');
+    }
+  }, [onSaveGame, addToast]);
 
   const handleLoadGame = useCallback(() => {
-    addToast('Load Game — Coming Soon');
-  }, [addToast]);
+    if (onLoadGame) {
+      onLoadGame();
+    } else {
+      addToast('Load Game — Coming Soon');
+    }
+  }, [onLoadGame, addToast]);
 
   const handleSettings = useCallback(() => {
     setShowSettings((prev) => !prev);

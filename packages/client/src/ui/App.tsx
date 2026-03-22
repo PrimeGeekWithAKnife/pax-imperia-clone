@@ -25,6 +25,8 @@ import { SpeciesCreatorScreen } from './screens/SpeciesCreatorScreen';
 import { GameSetupScreen } from './screens/GameSetupScreen';
 import type { GameConfig } from './screens/GameSetupScreen';
 import { PauseMenu } from './screens/PauseMenu';
+import { SaveLoadScreen } from './screens/SaveLoadScreen';
+import type { SaveLoadTab } from './screens/SaveLoadScreen';
 import { PlanetManagementScreen } from './screens/PlanetManagementScreen';
 import { ResearchScreen } from './screens/ResearchScreen';
 import { ShipDesignerScreen } from './screens/ShipDesignerScreen';
@@ -37,8 +39,11 @@ import { EspionageScreen } from './screens/EspionageScreen';
 import type { EspionageState, EspionageEvent, SpyAgent, SpyMission } from '@nova-imperia/shared';
 import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
+import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
+import type { LobbyGalaxyConfig } from '../network/GameClient';
+import { Tooltip } from './components/Tooltip';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -174,6 +179,7 @@ export function App(): React.ReactElement {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('game');
   const [gameStarted, setGameStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [saveLoadTab, setSaveLoadTab] = useState<SaveLoadTab | null>(null);
   const [creatorData, setCreatorData] = useState<SpeciesCreatorContinueData | null>(null);
   const [managedPlanet, setManagedPlanet] = useState<Planet | null>(null);
   const [managedSystemId, setManagedSystemId] = useState<string | null>(null);
@@ -298,17 +304,71 @@ export function App(): React.ReactElement {
     return owned?.name ?? null;
   }, [selectedPlanet, activeSystemId, selectedSystem]);
 
-  // ── Escape key: toggle pause menu during gameplay ──
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && currentScreen === 'game') {
-        setIsPaused((prev) => !prev);
+      // Ignore shortcuts when focus is inside a text input
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (currentScreen === 'game') {
+        switch (e.key) {
+          case 'Escape':
+            setIsPaused((prev) => !prev);
+            e.preventDefault();
+            break;
+          case ' ':
+            // Space: toggle pause (only while game is running)
+            if (gameStarted) {
+              setIsPaused((prev) => !prev);
+              e.preventDefault();
+            }
+            break;
+          case '1':
+            setGameSpeed('paused');
+            break;
+          case '2':
+            setGameSpeed('slow');
+            break;
+          case '3':
+            setGameSpeed('normal');
+            break;
+          case '4':
+            setGameSpeed('fast');
+            break;
+          case '5':
+            setGameSpeed('fastest');
+            break;
+          case 'r':
+          case 'R':
+            if (gameStarted) setCurrentScreen('research');
+            break;
+          case 's':
+          case 'S':
+            if (gameStarted) setCurrentScreen('ship-designer');
+            break;
+          case 'd':
+          case 'D':
+            if (gameStarted) setCurrentScreen('diplomacy');
+            break;
+          case 'f':
+          case 'F':
+            if (gameStarted) setCurrentScreen('fleet');
+            break;
+          case 'e':
+          case 'E':
+            if (gameStarted) setCurrentScreen('economy');
+            break;
+        }
+      } else if (e.key === 'Escape') {
+        // Close any full-screen overlay back to game view
+        setCurrentScreen('game');
         e.preventDefault();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentScreen]);
+  }, [currentScreen, gameStarted, setGameSpeed]);
 
   // ── Phaser → React event bridges ──
 
@@ -362,6 +422,24 @@ export function App(): React.ReactElement {
   // Phaser emits this when "New Game" is clicked
   const handleNewGame = useCallback(() => {
     setCurrentScreen('species-creator');
+    setIsPaused(false);
+  }, []);
+
+  // Phaser emits this when "Multiplayer" is clicked from the main menu
+  const handleOpenMultiplayer = useCallback(() => {
+    setCurrentScreen('multiplayer');
+    setIsPaused(false);
+  }, []);
+
+  const handleCloseMultiplayer = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleMultiplayerGameStart = useCallback((_galaxyConfig: LobbyGalaxyConfig) => {
+    // TODO: wire up multiplayer game launch – for now return to the main screen
+    // The galaxy config will be used to kick off the Phaser GalaxyMapScene.
+    setCurrentScreen('game');
+    setGameStarted(true);
     setIsPaused(false);
   }, []);
 
@@ -706,6 +784,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('system:exited', handleSystemExited);
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
+  useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
   useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
@@ -876,6 +955,24 @@ export function App(): React.ReactElement {
     setIsPaused(false);
   }, []);
 
+  // Save / Load screen
+  const handleOpenSave = useCallback(() => {
+    setSaveLoadTab('save');
+  }, []);
+
+  const handleOpenLoad = useCallback(() => {
+    setSaveLoadTab('load');
+  }, []);
+
+  const handleCloseSaveLoad = useCallback(() => {
+    setSaveLoadTab(null);
+  }, []);
+
+  const handleGameLoaded = useCallback(() => {
+    setSaveLoadTab(null);
+    setIsPaused(false);
+  }, []);
+
   const handleExitToMainMenu = useCallback(() => {
     setIsPaused(false);
     setGameStarted(false);
@@ -966,6 +1063,19 @@ export function App(): React.ReactElement {
     );
   }
 
+  // Render multiplayer lobby as full-screen overlay
+  if (currentScreen === 'multiplayer') {
+    return (
+      <div className="ui-overlay">
+        <MultiplayerLobbyScreen
+          playerName={playerEmpire.species.name || 'Commander'}
+          onBack={handleCloseMultiplayer}
+          onGameStart={handleMultiplayerGameStart}
+        />
+      </div>
+    );
+  }
+
   // Render fleet management screen as full-screen overlay
   if (currentScreen === 'fleet') {
     return (
@@ -1017,6 +1127,7 @@ export function App(): React.ReactElement {
             onExitToMainMenu={() => setIsPaused(false)}
           />
         )}
+        <Tooltip />
       </div>
     );
   }
@@ -1106,10 +1217,20 @@ export function App(): React.ReactElement {
         </div>
       )}
 
-      {isPaused && (
+      {isPaused && !saveLoadTab && (
         <PauseMenu
           onResume={handleResume}
           onExitToMainMenu={handleExitToMainMenu}
+          onSaveGame={handleOpenSave}
+          onLoadGame={handleOpenLoad}
+        />
+      )}
+
+      {saveLoadTab && (
+        <SaveLoadScreen
+          initialTab={saveLoadTab}
+          onClose={handleCloseSaveLoad}
+          onLoaded={handleGameLoaded}
         />
       )}
 
@@ -1120,6 +1241,9 @@ export function App(): React.ReactElement {
           onContinue={handleBattleContinue}
         />
       )}
+
+      {/* Global tooltip — renders near cursor for any element with data-tooltip */}
+      <Tooltip />
     </div>
   );
 }

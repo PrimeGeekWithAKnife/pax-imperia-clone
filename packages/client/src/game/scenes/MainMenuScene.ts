@@ -3,14 +3,22 @@ import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 
 const STAR_COUNT = 200;
+const GALAXY_ARMS = 3;
+const GALAXY_STAR_COUNT = 320;
+const DUST_MOTE_COUNT = 45;
+const VERSION = 'v0.1.0 Alpha';
 
 /**
- * MainMenuScene renders the game title, a starfield background, and
- * interactive text buttons for the player's first actions.
+ * MainMenuScene renders the game title, a procedural galaxy background,
+ * atmospheric particle effects, and interactive buttons.
  */
 export class MainMenuScene extends Phaser.Scene {
   private music: MusicGenerator | null = null;
   private sfx: SfxGenerator | null = null;
+  private galaxyContainer: Phaser.GameObjects.Container | null = null;
+  private dustMotes: Array<{ x: number; y: number; vx: number; vy: number; alpha: number; radius: number }> = [];
+  private dustGraphics: Phaser.GameObjects.Graphics | null = null;
+  private creditsOverlay: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'MainMenuScene' });
@@ -25,8 +33,11 @@ export class MainMenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.createStarfield(width, height);
+    this.createGalaxyBackground(width, height);
+    this.createDustMotes(width, height);
     this.createTitle(width, height);
     this.createMenuButtons(width, height);
+    this.createVersionLabel(width, height);
 
     // Remove any stale listener from a previous create() before re-registering.
     this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
@@ -36,28 +47,47 @@ export class MainMenuScene extends Phaser.Scene {
     this.game.events.on('game:start_with_config', this.onGameStartWithConfig);
 
     // ── Audio ─────────────────────────────────────────────────────────────────
-    // Initialise audio generators (AudioEngine singleton already exists from
-    // BootScene).  Music actually starts on the first user interaction so we
-    // satisfy the browser autoplay policy.
     const engine = getAudioEngine();
     if (engine) {
       this.music = new MusicGenerator(engine);
       this.sfx = new SfxGenerator(engine);
 
-      // Listen for the first pointer-down on the canvas to resume the
-      // AudioContext and start the menu music.
       this.input.once('pointerdown', () => {
         engine.resume();
-        // Apply the player's chosen track (if set from a previous session)
         const sessionTrack = (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined;
         if (sessionTrack) this.music?.setTrack(sessionTrack);
         this.music?.startMusic('menu');
       });
 
-      // Music track change — player selects a new mood from the Settings panel
       this.game.events.on('music:set_track', (track: unknown) => {
         this.music?.setTrack(track as MusicTrack);
       });
+    }
+  }
+
+  update(_time: number, _delta: number): void {
+    // Slowly rotate the galaxy container
+    if (this.galaxyContainer) {
+      this.galaxyContainer.rotation += 0.00008;
+    }
+
+    // Animate dust motes
+    if (this.dustGraphics) {
+      this.dustGraphics.clear();
+      const { width, height } = this.scale;
+      for (const mote of this.dustMotes) {
+        mote.x += mote.vx;
+        mote.y += mote.vy;
+
+        // Wrap around screen edges
+        if (mote.x < -5) mote.x = width + 5;
+        if (mote.x > width + 5) mote.x = -5;
+        if (mote.y < -5) mote.y = height + 5;
+        if (mote.y > height + 5) mote.y = -5;
+
+        this.dustGraphics.fillStyle(0x8899cc, mote.alpha);
+        this.dustGraphics.fillCircle(mote.x, mote.y, mote.radius);
+      }
     }
   }
 
@@ -67,7 +97,6 @@ export class MainMenuScene extends Phaser.Scene {
     for (let i = 0; i < STAR_COUNT; i++) {
       const x = Phaser.Math.Between(0, width);
       const y = Phaser.Math.Between(0, height);
-      // Vary star brightness and size for depth effect
       const brightness = Phaser.Math.FloatBetween(0.3, 1.0);
       const size = Phaser.Math.FloatBetween(0.5, 1.5);
       const alpha = Math.floor(brightness * 255);
@@ -76,6 +105,73 @@ export class MainMenuScene extends Phaser.Scene {
       graphics.fillStyle(color, 1);
       graphics.fillCircle(x, y, size);
     }
+  }
+
+  private createGalaxyBackground(width: number, height: number): void {
+    const cx = width / 2;
+    const cy = height * 0.5;
+
+    const galaxyGraphics = this.add.graphics();
+    this.galaxyContainer = this.add.container(cx, cy, [galaxyGraphics]);
+
+    // Draw a soft glowing core
+    for (let r = 40; r >= 2; r -= 4) {
+      const alpha = (40 - r) / 40 * 0.06;
+      galaxyGraphics.fillStyle(0xaaddff, alpha);
+      galaxyGraphics.fillCircle(0, 0, r);
+    }
+
+    // Draw spiral arms
+    for (let arm = 0; arm < GALAXY_ARMS; arm++) {
+      const armOffset = (arm / GALAXY_ARMS) * Math.PI * 2;
+
+      for (let i = 0; i < GALAXY_STAR_COUNT / GALAXY_ARMS; i++) {
+        const t = i / (GALAXY_STAR_COUNT / GALAXY_ARMS);
+        const angle = armOffset + t * Math.PI * 3.5;
+        const radius = t * 160 + Phaser.Math.FloatBetween(-8, 8);
+        const spread = t * 18;
+
+        const sx = Math.cos(angle) * radius + Phaser.Math.FloatBetween(-spread, spread);
+        const sy = Math.sin(angle) * radius * 0.42 + Phaser.Math.FloatBetween(-spread * 0.42, spread * 0.42);
+
+        const brightness = Phaser.Math.FloatBetween(0.15, 0.55);
+        const size = Phaser.Math.FloatBetween(0.4, 1.2);
+
+        // Tint arms with subtle blue-white to warm-gold gradient
+        const warmth = Math.random();
+        let color: number;
+        if (warmth > 0.7) {
+          color = 0xffd080; // warm gold
+        } else if (warmth > 0.4) {
+          color = 0xaaccff; // cool blue
+        } else {
+          color = 0xffffff; // white
+        }
+
+        galaxyGraphics.fillStyle(color, brightness);
+        galaxyGraphics.fillCircle(sx, sy, size);
+      }
+    }
+
+    // Depth: fade the galaxy slightly so the menu text reads well
+    galaxyGraphics.fillStyle(0x05050f, 0.35);
+    galaxyGraphics.fillRect(-width, -height, width * 2, height * 2);
+  }
+
+  private createDustMotes(width: number, height: number): void {
+    this.dustMotes = [];
+    for (let i = 0; i < DUST_MOTE_COUNT; i++) {
+      this.dustMotes.push({
+        x: Phaser.Math.FloatBetween(0, width),
+        y: Phaser.Math.FloatBetween(0, height),
+        vx: Phaser.Math.FloatBetween(-0.08, 0.08),
+        vy: Phaser.Math.FloatBetween(-0.04, 0.04),
+        alpha: Phaser.Math.FloatBetween(0.04, 0.18),
+        radius: Phaser.Math.FloatBetween(0.8, 2.2),
+      });
+    }
+
+    this.dustGraphics = this.add.graphics();
   }
 
   private createTitle(width: number, height: number): void {
@@ -109,43 +205,156 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private createMenuButtons(width: number, height: number): void {
-    const buttonStyle = {
+    const buttonStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#aabbcc',
     };
 
-    const hoverStyle = {
+    const hoverStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
+      shadow: {
+        offsetX: 0,
+        offsetY: 0,
+        color: '#00d4ff',
+        blur: 14,
+        fill: true,
+      },
     };
 
-    const newGameButton = this.add
-      .text(width / 2, height * 0.58, 'New Game', buttonStyle)
+    const buttons: Array<{ label: string; yFrac: number; action: () => void }> = [
+      {
+        label: 'New Game',
+        yFrac: 0.55,
+        action: () => {
+          console.log('[MainMenuScene] New Game clicked – opening species creator');
+          this.sfx?.playClick();
+          this.game.events.emit('ui:new_game');
+        },
+      },
+      {
+        label: 'Multiplayer',
+        yFrac: 0.63,
+        action: () => {
+          this.sfx?.playClick();
+          this.game.events.emit('ui:multiplayer');
+        },
+      },
+      {
+        label: 'Settings',
+        yFrac: 0.71,
+        action: () => {
+          this.sfx?.playClick();
+          this.game.events.emit('ui:settings');
+        },
+      },
+      {
+        label: 'Credits',
+        yFrac: 0.79,
+        action: () => {
+          this.sfx?.playClick();
+          this.showCreditsOverlay(width, height);
+        },
+      },
+    ];
+
+    for (const btn of buttons) {
+      const text = this.add
+        .text(width / 2, height * btn.yFrac, btn.label, buttonStyle)
+        .setOrigin(0.5, 0.5)
+        .setInteractive({ useHandCursor: true });
+
+      this.applyButtonHover(text, buttonStyle, hoverStyle);
+      text.on('pointerdown', btn.action);
+    }
+  }
+
+  private showCreditsOverlay(width: number, height: number): void {
+    if (this.creditsOverlay) {
+      this.creditsOverlay.destroy();
+      this.creditsOverlay = null;
+      return;
+    }
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x030308, 0.88);
+    bg.fillRoundedRect(-280, -200, 560, 400, 8);
+    bg.lineStyle(1, 0x00d4ff, 0.3);
+    bg.strokeRoundedRect(-280, -200, 560, 400, 8);
+
+    const title = this.add
+      .text(0, -165, 'CREDITS', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#00d4ff',
+        letterSpacing: 6,
+      })
+      .setOrigin(0.5, 0.5);
+
+    const lines = [
+      'Ex Nihilo — A Modern Tribute',
+      'to Pax Imperia: Eminent Domain (1997)',
+      '',
+      'Design & Engineering',
+      'The Ex Nihilo Team',
+      '',
+      'Original Game by',
+      'Changeling Software',
+      '',
+      'Built with Phaser 3, React, TypeScript',
+    ];
+
+    const creditTexts: Phaser.GameObjects.Text[] = lines.map((line, i) => {
+      const isHeading = i === 0 || line === 'Design & Engineering' || line === 'Original Game by' || line === 'Built with Phaser 3, React, TypeScript';
+      return this.add
+        .text(0, -120 + i * 26, line, {
+          fontFamily: 'monospace',
+          fontSize: isHeading ? '13px' : '11px',
+          color: isHeading ? '#d0e8ff' : '#6688aa',
+        })
+        .setOrigin(0.5, 0.5);
+    });
+
+    const closeBtn = this.add
+      .text(0, 170, '[ Close ]', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#6688aa',
+      })
       .setOrigin(0.5, 0.5)
       .setInteractive({ useHandCursor: true });
 
-    const settingsButton = this.add
-      .text(width / 2, height * 0.68, 'Settings', buttonStyle)
-      .setOrigin(0.5, 0.5)
-      .setInteractive({ useHandCursor: true });
-
-    this.applyButtonHover(newGameButton, buttonStyle, hoverStyle);
-    this.applyButtonHover(settingsButton, buttonStyle, hoverStyle);
-
-    newGameButton.on('pointerdown', () => {
-      console.log('[MainMenuScene] New Game clicked – opening species creator');
+    closeBtn.on('pointerover', () => closeBtn.setColor('#ffffff'));
+    closeBtn.on('pointerout', () => closeBtn.setColor('#6688aa'));
+    closeBtn.on('pointerdown', () => {
       this.sfx?.playClick();
-      // Emit to React UI so the species creator screen is shown.
-      // React will emit 'game:start' back with the created species when ready.
-      this.game.events.emit('ui:new_game');
+      if (this.creditsOverlay) {
+        this.creditsOverlay.destroy();
+        this.creditsOverlay = null;
+      }
     });
 
-    settingsButton.on('pointerdown', () => {
-      this.sfx?.playClick();
-      this.game.events.emit('ui:settings');
-    });
+    this.creditsOverlay = this.add.container(width / 2, height / 2, [
+      bg,
+      title,
+      ...creditTexts,
+      closeBtn,
+    ]);
+
+    // Bring credits overlay to top
+    this.creditsOverlay.setDepth(100);
+  }
+
+  private createVersionLabel(width: number, height: number): void {
+    this.add
+      .text(width - 12, height - 10, VERSION, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#445566',
+      })
+      .setOrigin(1, 1);
   }
 
   private applyButtonHover(
@@ -155,8 +364,24 @@ export class MainMenuScene extends Phaser.Scene {
   ): void {
     button.on('pointerover', () => {
       button.setStyle(hover);
+      this.tweens.add({
+        targets: button,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        duration: 120,
+        ease: 'Sine.easeOut',
+      });
       this.sfx?.playHover();
     });
-    button.on('pointerout', () => button.setStyle(normal));
+    button.on('pointerout', () => {
+      button.setStyle(normal);
+      this.tweens.add({
+        targets: button,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 100,
+        ease: 'Sine.easeIn',
+      });
+    });
   }
 }

@@ -62,6 +62,7 @@ import {
   tickMigrations,
 } from './migration.js';
 import type { MigrationOrder } from './migration.js';
+import { getSaveManager } from './SaveManager.js';
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
 
@@ -231,6 +232,13 @@ export class GameEngine {
     }
     // Broadcast updated migration list so React stays in sync
     this.game.events.emit('engine:migrations_updated', getMigrationOrders());
+
+    // ── Auto-save (every 100 ticks) ─────────────────────────────────────────
+    try {
+      getSaveManager().autoSave(this.tickState);
+    } catch {
+      // Auto-save failures are non-fatal; silently swallow.
+    }
 
     // ── Game-over check ──────────────────────────────────────────────────────
     if (this.tickState.gameState.status === 'finished') {
@@ -818,6 +826,44 @@ export class GameEngine {
   /** Return the current tick state snapshot. */
   getState(): GameTickState {
     return this.tickState;
+  }
+
+  /**
+   * Replace the entire tick state with `newState`.
+   *
+   * Used by the save/load system to restore a previously saved game.  The
+   * engine is paused after loading so the player can orient themselves before
+   * resuming.
+   *
+   * Emits 'engine:state_loaded' with the new GameState so Phaser scenes and
+   * React components can refresh their caches.
+   */
+  loadState(newState: GameTickState): void {
+    this._clearInterval();
+    this.running = false;
+    this.tickState = {
+      ...newState,
+      gameState: { ...newState.gameState, status: 'paused', speed: 'paused' },
+    };
+    this.game.events.emit('engine:state_loaded', this.tickState.gameState);
+    this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
+    this.game.events.emit('engine:tick', { tick: this.tickState.gameState.currentTick });
+    // Push fresh resource data so the TopBar updates immediately
+    const resourceUpdates = this.tickState.gameState.empires.map(e => {
+      const full = this.tickState.empireResourcesMap.get(e.id);
+      return {
+        empireId: e.id,
+        credits: full?.credits ?? e.credits,
+        minerals: full?.minerals ?? 0,
+        energy: full?.energy ?? 0,
+        organics: full?.organics ?? 0,
+        rareElements: full?.rareElements ?? 0,
+        exoticMaterials: full?.exoticMaterials ?? 0,
+        faith: full?.faith ?? 0,
+        researchPoints: full?.researchPoints ?? e.researchPoints,
+      };
+    });
+    this.game.events.emit('engine:resources_updated', resourceUpdates);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
