@@ -185,6 +185,7 @@ export function createStartingFleet(
     cruiser: 120,
     carrier: 200,
     battleship: 300,
+    coloniser: 60,
   };
 
   const ships: Ship[] = shipDefs.map(def => {

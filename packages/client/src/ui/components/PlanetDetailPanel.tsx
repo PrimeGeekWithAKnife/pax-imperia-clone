@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import type { Planet, Empire } from '@nova-imperia/shared';
+import type { Planet, Empire, Ship } from '@nova-imperia/shared';
 import { calculateHabitability, canColonize } from '@nova-imperia/shared';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -181,6 +181,15 @@ interface PlanetDetailPanelProps {
   sourcePlanetName?: string | null;
   /** Whether the player owns at least one planet in this system (required for in-system colonisation). */
   playerOwnsInSystem?: boolean;
+  /**
+   * A coloniser ship belonging to the player that is currently in this system,
+   * ready to establish an inter-system colony.  When provided, a
+   * "Colonise with Colony Ship" button is shown for unowned planets that meet
+   * the habitability threshold.
+   */
+  coloniserShipInSystem?: Ship | null;
+  /** Called when the player clicks "Colonise with Colony Ship". */
+  onColoniseWithShip?: (shipId: string) => void;
 }
 
 // ── PlanetDetailPanel ─────────────────────────────────────────────────────────
@@ -196,6 +205,8 @@ export function PlanetDetailPanel({
   estimatedWaves = 17,
   sourcePlanetName,
   playerOwnsInSystem = false,
+  coloniserShipInSystem = null,
+  onColoniseWithShip,
 }: PlanetDetailPanelProps): React.ReactElement | null {
   const visible = planet !== null;
 
@@ -259,6 +270,24 @@ export function PlanetDetailPanel({
       | undefined;
     game?.events.emit('planet:manage', { planet, systemId: systemId ?? '' });
   }, [planet, systemId]);
+
+  const handleColoniseWithShip = useCallback(() => {
+    if (!coloniserShipInSystem || !planet || !playerEmpire) return;
+    if (onColoniseWithShip) {
+      onColoniseWithShip(coloniserShipInSystem.id);
+      return;
+    }
+    // Fallback: emit directly to Phaser when no callback is provided.
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+      | { events: { emit: (e: string, d: unknown) => void } }
+      | undefined;
+    game?.events.emit('colony:colonise_with_ship', {
+      systemId: systemId ?? '',
+      targetPlanetId: planet.id,
+      empireId: playerEmpire.id,
+      shipId: coloniserShipInSystem.id,
+    });
+  }, [coloniserShipInSystem, planet, playerEmpire, systemId, onColoniseWithShip]);
 
   // ── Enemy empire lookup ────────────────────────────────────────────────────
 
@@ -492,6 +521,49 @@ export function PlanetDetailPanel({
                   No empire data available.
                 </div>
               )}
+            </>
+          )}
+
+          {/* Unowned planet — coloniser ship present in this system */}
+          {ownership === 'unowned' && !activeMigration && coloniserShipInSystem && (
+            <>
+              <div className="panel-divider" />
+              <div className="panel-section-label">COLONY SHIP</div>
+
+              <div className="panel-row">
+                <span className="panel-label">Ship</span>
+                <span className="panel-value">{coloniserShipInSystem.name}</span>
+              </div>
+
+              {habitabilityReport && (
+                <div className="panel-row panel-row--column">
+                  <span className="panel-label">Habitability</span>
+                  <HabitabilityBar score={habitabilityReport.score} />
+                </div>
+              )}
+
+              <div className="panel-row">
+                <span className="panel-label">Founding population</span>
+                <span className="panel-value">500</span>
+              </div>
+
+              {habitabilityReport && habitabilityReport.score < 10 && (
+                <div className="colonise-reason">
+                  Habitability too low to establish a colony (minimum 10).
+                </div>
+              )}
+
+              <div className="colonise-action">
+                <button
+                  className={`colonise-btn colonise-btn--ship${habitabilityReport && habitabilityReport.score < 10 ? ' colonise-btn--disabled' : ''}`}
+                  onClick={habitabilityReport && habitabilityReport.score >= 10 ? handleColoniseWithShip : undefined}
+                  disabled={!!(habitabilityReport && habitabilityReport.score < 10)}
+                  aria-disabled={!!(habitabilityReport && habitabilityReport.score < 10)}
+                  title="Consume this colony ship to immediately establish a new colony with 500 colonists"
+                >
+                  Colonise with Colony Ship
+                </button>
+              </div>
             </>
           )}
 

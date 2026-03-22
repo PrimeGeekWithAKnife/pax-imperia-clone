@@ -1072,6 +1072,139 @@ function drawBattleship(
   drawEngineGlow(ctx, 0.72, 0.81, 0.042);
 }
 
+// ── Coloniser ─────────────────────────────────────────────────────────────────
+
+/**
+ * Coloniser (Colony Ship): a large oval/egg-shaped civilian vessel built to
+ * transport an entire founding population to a new world.  The silhouette is
+ * intentionally soft and rounded — the antithesis of angular warship design.
+ *
+ * - Large bulbous habitat/cargo section dominates the mid-section.
+ * - Dome-like forward observation/bridge section at the fore.
+ * - Compact engine bell at the aft.
+ * - Colour: warm amber/gold accent panels rather than military blue, signalling
+ *   its non-combat purpose at a glance.
+ */
+function drawColoniser(
+  ctx: CanvasRenderingContext2D,
+  accentColour: string,
+  detailed: boolean,
+): void {
+  // Use a warm amber gold as the accent override for colony ships so they
+  // stand out from warships regardless of empire colour.
+  const colonyAccent = '#d4a030';
+
+  // ── Main habitat hull — tall oval egg shape ──
+  ctx.beginPath();
+  ctx.ellipse(0.50, 0.48, 0.28, 0.38, 0, 0, Math.PI * 2);
+  // Gradient fill: warm amber tint on the hull base
+  const grad = ctx.createLinearGradient(0.22, 0.10, 0.78, 0.86);
+  grad.addColorStop(0,   '#5a5040');
+  grad.addColorStop(0.4, '#4a4438');
+  grad.addColorStop(1,   '#2e2a22');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.70)';
+  ctx.lineWidth = 0.020;
+  ctx.stroke();
+
+  // ── Dome observation section — forward hemisphere ──
+  ctx.beginPath();
+  ctx.ellipse(0.50, 0.15, 0.18, 0.14, 0, Math.PI, Math.PI * 2);
+  ctx.closePath();
+  const domeGrad = ctx.createRadialGradient(0.44, 0.10, 0.02, 0.50, 0.15, 0.18);
+  domeGrad.addColorStop(0,   'rgba(255,240,180,0.85)');
+  domeGrad.addColorStop(0.5, 'rgba(200,160,60,0.65)');
+  domeGrad.addColorStop(1,   'rgba(100,80,20,0.25)');
+  ctx.fillStyle = domeGrad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.60)';
+  ctx.lineWidth = 0.015;
+  ctx.stroke();
+
+  // ── Aft engine section — small flared nozzle housing ──
+  ctx.beginPath();
+  ctx.moveTo(0.38, 0.78);
+  ctx.lineTo(0.34, 0.84);
+  ctx.bezierCurveTo(0.36, 0.90, 0.64, 0.90, 0.66, 0.84);
+  ctx.lineTo(0.62, 0.78);
+  ctx.closePath();
+  ctx.fillStyle = '#302c26';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+  ctx.lineWidth = 0.014;
+  ctx.stroke();
+
+  if (detailed) {
+    // Horizontal banding stripes — warm gold accent belts
+    accentPanel(ctx, [
+      [0.23, 0.38], [0.77, 0.38],
+      [0.77, 0.43], [0.23, 0.43],
+    ], colonyAccent, 0.70);
+
+    accentPanel(ctx, [
+      [0.24, 0.56], [0.76, 0.56],
+      [0.76, 0.60], [0.24, 0.60],
+    ], colonyAccent, 0.60);
+
+    // Dome rim accent ring
+    accentPanel(ctx, [
+      [0.33, 0.14], [0.67, 0.14],
+      [0.68, 0.17], [0.32, 0.17],
+    ], colonyAccent, 0.80);
+
+    // Hull seam lines — horizontal bands across the oval
+    panelLine(ctx, [[0.24, 0.28], [0.76, 0.28]]);
+    panelLine(ctx, [[0.22, 0.48], [0.78, 0.48]]);
+    panelLine(ctx, [[0.23, 0.68], [0.77, 0.68]]);
+
+    // Vertical spine
+    panelLine(ctx, [[0.50, 0.18], [0.50, 0.76]]);
+
+    // Port/starboard panel divisions
+    panelLine(ctx, [[0.36, 0.20], [0.30, 0.62]]);
+    panelLine(ctx, [[0.64, 0.20], [0.70, 0.62]]);
+
+    // Specular highlight along the dome top
+    specularLine(ctx, [[0.36, 0.08], [0.64, 0.08]]);
+    // Specular across the widest section
+    specularLine(ctx, [[0.22, 0.44], [0.78, 0.44]], 0.28);
+
+    // Porthole windows — two rows of three
+    drawWindowStrip(ctx, 0.50, 0.32, 0.22, 3, 0.016);
+    drawWindowStrip(ctx, 0.50, 0.52, 0.22, 3, 0.016);
+
+    // Sensor dish on dome crown
+    drawSensorDish(ctx, 0.50, 0.07, 0.030, true);
+
+    // Greeble details — docking clamps and utility modules
+    drawGreeble(ctx, 0.23, 0.43, 0.040, 0.016);
+    drawGreeble(ctx, 0.73, 0.43, 0.040, 0.016);
+    drawGreeble(ctx, 0.23, 0.61, 0.036, 0.014);
+    drawGreeble(ctx, 0.73, 0.61, 0.036, 0.014);
+  }
+
+  // Dome cockpit — warm glowing interior light
+  const cockpitGrad = ctx.createRadialGradient(0.46, 0.11, 0, 0.50, 0.15, 0.072);
+  cockpitGrad.addColorStop(0,   'rgba(255,240,160,1.0)');
+  cockpitGrad.addColorStop(0.4, 'rgba(220,180,60,0.80)');
+  cockpitGrad.addColorStop(1,   'rgba(120,80,10,0.10)');
+  ctx.beginPath();
+  ctx.arc(0.50, 0.15, 0.072, 0, Math.PI * 2);
+  ctx.fillStyle = cockpitGrad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,220,100,0.55)';
+  ctx.lineWidth = 0.004;
+  ctx.stroke();
+
+  // Running lights — amber/gold instead of the standard red/green
+  runningLight(ctx, 0.77, 0.46, 0.011, 'green');
+  runningLight(ctx, 0.23, 0.46, 0.011, 'red');
+
+  // Single wide engine glow — colony ships have a single efficient drive
+  drawEngineGlow(ctx, 0.50, 0.87, 0.052);
+}
+
 // ── Dispatch table ─────────────────────────────────────────────────────────────
 
 const HULL_DRAW_FNS: Record<HullClass, DrawFn> = {
@@ -1081,6 +1214,7 @@ const HULL_DRAW_FNS: Record<HullClass, DrawFn> = {
   cruiser:    drawCruiser,
   carrier:    drawCarrier,
   battleship: drawBattleship,
+  coloniser:  drawColoniser,
 };
 
 // ── Core render function ───────────────────────────────────────────────────────

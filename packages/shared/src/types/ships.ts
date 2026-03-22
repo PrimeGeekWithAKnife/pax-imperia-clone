@@ -6,7 +6,8 @@ export type HullClass =
   | 'transport'
   | 'cruiser'
   | 'carrier'
-  | 'battleship';
+  | 'battleship'
+  | 'coloniser';
 
 export interface HullTemplate {
   class: HullClass;

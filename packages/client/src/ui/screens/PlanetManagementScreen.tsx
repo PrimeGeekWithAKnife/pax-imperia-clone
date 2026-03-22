@@ -285,6 +285,7 @@ const HULL_CLASS_LABELS: Record<HullClass, string> = {
   cruiser: 'Cruiser',
   carrier: 'Carrier',
   battleship: 'Battleship',
+  coloniser: 'Colony Ship',
 };
 
 const HULL_CLASS_ICONS: Record<HullClass, string> = {
@@ -294,6 +295,7 @@ const HULL_CLASS_ICONS: Record<HullClass, string> = {
   cruiser:    '🚀',
   carrier:    '🛩️',
   battleship: '💥',
+  coloniser:  '🌍',
 };
 
 function getShipBuildTime(design: ShipDesign): number {

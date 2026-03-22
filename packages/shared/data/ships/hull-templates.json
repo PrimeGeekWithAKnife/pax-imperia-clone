@@ -295,6 +295,41 @@
     "requiredAge": "anti_matter"
   },
   {
+    "class": "coloniser",
+    "name": "Colony Ship",
+    "baseHullPoints": 60,
+    "maxSlots": 3,
+    "slotLayout": [
+      {
+        "id": "col_engine",
+        "x": 0.5,
+        "y": 0.8,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": ["engine", "warp_drive"]
+      },
+      {
+        "id": "col_cargo",
+        "x": 0.5,
+        "y": 0.4,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": ["special"]
+      },
+      {
+        "id": "col_sensor",
+        "x": 0.5,
+        "y": 0.1,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": ["sensor"]
+      }
+    ],
+    "baseCost": 300,
+    "baseSpeed": 3,
+    "requiredAge": "nano_atomic"
+  },
+  {
     "class": "battleship",
     "name": "Battleship",
     "baseHullPoints": 400,

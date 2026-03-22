@@ -33,6 +33,7 @@ const HULL_CLASS_ICON: Record<HullClass, string> = {
   cruiser:    '==>',
   carrier:    '[##]',
   battleship: '###>',
+  coloniser:  '(O)>',
 };
 
 // Human-readable age names for locked hull display

@@ -6,6 +6,9 @@ import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../
 import type { MusicTrack } from '../../audio';
 import { getGameEngine } from '../../engine/GameEngine';
 import type { MigrationOrder } from '../../engine/migration';
+import type { GameTickState } from '@nova-imperia/shared';
+import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
+import type { HullClass } from '@nova-imperia/shared';
 
 // ── Planet label data (kept local — not part of shared types) ─────────────────
 
@@ -29,6 +32,17 @@ const ORBIT_STEP = 55;          // px between successive orbits
 const ASTEROID_BELT_INNER_INDEX = 2;
 const ASTEROID_BELT_OUTER_INDEX = 3;
 
+// ── Zoom / pan constants ──────────────────────────────────────────────────────
+
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3.0;
+const ZOOM_DEFAULT = 1.0;
+const ZOOM_FACTOR = 0.1;   // zoom step per wheel tick
+const ZOOM_LERP = 0.12;    // fraction lerped per frame
+
+/** Below this zoom level individual ship sprites are replaced by a fleet badge. */
+const FLEET_BADGE_ZOOM_THRESHOLD = 0.8;
+
 // ── SystemViewScene ────────────────────────────────────────────────────────────
 
 interface OrbitEntry {
@@ -44,10 +58,10 @@ interface OrbitEntry {
 
 /**
  * A single animated colony ship travelling from source to target planet.
- * Ships travel along a quadratic bezier arc.
+ * Micro-sized amber/gold dot with a tiny trail, part of a loose swarm.
  */
 interface ColonyShip {
-  /** Graphics object representing the tiny triangular ship + glow trail. */
+  /** Graphics object representing the tiny dot + glow trail. */
   gfx: Phaser.GameObjects.Graphics;
   /** Progress along the path, 0 (source) → 1 (target). */
   t: number;
@@ -64,9 +78,11 @@ interface ColonyShip {
   ty: number;
   /** Alpha of this ship (fades in/out at ends of journey). */
   alpha: number;
+  /** Perpendicular swarm wobble offset (constant per ship). */
+  swarmOffset: number;
 }
 
-/** One active wave animation — may contain 2–3 ships. */
+/** One active wave animation — may contain 8–12 ships. */
 interface MigrationAnimation {
   migrationId: string;
   sourcePlanetId: string;
@@ -78,7 +94,19 @@ export class SystemViewScene extends Phaser.Scene {
   private system!: StarSystem;
   private orbitEntries: OrbitEntry[] = [];
 
-  // UI
+  // ── World container (zoomed + panned) ─────────────────────────────────────
+  private worldContainer!: Phaser.GameObjects.Container;
+
+  // ── Zoom / pan state ──────────────────────────────────────────────────────
+  private currentZoom = ZOOM_DEFAULT;
+  private targetZoom = ZOOM_DEFAULT;
+  private cameraOffset = { x: 0, y: 0 };
+  private isDragging = false;
+  private dragStart = { x: 0, y: 0 };
+  /** Last pointer position used to compute zoom-toward-cursor. */
+  private lastPointerPos = { x: 0, y: 0 };
+
+  // UI (screen-space — not inside worldContainer)
   private tooltipBg!: Phaser.GameObjects.Rectangle;
   private tooltipText!: Phaser.GameObjects.Text;
 
@@ -104,45 +132,54 @@ export class SystemViewScene extends Phaser.Scene {
     }
     this.system = data.system;
     this.orbitEntries = [];
+    this.currentZoom = ZOOM_DEFAULT;
+    this.targetZoom = ZOOM_DEFAULT;
+    this.isDragging = false;
 
     const { width, height } = this.scale;
-    const cx = width / 2;
-    const cy = height / 2;
 
-    // Background
+    // ── Fixed background (screen-space) ───────────────────────────────────
     this.add.rectangle(0, 0, width, height, 0x05050f).setOrigin(0, 0);
-
-    // Starfield backdrop
     this.createStarfield(width, height);
 
-    // System title
+    // ── HUD labels (screen-space) ─────────────────────────────────────────
+    const cx = width / 2;
     this.add.text(cx, 28, this.system.name, {
       fontFamily: 'monospace',
       fontSize: '24px',
       color: '#d4af6a',
-    }).setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5).setDepth(300);
 
     this.add.text(cx, 56, this.system.starType.replace('_', ' ').toUpperCase(), {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#7799bb',
       letterSpacing: 3,
-    }).setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5).setDepth(300);
 
-    // Star at center (procedural)
+    // ── World container — everything in here is zoomed + panned ──────────
+    this.worldContainer = this.add.container(0, 0);
+    this.cameraOffset = { x: width / 2, y: height / 2 };
+    this._applyWorldTransform();
+
+    // Star at center (procedural) — world-space origin (0, 0 in worldContainer)
     const starRenderer = new StarRenderer(this);
-    starRenderer.render(this.system.starType, cx, cy);
+    const starResult = starRenderer.render(this.system.starType, 0, 0);
+    this.worldContainer.add(starResult.objects);
 
     // Orbits + planets + asteroid belt
-    this.createOrbits(cx, cy);
+    this.createOrbits();
 
-    // Tooltip
+    // Tooltip (screen-space)
     this.createTooltip();
 
-    // Back button
+    // Back button (screen-space)
     this.createBackButton();
 
-    // ── Audio ──────────────────────────────────────────────────────────────────
+    // ── Input ─────────────────────────────────────────────────────────────
+    this._setupInput();
+
+    // ── Audio ──────────────────────────────────────────────────────────────
     const audioEngine = getAudioEngine();
     if (audioEngine) {
       audioEngine.resume();
@@ -165,20 +202,14 @@ export class SystemViewScene extends Phaser.Scene {
       this.ambient.startSystemAmbient(this.system.starType);
     }
 
-    // ── Colonise action listener ───────────────────────────────────────────────
-    // React emits 'colony:colonise' on the Phaser game events when the player
-    // clicks the Colonise button in PlanetDetailPanel.
+    // ── Colonise action listener ───────────────────────────────────────────
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
 
-    // ── Migration action listeners ─────────────────────────────────────────────
-    // React emits 'colony:start_migration' when the player clicks Colonise on an
-    // unowned planet (now the migration-first flow).
+    // ── Migration action listeners ─────────────────────────────────────────
     this.game.events.on('colony:start_migration', this.handleStartMigrationAction, this);
-
-    // Engine emits 'engine:migration_wave' each time a wave departs.
     this.game.events.on('engine:migration_wave', this.handleMigrationWave, this);
 
-    // ── Game event SFX listeners ───────────────────────────────────────────────
+    // ── Game event SFX listeners ───────────────────────────────────────────
     this.game.events.on('engine:migration_started', this._handleMigrationStartedSfx, this);
     this.game.events.on('engine:migration_completed', this._handleMigrationCompletedSfx, this);
     this.game.events.on('engine:ship_produced', this._handleShipProducedSfx, this);
@@ -194,13 +225,12 @@ export class SystemViewScene extends Phaser.Scene {
     // Refresh ship indicators on each engine tick so newly built ships appear
     this.game.events.on('engine:tick', this._handleEngineTick, this);
 
-    // Music track change — player selects a new mood from the Settings panel
+    // Music track change
     this.game.events.on('music:set_track', (track: unknown) => {
       this.music?.setTrack(track as MusicTrack);
     });
 
-    // Notify React which system is currently being viewed so PlanetDetailPanel
-    // receives a valid systemId even when the galaxy-map selectedSystem is null.
+    // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
     // Clean up listeners and notify React when the scene shuts down
@@ -216,24 +246,100 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
-      for (const [, container] of this.shipIndicators) {
-        container.destroy();
+      for (const [, sprites] of this.shipSprites) {
+        for (const s of sprites) s.destroy();
       }
-      this.shipIndicators.clear();
+      this.shipSprites.clear();
+      for (const [, badge] of this.fleetBadges) {
+        badge.destroy();
+      }
+      this.fleetBadges.clear();
       this.game.events.emit('system:exited');
     });
   }
 
   update(_time: number, delta: number): void {
+    // Advance planet orbits — positions are in world-space (worldContainer)
     for (const entry of this.orbitEntries) {
       entry.angle += entry.speed * delta;
-      const cx = this.scale.width / 2 + Math.cos(entry.angle) * entry.orbitRadius;
-      const cy = this.scale.height / 2 + Math.sin(entry.angle) * entry.orbitRadius;
-      entry.container.setPosition(cx, cy);
+      const px = Math.cos(entry.angle) * entry.orbitRadius;
+      const py = Math.sin(entry.angle) * entry.orbitRadius;
+      entry.container.setPosition(px, py);
     }
 
     // Update colony ship animations
     this._updateMigrationAnimations(delta);
+
+    // Smooth zoom lerp
+    this._updateZoomLerp();
+  }
+
+  // ── Zoom / pan ────────────────────────────────────────────────────────────────
+
+  private _setupInput(): void {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.isDragging = true;
+        this.dragStart.x = pointer.x - this.cameraOffset.x;
+        this.dragStart.y = pointer.y - this.cameraOffset.y;
+      }
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.lastPointerPos.x = pointer.x;
+      this.lastPointerPos.y = pointer.y;
+      if (this.isDragging && pointer.isDown) {
+        this.cameraOffset.x = pointer.x - this.dragStart.x;
+        this.cameraOffset.y = pointer.y - this.dragStart.y;
+        this._applyWorldTransform();
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      this.isDragging = false;
+    });
+
+    this.input.on('wheel', (
+      pointer: Phaser.Input.Pointer,
+      _gameObjects: Phaser.GameObjects.GameObject[],
+      _deltaX: number,
+      deltaY: number,
+    ) => {
+      const prevTarget = this.targetZoom;
+      const zoomDelta = deltaY > 0 ? -ZOOM_FACTOR : ZOOM_FACTOR;
+      this.targetZoom = Phaser.Math.Clamp(this.targetZoom + zoomDelta, MIN_ZOOM, MAX_ZOOM);
+
+      // Zoom toward/away from the pointer position
+      // We want pointer world-pos to stay fixed as zoom changes.
+      // new_offset = pointer - (pointer - old_offset) * (newZoom / oldZoom)
+      const ratio = this.targetZoom / prevTarget;
+      this.cameraOffset.x = pointer.x + (this.cameraOffset.x - pointer.x) * ratio;
+      this.cameraOffset.y = pointer.y + (this.cameraOffset.y - pointer.y) * ratio;
+    });
+  }
+
+  private _applyWorldTransform(): void {
+    this.worldContainer.setPosition(this.cameraOffset.x, this.cameraOffset.y);
+    this.worldContainer.setScale(this.currentZoom);
+  }
+
+  private _updateZoomLerp(): void {
+    if (Math.abs(this.currentZoom - this.targetZoom) < 0.001) return;
+
+    const prevZoom = this.currentZoom;
+    this.currentZoom = Phaser.Math.Linear(this.currentZoom, this.targetZoom, ZOOM_LERP);
+
+    // Keep the world position anchored to the last pointer position during lerp
+    const ratio = this.currentZoom / prevZoom;
+    const px = this.lastPointerPos.x;
+    const py = this.lastPointerPos.y;
+    this.cameraOffset.x = px + (this.cameraOffset.x - px) * ratio;
+    this.cameraOffset.y = py + (this.cameraOffset.y - py) * ratio;
+
+    this._applyWorldTransform();
+
+    // Switch between individual sprites and fleet badges based on zoom level
+    this._updateFleetBadgeVisibility();
   }
 
   // ── Colonise action ───────────────────────────────────────────────────────────
@@ -245,7 +351,6 @@ export class SystemViewScene extends Phaser.Scene {
       empireId: string;
     };
 
-    // Only handle events for this scene's system
     if (systemId !== this.system?.id) return;
 
     const engine = getGameEngine();
@@ -274,7 +379,6 @@ export class SystemViewScene extends Phaser.Scene {
       return;
     }
 
-    // Find a suitable source planet (first owned planet in this system)
     const ownedPlanet = this.system.planets.find(p => p.ownerId !== null);
     if (!ownedPlanet) {
       console.warn('[SystemViewScene] No owned planet in system to source migrants from');
@@ -288,15 +392,13 @@ export class SystemViewScene extends Phaser.Scene {
     const { migration } = payload as { migration: MigrationOrder };
     if (migration.systemId !== this.system?.id) return;
     this._spawnWaveAnimation(migration);
-    // Play soft departure sound for each departing wave
     this.sfx?.playMigrationWave();
   };
 
   // ── Colony ship animations ────────────────────────────────────────────────────
 
   /**
-   * Get the current world position of a planet by its ID.
-   * Returns null if the planet's orbit entry is not found.
+   * Get the current world position of a planet by its ID (relative to worldContainer origin).
    */
   private _getPlanetWorldPos(planetId: string): { x: number; y: number } | null {
     const entry = this.orbitEntries.find(e => e.planet.id === planetId);
@@ -305,41 +407,37 @@ export class SystemViewScene extends Phaser.Scene {
   }
 
   /**
-   * Spawn 2–3 staggered colony ships along the arc from source to target.
+   * Spawn 8–12 staggered micro colony ships along the arc from source to target.
+   * Ships are amber/gold coloured micro-dots that travel in a loose swarm.
    */
   private _spawnWaveAnimation(migration: MigrationOrder): void {
     const sourcePos = this._getPlanetWorldPos(migration.sourcePlanetId);
     const targetPos = this._getPlanetWorldPos(migration.targetPlanetId);
     if (!sourcePos || !targetPos) return;
 
-    // Perpendicular offset for the bezier control point — creates a gentle arc
-    const midX = (sourcePos.x + targetPos.x) / 2;
-    const midY = (sourcePos.y + targetPos.y) / 2;
-    const dx = targetPos.x - sourcePos.x;
-    const dy = targetPos.y - sourcePos.y;
-    const perpX = -dy * 0.3;
-    const perpY = dx * 0.3;
-
     const ships: ColonyShip[] = [];
-    const SHIP_COUNT = 3;
+    const SHIP_COUNT = Phaser.Math.Between(8, 12);
     for (let i = 0; i < SHIP_COUNT; i++) {
       const gfx = this.add.graphics();
       gfx.setDepth(150);
+      // Add to worldContainer so they scale with the world
+      this.worldContainer.add(gfx);
+
       ships.push({
         gfx,
-        t: -(i * 0.25),        // stagger: ships depart at t = 0, -0.25, -0.5
-        speed: 0.00025,         // path fraction per ms (~4 s full transit at 60 fps)
-        cx: midX + perpX,
-        cy: midY + perpY,
+        t: -(i * 0.12),           // stagger: ships depart at different times
+        speed: 0.00020 + Math.random() * 0.00010,  // slight speed variation
+        cx: 0,
+        cy: 0,
         sx: sourcePos.x,
         sy: sourcePos.y,
         tx: targetPos.x,
         ty: targetPos.y,
         alpha: 0,
+        swarmOffset: (Math.random() - 0.5) * 18,  // perpendicular wobble
       });
     }
 
-    // Find existing animation for this migration or create one
     let anim = this.migrationAnimations.find(a => a.migrationId === migration.id);
     if (!anim) {
       anim = {
@@ -354,31 +452,34 @@ export class SystemViewScene extends Phaser.Scene {
   }
 
   /**
-   * Update all colony ship positions, redraw them, and remove ships that have arrived.
+   * Update all colony ship positions and redraw them.
    */
   private _updateMigrationAnimations(delta: number): void {
     for (const anim of this.migrationAnimations) {
       const toRemove: ColonyShip[] = [];
 
-      // Update source/target positions live (planets are orbiting)
       const sourcePos = this._getPlanetWorldPos(anim.sourcePlanetId);
       const targetPos = this._getPlanetWorldPos(anim.targetPlanetId);
 
       for (const ship of anim.ships) {
         ship.t += ship.speed * delta;
 
-        // Update bezier control point if planets moved
         if (sourcePos && targetPos) {
           ship.sx = sourcePos.x;
           ship.sy = sourcePos.y;
           ship.tx = targetPos.x;
           ship.ty = targetPos.y;
+
+          // Compute bezier control point: perpendicular to path with swarm offset
           const midX = (sourcePos.x + targetPos.x) / 2;
           const midY = (sourcePos.y + targetPos.y) / 2;
           const dx = targetPos.x - sourcePos.x;
           const dy = targetPos.y - sourcePos.y;
-          ship.cx = midX - dy * 0.3;
-          ship.cy = midY + dx * 0.3;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const perpX = (-dy / len) * (20 + ship.swarmOffset);
+          const perpY = (dx / len) * (20 + ship.swarmOffset);
+          ship.cx = midX + perpX;
+          ship.cy = midY + perpY;
         }
 
         const tc = Math.max(0, Math.min(1, ship.t));
@@ -411,12 +512,7 @@ export class SystemViewScene extends Phaser.Scene {
         const px = invT * invT * ship.sx + 2 * invT * t * ship.cx + t * t * ship.tx;
         const py = invT * invT * ship.sy + 2 * invT * t * ship.cy + t * t * ship.ty;
 
-        // Direction tangent for ship rotation
-        const dtx = 2 * invT * (ship.cx - ship.sx) + 2 * t * (ship.tx - ship.cx);
-        const dty = 2 * invT * (ship.cy - ship.sy) + 2 * t * (ship.ty - ship.cy);
-        const angle = Math.atan2(dty, dtx);
-
-        this._drawColonyShip(ship.gfx, px, py, angle, ship.alpha);
+        this._drawColonyShip(ship.gfx, px, py, ship.alpha);
       }
 
       for (const dead of toRemove) {
@@ -424,64 +520,45 @@ export class SystemViewScene extends Phaser.Scene {
       }
     }
 
-    // Remove animations with no living ships
     this.migrationAnimations = this.migrationAnimations.filter(a => a.ships.length > 0);
   }
 
   /**
-   * Draw a tiny triangular colony ship with an engine glow trail.
+   * Draw a micro amber/gold colony ship dot with a tiny warm trail.
+   * Much smaller than military ships — 3–4 px dots.
    *
    * @param gfx   Graphics object to draw into (cleared before each draw)
-   * @param x     World X of the ship nose
-   * @param y     World Y of the ship nose
-   * @param angle Heading in radians
+   * @param x     World X position
+   * @param y     World Y position
    * @param alpha Overall opacity 0–1
    */
   private _drawColonyShip(
     gfx: Phaser.GameObjects.Graphics,
     x: number,
     y: number,
-    angle: number,
     alpha: number,
   ): void {
     gfx.clear();
     if (alpha <= 0) return;
 
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
+    // Warm amber trail dots behind
+    gfx.fillStyle(0xcc6600, 0.25 * alpha);
+    gfx.fillCircle(x - 5, y, 1.5);
+    gfx.fillStyle(0xff9900, 0.15 * alpha);
+    gfx.fillCircle(x - 9, y, 1);
 
-    // Helper: rotate a local offset (lx, ly) around the ship's heading
-    const rot = (lx: number, ly: number): [number, number] => [
-      x + cos * lx - sin * ly,
-      y + sin * lx + cos * ly,
-    ];
+    // Main dot — amber/gold
+    gfx.fillStyle(0xffcc44, 0.95 * alpha);
+    gfx.fillCircle(x, y, 2);
 
-    // ── Engine glow trail (behind the ship) ───────────────────────────────
-    const trailLen = 8;
-    gfx.fillStyle(0x00aaff, 0.35 * alpha);
-    gfx.fillCircle(...rot(-trailLen * 0.5, 0), 2);
-    gfx.fillStyle(0x0066cc, 0.18 * alpha);
-    gfx.fillCircle(...rot(-trailLen, 0), 1.5);
-    gfx.fillStyle(0x003399, 0.10 * alpha);
-    gfx.fillCircle(...rot(-trailLen * 1.5, 0), 1);
-
-    // ── Triangular hull ───────────────────────────────────────────────────
-    //  Nose at (4, 0), wings at (-3, ±3)
-    const [nx, ny] = rot(4, 0);
-    const [lx, ly] = rot(-3, 3);
-    const [rx, ry] = rot(-3, -3);
-
-    gfx.fillStyle(0xaaddff, 0.92 * alpha);
-    gfx.fillTriangle(nx, ny, lx, ly, rx, ry);
-
-    // ── Bright engine core dot ────────────────────────────────────────────
-    gfx.fillStyle(0xffffff, 0.85 * alpha);
-    gfx.fillCircle(...rot(-2, 0), 1);
+    // Bright core
+    gfx.fillStyle(0xfff0aa, 0.90 * alpha);
+    gfx.fillCircle(x, y, 1);
   }
 
   /**
    * Spawn animations for any migrations already active in this system when the
-   * scene first loads (handles the case where the player navigates away and back).
+   * scene first loads.
    */
   private _syncMigrationAnimations(): void {
     const engine = getGameEngine();
@@ -509,11 +586,22 @@ export class SystemViewScene extends Phaser.Scene {
 
   // ── Ship rendering ───────────────────────────────────────────────────────────
 
-  /** Ship indicator graphics objects, keyed by ship.id */
-  private shipIndicators: Map<string, Phaser.GameObjects.Container> = new Map();
+  /**
+   * Ship sprite objects keyed by ship.id.
+   * Each entry is a list: [sprite, label] or just [sprite] depending on how it
+   * was created.  We keep a flat array so we can destroy all of them together.
+   */
+  private shipSprites: Map<string, Phaser.GameObjects.GameObject[]> = new Map();
+
+  /**
+   * Fleet badge containers keyed by `fleetId`.
+   * Shown when zoomed out below FLEET_BADGE_ZOOM_THRESHOLD.
+   */
+  private fleetBadges: Map<string, Phaser.GameObjects.Container> = new Map();
 
   /**
    * Render ship indicators for all ships currently positioned in this system.
+   * Uses proper ship silhouette icons from renderShipIcon.
    * Called on create and refreshed each tick.
    */
   private _renderShipIndicators(): void {
@@ -525,115 +613,350 @@ export class SystemViewScene extends Phaser.Scene {
       s => s.position.systemId === this.system.id,
     );
 
-    // Track which ship IDs are still present
     const currentIds = new Set(shipsInSystem.map(s => s.id));
 
     // Remove indicators for ships that are gone
-    for (const [id, container] of this.shipIndicators) {
+    for (const [id, objects] of this.shipSprites) {
       if (!currentIds.has(id)) {
-        container.destroy();
-        this.shipIndicators.delete(id);
+        for (const o of objects) o.destroy();
+        this.shipSprites.delete(id);
       }
     }
 
-    // Add/update indicators for ships in this system
-    // Spread multiple ships so they don't overlap
+    // Build a map of empireId → empire.color for quick lookup
+    const empireColours = new Map<string, string>();
+    for (const empire of state.gameState.empires) {
+      empireColours.set(empire.id, empire.color);
+    }
+
+    // Build a map of fleetId → empireId
+    const fleetEmpire = new Map<string, string>();
+    for (const fleet of state.gameState.fleets) {
+      fleetEmpire.set(fleet.id, fleet.empireId);
+    }
+
+    // Spread multiple ships so they don't overlap — group by orbit slot
     const shipsByOrbit = new Map<number, number>();
 
     for (const ship of shipsInSystem) {
-      if (this.shipIndicators.has(ship.id)) continue; // already shown
+      if (this.shipSprites.has(ship.id)) continue;
 
-      // Position the ship near its planet orbit, or near the star if no orbit
-      let sx = this.scale.width / 2 + 50;
-      let sy = this.scale.height / 2 - 50;
+      // Determine orbit-slot position
       const orbitIdx = ship.position.orbitIndex ?? -1;
-
-      // Count how many ships share this orbit to stagger placement
       const offsetIndex = shipsByOrbit.get(orbitIdx) ?? 0;
       shipsByOrbit.set(orbitIdx, offsetIndex + 1);
+
+      // World-space position (relative to worldContainer origin)
+      let wx = 50;
+      let wy = -50;
 
       if (orbitIdx >= 0) {
         const entry = this.orbitEntries[orbitIdx];
         if (entry) {
-          sx = entry.container.x + 22 + offsetIndex * 24;
-          sy = entry.container.y - 22;
+          wx = entry.container.x + 22 + offsetIndex * 28;
+          wy = entry.container.y - 22;
         }
       } else {
-        sx += offsetIndex * 28;
+        wx += offsetIndex * 28;
       }
 
-      const container = this.add.container(sx, sy);
-      container.setDepth(160);
+      // Look up the ship's hull class from the empire ship designs (if available)
+      const shipDesign = (state.gameState as unknown as { shipDesigns?: { id: string; hull: HullClass; empireId: string }[] })
+        .shipDesigns?.find((d) => d.id === ship.designId);
 
-      // Outer glow ring (larger, semi-transparent)
-      const glow = this.add.graphics();
-      glow.fillStyle(0x00d4ff, 0.12);
-      glow.fillCircle(0, 0, 16);
-      container.add(glow);
+      const hullClass: HullClass = shipDesign?.hull ?? 'scout';
 
-      // Ship triangle icon (larger — 12px tall)
-      const gfx = this.add.graphics();
-      gfx.fillStyle(0x00d4ff, 0.95);
-      gfx.fillTriangle(0, -10, -8, 8, 8, 8);
-      gfx.lineStyle(1.5, 0x00d4ff, 0.6);
-      gfx.strokeCircle(0, 0, 14);
-      container.add(gfx);
+      // Determine empire colour from fleet membership
+      const empireId = ship.fleetId ? (fleetEmpire.get(ship.fleetId) ?? null) : null;
+      const empireColor = empireId ? (empireColours.get(empireId) ?? '#4488cc') : '#4488cc';
 
-      // Ship name label (larger font)
-      const label = this.add.text(18, -8, ship.name, {
+      // Render ship icon at 28px (displayed at ~24–28px at 1x zoom due to world scale)
+      const iconSize = 28;
+      const dataUrl = renderShipIcon(hullClass, iconSize, empireColor);
+
+      const objects: Phaser.GameObjects.GameObject[] = [];
+
+      if (dataUrl) {
+        // Convert data URL to Phaser texture if not already registered
+        const textureKey = `ship_icon_${hullClass}_${empireColor.replace('#', '')}`;
+        if (!this.textures.exists(textureKey)) {
+          this.textures.addBase64(textureKey, dataUrl);
+        }
+
+        // We schedule the actual sprite creation after the texture is loaded,
+        // but addBase64 is synchronous for already-loaded data in most Phaser builds.
+        // Guard with a callback to be safe.
+        if (this.textures.exists(textureKey)) {
+          this._createShipSprite(ship, wx, wy, textureKey, hullClass, empireColor, iconSize, state, objects);
+        } else {
+          this.textures.once(`addtexture-${textureKey}`, () => {
+            this._createShipSprite(ship, wx, wy, textureKey, hullClass, empireColor, iconSize, state, objects);
+          });
+        }
+      } else {
+        // Fallback: simple triangle if canvas not available
+        this._createFallbackShipIndicator(ship, wx, wy, empireColor, state, objects);
+      }
+
+      this.shipSprites.set(ship.id, objects);
+    }
+
+    // Refresh fleet badges
+    this._renderFleetBadges(shipsInSystem, fleetEmpire, empireColours);
+    this._updateFleetBadgeVisibility();
+  }
+
+  private _createShipSprite(
+    ship: { id: string; name: string; fleetId: string | null },
+    wx: number,
+    wy: number,
+    textureKey: string,
+    _hullClass: HullClass,
+    _empireColor: string,
+    iconSize: number,
+    state: GameTickState,
+    objects: Phaser.GameObjects.GameObject[],
+  ): void {
+    const sprite = this.add.image(wx, wy, textureKey)
+      .setOrigin(0.5, 0.5)
+      .setDisplaySize(iconSize, iconSize)
+      .setDepth(160);
+    this.worldContainer.add(sprite);
+    objects.push(sprite);
+
+    // Ship name label
+    const label = this.add.text(wx + iconSize * 0.6, wy - iconSize * 0.3, ship.name, {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#aaeeff',
+      fontStyle: 'bold',
+    }).setDepth(161);
+    this.worldContainer.add(label);
+    objects.push(label);
+
+    // Interactive hit area
+    const hitArea = this.add.circle(wx, wy, iconSize * 0.7, 0xffffff, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(162);
+    this.worldContainer.add(hitArea);
+    objects.push(hitArea);
+
+    hitArea.on('pointerover', () => {
+      sprite.setTint(0xffffff);
+      sprite.setAlpha(1.0);
+      this.sfx?.playHover();
+    });
+    hitArea.on('pointerout', () => {
+      sprite.clearTint();
+      sprite.setAlpha(0.92);
+    });
+    hitArea.on('pointerdown', () => {
+      this.sfx?.playClick();
+      const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
+      if (fleet) {
+        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
+        this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
+      }
+    });
+
+    sprite.setAlpha(0.92);
+  }
+
+  private _createFallbackShipIndicator(
+    ship: { id: string; name: string; fleetId: string | null },
+    wx: number,
+    wy: number,
+    empireColor: string,
+    state: GameTickState,
+    objects: Phaser.GameObjects.GameObject[],
+  ): void {
+    const colorNum = parseInt(empireColor.replace('#', ''), 16);
+
+    const container = this.add.container(wx, wy).setDepth(160);
+    this.worldContainer.add(container);
+    objects.push(container);
+
+    const glow = this.add.graphics();
+    glow.fillStyle(colorNum, 0.12);
+    glow.fillCircle(0, 0, 16);
+    container.add(glow);
+
+    const gfx = this.add.graphics();
+    gfx.fillStyle(colorNum, 0.95);
+    gfx.fillTriangle(0, -10, -8, 8, 8, 8);
+    gfx.lineStyle(1.5, colorNum, 0.6);
+    gfx.strokeCircle(0, 0, 14);
+    container.add(gfx);
+
+    const label = this.add.text(18, -8, ship.name, {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#aaeeff',
+      fontStyle: 'bold',
+    });
+    container.add(label);
+
+    const hitArea = this.add.circle(0, 0, 18, 0xffffff, 0).setInteractive({ useHandCursor: true });
+    hitArea.on('pointerover', () => { this.sfx?.playHover(); });
+    hitArea.on('pointerdown', () => {
+      this.sfx?.playClick();
+      const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
+      if (fleet) {
+        const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
+        this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
+      }
+    });
+    container.add(hitArea);
+  }
+
+  // ── Fleet badges (shown when zoomed out) ─────────────────────────────────────
+
+  /**
+   * Render small fleet count badges grouped by fleet.
+   * Each badge shows the ship count, the empire colour, and is clickable.
+   */
+  private _renderFleetBadges(
+    shipsInSystem: { id: string; fleetId: string | null; position: { systemId: string; orbitIndex?: number } }[],
+    fleetEmpire: Map<string, string>,
+    empireColours: Map<string, string>,
+  ): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+    const state = engine.getState();
+
+    // Group ships by fleet (or by "no fleet" → own entry per ship)
+    const fleetCounts = new Map<string, { count: number; empireId: string; wx: number; wy: number }>();
+
+    const shipsByOrbit = new Map<number, number>();
+    for (const ship of shipsInSystem) {
+      const orbitIdx = ship.position.orbitIndex ?? -1;
+      const offsetIndex = shipsByOrbit.get(orbitIdx) ?? 0;
+      shipsByOrbit.set(orbitIdx, offsetIndex + 1);
+
+      let wx = 50;
+      let wy = -50;
+      if (orbitIdx >= 0) {
+        const entry = this.orbitEntries[orbitIdx];
+        if (entry) {
+          wx = entry.container.x + 22 + offsetIndex * 28;
+          wy = entry.container.y - 22;
+        }
+      } else {
+        wx += offsetIndex * 28;
+      }
+
+      const groupKey = ship.fleetId ?? `solo_${ship.id}`;
+      const empireId = ship.fleetId ? (fleetEmpire.get(ship.fleetId) ?? '') : '';
+      const existing = fleetCounts.get(groupKey);
+      if (existing) {
+        existing.count++;
+      } else {
+        fleetCounts.set(groupKey, { count: 1, empireId, wx, wy });
+      }
+    }
+
+    // Remove stale badges
+    for (const [key, badge] of this.fleetBadges) {
+      if (!fleetCounts.has(key)) {
+        badge.destroy();
+        this.fleetBadges.delete(key);
+      }
+    }
+
+    // Add or update badges
+    for (const [fleetKey, info] of fleetCounts) {
+      const empireColor = empireColours.get(info.empireId) ?? '#00d4ff';
+      const colorNum = parseInt(empireColor.replace('#', ''), 16);
+
+      let badge = this.fleetBadges.get(fleetKey);
+      if (badge) {
+        // Update count
+        const countText = badge.getAt(1) as Phaser.GameObjects.Text;
+        countText?.setText(String(info.count));
+        badge.setPosition(info.wx, info.wy);
+        continue;
+      }
+
+      // Create badge
+      badge = this.add.container(info.wx, info.wy).setDepth(165);
+      this.worldContainer.add(badge);
+
+      // Empire-coloured border circle
+      const border = this.add.graphics();
+      border.lineStyle(2, colorNum, 0.9);
+      border.strokeCircle(0, 0, 12);
+      border.fillStyle(0x000820, 0.85);
+      border.fillCircle(0, 0, 11);
+      badge.add(border);
+
+      // Ship count text
+      const countLabel = this.add.text(0, 0, String(info.count), {
         fontFamily: 'monospace',
         fontSize: '11px',
-        color: '#aaeeff',
+        color: empireColor,
         fontStyle: 'bold',
-      });
-      container.add(label);
+      }).setOrigin(0.5, 0.5);
+      badge.add(countLabel);
 
-      // Make clickable (larger hit area)
-      const hitArea = this.add.circle(0, 0, 18, 0xffffff, 0);
-      hitArea.setInteractive({ useHandCursor: true });
+      // Click handler
+      const hitArea = this.add.circle(0, 0, 13, 0xffffff, 0).setInteractive({ useHandCursor: true });
       hitArea.on('pointerover', () => {
-        gfx.clear();
-        gfx.fillStyle(0x44eeff, 1);
-        gfx.fillTriangle(0, -10, -8, 8, 8, 8);
-        gfx.lineStyle(2, 0x44eeff, 0.8);
-        gfx.strokeCircle(0, 0, 14);
+        border.clear();
+        border.lineStyle(2.5, colorNum, 1.0);
+        border.strokeCircle(0, 0, 12);
+        border.fillStyle(0x001030, 0.9);
+        border.fillCircle(0, 0, 11);
         this.sfx?.playHover();
       });
       hitArea.on('pointerout', () => {
-        gfx.clear();
-        gfx.fillStyle(0x00d4ff, 0.95);
-        gfx.fillTriangle(0, -10, -8, 8, 8, 8);
-        gfx.lineStyle(1.5, 0x00d4ff, 0.6);
-        gfx.strokeCircle(0, 0, 14);
+        border.clear();
+        border.lineStyle(2, colorNum, 0.9);
+        border.strokeCircle(0, 0, 12);
+        border.fillStyle(0x000820, 0.85);
+        border.fillCircle(0, 0, 11);
       });
       hitArea.on('pointerdown', () => {
         this.sfx?.playClick();
-        // Emit fleet:selected so the fleet panel opens
-        const fleet = state.gameState.fleets.find(f => f.id === ship.fleetId);
+        const fleet = state.gameState.fleets.find(f => f.id === fleetKey);
         if (fleet) {
           const fleetShips = state.gameState.ships.filter(s => s.fleetId === fleet.id);
           this.game.events.emit('fleet:selected', { fleet, ships: fleetShips });
         }
       });
-      container.add(hitArea);
+      badge.add(hitArea);
 
-      this.shipIndicators.set(ship.id, container);
+      this.fleetBadges.set(fleetKey, badge);
+    }
+  }
+
+  /**
+   * Show fleet badges when zoomed out below threshold, hide individual sprites.
+   * Show individual sprites when zoomed in above threshold.
+   */
+  private _updateFleetBadgeVisibility(): void {
+    const showBadges = this.currentZoom < FLEET_BADGE_ZOOM_THRESHOLD;
+
+    for (const [, objects] of this.shipSprites) {
+      for (const obj of objects) {
+        (obj as Phaser.GameObjects.Image).setVisible(!showBadges);
+      }
+    }
+
+    for (const [, badge] of this.fleetBadges) {
+      badge.setVisible(showBadges);
     }
   }
 
   // ── Game event SFX handlers ───────────────────────────────────────────────────
 
-  /** Play coloniseStart when a migration begins (first wave departs). */
   private _handleMigrationStartedSfx = (): void => {
     this.sfx?.playColoniseStart();
   };
 
-  /** Play coloniseComplete when migration reaches threshold and a colony forms. */
   private _handleMigrationCompletedSfx = (): void => {
     this.sfx?.playColoniseComplete();
   };
 
-  /** Play shipLaunch when a ship is produced in this system. */
   private _handleShipProducedSfx = (payload: unknown): void => {
     const { systemId } = payload as { systemId: string };
     if (systemId === this.system?.id) {
@@ -641,10 +964,6 @@ export class SystemViewScene extends Phaser.Scene {
     }
   };
 
-  /**
-   * Play buildComplete when a planet's construction queue shortens,
-   * indicating a building just finished. Only fires for this system's planets.
-   */
   private _prevPlanetQueueLengths: Map<string, number> = new Map();
 
   private _handlePlanetUpdatedSfx = (payload: unknown): void => {
@@ -655,22 +974,17 @@ export class SystemViewScene extends Phaser.Scene {
     const currLen = planet.productionQueue.length;
 
     if (currLen < prevLen) {
-      // A queue item just completed — check it was a building (not a ship)
       this.sfx?.playBuildComplete();
     }
     this._prevPlanetQueueLengths.set(planet.id, currLen);
   };
 
-  /** Play researchComplete when a tech finishes. */
   private _handleTechResearchedSfx = (): void => {
     this.sfx?.playResearchComplete();
   };
 
   // ── Latest planet helper ─────────────────────────────────────────────────────
 
-  /**
-   * Fetch the current planet state from the engine so the UI never shows stale data.
-   */
   private _getLatestPlanet(planetId: string, engine?: ReturnType<typeof getGameEngine>): Planet | null {
     const eng = engine ?? getGameEngine();
     if (!eng) return null;
@@ -698,11 +1012,10 @@ export class SystemViewScene extends Phaser.Scene {
 
   // ── Orbits + planets ──────────────────────────────────────────────────────────
 
-  private createOrbits(cx: number, cy: number): void {
+  private createOrbits(): void {
     const planets = [...this.system.planets].sort((a, b) => a.orbitalIndex - b.orbitalIndex);
     const planetRenderer = new PlanetRenderer(this);
 
-    // Determine asteroid belt orbit radii if we have enough planets
     const beltInnerR = ORBIT_BASE_RADIUS + ASTEROID_BELT_INNER_INDEX * ORBIT_STEP;
     const beltOuterR = ORBIT_BASE_RADIUS + ASTEROID_BELT_OUTER_INDEX * ORBIT_STEP;
     let asteroidBeltDrawn = false;
@@ -711,28 +1024,27 @@ export class SystemViewScene extends Phaser.Scene {
       const planet = planets[i]!;
       const orbitRadius = ORBIT_BASE_RADIUS + i * ORBIT_STEP;
 
-      // Draw asteroid belt between orbits 3 and 4 (once)
       if (!asteroidBeltDrawn && i === ASTEROID_BELT_OUTER_INDEX && planets.length > ASTEROID_BELT_OUTER_INDEX) {
-        renderAsteroidBelt(this, cx, cy, beltInnerR + 8, beltOuterR - 8);
+        const belt = renderAsteroidBelt(this, 0, 0, beltInnerR + 8, beltOuterR - 8);
+        if (belt) this.worldContainer.add(belt as Phaser.GameObjects.GameObject);
         asteroidBeltDrawn = true;
       }
 
-      // Orbit ring (faint dashed-ish circle)
-      const orbitRing = this.add.circle(cx, cy, orbitRadius);
+      // Orbit ring — world-space
+      const orbitRing = this.add.arc(0, 0, orbitRadius, 0, 360, false);
       orbitRing.setStrokeStyle(1, 0x334466, 0.25);
+      orbitRing.setFillStyle(0, 0);
+      this.worldContainer.add(orbitRing);
 
-      // Initial angle spread evenly
       const startAngle = (i / planets.length) * Math.PI * 2;
-
-      // Angular speed: faster for inner orbits (Kepler-ish: ω ∝ 1/r^1.5)
       const baseSpeed = 0.00004;
       const speed = baseSpeed / Math.pow(orbitRadius / ORBIT_BASE_RADIUS, 1.2);
 
-      // Planet position
-      const px = cx + Math.cos(startAngle) * orbitRadius;
-      const py = cy + Math.sin(startAngle) * orbitRadius;
+      const px = Math.cos(startAngle) * orbitRadius;
+      const py = Math.sin(startAngle) * orbitRadius;
 
       const container = this.createPlanetObject(planetRenderer, planet, px, py);
+      this.worldContainer.add(container);
 
       this.orbitEntries.push({
         planet,
@@ -755,22 +1067,16 @@ export class SystemViewScene extends Phaser.Scene {
     const container = result.container;
     const radius = result.radius;
 
-    // ── Ownership / colonisation visual indicators ──────────────────────────
-    // Colonised (has population) but not owned: slightly dimmed opacity
     if (planet.currentPopulation === 0 && planet.maxPopulation === 0) {
-      // Uninhabitable — render at reduced opacity
       container.setAlpha(0.55);
     }
 
     if (planet.ownerId !== null) {
-      // Owned planet: draw a coloured ownership ring around it
       const ownerRing = this.add.graphics();
-      // Player-owned planets glow cyan; AI-owned planets would differ in a full game
       ownerRing.lineStyle(2, 0x00d4ff, 0.75);
       ownerRing.strokeCircle(0, 0, radius + 4);
       container.add(ownerRing);
 
-      // Small flag marker above the planet
       const flag = this.add.graphics();
       flag.fillStyle(0x00d4ff, 0.9);
       flag.fillRect(-4, -(radius + 14), 8, 6);
@@ -778,18 +1084,15 @@ export class SystemViewScene extends Phaser.Scene {
       flag.lineBetween(0, -(radius + 14), 0, -(radius + 4));
       container.add(flag);
     } else if (planet.currentPopulation > 0) {
-      // Colonised but not owned by player — neutral marker
       const colonyRing = this.add.graphics();
       colonyRing.lineStyle(1.5, 0x888888, 0.55);
       colonyRing.strokeCircle(0, 0, radius + 4);
       container.add(colonyRing);
     }
 
-    // Interactive hit area (invisible circle slightly larger than planet)
     const hitArea = this.add.circle(0, 0, radius + 7, 0xffffff, 0);
     hitArea.setInteractive({ useHandCursor: true });
 
-    // Highlight ring (shown on hover)
     const highlight = this.add.graphics();
     highlight.setVisible(false);
 
@@ -799,7 +1102,6 @@ export class SystemViewScene extends Phaser.Scene {
       highlight.strokeCircle(0, 0, radius + 2);
       highlight.setVisible(true);
       this.showTooltip(planet, x, y);
-      // Play planet proximity ambient
       this.ambient?.playPlanetAmbient(planet.type);
       this.sfx?.playHover();
     });
@@ -807,21 +1109,16 @@ export class SystemViewScene extends Phaser.Scene {
     hitArea.on('pointerout', () => {
       highlight.setVisible(false);
       this.hideTooltip();
-      // Stop planet ambient when no longer hovering
       this.ambient?.stopPlanetAmbient();
     });
 
     hitArea.on('pointerdown', () => {
       this.sfx?.playClick();
-      // Always fetch the latest planet data from the engine so the UI never
-      // shows stale ownership / migration state (fixes Bug 1 & 6).
       const engine = getGameEngine();
       const latestPlanet = this._getLatestPlanet(planet.id, engine) ?? planet;
       this.game.events.emit('planet:selected', latestPlanet);
-      // If the player owns this planet, also open the management screen
       if (latestPlanet.ownerId !== null) {
         this.game.events.emit('planet:manage', { planet: latestPlanet, systemId: this.system.id });
-        // Start planet surface ambient for the management screen
         this.ambient?.startSurfaceAmbient(latestPlanet.type, latestPlanet.buildings.length);
       }
     });
@@ -881,7 +1178,6 @@ export class SystemViewScene extends Phaser.Scene {
   // ── Back button ───────────────────────────────────────────────────────────────
 
   private createBackButton(): void {
-    // Background box for better visibility
     const bg = this.add
       .rectangle(16, 16, 200, 40, 0x0a1628, 0.85)
       .setOrigin(0, 0)
