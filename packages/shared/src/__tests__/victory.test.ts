@@ -104,7 +104,7 @@ function makeSystem(id: string, planets: ReturnType<typeof makePlanet>[]): StarS
 }
 
 function makeGalaxy(systems: StarSystem[]): Galaxy {
-  return { id: 'galaxy', systems, width: 1000, height: 1000, seed: 1 };
+  return { id: 'galaxy', systems, anomalies: [], minorSpecies: [], width: 1000, height: 1000, seed: 1 };
 }
 
 function makeGameState(

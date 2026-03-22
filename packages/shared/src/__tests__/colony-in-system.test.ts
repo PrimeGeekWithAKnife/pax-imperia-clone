@@ -463,6 +463,8 @@ describe('Integration: colonisation action in game-loop tick', () => {
       galaxy: {
         id: 'galaxy-1',
         systems: [system],
+        anomalies: [],
+        minorSpecies: [],
         width: 100,
         height: 100,
         seed: 1,

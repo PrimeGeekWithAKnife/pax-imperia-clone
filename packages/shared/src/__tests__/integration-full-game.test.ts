@@ -36,11 +36,11 @@ import {
   addAgentToState,
   processEspionageTick,
 } from '../engine/espionage.js';
-import { canEstablishTradeRoute } from '../engine/trade.js';
+import { canEstablishBasicTradeRoute } from '../engine/trade.js';
 import { generateId } from '../utils/id.js';
 import type { Species } from '../types/species.js';
 import type { Technology } from '../types/technology.js';
-import type { TradeRoute } from '../engine/trade.js';
+import type { BasicBasicTradeRoute } from '../engine/trade.js';
 import type { Planet } from '../types/galaxy.js';
 
 // ---------------------------------------------------------------------------
@@ -1017,7 +1017,7 @@ describe('Test 9: Trade routes generate income', () => {
       const [sys1, sys2] = refreshedSystems as [typeof refreshedSystems[0], typeof refreshedSystems[0]];
 
       // Check if wormhole path exists
-      const canEstablish = canEstablishTradeRoute(empire.id, sys1.id, sys2.id, state.gameState.galaxy);
+      const canEstablish = canEstablishBasicTradeRoute(empire.id, sys1.id, sys2.id, state.gameState.galaxy);
       if (!canEstablish.allowed) {
         console.warn(`Test 9: Cannot establish trade route: ${canEstablish.reason}`);
         return;
@@ -1027,7 +1027,7 @@ describe('Test 9: Trade routes generate income', () => {
       const _creditsBefore = state.empireResourcesMap.get(empire.id)?.credits ?? 0;
 
       // Add trade route
-      const tradeRoute: TradeRoute = {
+      const tradeRoute: BasicTradeRoute = {
         id: generateId(),
         empireId: empire.id,
         originSystemId: sys1.id,
@@ -1049,7 +1049,7 @@ describe('Test 9: Trade routes generate income', () => {
 
     const [sys1, sys2] = systemsWithSpaceports as [typeof systemsWithSpaceports[0], typeof systemsWithSpaceports[0]];
 
-    const canEstablish = canEstablishTradeRoute(empire.id, sys1.id, sys2.id, state.gameState.galaxy);
+    const canEstablish = canEstablishBasicTradeRoute(empire.id, sys1.id, sys2.id, state.gameState.galaxy);
     if (!canEstablish.allowed) {
       console.warn(`Test 9: Cannot establish trade route between home systems: ${canEstablish.reason}`);
       return;
@@ -1057,7 +1057,7 @@ describe('Test 9: Trade routes generate income', () => {
 
     const creditsBefore = state.empireResourcesMap.get(empire.id)?.credits ?? 0;
 
-    const tradeRoute: TradeRoute = {
+    const tradeRoute: BasicTradeRoute = {
       id: generateId(),
       empireId: empire.id,
       originSystemId: sys1.id,
@@ -1083,7 +1083,7 @@ describe('Test 9: Trade routes generate income', () => {
 
     // Add a self-consistent trade route (even if invalid — it should not crash)
     const systems = state.gameState.galaxy.systems;
-    const tradeRoute: TradeRoute = {
+    const tradeRoute: BasicTradeRoute = {
       id: generateId(),
       empireId: empire.id,
       originSystemId: systems[0]!.id,

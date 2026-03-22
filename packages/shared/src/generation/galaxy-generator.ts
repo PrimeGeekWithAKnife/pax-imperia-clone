@@ -8,6 +8,8 @@
  *   2. Assign star types & names
  *   3. Generate planets per system
  *   4. Build wormhole graph (relative-neighbourhood + connectivity pass)
+ *   5. Scatter anomalies across systems
+ *   6. Seed minor species on habitable planets
  *
  * Everything is deterministic given the same config.seed.
  */
@@ -20,6 +22,12 @@ import type {
   PlanetType,
   AtmosphereType,
 } from '../types/galaxy.js';
+import type { Anomaly, AnomalyType } from '../types/anomaly.js';
+import type {
+  MinorSpecies,
+  MinorSpeciesBiology,
+  MinorSpeciesTechLevel,
+} from '../types/minor-species.js';
 import {
   GALAXY_SIZES,
   type GalaxySize,
@@ -784,6 +792,335 @@ function ensureConnected(
   }
 }
 
+// ── anomaly generation ─────────────────────────────────────────────────────────
+
+/** Habitable planet types that can host precursor ruins or minor species. */
+const HABITABLE_PLANET_TYPES: ReadonlySet<PlanetType> = new Set([
+  'terran', 'ocean', 'desert',
+]);
+
+/**
+ * Anomaly descriptors keyed by type. Evocative text the player sees on
+ * discovery — written in British English.
+ */
+const ANOMALY_DESCRIPTORS: Record<AnomalyType, { namePrefix: string; description: string }> = {
+  precursor_ruins: {
+    namePrefix: 'Precursor Ruins',
+    description:
+      'Weathered structures of impossible geometry protrude from the earth, their surfaces etched with symbols that predate every known civilisation. Whatever built this was ancient when the stars were young.',
+  },
+  derelict_vessel: {
+    namePrefix: 'Derelict Vessel',
+    description:
+      'A vast hull drifts in the void, its superstructure buckled and cold. Power signatures flicker deep within — dormant, not dead. Salvage teams report unusual alloy compositions unlike anything on record.',
+  },
+  spatial_rift: {
+    namePrefix: 'Spatial Rift',
+    description:
+      'Space itself is wounded here. Sensors return contradictory readings — distances that change between measurements, light bending along paths that shouldn\'t exist. Approach with extreme caution.',
+  },
+  mineral_deposit: {
+    namePrefix: 'Mineral Deposit',
+    description:
+      'Extraordinarily dense concentrations of rare minerals, far exceeding natural geological processes. Spectral analysis reveals elements that would take aeons to accumulate under normal conditions.',
+  },
+  energy_signature: {
+    namePrefix: 'Energy Signature',
+    description:
+      'An anomalous energy pattern pulses at the edge of sensor range — rhythmic, deliberate, and utterly alien. It originates from beyond the galaxy\'s rim. Something out there is broadcasting.',
+  },
+  sealed_wormhole: {
+    namePrefix: 'Sealed Wormhole',
+    description:
+      'A wormhole terminus, collapsed with surgical precision. The surrounding spacetime bears scorch-marks of unimaginable energies. Someone sealed this passage deliberately. The question is: to keep something out, or something in?',
+  },
+  debris_field: {
+    namePrefix: 'Debris Field',
+    description:
+      'A vast cloud of shattered metal and crystalline fragments stretches across the system. Carbon dating places the wreckage at millions of years old. Whatever battle occurred here involved fleets of staggering scale.',
+  },
+  living_nebula: {
+    namePrefix: 'Living Nebula',
+    description:
+      'This nebula defies classification. Its gas clouds shift in patterns too regular for stellar winds, and energy readings suggest a distributed consciousness. The Luminari would find this place deeply significant.',
+  },
+  gravity_anomaly: {
+    namePrefix: 'Gravity Anomaly',
+    description:
+      'A region where gravitational constants appear to be locally different. Objects orbit in paths that defy conventional physics. Research teams report feelings of temporal displacement near the epicentre.',
+  },
+  ancient_beacon: {
+    namePrefix: 'Ancient Beacon',
+    description:
+      'A faint, repeating signal emanates from a structure of unknown origin. The transmission is encoded in mathematical constants — prime sequences, geometric ratios — a universal language. Someone left a message for whoever came next.',
+  },
+};
+
+/**
+ * General anomaly types that can appear in any system. Used when
+ * no placement rule applies.
+ */
+const GENERAL_ANOMALY_TYPES: readonly AnomalyType[] = [
+  'derelict_vessel',
+  'spatial_rift',
+  'living_nebula',
+  'gravity_anomaly',
+  'ancient_beacon',
+  'debris_field',
+  'mineral_deposit',
+];
+
+/**
+ * Generate anomalies scattered across the galaxy.
+ *
+ * Rules:
+ * - ~15-25% of systems receive an anomaly
+ * - `precursor_ruins` placed on habitable planets (rare)
+ * - `energy_signature` at galaxy edge systems (Devourer foreshadowing)
+ * - `sealed_wormhole` on 1-3 edge systems
+ * - `mineral_deposit` and `debris_field` scattered throughout
+ * - Other types distributed randomly
+ */
+function generateAnomalies(
+  rng: SeededRng,
+  nextId: () => string,
+  systems: StarSystem[],
+  galaxyWidth: number,
+  galaxyHeight: number,
+): Anomaly[] {
+  const anomalies: Anomaly[] = [];
+
+  // Identify edge systems (outer 15% of the galaxy radius from centre)
+  const cx = galaxyWidth / 2;
+  const cy = galaxyHeight / 2;
+  const maxRadius = Math.min(galaxyWidth, galaxyHeight) * 0.5;
+  const edgeThreshold = maxRadius * 0.85;
+
+  const edgeSystems: StarSystem[] = [];
+  const interiorSystems: StarSystem[] = [];
+
+  for (const sys of systems) {
+    const dx = sys.position.x - cx;
+    const dy = sys.position.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist >= edgeThreshold) {
+      edgeSystems.push(sys);
+    } else {
+      interiorSystems.push(sys);
+    }
+  }
+
+  const createAnomaly = (
+    type: AnomalyType,
+    systemId: string,
+    suffix: string,
+  ): Anomaly => {
+    const desc = ANOMALY_DESCRIPTORS[type];
+    return {
+      id: nextId(),
+      type,
+      name: `${desc.namePrefix} — ${suffix}`,
+      description: desc.description,
+      systemId,
+      discovered: false,
+      investigated: false,
+    };
+  };
+
+  // Track which systems already have an anomaly to avoid clustering
+  const systemsWithAnomaly = new Set<string>();
+
+  // 1. Place 1-3 sealed wormholes at galaxy edge
+  const sealedCount = rng.nextInt(1, 3);
+  const shuffledEdge = [...edgeSystems].sort(() => rng.next() - 0.5);
+  for (let i = 0; i < sealedCount && i < shuffledEdge.length; i++) {
+    const sys = shuffledEdge[i]!;
+    anomalies.push(createAnomaly('sealed_wormhole', sys.id, sys.name));
+    systemsWithAnomaly.add(sys.id);
+  }
+
+  // 2. Place 2-4 energy signatures at galaxy edge (Devourer foreshadowing)
+  const energyCount = rng.nextInt(2, 4);
+  let energyPlaced = 0;
+  for (const sys of shuffledEdge) {
+    if (energyPlaced >= energyCount) break;
+    if (systemsWithAnomaly.has(sys.id)) continue;
+    anomalies.push(createAnomaly('energy_signature', sys.id, sys.name));
+    systemsWithAnomaly.add(sys.id);
+    energyPlaced++;
+  }
+
+  // 3. Place precursor ruins on habitable planets (rare — ~3-5% of systems with habitable worlds)
+  const habitableSystems = systems.filter(sys =>
+    sys.planets.some(p => HABITABLE_PLANET_TYPES.has(p.type)),
+  );
+  for (const sys of habitableSystems) {
+    if (systemsWithAnomaly.has(sys.id)) continue;
+    if (rng.next() < 0.05) {
+      anomalies.push(createAnomaly('precursor_ruins', sys.id, sys.name));
+      systemsWithAnomaly.add(sys.id);
+    }
+  }
+
+  // 4. Fill remaining systems to reach ~15-25% total anomaly coverage
+  const targetMin = Math.floor(systems.length * 0.15);
+  const targetMax = Math.floor(systems.length * 0.25);
+  const targetCount = rng.nextInt(targetMin, targetMax);
+
+  // Shuffle all systems for random placement
+  const shuffledAll = [...systems].sort(() => rng.next() - 0.5);
+
+  for (const sys of shuffledAll) {
+    if (anomalies.length >= targetCount) break;
+    if (systemsWithAnomaly.has(sys.id)) continue;
+
+    const type = rng.pick(GENERAL_ANOMALY_TYPES);
+    anomalies.push(createAnomaly(type, sys.id, sys.name));
+    systemsWithAnomaly.add(sys.id);
+  }
+
+  return anomalies;
+}
+
+// ── minor species generation ───────────────────────────────────────────────────
+
+/**
+ * Biology type weights — carbon terrestrial is most common, exotic forms rarer.
+ */
+const BIOLOGY_TABLE: Array<[MinorSpeciesBiology, number]> = [
+  ['carbon_terrestrial', 35],
+  ['carbon_aquatic', 18],
+  ['carbon_aerial', 8],
+  ['insectoid_swarm', 15],
+  ['fungal_network', 10],
+  ['silicon_based', 8],
+  ['megafauna', 6],
+];
+
+/**
+ * Tech level weights — lower levels far more common than advanced ones.
+ */
+const TECH_LEVEL_TABLE: Array<[MinorSpeciesTechLevel, number]> = [
+  ['stone_age', 30],
+  ['bronze_age', 25],
+  ['iron_age', 18],
+  ['medieval', 12],
+  ['renaissance', 8],
+  ['industrial', 5],
+  ['early_modern', 2],
+];
+
+/** Pick from a weighted table using cumulative probability. */
+function pickWeighted<T>(rng: SeededRng, table: Array<[T, number]>): T {
+  const total = table.reduce((s, [, w]) => s + w, 0);
+  let roll = rng.next() * total;
+  for (const [value, weight] of table) {
+    roll -= weight;
+    if (roll <= 0) return value;
+  }
+  return table[table.length - 1]![0];
+}
+
+/**
+ * Minor species description templates keyed by biology type.
+ * Evocative flavour text in British English.
+ */
+const BIOLOGY_DESCRIPTIONS: Record<MinorSpeciesBiology, string> = {
+  carbon_terrestrial:
+    'A bipedal species that has adapted remarkably to the temperate zones of their homeworld. Their tool use and social structures suggest nascent civilisational potential.',
+  carbon_aquatic:
+    'Graceful aquatic beings dwelling in vast undersea settlements. Their bioluminescent communication and coral architecture hint at a rich, alien culture beneath the waves.',
+  carbon_aerial:
+    'Winged creatures that build elaborate nesting spires in the upper atmosphere. Their hollow bones and keen senses have driven a unique evolutionary path toward cooperative flight-based societies.',
+  silicon_based:
+    'Crystalline organisms that draw sustenance from mineral deposits and geothermal energy. Their thoughts move slowly by organic standards, but their patience and resilience are extraordinary.',
+  fungal_network:
+    'A vast mycelial network spanning kilometres of subterranean terrain. Individual fruiting bodies serve as sensory organs, whilst the true intelligence resides in the distributed root system below.',
+  insectoid_swarm:
+    'A highly organised collective of chitinous beings, each caste specialised for a distinct role. Their hive-mind coordination allows feats of construction and warfare that belie their diminutive individual size.',
+  megafauna:
+    'Colossal organisms of staggering proportions, each individual a self-contained ecosystem. Despite their size, they demonstrate surprising cognitive sophistication and rudimentary tool use.',
+};
+
+/**
+ * Population range by tech level — more advanced civilisations support larger numbers.
+ */
+const POPULATION_BY_TECH: Record<MinorSpeciesTechLevel, [number, number]> = {
+  stone_age:     [10_000,        500_000],
+  bronze_age:    [100_000,       5_000_000],
+  iron_age:      [500_000,       20_000_000],
+  medieval:      [5_000_000,     100_000_000],
+  renaissance:   [20_000_000,    500_000_000],
+  industrial:    [100_000_000,   2_000_000_000],
+  early_modern:  [500_000_000,   5_000_000_000],
+};
+
+/**
+ * Generate minor species on habitable planets.
+ *
+ * Rules:
+ * - ~10-20% of habitable planets host a minor species
+ * - Biology type is weighted (carbon terrestrial most common)
+ * - Tech level is weighted (lower levels more common)
+ * - Random traits (1-10 each)
+ * - A system can have multiple minor species (on different planets)
+ * - Names generated procedurally
+ */
+function generateMinorSpecies(
+  rng: SeededRng,
+  nextId: () => string,
+  nameGen: NameGenerator,
+  systems: StarSystem[],
+): MinorSpecies[] {
+  const species: MinorSpecies[] = [];
+
+  // Gather all habitable planets across all systems
+  const habitablePlanets: Array<{ planet: Planet; systemId: string }> = [];
+  for (const sys of systems) {
+    for (const planet of sys.planets) {
+      if (HABITABLE_PLANET_TYPES.has(planet.type) && planet.maxPopulation > 0) {
+        habitablePlanets.push({ planet, systemId: sys.id });
+      }
+    }
+  }
+
+  // Each habitable planet has a 10-20% chance of hosting a minor species
+  // We decide the overall rate once, then apply it per-planet
+  const placementRate = rng.nextFloat(0.10, 0.20);
+
+  for (const { planet, systemId } of habitablePlanets) {
+    if (rng.next() >= placementRate) continue;
+
+    const biology = pickWeighted(rng, BIOLOGY_TABLE);
+    const techLevel = pickWeighted(rng, TECH_LEVEL_TABLE);
+    const [popMin, popMax] = POPULATION_BY_TECH[techLevel];
+    const population = rng.nextInt(popMin, popMax);
+
+    const name = nameGen.generateSystemName(); // Reuse system name generator for alien species names
+
+    species.push({
+      id: nextId(),
+      name,
+      description: BIOLOGY_DESCRIPTIONS[biology],
+      planetId: planet.id,
+      systemId,
+      population,
+      techLevel,
+      biology,
+      traits: {
+        aggression: rng.nextInt(1, 10),
+        curiosity: rng.nextInt(1, 10),
+        industriousness: rng.nextInt(1, 10),
+        adaptability: rng.nextInt(1, 10),
+      },
+      attitude: 0,
+      status: 'undiscovered',
+    });
+  }
+
+  return species;
+}
+
 // ── main entry point ──────────────────────────────────────────────────────────
 
 export function generateGalaxy(config: GalaxyGenerationConfig): Galaxy {
@@ -838,9 +1175,17 @@ export function generateGalaxy(config: GalaxyGenerationConfig): Galaxy {
     sys.wormholes = Array.from(adjMap.get(sys.id) ?? []);
   }
 
+  // 5. Generate anomalies
+  const anomalies = generateAnomalies(rng, nextId, systems, GALAXY_WIDTH, GALAXY_HEIGHT);
+
+  // 6. Generate minor species
+  const minorSpecies = generateMinorSpecies(rng, nextId, nameGen, systems);
+
   return {
     id: nextId(),
     systems,
+    anomalies,
+    minorSpecies,
     width: GALAXY_WIDTH,
     height: GALAXY_HEIGHT,
     seed: config.seed,

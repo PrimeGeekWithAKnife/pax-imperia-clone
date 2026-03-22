@@ -1,5 +1,8 @@
 /** Core galaxy and star system types */
 
+import type { Anomaly } from './anomaly.js';
+import type { MinorSpecies } from './minor-species.js';
+
 export interface Position2D {
   x: number;
   y: number;
@@ -146,6 +149,8 @@ export interface ProductionItem {
 export interface Galaxy {
   id: string;
   systems: StarSystem[];
+  anomalies: Anomaly[];
+  minorSpecies: MinorSpecies[];
   width: number;
   height: number;
   seed: number;
