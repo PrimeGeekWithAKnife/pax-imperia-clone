@@ -192,9 +192,9 @@ function RaceCard({ species, onClick }: RaceCardProps): React.ReactElement {
   const portraitUrl = useMemo(() => portraitCache.getPortrait(species.id, 72), [species.id]);
   const maxVal = Math.max(...TRAIT_KEYS.map(k => species.traits[k]));
 
-  // Truncate description to 150 characters
-  const shortDesc = species.description.length > 150
-    ? species.description.slice(0, 147) + '...'
+  // Truncate description to 110 characters to avoid card clipping
+  const shortDesc = species.description.length > 110
+    ? species.description.slice(0, 107) + '...'
     : species.description;
 
   return (
@@ -265,20 +265,30 @@ interface SpeciesCreatorScreenProps {
   onContinue: (data: SpeciesCreatorContinueData) => void;
 }
 
-type ScreenMode = 'pick-race' | 'custom';
+type ScreenMode = 'pick-race' | 'detail' | 'custom';
 
 export function SpeciesCreatorScreen({
   onBack,
   onContinue,
 }: SpeciesCreatorScreenProps): React.ReactElement {
-  // Mode: race picker (default) vs custom species editor
+  // Mode: race picker (default), detail view, or custom species editor
   const [mode, setMode] = useState<ScreenMode>('pick-race');
 
-  // ── Pick Race: click a pre-built species and go straight to game setup ──
-  const handlePickRace = useCallback((species: Species) => {
-    const originStory = ORIGIN_MAP[species.id] ?? 'Balanced';
-    onContinue({ species, originStory });
-  }, [onContinue]);
+  // Selected species for detail view
+  const [selectedSpecies, setSelectedSpecies] = useState<Species | null>(null);
+
+  // ── Pick Race: click a pre-built species to show detail screen ──
+  const handlePickRace = useCallback((sp: Species) => {
+    setSelectedSpecies(sp);
+    setMode('detail');
+  }, []);
+
+  // ── Confirm selection from the detail screen ──
+  const handleConfirmSelection = useCallback(() => {
+    if (!selectedSpecies) return;
+    const originStory = ORIGIN_MAP[selectedSpecies.id] ?? 'Balanced';
+    onContinue({ species: selectedSpecies, originStory });
+  }, [selectedSpecies, onContinue]);
 
   // ── Custom Species editor state ─────────────────────────────────────────
   const [name, setName] = useState('');
@@ -459,6 +469,171 @@ export function SpeciesCreatorScreen({
               onClick={() => setMode('custom')}
             >
               Create Custom Species +
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  RACE DETAIL MODE — intermediate confirmation screen
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (mode === 'detail' && selectedSpecies) {
+    const detailPortraitUrl = portraitCache.getPortrait(selectedSpecies.id, 128);
+    const detailMaxVal = Math.max(...TRAIT_KEYS.map(k => selectedSpecies.traits[k]));
+
+    // Derive strengths and weaknesses from traits
+    const strengths = TRAIT_KEYS
+      .filter(k => selectedSpecies.traits[k] >= 7)
+      .map(k => ({ key: k, label: TRAIT_LABELS[k], value: selectedSpecies.traits[k] }));
+    const weaknesses = TRAIT_KEYS
+      .filter(k => selectedSpecies.traits[k] <= 4)
+      .map(k => ({ key: k, label: TRAIT_LABELS[k], value: selectedSpecies.traits[k] }));
+
+    // Environment preference description
+    const detailEnv = selectedSpecies.environmentPreference;
+    const detailEnvDesc = habitabilityDescription(detailEnv);
+
+    // Special abilities with full info
+    const detailAbilities = selectedSpecies.specialAbilities
+      .map(key => ABILITY_INFO.find(a => a.key === key))
+      .filter((a): a is NonNullable<typeof a> => a != null);
+
+    // Split full description into paragraphs for display
+    const descParagraphs = selectedSpecies.description.split('\n').filter(p => p.trim().length > 0);
+
+    return (
+      <div className="species-creator-overlay">
+        <div className="race-detail">
+          {/* Header */}
+          <div className="race-detail__header">
+            <div className="race-detail__portrait">
+              <img src={detailPortraitUrl} alt={selectedSpecies.name} className="race-detail__portrait-img" />
+            </div>
+            <div className="race-detail__title-area">
+              <div className="race-detail__name">{selectedSpecies.name}</div>
+              {detailAbilities.length > 0 && (
+                <div className="race-detail__ability-tags">
+                  {detailAbilities.map(a => (
+                    <span key={a.key} className="race-card__ability">{a.icon} {a.name}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="race-detail__body">
+
+            {/* Full description / codex */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">CODEX</div>
+              <div className="race-detail__codex">
+                {descParagraphs.map((para, i) => (
+                  <p key={i} className="race-detail__codex-para">{para}</p>
+                ))}
+              </div>
+            </section>
+
+            {/* Strengths & Weaknesses side by side */}
+            {(strengths.length > 0 || weaknesses.length > 0) && (
+              <section className="race-detail__section">
+                <div className="race-detail__section-label">STRENGTHS &amp; WEAKNESSES</div>
+                <div className="race-detail__pros-cons">
+                  {strengths.length > 0 && (
+                    <div className="race-detail__column">
+                      <div className="race-detail__column-heading race-detail__column-heading--pro">Strengths</div>
+                      {strengths.map(s => (
+                        <div key={s.key} className="race-detail__pro-item">
+                          <span className="race-detail__pro-dot" /> {s.label} ({s.value})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {weaknesses.length > 0 && (
+                    <div className="race-detail__column">
+                      <div className="race-detail__column-heading race-detail__column-heading--con">Weaknesses</div>
+                      {weaknesses.map(w => (
+                        <div key={w.key} className="race-detail__con-item">
+                          <span className="race-detail__con-dot" /> {w.label} ({w.value})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Trait bars */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">TRAIT PROFILE</div>
+              <div className="race-detail__trait-chart">
+                {TRAIT_KEYS.map(key => {
+                  const val = selectedSpecies.traits[key];
+                  const pct = (val / 10) * 100;
+                  const isTop = val === detailMaxVal;
+                  return (
+                    <div key={key} className="sc-trait-bar">
+                      <span className="sc-trait-bar__label">{TRAIT_LABELS[key].slice(0, 5).toUpperCase()}</span>
+                      <div className="sc-trait-bar__track">
+                        <div
+                          className="sc-trait-bar__fill"
+                          style={{
+                            width: `${pct}%`,
+                            background: isTop ? 'var(--color-accent)' : 'rgba(0,180,220,0.5)',
+                            boxShadow: isTop ? '0 0 8px var(--color-accent)' : 'none',
+                          }}
+                        />
+                      </div>
+                      <span className="sc-trait-bar__val">{val}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Special abilities with descriptions */}
+            {detailAbilities.length > 0 && (
+              <section className="race-detail__section">
+                <div className="race-detail__section-label">SPECIAL ABILITIES</div>
+                <div className="race-detail__abilities">
+                  {detailAbilities.map(a => (
+                    <div key={a.key} className="race-detail__ability-card">
+                      <div className="race-detail__ability-name">{a.icon} {a.name}</div>
+                      <div className="race-detail__ability-desc">{a.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Environment preferences */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">ENVIRONMENT PREFERENCES</div>
+              <div className="race-detail__env">{detailEnvDesc}</div>
+              <div className="race-detail__env-details">
+                <span className="race-detail__env-tag">Temperature: {detailEnv.idealTemperature}K (&plusmn;{detailEnv.temperatureTolerance}K)</span>
+                <span className="race-detail__env-tag">Gravity: {detailEnv.idealGravity}g (&plusmn;{detailEnv.gravityTolerance}g)</span>
+              </div>
+            </section>
+          </div>
+
+          {/* Footer */}
+          <div className="race-detail__footer">
+            <button
+              type="button"
+              className="sc-btn sc-btn--secondary"
+              onClick={() => setMode('pick-race')}
+            >
+              &larr; Back to Races
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn--primary"
+              onClick={handleConfirmSelection}
+            >
+              Confirm Selection &rarr;
             </button>
           </div>
         </div>

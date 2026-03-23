@@ -448,7 +448,7 @@ export class SystemViewScene extends Phaser.Scene {
       ships.push({
         gfx,
         t: -(i * 0.12),           // stagger: ships depart at different times
-        speed: 0.00020 + Math.random() * 0.00010,  // slight speed variation
+        speed: 0.000067 + Math.random() * 0.000033,  // 3x slower colonisation animation
         cx: 0,
         cy: 0,
         sx: sourcePos.x,
@@ -456,7 +456,7 @@ export class SystemViewScene extends Phaser.Scene {
         tx: targetPos.x,
         ty: targetPos.y,
         alpha: 0,
-        swarmOffset: (Math.random() - 0.5) * 18,  // perpendicular wobble
+        swarmOffset: (Math.random() - 0.5) * 12,  // perpendicular wobble (tighter swarm)
       });
     }
 
@@ -563,19 +563,19 @@ export class SystemViewScene extends Phaser.Scene {
     gfx.clear();
     if (alpha <= 0) return;
 
-    // Warm amber trail dots behind
+    // Warm amber trail dots behind — smaller for subtler effect
     gfx.fillStyle(0xcc6600, 0.25 * alpha);
-    gfx.fillCircle(x - 5, y, 1.5);
+    gfx.fillCircle(x - 3, y, 0.8);
     gfx.fillStyle(0xff9900, 0.15 * alpha);
-    gfx.fillCircle(x - 9, y, 1);
+    gfx.fillCircle(x - 6, y, 0.5);
 
-    // Main dot — amber/gold
+    // Main dot — amber/gold, smaller
     gfx.fillStyle(0xffcc44, 0.95 * alpha);
-    gfx.fillCircle(x, y, 2);
+    gfx.fillCircle(x, y, 1.2);
 
     // Bright core
     gfx.fillStyle(0xfff0aa, 0.90 * alpha);
-    gfx.fillCircle(x, y, 1);
+    gfx.fillCircle(x, y, 0.5);
   }
 
   /**

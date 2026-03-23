@@ -6523,6 +6523,8 @@
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  /* Consistent card height for clean grid alignment */
+  min-height: 220px;
 }
 .race-card:hover {
   border-color: var(--color-accent);
@@ -6580,12 +6582,17 @@
   white-space: nowrap;
 }
 
-/* Short description */
+/* Short description — clamped to 3 lines to prevent clipping */
 .race-card__desc {
   font-size: 11px;
   color: #999;
   line-height: 1.4;
-  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: calc(11px * 1.4 * 3); /* 3 lines */
 }
 
 /* Compact trait bars */
@@ -6625,6 +6632,223 @@
   text-align: right;
   color: #aaa;
   flex-shrink: 0;
+}
+
+/* ── Race Detail Screen ── */
+
+.race-detail {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 96vw);
+  height: min(850px, 94vh);
+  background: rgba(8, 8, 20, 0.98);
+  border: 1px solid var(--color-border-bright);
+  box-shadow: 0 0 60px rgba(0, 212, 255, 0.08), 0 0 120px rgba(0, 0, 0, 0.8);
+  font-family: var(--font-mono);
+  overflow: hidden;
+}
+
+.race-detail__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 32px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 30, 50, 0.4);
+}
+
+.race-detail__portrait {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 212, 255, 0.4);
+  overflow: hidden;
+  background: rgba(0, 20, 40, 0.6);
+}
+
+.race-detail__portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.race-detail__title-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.race-detail__name {
+  font-size: 26px;
+  letter-spacing: 0.25em;
+  color: var(--color-accent);
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+  font-weight: normal;
+}
+
+.race-detail__ability-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.race-detail__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.race-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.race-detail__section-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.race-detail__codex {
+  font-size: 12px;
+  color: #bbb;
+  line-height: 1.65;
+}
+
+.race-detail__codex-para {
+  margin: 0 0 12px 0;
+}
+
+.race-detail__codex-para:last-child {
+  margin-bottom: 0;
+}
+
+/* Strengths & Weaknesses */
+.race-detail__pros-cons {
+  display: flex;
+  gap: 24px;
+}
+
+.race-detail__column {
+  flex: 1;
+}
+
+.race-detail__column-heading {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.race-detail__column-heading--pro {
+  color: #5ce88a;
+}
+
+.race-detail__column-heading--con {
+  color: #e85c5c;
+}
+
+.race-detail__pro-item,
+.race-detail__con-item {
+  font-size: 12px;
+  color: #ccc;
+  padding: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.race-detail__pro-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5ce88a;
+  flex-shrink: 0;
+}
+
+.race-detail__con-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e85c5c;
+  flex-shrink: 0;
+}
+
+/* Trait chart in detail view */
+.race-detail__trait-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 400px;
+}
+
+/* Special abilities */
+.race-detail__abilities {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.race-detail__ability-card {
+  background: rgba(0, 180, 220, 0.06);
+  border: 1px solid rgba(0, 180, 220, 0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.race-detail__ability-name {
+  font-size: 13px;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.race-detail__ability-desc {
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.5;
+}
+
+/* Environment */
+.race-detail__env {
+  font-size: 12px;
+  color: #bbb;
+  line-height: 1.5;
+}
+
+.race-detail__env-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.race-detail__env-tag {
+  font-size: 11px;
+  color: #888;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Footer */
+.race-detail__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 20, 40, 0.5);
 }
 
 /* ================================================================
@@ -8917,43 +9141,32 @@ button:active:not(:disabled),
   box-sizing: border-box;
 }
 
-.gs-gov-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.gs-gov-card {
-  background: rgba(0, 180, 220, 0.04);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 8px 6px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  text-align: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.gs-gov-card:hover {
-  background: rgba(0, 180, 220, 0.08);
-  border-color: var(--color-border-bright);
-  color: var(--color-text);
-}
-
-.gs-gov-card--active {
-  background: rgba(0, 212, 255, 0.12);
-  border-color: var(--color-accent);
+/* Government dropdown selector */
+.gs-gov-select {
+  width: 100%;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
   color: var(--color-accent);
+  background: rgba(0, 20, 40, 0.6);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  appearance: auto;
 }
 
-.gs-gov-card__name {
-  display: block;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  line-height: 1.3;
+.gs-gov-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+
+.gs-gov-select option {
+  background: #0a0a1a;
+  color: #ccc;
+  font-family: var(--font-mono);
 }
 
 .gs-gov-detail {
