@@ -33,7 +33,6 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     maintenanceCost: { credits: 2 },
     maxLevel: 5,
     description: 'Banks of humming terminals and sealed clean rooms where the unknown becomes the understood. Generates research points each tick, amplified by the species research trait. For many colonists, the glow of the lab at night is a promise that tomorrow will be better than today.',
-    requiredTech: 'subspace_scanning',
   },
 
   factory: {
