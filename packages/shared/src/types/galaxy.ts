@@ -72,6 +72,8 @@ export interface Building {
   id: string;
   type: BuildingType;
   level: number;
+  /** Building condition 0–100%. Defaults to 100 when constructed. */
+  condition?: number;
 }
 
 export type BuildingType =
@@ -94,6 +96,11 @@ export type BuildingType =
   | 'fusion_reactor'
   | 'medical_bay'
   | 'advanced_medical_centre'
+  | 'waste_dump'
+  | 'waste_incinerator'
+  | 'atmosphere_cleanser'
+  | 'orbital_waste_ejector'
+  | 'energy_storage'
   // ── Vaelori unique buildings ──────────────────────────────────────────────
   | 'crystal_resonance_chamber'
   | 'psionic_amplifier'

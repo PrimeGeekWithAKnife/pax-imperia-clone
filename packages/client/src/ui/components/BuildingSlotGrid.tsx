@@ -32,6 +32,12 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   fusion_reactor: 'FR',
   medical_bay: 'MB',
   advanced_medical_centre: 'AM',
+  // ── Waste & environment ────────────────────────────────────────────────
+  waste_dump: 'WD',
+  waste_incinerator: 'WI',
+  atmosphere_cleanser: 'AC',
+  orbital_waste_ejector: 'OW',
+  energy_storage: 'ES',
   // ── Vaelori ─────────────────────────────────────────────────────────────
   crystal_resonance_chamber: 'CR',
   psionic_amplifier: 'PA',

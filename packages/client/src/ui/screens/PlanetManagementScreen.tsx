@@ -164,7 +164,7 @@ function estimateMaintenance(planet: Planet): Record<string, number> {
 
 // ── Building category definitions ─────────────────────────────────────────────
 
-type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure';
+type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure' | 'environment';
 
 const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   all: 'All',
@@ -173,6 +173,7 @@ const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   military: 'Military',
   commerce: 'Commerce',
   infrastructure: 'Infrastructure',
+  environment: 'Environment',
 };
 
 const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all'>, BuildingType[]> = {
@@ -180,7 +181,8 @@ const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all'>, Buildi
   population: ['population_center', 'hydroponics_bay', 'medical_bay', 'advanced_medical_centre', 'entertainment_complex'] as BuildingType[],
   military: ['shipyard', 'defense_grid', 'military_academy'] as BuildingType[],
   commerce: ['trade_hub', 'spaceport', 'communications_hub'] as BuildingType[],
-  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station'] as BuildingType[],
+  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station', 'energy_storage'] as BuildingType[],
+  environment: ['waste_dump', 'waste_incinerator', 'atmosphere_cleanser', 'orbital_waste_ejector'] as BuildingType[],
 };
 
 interface BuildingPickerProps {

@@ -50,6 +50,12 @@ const ACCENT: Record<BuildingType, string> = {
   fusion_reactor:           '#ff8800',
   medical_bay:              '#55ddaa',
   advanced_medical_centre:  '#33bbcc',
+  // ── Waste & environment ────────────────────────────────────────────────
+  waste_dump:              '#8b7355',
+  waste_incinerator:       '#cc6633',
+  atmosphere_cleanser:     '#44ccaa',
+  orbital_waste_ejector:   '#6688cc',
+  energy_storage:          '#ffaa22',
   // ── Vaelori ─────────────────────────────────────────────────────────────
   crystal_resonance_chamber: '#c084fc',
   psionic_amplifier:         '#a855f7',
@@ -4115,6 +4121,376 @@ const drawSeismicResonator: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, cx, sc(32, s), sc(8, s), accent, 0.4);
 };
 
+// ── Waste & environment buildings ─────────────────────────────────────────────
+
+const drawWasteDump: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Landfill mound
+  const moundGrad = ctx.createLinearGradient(sc(12, s), sc(16, s), sc(12, s), sc(54, s));
+  moundGrad.addColorStop(0, '#5a4a30');
+  moundGrad.addColorStop(1, '#3a2a18');
+  ctx.fillStyle = moundGrad;
+  ctx.beginPath();
+  ctx.moveTo(sc(8, s), sc(54, s));
+  ctx.lineTo(sc(16, s), sc(24, s));
+  ctx.lineTo(sc(32, s), sc(16, s));
+  ctx.lineTo(sc(48, s), sc(24, s));
+  ctx.lineTo(sc(56, s), sc(54, s));
+  ctx.closePath();
+  ctx.fill();
+  // Containment wall outline
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.stroke();
+  // Hazard stripes
+  ctx.fillStyle = accent + '66';
+  for (let i = 0; i < 3; i++) {
+    roundRect(ctx, sc(18 + i * 10, s), sc(36, s), sc(6, s), sc(3, s), sc(1, s));
+    ctx.fill();
+  }
+  drawGlow(ctx, sc(32, s), sc(30, s), sc(14, s), accent, 0.25);
+};
+
+const drawWasteIncinerator: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Furnace body
+  const bodyGrad = ctx.createLinearGradient(sc(14, s), sc(16, s), sc(14, s), sc(54, s));
+  bodyGrad.addColorStop(0, '#3a2010');
+  bodyGrad.addColorStop(1, '#1a1008');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, sc(14, s), sc(20, s), sc(36, s), sc(34, s), sc(2, s));
+  ctx.fill();
+  // Chimney stacks
+  ctx.fillStyle = '#2a1810';
+  roundRect(ctx, sc(18, s), sc(8, s), sc(6, s), sc(18, s), sc(1, s));
+  ctx.fill();
+  roundRect(ctx, sc(40, s), sc(10, s), sc(6, s), sc(16, s), sc(1, s));
+  ctx.fill();
+  // Smoke wisps
+  ctx.strokeStyle = accent + '44';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(21, s), sc(8, s));
+  ctx.quadraticCurveTo(sc(24, s), sc(3, s), sc(19, s), sc(1, s));
+  ctx.stroke();
+  // Furnace glow
+  ctx.fillStyle = accent + 'aa';
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(40, s), sc(6, s), 0, Math.PI * 2);
+  ctx.fill();
+  drawGlow(ctx, sc(32, s), sc(40, s), sc(10, s), accent, 0.4);
+};
+
+const drawAtmosphereCleanser: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Main tower
+  const towerGrad = ctx.createLinearGradient(sc(24, s), sc(8, s), sc(24, s), sc(54, s));
+  towerGrad.addColorStop(0, '#1a2a28');
+  towerGrad.addColorStop(1, '#0c1a16');
+  ctx.fillStyle = towerGrad;
+  roundRect(ctx, sc(24, s), sc(12, s), sc(16, s), sc(42, s), sc(3, s));
+  ctx.fill();
+  // Side vents
+  ctx.fillStyle = '#0e1e1a';
+  roundRect(ctx, sc(10, s), sc(28, s), sc(14, s), sc(20, s), sc(2, s));
+  ctx.fill();
+  roundRect(ctx, sc(40, s), sc(28, s), sc(14, s), sc(20, s), sc(2, s));
+  ctx.fill();
+  // Air flow indicators
+  ctx.strokeStyle = accent + '88';
+  ctx.lineWidth = sc(1.5, s);
+  for (let i = 0; i < 3; i++) {
+    const y = sc(18 + i * 10, s);
+    ctx.beginPath();
+    ctx.moveTo(sc(28, s), y);
+    ctx.lineTo(sc(36, s), y);
+    ctx.stroke();
+  }
+  // Top emission glow (clean air)
+  drawGlow(ctx, sc(32, s), sc(12, s), sc(8, s), accent, 0.5);
+};
+
+const drawOrbitalWasteEjector: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Launch rail
+  ctx.fillStyle = '#182838';
+  ctx.beginPath();
+  ctx.moveTo(sc(20, s), sc(54, s));
+  ctx.lineTo(sc(28, s), sc(10, s));
+  ctx.lineTo(sc(36, s), sc(10, s));
+  ctx.lineTo(sc(44, s), sc(54, s));
+  ctx.closePath();
+  ctx.fill();
+  // Rail tracks
+  ctx.strokeStyle = accent + '88';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(26, s), sc(54, s));
+  ctx.lineTo(sc(30, s), sc(12, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sc(38, s), sc(54, s));
+  ctx.lineTo(sc(34, s), sc(12, s));
+  ctx.stroke();
+  // Payload capsule
+  ctx.fillStyle = accent + 'cc';
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(20, s), sc(4, s), 0, Math.PI * 2);
+  ctx.fill();
+  // Launch glow
+  drawGlow(ctx, sc(32, s), sc(14, s), sc(10, s), accent, 0.45);
+};
+
+const drawEnergyStorage: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Battery cells (three cylinders)
+  const cellX = [sc(14, s), sc(28, s), sc(42, s)];
+  for (const cx of cellX) {
+    const cellGrad = ctx.createLinearGradient(cx - sc(5, s), sc(16, s), cx + sc(5, s), sc(16, s));
+    cellGrad.addColorStop(0, '#2a2000');
+    cellGrad.addColorStop(0.5, '#3a3010');
+    cellGrad.addColorStop(1, '#2a2000');
+    ctx.fillStyle = cellGrad;
+    roundRect(ctx, cx - sc(5, s), sc(16, s), sc(10, s), sc(36, s), sc(2, s));
+    ctx.fill();
+    // Charge level indicator
+    ctx.fillStyle = accent + '88';
+    roundRect(ctx, cx - sc(3, s), sc(28, s), sc(6, s), sc(18, s), sc(1, s));
+    ctx.fill();
+    // Terminal cap
+    ctx.fillStyle = accent + 'cc';
+    roundRect(ctx, cx - sc(3, s), sc(14, s), sc(6, s), sc(4, s), sc(1, s));
+    ctx.fill();
+  }
+  drawGlow(ctx, sc(28, s), sc(32, s), sc(12, s), accent, 0.3);
+};
+
+// ── Waste Dump ──────────────────────────────────────────────────────────────
+
+const drawWasteDump: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Open-top container with waste inside
+  const binW = sc(32, s);
+  const binH = sc(20, s);
+  const binX = cx - binW / 2;
+  const binY = baseY - binH;
+
+  // Container body
+  const wallGrad = ctx.createLinearGradient(binX, binY, binX + binW, binY);
+  wallGrad.addColorStop(0, '#555544');
+  wallGrad.addColorStop(0.5, '#777766');
+  wallGrad.addColorStop(1, '#444433');
+  ctx.fillStyle = wallGrad;
+  roundRect(ctx, binX, binY, binW, binH, sc(2, s));
+  ctx.fill();
+  ctx.strokeStyle = '#333322';
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+
+  // Waste fill
+  ctx.fillStyle = accent + 'aa';
+  roundRect(ctx, binX + sc(2, s), binY + sc(6, s), binW - sc(4, s), binH - sc(8, s), sc(1, s));
+  ctx.fill();
+
+  // Hazard stripe
+  ctx.save();
+  ctx.fillStyle = '#ccaa00';
+  ctx.fillRect(binX, baseY - sc(4, s), binW, sc(2, s));
+  ctx.fillStyle = '#333322';
+  for (let i = 0; i < 8; i += 2) {
+    ctx.fillRect(binX + sc(i * 4, s), baseY - sc(4, s), sc(4, s), sc(2, s));
+  }
+  ctx.restore();
+};
+
+// ── Waste Incinerator ───────────────────────────────────────────────────────
+
+const drawWasteIncinerator: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Furnace body
+  const bodyW = sc(24, s);
+  const bodyH = sc(26, s);
+  const bodyX = cx - bodyW / 2;
+  const bodyY = baseY - bodyH;
+
+  const bodyGrad = ctx.createLinearGradient(bodyX, bodyY, bodyX, baseY);
+  bodyGrad.addColorStop(0, '#884422');
+  bodyGrad.addColorStop(1, '#553311');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, bodyX, bodyY, bodyW, bodyH, sc(2, s));
+  ctx.fill();
+  ctx.strokeStyle = '#442211';
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+
+  // Fire glow inside opening
+  ctx.fillStyle = '#ff6600';
+  roundRect(ctx, bodyX + sc(4, s), baseY - sc(10, s), bodyW - sc(8, s), sc(6, s), sc(1, s));
+  ctx.fill();
+  drawGlow(ctx, cx, baseY - sc(7, s), sc(8, s), '#ff4400', 0.5);
+
+  // Chimney
+  ctx.fillStyle = '#666655';
+  ctx.fillRect(cx + sc(6, s), bodyY - sc(12, s), sc(5, s), sc(14, s));
+  ctx.strokeStyle = '#444433';
+  ctx.lineWidth = sc(0.8, s);
+  ctx.strokeRect(cx + sc(6, s), bodyY - sc(12, s), sc(5, s), sc(14, s));
+
+  // Smoke wisps
+  ctx.save();
+  ctx.strokeStyle = '#888888';
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.4;
+  const smokeX = cx + sc(8.5, s);
+  const smokeY = bodyY - sc(12, s);
+  ctx.beginPath();
+  ctx.moveTo(smokeX, smokeY);
+  ctx.quadraticCurveTo(smokeX - sc(4, s), smokeY - sc(6, s), smokeX, smokeY - sc(12, s));
+  ctx.stroke();
+  ctx.restore();
+};
+
+// ── Atmosphere Cleanser ─────────────────────────────────────────────────────
+
+const drawAtmosphereCleanser: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Main tower
+  const towerW = sc(16, s);
+  const towerH = sc(34, s);
+  const towerX = cx - towerW / 2;
+  const towerY = baseY - towerH;
+
+  const towerGrad = ctx.createLinearGradient(towerX, towerY, towerX + towerW, towerY);
+  towerGrad.addColorStop(0, '#336655');
+  towerGrad.addColorStop(0.5, '#55aa88');
+  towerGrad.addColorStop(1, '#224433');
+  ctx.fillStyle = towerGrad;
+  roundRect(ctx, towerX, towerY, towerW, towerH, sc(3, s));
+  ctx.fill();
+  ctx.strokeStyle = '#113322';
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+
+  // Air intake vents
+  ctx.fillStyle = accent + '88';
+  for (let i = 0; i < 3; i++) {
+    const vy = towerY + sc(6 + i * 10, s);
+    roundRect(ctx, towerX + sc(2, s), vy, towerW - sc(4, s), sc(3, s), sc(1, s));
+    ctx.fill();
+  }
+
+  // Clean air output glow at top
+  drawGlow(ctx, cx, towerY, sc(14, s), accent, 0.5);
+
+  // Side processing unit
+  const sideW = sc(10, s);
+  const sideH = sc(16, s);
+  ctx.fillStyle = '#446655';
+  roundRect(ctx, towerX - sideW - sc(2, s), baseY - sideH, sideW, sideH, sc(1, s));
+  ctx.fill();
+};
+
+// ── Orbital Waste Ejector ───────────────────────────────────────────────────
+
+const drawOrbitalWasteEjector: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Launch rail (angled upward)
+  ctx.save();
+  ctx.translate(cx, baseY);
+  ctx.rotate(-Math.PI / 6);
+  const railW = sc(6, s);
+  const railH = sc(38, s);
+  const railGrad = ctx.createLinearGradient(0, 0, 0, -railH);
+  railGrad.addColorStop(0, '#556677');
+  railGrad.addColorStop(1, '#8899aa');
+  ctx.fillStyle = railGrad;
+  roundRect(ctx, -railW / 2, -railH, railW, railH, sc(1, s));
+  ctx.fill();
+  ctx.strokeStyle = '#334455';
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+
+  // Launch glow at tip
+  drawGlow(ctx, 0, -railH, sc(8, s), accent, 0.6);
+  ctx.restore();
+
+  // Base mechanism
+  const mechW = sc(20, s);
+  const mechH = sc(10, s);
+  ctx.fillStyle = '#445566';
+  roundRect(ctx, cx - mechW / 2, baseY - mechH, mechW, mechH, sc(2, s));
+  ctx.fill();
+  ctx.strokeStyle = '#334455';
+  ctx.lineWidth = sc(0.8, s);
+  ctx.stroke();
+
+  drawPanelLines(ctx, s, cx - mechW / 2 + sc(2, s), baseY - mechH + sc(2, s), mechW - sc(4, s), mechH - sc(4, s), 3);
+};
+
+// ── Energy Storage ──────────────────────────────────────────────────────────
+
+const drawEnergyStorage: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(52, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Two large capacitor cylinders
+  const cylinders = [
+    { x: cx - sc(10, s), w: sc(14, s), h: sc(26, s) },
+    { x: cx + sc(10, s), w: sc(14, s), h: sc(26, s) },
+  ];
+
+  cylinders.forEach(({ x, w, h }) => {
+    const cylGrad = ctx.createLinearGradient(x - w / 2, baseY - h, x + w / 2, baseY);
+    cylGrad.addColorStop(0, accent);
+    cylGrad.addColorStop(0.3, '#334455');
+    cylGrad.addColorStop(1, '#1a1a2e');
+    ctx.fillStyle = cylGrad;
+    roundRect(ctx, x - w / 2, baseY - h, w, h, sc(3, s));
+    ctx.fill();
+    ctx.strokeStyle = '#222233';
+    ctx.lineWidth = sc(1, s);
+    ctx.stroke();
+
+    // Energy level indicator
+    ctx.fillStyle = accent + '66';
+    const indicH = h * 0.6;
+    roundRect(ctx, x - sc(2, s), baseY - indicH, sc(4, s), indicH, sc(1, s));
+    ctx.fill();
+  });
+
+  // Connecting cable between cylinders
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - sc(3, s), baseY - sc(16, s));
+  ctx.lineTo(cx + sc(3, s), baseY - sc(16, s));
+  ctx.stroke();
+  ctx.restore();
+
+  // Glow
+  drawGlow(ctx, cx, baseY - sc(18, s), sc(16, s), accent, 0.3);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -4137,6 +4513,12 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   fusion_reactor:           drawFusionReactor,
   medical_bay:              drawMedicalBay,
   advanced_medical_centre:  drawAdvancedMedicalCentre,
+  // ── Waste & environment ────────────────────────────────────────────────────
+  waste_dump:              drawWasteDump,
+  waste_incinerator:       drawWasteIncinerator,
+  atmosphere_cleanser:     drawAtmosphereCleanser,
+  orbital_waste_ejector:   drawOrbitalWasteEjector,
+  energy_storage:          drawEnergyStorage,
   // ── Race-specific buildings (generic placeholder icon) ─────────────────────
   crystal_resonance_chamber: drawCrystalResonanceChamber,
   psionic_amplifier:         drawPsionicAmplifier,

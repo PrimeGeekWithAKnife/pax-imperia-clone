@@ -182,9 +182,10 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // factory base: minerals +4, energy -1; construction trait 5 → factor 1
+    // factory base: minerals +4; construction trait 5 → factor 1
+    // Energy consumption is now tracked via energyConsumption field, not baseProduction
     expect(result.production.minerals).toBeCloseTo(4 + 3); // factory 4 + barren bonus 3
-    expect(result.production.energy).toBeCloseTo(-1);
+    expect(result.production.energy).toBeCloseTo(0);
   });
 
   it('construction trait amplifies factory mineral output', () => {
@@ -254,10 +255,11 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // research_lab: +50 RP, factory: +4 minerals -1 energy, barren: +3 minerals
+    // research_lab: +50 RP, factory: +4 minerals, barren: +3 minerals
+    // Energy consumption is now tracked via energyConsumption field, not baseProduction
     expect(result.production.researchPoints).toBeCloseTo(50);
     expect(result.production.minerals).toBeCloseTo(4 + 3); // factory + barren
-    expect(result.production.energy).toBeCloseTo(-1);
+    expect(result.production.energy).toBeCloseTo(0);
     expect(result.buildingOutputs).toHaveLength(2);
   });
 

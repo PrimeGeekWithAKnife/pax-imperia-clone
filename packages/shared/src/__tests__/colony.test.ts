@@ -625,15 +625,15 @@ describe('canBuildOnPlanet', () => {
 
   it('rejects building when required tech is not researched', () => {
     const planet = makePlanet();
-    // research_lab requires 'subspace_scanning'
-    const result = canBuildOnPlanet(planet, 'research_lab', undefined, []);
+    // trade_hub requires 'trade_protocols'
+    const result = canBuildOnPlanet(planet, 'trade_hub', undefined, []);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/requires technology/i);
   });
 
   it('allows building when required tech is researched', () => {
     const planet = makePlanet();
-    const result = canBuildOnPlanet(planet, 'research_lab', undefined, ['subspace_scanning']);
+    const result = canBuildOnPlanet(planet, 'trade_hub', undefined, ['trade_protocols']);
     expect(result.allowed).toBe(true);
   });
 
