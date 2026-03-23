@@ -11,6 +11,8 @@ import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
 import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
 import type { Empire } from '@nova-imperia/shared';
+import type { GameNotification, NotificationPreferences, NotificationType } from '@nova-imperia/shared';
+import { shouldShowNotification } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
 import { useGameEvent } from './hooks/useGameEvents';
 import { getAudioEngine, SfxGenerator } from '../audio';
@@ -45,6 +47,7 @@ import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
+import { NotificationPopup } from './components/NotificationPopup';
 import type { GameLogEntry } from './components/EventLog';
 import { VictoryTracker } from './components/VictoryTracker';
 import { calculateVictoryProgress } from '@nova-imperia/shared';
@@ -227,6 +230,20 @@ export function App(): React.ReactElement {
       return next.length > 50 ? next.slice(-50) : next;
     });
   }, []);
+
+  // ── Notification queue (auto-pause popups) ──
+  const [notificationQueue, setNotificationQueue] = useState<GameNotification[]>([]);
+  const [activeNotification, setActiveNotification] = useState<GameNotification | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(() => {
+    try {
+      const stored = localStorage.getItem('ex-nihilo:silenced-notifications');
+      if (stored) {
+        const arr = JSON.parse(stored) as NotificationType[];
+        return { silencedTypes: new Set(arr) };
+      }
+    } catch { /* ignore */ }
+    return { silencedTypes: new Set() };
+  });
 
   // ── "Coming Soon" overlay state ──
   const [comingSoonLabel, _setComingSoonLabel] = useState<string | null>(null);
@@ -908,6 +925,75 @@ export function App(): React.ReactElement {
     setCurrentScreen('victory');
   }, []);
 
+  // ── Notification system ────────────────────────────────────────────────────
+
+  /** Push a notification onto the queue.  If nothing is active, show it immediately and pause. */
+  const pushNotification = useCallback((notification: GameNotification) => {
+    // Always log the notification in the event log
+    const category: GameLogEntry['category'] =
+      notification.priority === 'critical' ? 'combat'
+        : notification.priority === 'warning' ? 'colony'
+          : 'general';
+    pushLogEntry(notification.tick, notification.title, category);
+
+    // If the player has silenced this type and it is silenceable, skip the popup
+    if (!shouldShowNotification(notification, notificationPreferences)) return;
+
+    // If no notification is currently shown, display this one and pause
+    if (!activeNotification) {
+      setActiveNotification(notification);
+      if (notification.autoPause) {
+        const engine = getGameEngine();
+        if (engine) engine.pause();
+      }
+    } else {
+      // Queue behind the currently displayed notification
+      setNotificationQueue(prev => [...prev, notification]);
+    }
+  }, [activeNotification, notificationPreferences, pushLogEntry]);
+
+  /** Dismiss the active notification.  If `silenceType` is true, persist the preference. */
+  const handleNotificationDismiss = useCallback((silenceType: boolean) => {
+    if (activeNotification && silenceType && activeNotification.canSilence) {
+      setNotificationPreferences(prev => {
+        const next = new Set(prev.silencedTypes);
+        next.add(activeNotification.type);
+        try {
+          localStorage.setItem(
+            'ex-nihilo:silenced-notifications',
+            JSON.stringify([...next]),
+          );
+        } catch { /* ignore quota errors */ }
+        return { silencedTypes: next };
+      });
+    }
+
+    // Show next queued notification, or resume the engine if the queue is empty
+    setNotificationQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setActiveNotification(next);
+        return rest;
+      }
+      // Queue empty — clear active and resume engine
+      setActiveNotification(null);
+      const engine = getGameEngine();
+      if (engine) engine.start();
+      return prev;
+    });
+  }, [activeNotification]);
+
+  /** Handle a choice being made on a notification (e.g. power plant recommission). */
+  const handleNotificationChoice = useCallback((_choiceId: string) => {
+    // Choice handling will be wired to specific game-engine actions in a future sprint.
+    // For now, the choice is acknowledged and the notification is dismissed.
+  }, []);
+
+  /** Listen for notifications emitted by the engine. */
+  const handleEngineNotification = useCallback((notification: GameNotification) => {
+    pushNotification(notification);
+  }, [pushNotification]);
+
   // Player clicks "Cancel Migration" in PlanetDetailPanel
   const handleCancelMigration = useCallback(() => {
     if (!selectedPlanet) return;
@@ -952,6 +1038,7 @@ export function App(): React.ReactElement {
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
   useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
+  useGameEvent<GameNotification>('engine:notification', handleEngineNotification);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -1522,6 +1609,16 @@ export function App(): React.ReactElement {
           initialTab={saveLoadTab}
           onClose={handleCloseSaveLoad}
           onLoaded={handleGameLoaded}
+        />
+      )}
+
+      {/* Auto-pause notification popup */}
+      {activeNotification !== null && (
+        <NotificationPopup
+          notification={activeNotification}
+          queueLength={notificationQueue.length}
+          onDismiss={handleNotificationDismiss}
+          onChoice={handleNotificationChoice}
         />
       )}
 

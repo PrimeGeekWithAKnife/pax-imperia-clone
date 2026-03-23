@@ -9996,3 +9996,189 @@ button:active:not(:disabled),
   border-color: rgba(255,255,255,0.2);
 }
 .vs-btn--secondary:hover { border-color: var(--color-accent, #00d4ff); }
+
+/* ================================================================
+   NOTIFICATION POPUP (auto-pause overlay)
+================================================================ */
+
+.notification-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 2, 8, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  animation: notif-overlay-in 0.2s ease-out;
+}
+
+@keyframes notif-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.notification-popup {
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  background: var(--color-bg-panel, rgba(10, 10, 26, 0.92));
+  border: 1px solid var(--color-border, rgba(0, 180, 220, 0.25));
+  border-radius: 6px;
+  padding: 24px 28px;
+  max-width: 460px;
+  width: 90%;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), inset 0 0 60px rgba(0, 0, 0, 0.15);
+  animation: notif-popup-in 0.25s ease-out;
+}
+
+@keyframes notif-popup-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Priority accents ── */
+
+.notification-popup--critical {
+  border-color: #ff3355;
+  box-shadow: 0 0 40px rgba(255, 51, 85, 0.18), inset 0 0 60px rgba(0, 0, 0, 0.15);
+}
+
+.notification-popup--warning {
+  border-color: #ffaa22;
+  box-shadow: 0 0 40px rgba(255, 170, 34, 0.15), inset 0 0 60px rgba(0, 0, 0, 0.15);
+}
+
+.notification-popup--info {
+  border-color: var(--color-accent, #00d4ff);
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.12), inset 0 0 60px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Priority badge ── */
+
+.notification-popup__priority {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.notification-popup--critical .notification-popup__priority {
+  color: #ff3355;
+}
+
+.notification-popup--warning .notification-popup__priority {
+  color: #ffaa22;
+}
+
+.notification-popup--info .notification-popup__priority {
+  color: var(--color-accent, #00d4ff);
+}
+
+/* ── Title ── */
+
+.notification-popup__title {
+  font-size: 16px;
+  color: var(--color-text, #d0e8ff);
+  margin: 0 0 10px;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+}
+
+/* ── Message ── */
+
+.notification-popup__message {
+  font-size: 13px;
+  color: var(--color-text-secondary, #99aabb);
+  margin: 0 0 18px;
+  line-height: 1.55;
+}
+
+/* ── Choices ── */
+
+.notification-popup__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.notification-popup__choice-btn {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border, rgba(0, 180, 220, 0.25));
+  border-radius: 4px;
+  color: var(--color-text, #d0e8ff);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.notification-popup__choice-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: var(--color-accent-dim, rgba(0, 212, 255, 0.55));
+}
+
+.notification-popup--critical .notification-popup__choice-btn:hover {
+  background: rgba(255, 51, 85, 0.08);
+  border-color: rgba(255, 51, 85, 0.55);
+}
+
+.notification-popup--warning .notification-popup__choice-btn:hover {
+  background: rgba(255, 170, 34, 0.08);
+  border-color: rgba(255, 170, 34, 0.55);
+}
+
+/* ── Silence checkbox ── */
+
+.notification-popup__silence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-text-muted, #6688aa);
+  margin-bottom: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.notification-popup__silence input[type='checkbox'] {
+  accent-color: var(--color-accent, #00d4ff);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* ── Footer ── */
+
+.notification-popup__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.notification-popup__queue-count {
+  font-size: 11px;
+  color: var(--color-text-muted, #6688aa);
+  letter-spacing: 0.06em;
+}
+
+.notification-popup__dismiss-btn {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  padding: 7px 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border-bright, rgba(0, 212, 255, 0.55));
+  border-radius: 4px;
+  color: var(--color-accent, #00d4ff);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notification-popup__dismiss-btn:hover {
+  background: var(--color-accent, #00d4ff);
+  color: var(--color-bg-deep, #05050f);
+}

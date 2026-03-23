@@ -15,3 +15,5 @@ export * from './first-contact.js';
 export * from './ethical-audit.js';
 export * from './demographics.js';
 export * from './governor-personality.js';
+export * from './notification.js';
+export * from './waste.js';
