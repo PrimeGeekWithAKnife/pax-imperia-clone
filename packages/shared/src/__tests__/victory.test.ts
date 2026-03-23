@@ -378,8 +378,8 @@ describe('checkVictoryConditions — economic', () => {
       ['beta',  { credits:   5_000, minerals: 0, rareElements: 0, energy: 0, organics: 0, exoticMaterials: 0, faith: 0, researchPoints: 0 }],
     ]);
 
-    // Simulate 50 ticks of sustained lead
-    const leadTicks = new Map<string, number>([['alpha', 50], ['beta', 0]]);
+    // Simulate 500 ticks of sustained lead
+    const leadTicks = new Map<string, number>([['alpha', 500], ['beta', 0]]);
 
     const result = checkVictoryConditions(gs, resourcesMap, leadTicks, 0);
     expect(result).not.toBeNull();
