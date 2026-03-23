@@ -1072,6 +1072,25 @@ export function App(): React.ReactElement {
     setManagedSystemId(systemId);
   }, []);
 
+  const handleDemolish = useCallback(
+    (planetId: string, buildingId: string) => {
+      if (!managedSystemId) {
+        console.warn('[App.handleDemolish] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleDemolish] GameEngine not available');
+        return;
+      }
+      const success = engine.demolishBuildingOnPlanet(managedSystemId, planetId, buildingId);
+      if (!success) {
+        console.warn(`[App.handleDemolish] demolishBuildingOnPlanet returned false for ${buildingId}`);
+      }
+    },
+    [managedSystemId],
+  );
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
       if (!managedSystemId) {
@@ -1553,6 +1572,7 @@ export function App(): React.ReactElement {
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
           onProduceShip={handleProduceShip}
+          onDemolish={handleDemolish}
         />
       )}
 

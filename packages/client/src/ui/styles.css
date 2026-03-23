@@ -1845,6 +1845,36 @@
   line-height: 1;
 }
 
+.bsg-slot__demolish {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: rgba(200, 50, 50, 0.15);
+  color: rgba(200, 80, 80, 0.4);
+  font-size: 9px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  opacity: 0;
+  z-index: 2;
+}
+
+.bsg-slot--occupied:hover .bsg-slot__demolish {
+  opacity: 1;
+}
+
+.bsg-slot__demolish:hover {
+  background: rgba(200, 50, 50, 0.55);
+  color: #ff6666;
+}
+
 /* ================================================================
    CONSTRUCTION QUEUE
 ================================================================ */
@@ -9441,6 +9471,111 @@ button:active:not(:disabled),
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ── Demolish confirmation dialog ─────────────────────────────── */
+
+.pm-demolish-dialog {
+  background: var(--color-bg-panel);
+  border: 1px solid rgba(200, 50, 50, 0.4);
+  border-radius: 6px;
+  padding: 20px 24px;
+  max-width: 360px;
+  text-align: centre;
+  font-family: var(--font-mono);
+  pointer-events: auto;
+}
+
+.pm-demolish-dialog__title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ff6666;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pm-demolish-dialog__message {
+  font-size: 12px;
+  color: var(--color-text);
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.pm-demolish-dialog__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.pm-demolish-dialog__btn {
+  padding: 6px 16px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pm-demolish-dialog__btn--cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted);
+}
+
+.pm-demolish-dialog__btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pm-demolish-dialog__btn--confirm {
+  background: rgba(200, 50, 50, 0.3);
+  color: #ff6666;
+  border-color: rgba(200, 50, 50, 0.5);
+}
+
+.pm-demolish-dialog__btn--confirm:hover {
+  background: rgba(200, 50, 50, 0.5);
+  border-color: rgba(200, 50, 50, 0.7);
+}
+
+/* ── Locked building (greyed-out) styling in picker ───────────── */
+
+.bpicker-item--locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+}
+
+.bpicker-item__locked-label {
+  font-size: 10px;
+  color: #c9852a;
+  font-family: var(--font-mono);
+  margin-top: 4px;
+}
+
+/* ── Planet indicators (energy / waste / happiness) ───────────── */
+
+.pm-indicators {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.pm-indicator-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.pm-indicator-label {
+  color: var(--color-text-muted);
+}
+
+.pm-indicator-value {
+  font-weight: bold;
 }
 
 /* ================================================================

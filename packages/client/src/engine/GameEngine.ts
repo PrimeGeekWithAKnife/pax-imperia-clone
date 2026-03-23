@@ -41,6 +41,7 @@ import {
   canColonize,
   establishColony,
   addBuildingToQueue,
+  demolishBuilding,
   BUILDING_DEFINITIONS,
   HULL_TEMPLATE_BY_CLASS,
   startShipProduction,
@@ -581,6 +582,64 @@ export class GameEngine {
 
     const updatedQueue = planet.productionQueue.filter((_, i) => i !== queueIndex);
     const updatedPlanet = { ...planet, productionQueue: updatedQueue };
+
+    const updatedSystems = galaxy.systems.map(s => {
+      if (s.id !== systemId) return s;
+      return {
+        ...s,
+        planets: s.planets.map(p => (p.id === planetId ? updatedPlanet : p)),
+      };
+    });
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: {
+        ...this.tickState.gameState,
+        galaxy: { ...galaxy, systems: updatedSystems },
+      },
+    };
+
+    this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
+
+    return true;
+  }
+
+  /**
+   * Demolish (remove) a building from a planet.
+   *
+   * Validates that:
+   *  - The system and planet exist in the current tick state.
+   *  - The building exists on the planet.
+   *
+   * Uses the shared `demolishBuilding` pure function to produce the updated
+   * planet, then splices it back into the galaxy.
+   *
+   * Emits `engine:planet_updated` with the updated Planet on success.
+   *
+   * @returns true if the building was demolished, false otherwise.
+   */
+  demolishBuildingOnPlanet(systemId: string, planetId: string, buildingId: string): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] System "${systemId}" not found`);
+      return false;
+    }
+
+    const planet = system.planets.find(p => p.id === planetId);
+    if (!planet) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] Planet "${planetId}" not found in system "${systemId}"`);
+      return false;
+    }
+
+    const buildingExists = planet.buildings.some(b => b.id === buildingId);
+    if (!buildingExists) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] Building "${buildingId}" not found on planet "${planetId}"`);
+      return false;
+    }
+
+    const updatedPlanet = demolishBuilding(planet, buildingId);
 
     const updatedSystems = galaxy.systems.map(s => {
       if (s.id !== systemId) return s;

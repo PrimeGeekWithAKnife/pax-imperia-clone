@@ -337,6 +337,29 @@ export function establishColony(
   };
 }
 
+// ── Demolish building ──────────────────────────────────────────────────────
+
+/**
+ * Removes a building from a planet by its ID.
+ *
+ * Returns a new Planet object with the building removed from the buildings
+ * array. If no building with the given ID exists, the planet is returned
+ * unchanged.
+ *
+ * This is a pure function — it does not mutate its inputs.
+ */
+export function demolishBuilding(planet: Planet, buildingId: string): Planet {
+  const filtered = planet.buildings.filter(b => b.id !== buildingId);
+  if (filtered.length === planet.buildings.length) {
+    // No building matched — return unchanged
+    return planet;
+  }
+  return {
+    ...planet,
+    buildings: filtered,
+  };
+}
+
 // ── In-system colonisation ──────────────────────────────────────────────────
 
 /**
