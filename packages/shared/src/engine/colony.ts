@@ -199,14 +199,36 @@ export function calculateHabitability(planet: Planet, species: Species): Habitab
 // ── Population growth ───────────────────────────────────────────────────────
 
 /**
+ * Calculate the effective maximum population for a planet, including
+ * bonuses from population_center buildings.
+ *
+ * Each population_center adds its `populationCapacityBonus` (default 1.5M),
+ * scaled by the compound level multiplier: L2 +20%, L3 +25%, L4 +30%, L5 +35%.
+ */
+export function getEffectiveMaxPopulation(planet: Planet): number {
+  const LEVEL_MULTIPLIERS = [1.0, 1.0, 1.20, 1.50, 1.95, 2.63];
+  let bonus = 0;
+  for (const building of planet.buildings) {
+    if (building.type === 'population_center') {
+      const def = BUILDING_DEFINITIONS[building.type];
+      const baseBonus = def?.populationCapacityBonus ?? 0;
+      const levelMul = LEVEL_MULTIPLIERS[building.level] ?? 1.0;
+      bonus += baseBonus * levelMul;
+    }
+  }
+  return planet.maxPopulation + bonus;
+}
+
+/**
  * Calculates the number of population units to add this turn.
  *
  * Formula (logistic):
  *   baseGrowth = pop * BASE_GROWTH_RATE * (reproduction / 5)
  *   adjusted   = baseGrowth * (habitability / 100)
- *   logistic   = adjusted * (1 - currentPop / maxPop)
+ *   logistic   = adjusted * (1 - currentPop / effectiveMaxPop)
  *
- * Each population_center building at level L adds +10% * L to growth.
+ * Each population_center building at level L adds +10% * L to growth rate.
+ * Population centres also increase max capacity (see getEffectiveMaxPopulation).
  * Returns at least 1 when the colony is alive and below the population cap.
  *
  * If the empire is starving (isStarving = true), growth is always zero.
@@ -219,7 +241,9 @@ export function calculatePopulationGrowth(
 ): number {
   if (isStarving) return 0;
   if (planet.currentPopulation <= 0) return 0;
-  if (planet.currentPopulation >= planet.maxPopulation) return 0;
+
+  const effectiveMax = getEffectiveMaxPopulation(planet);
+  if (planet.currentPopulation >= effectiveMax) return 0;
 
   const reproductionFactor = species.traits.reproduction / 5;
   let baseGrowth = planet.currentPopulation * BASE_GROWTH_RATE * reproductionFactor;
@@ -227,15 +251,15 @@ export function calculatePopulationGrowth(
   // Habitability modifier
   baseGrowth *= habitability / 100;
 
-  // Population center building bonus: +10% per level per building
+  // Population center building bonus: +10% per level per building (growth RATE boost)
   for (const building of planet.buildings) {
     if (building.type === 'population_center') {
       baseGrowth *= 1 + 0.1 * building.level;
     }
   }
 
-  // Logistic curve — growth approaches zero as population nears max
-  const logisticFactor = 1 - planet.currentPopulation / planet.maxPopulation;
+  // Logistic curve — growth approaches zero as population nears effective max
+  const logisticFactor = 1 - planet.currentPopulation / effectiveMax;
   let growth = baseGrowth * logisticFactor;
 
   // Minimum growth guarantee

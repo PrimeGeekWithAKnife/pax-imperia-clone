@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -876,9 +876,9 @@ export function PlanetManagementScreen({
               </div>
               <div className="pm-stat-row">
                 <span className="pm-stat-label">Capacity</span>
-                <span className="pm-stat-value">{formatPopulation(planet.maxPopulation)}</span>
+                <span className="pm-stat-value">{formatPopulation(getEffectiveMaxPopulation(planet))}</span>
               </div>
-              {planet.currentPopulation > 0 && planet.currentPopulation < planet.maxPopulation && (
+              {planet.currentPopulation > 0 && planet.currentPopulation < getEffectiveMaxPopulation(planet) && (
                 <div className="pm-stat-row">
                   <span className="pm-stat-label">Growth</span>
                   <span className="pm-stat-value pm-stat-value--positive">Growing</span>
