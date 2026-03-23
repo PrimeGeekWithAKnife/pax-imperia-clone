@@ -116,11 +116,14 @@ const EMPIRE_ID = 'empire-1';
 // ── canStartMigration ──────────────────────────────────────────────────────────
 
 describe('canStartMigration', () => {
+  const ENOUGH_MINERALS = 10_000;
+
   it('is allowed when source has sufficient population and target is unowned', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
     expect(result.reason).toBeUndefined();
@@ -130,54 +133,58 @@ describe('canStartMigration', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.cost).toBeGreaterThan(0);
   });
 
-  it('is rejected when source planet has too little population (< 100)', () => {
+  it('is rejected when source planet has too little population (< 100K)', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, {});
-    // Override source planet to have only 50 population.
+    // Override source planet to have only 50K population.
     const lowPopSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 50 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 50_000 } : p,
       ),
     };
     const result = canStartMigration(
-      lowPopSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      lowPopSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
-    expect(result.reason).toMatch(/too low/i);
+    expect(result.reason).toMatch(/population/i);
   });
 
-  it('is rejected when source planet has exactly 99 population', () => {
+  it('is rejected when source planet has exactly 99,999 population', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const tooSmallSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 99 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 99_999 } : p,
       ),
     };
     const result = canStartMigration(
-      tooSmallSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      tooSmallSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
   });
 
-  it('is allowed when source planet has exactly 100 population', () => {
+  it('is allowed when source planet has exactly 100,000 population', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const exactSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 100 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 100_000 } : p,
       ),
     };
     const result = canStartMigration(
-      exactSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      exactSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
   });
@@ -186,7 +193,8 @@ describe('canStartMigration', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, { ownerId: 'empire-2' });
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/already owned/i);
@@ -201,7 +209,8 @@ describe('canStartMigration', () => {
       temperature: 130,
     });
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/gas giant/i);
@@ -225,7 +234,8 @@ describe('canStartMigration', () => {
       discovered: {},
     };
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/habitability/i);
@@ -236,6 +246,7 @@ describe('canStartMigration', () => {
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
       system, 'planet-source', 'planet-target', EMPIRE_ID, species, 0,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/insufficient credits/i);
@@ -258,8 +269,8 @@ describe('canStartMigration', () => {
       totalCost: 200,
     };
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
-      [existingOrder],
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [existingOrder], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/already in progress/i);
@@ -289,8 +300,8 @@ describe('canStartMigration', () => {
       ),
     };
     const result = canStartMigration(
-      unownedSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
-      [completedOrder],
+      unownedSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [completedOrder], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
   });
@@ -514,6 +525,16 @@ describe('Integration: migration completes over multiple game ticks', () => {
     return makeSpecies({ id: INT_EMPIRE_ID });
   }
 
+  /** Helper: ensure the empire has enough minerals in the resource map. */
+  function withMinerals(tickState: import('../engine/game-loop.js').GameTickState, empireId: string, minerals: number): import('../engine/game-loop.js').GameTickState {
+    const newMap = new Map(tickState.empireResourcesMap);
+    const existing = newMap.get(empireId);
+    if (existing) {
+      newMap.set(empireId, { ...existing, minerals });
+    }
+    return { ...tickState, empireResourcesMap: newMap };
+  }
+
   function makeIntGameState(): GameState {
     const species = makeIntSpecies();
     const empire: Empire = {
@@ -521,7 +542,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       name: 'Terran Union',
       species,
       color: '#00aaff',
-      credits: 10_000,
+      credits: 100_000,
       researchPoints: 0,
       knownSystems: ['system-int'],
       diplomacy: [],
@@ -573,7 +594,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    const tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    const tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
     const { events } = processGameTick(tickState);
 
     expect(events.some(e => e.type === 'MigrationStarted')).toBe(true);
@@ -587,7 +608,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     let establishedEventSeen = false;
     // Run up to 1000 ticks to ensure we eventually reach the threshold.
@@ -612,7 +633,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     for (let i = 0; i < 1000; i++) {
       const { newState, events } = processGameTick(tickState);
@@ -636,7 +657,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     for (let i = 0; i < 1000; i++) {
       const { newState, events } = processGameTick(tickState);
@@ -659,7 +680,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     let establishedEvent: import('../types/events.js').ColonyEstablishedEvent | undefined;
     for (let i = 0; i < 1000; i++) {
@@ -687,7 +708,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     const waveEvents: import('../types/events.js').MigrationWaveEvent[] = [];
     for (let i = 0; i < 1000; i++) {

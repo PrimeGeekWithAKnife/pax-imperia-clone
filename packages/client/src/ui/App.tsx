@@ -482,6 +482,11 @@ export function App(): React.ReactElement {
     setIsPaused(false);
   }, []);
 
+  // Phaser emits this when "Resume" is clicked — open the save/load screen in load mode
+  const handleOpenLoadGame = useCallback(() => {
+    setSaveLoadTab('load');
+  }, []);
+
   // Phaser emits this when "Multiplayer" is clicked from the main menu
   const handleOpenMultiplayer = useCallback(() => {
     setCurrentScreen('multiplayer');
@@ -1011,6 +1016,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('system:exited', handleSystemExited);
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
+  useGameEvent<void>('ui:load_game', handleOpenLoadGame);
   useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
   useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
   useGameEvent<void>('ui:research', handleOpenResearch);
@@ -1539,6 +1545,7 @@ export function App(): React.ReactElement {
         estimatedWaves={estimatedWavesForMigration}
         sourcePlanetName={migrationSourcePlanetName}
         playerOwnsInSystem={playerOwnsInSystem}
+        empireResources={empireResources}
       />
 
       <Minimap

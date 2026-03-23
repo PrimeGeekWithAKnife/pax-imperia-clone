@@ -366,7 +366,28 @@ export function demolishBuilding(planet: Planet, buildingId: string): Planet {
  * Base credit cost for in-system colonisation.
  * Applies when habitability is at maximum (100).
  */
-const BASE_COLONISATION_COST = 200;
+const BASE_COLONISATION_COST = 10_000;
+
+/**
+ * Mineral cost for in-system colonisation.
+ * Paid upfront alongside the credit cost.
+ */
+export const COLONISATION_MINERAL_COST = 3_000;
+
+/**
+ * Number of colonists transferred from the source planet to the new colony.
+ */
+export const COLONIST_TRANSFER_COUNT = 100_000;
+
+/**
+ * Minimum mortality rate during colonist transfer (1%).
+ */
+const TRANSFER_MORTALITY_MIN = 0.01;
+
+/**
+ * Maximum mortality rate during colonist transfer (10%).
+ */
+const TRANSFER_MORTALITY_MAX = 0.10;
 
 /**
  * Calculate the credit cost to colonise a planet based on its habitability.
@@ -391,14 +412,15 @@ export function getColonisationCost(planet: Planet, species: Species): number {
  *
  * Requirements (all must be satisfied):
  * - Empire owns at least one other planet in the same system.
+ * - Source planet (most populous owned planet) has >= COLONIST_TRANSFER_COUNT population.
  * - Target planet is unowned (ownerId === null).
  * - Target planet is not already populated (currentPopulation === 0).
  * - Target planet is not a gas giant (use the orbital-platform path for those).
  * - Habitability for the empire's species is >= MIN_COLONIZE_HABITABILITY (10).
- * - Empire can afford the colonisation cost.
+ * - Empire can afford the credit and mineral colonisation costs.
  *
- * Returns the colonisation cost even when the action is not allowed, so
- * callers can display the cost in the UI regardless.
+ * Returns the colonisation cost and mineral cost even when the action is not
+ * allowed, so callers can display them in the UI regardless.
  */
 export function canColoniseInSystem(
   system: StarSystem,
@@ -406,36 +428,50 @@ export function canColoniseInSystem(
   empireId: string,
   species: Species,
   empireCredits: number,
-): { allowed: boolean; reason?: string; cost: number } {
+  empireMinerals = 0,
+): { allowed: boolean; reason?: string; cost: number; mineralCost: number } {
   const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+  const mineralCost = COLONISATION_MINERAL_COST;
 
   if (!targetPlanet) {
-    return { allowed: false, reason: 'Planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Planet not found in this system', cost: 0, mineralCost };
   }
 
   // The cost is always calculated so callers can show it even on rejection.
   const cost = getColonisationCost(targetPlanet, species);
 
   // Must own at least one planet in the same system.
-  const ownsSystemPlanet = system.planets.some(
+  const ownedPlanets = system.planets.filter(
     p => p.id !== targetPlanetId && p.ownerId === empireId,
   );
-  if (!ownsSystemPlanet) {
+  if (ownedPlanets.length === 0) {
     return {
       allowed: false,
       reason: 'Empire does not control any planets in this system',
       cost,
+      mineralCost,
+    };
+  }
+
+  // Check source planet has enough population for the transfer.
+  const sourcePlanet = ownedPlanets.sort((a, b) => b.currentPopulation - a.currentPopulation)[0]!;
+  if (sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
+    return {
+      allowed: false,
+      reason: `Source planet needs at least ${(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K population (${sourcePlanet.name} has ${(sourcePlanet.currentPopulation / 1000).toFixed(0)}K)`,
+      cost,
+      mineralCost,
     };
   }
 
   // Target must be unowned.
   if (targetPlanet.ownerId !== null) {
-    return { allowed: false, reason: 'Planet is already owned', cost };
+    return { allowed: false, reason: 'Planet is already owned', cost, mineralCost };
   }
 
   // Target must be unpopulated.
   if (targetPlanet.currentPopulation > 0) {
-    return { allowed: false, reason: 'Planet already has a population', cost };
+    return { allowed: false, reason: 'Planet already has a population', cost, mineralCost };
   }
 
   // Gas giants require the orbital-platform path.
@@ -444,6 +480,7 @@ export function canColoniseInSystem(
       allowed: false,
       reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
       cost,
+      mineralCost,
     };
   }
 
@@ -454,45 +491,79 @@ export function canColoniseInSystem(
       allowed: false,
       reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
       cost,
+      mineralCost,
     };
   }
 
-  // Affordability check.
+  // Credit affordability check.
   if (empireCredits < cost) {
     return {
       allowed: false,
       reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
       cost,
+      mineralCost,
     };
   }
 
-  return { allowed: true, cost };
+  // Mineral affordability check.
+  if (empireMinerals < mineralCost) {
+    return {
+      allowed: false,
+      reason: `Insufficient minerals (${empireMinerals} available, ${mineralCost} required)`,
+      cost,
+      mineralCost,
+    };
+  }
+
+  return { allowed: true, cost, mineralCost };
 }
 
 /**
  * Execute in-system colonisation on a star system.
  *
- * Sets `ownerId` on the target planet, places `initialPopulation` colonists
- * there, and adds a level-1 `population_center` building.
+ * Transfers `COLONIST_TRANSFER_COUNT` colonists from the source planet (most
+ * populous empire planet in the system) to the target planet, applying random
+ * mortality during transit (1-10% die from disease, accidents, and rocket
+ * explosions). The survivors are placed on the target planet, which receives
+ * a level-1 `population_center` building.
  *
- * Returns a new StarSystem — does not mutate the original.
+ * Returns a new StarSystem and the number of colonists that died in transit.
+ * Does not mutate the original.
  *
- * @throws if the planet is not found in the system.
+ * @throws if the target planet or a suitable source planet is not found.
  */
 export function coloniseInSystem(
   system: StarSystem,
   targetPlanetId: string,
   empireId: string,
-  initialPopulation = 1000,
-): StarSystem {
-  const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
-  if (planetIndex === -1) {
+): { system: StarSystem; mortalityCount: number } {
+  const targetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
+  if (targetIndex === -1) {
     throw new Error(
       `Planet "${targetPlanetId}" not found in system "${system.id}"`,
     );
   }
 
-  const planet = system.planets[planetIndex]!;
+  // Find the most populous owned planet as the source.
+  const sourcePlanets = system.planets
+    .map((p, i) => ({ planet: p, index: i }))
+    .filter(e => e.planet.ownerId === empireId && e.planet.id !== targetPlanetId)
+    .sort((a, b) => b.planet.currentPopulation - a.planet.currentPopulation);
+
+  if (sourcePlanets.length === 0) {
+    throw new Error(
+      `No owned source planet found for empire "${empireId}" in system "${system.id}"`,
+    );
+  }
+
+  const { planet: sourcePlanet, index: sourceIndex } = sourcePlanets[0]!;
+  const targetPlanet = system.planets[targetIndex]!;
+
+  // Apply random mortality: 1-10% of colonists die during transfer.
+  const mortalityRate = TRANSFER_MORTALITY_MIN +
+    Math.random() * (TRANSFER_MORTALITY_MAX - TRANSFER_MORTALITY_MIN);
+  const mortalityCount = Math.floor(COLONIST_TRANSFER_COUNT * mortalityRate);
+  const survivors = COLONIST_TRANSFER_COUNT - mortalityCount;
 
   const starterBuilding: Building = {
     id: generateId(),
@@ -500,17 +571,28 @@ export function coloniseInSystem(
     level: 1,
   };
 
-  const colonisedPlanet: Planet = {
-    ...planet,
+  // Deduct population from source.
+  const updatedSource: Planet = {
+    ...sourcePlanet,
+    currentPopulation: sourcePlanet.currentPopulation - COLONIST_TRANSFER_COUNT,
+  };
+
+  // Place survivors on target.
+  const colonisedTarget: Planet = {
+    ...targetPlanet,
     ownerId: empireId,
-    currentPopulation: initialPopulation,
-    buildings: [...planet.buildings, starterBuilding],
+    currentPopulation: survivors,
+    buildings: [...targetPlanet.buildings, starterBuilding],
   };
 
   const updatedPlanets = [...system.planets];
-  updatedPlanets[planetIndex] = colonisedPlanet;
+  updatedPlanets[sourceIndex] = updatedSource;
+  updatedPlanets[targetIndex] = colonisedTarget;
 
-  return { ...system, planets: updatedPlanets };
+  return {
+    system: { ...system, planets: updatedPlanets },
+    mortalityCount,
+  };
 }
 
 // ── Migration ────────────────────────────────────────────────────────────────
@@ -538,11 +620,11 @@ const MIN_SOURCE_POPULATION = 100;
  *
  * Requirements (all must be satisfied):
  * - Source planet is owned by the empire.
- * - Source planet has population >= MIN_SOURCE_POPULATION (100).
+ * - Source planet has population >= COLONIST_TRANSFER_COUNT (100K).
  * - Target planet is unowned.
  * - Target planet is not a gas giant.
  * - Target planet habitability for the species is >= MIN_COLONIZE_HABITABILITY (10).
- * - Empire can afford the cost.
+ * - Empire can afford the credit and mineral costs.
  * - No existing active migration to this target planet.
  */
 export function canStartMigration(
@@ -553,15 +635,18 @@ export function canStartMigration(
   species: Species,
   empireCredits: number,
   existingOrders: MigrationOrder[] = [],
-): { allowed: boolean; reason?: string; cost: number } {
+  empireMinerals = 0,
+): { allowed: boolean; reason?: string; cost: number; mineralCost: number } {
+  const mineralCost = COLONISATION_MINERAL_COST;
+
   const sourcePlanet = system.planets.find(p => p.id === sourcePlanetId);
   if (!sourcePlanet) {
-    return { allowed: false, reason: 'Source planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Source planet not found in this system', cost: 0, mineralCost };
   }
 
   const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
   if (!targetPlanet) {
-    return { allowed: false, reason: 'Target planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Target planet not found in this system', cost: 0, mineralCost };
   }
 
   // Cost is always calculated so callers can show it even on rejection.
@@ -573,21 +658,23 @@ export function canStartMigration(
       allowed: false,
       reason: 'Source planet is not owned by this empire',
       cost,
+      mineralCost,
     };
   }
 
-  // Source must have sufficient population.
-  if (sourcePlanet.currentPopulation < MIN_SOURCE_POPULATION) {
+  // Source must have sufficient population for the colonist transfer.
+  if (sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
     return {
       allowed: false,
-      reason: `Source planet population too low (${sourcePlanet.currentPopulation}, minimum ${MIN_SOURCE_POPULATION})`,
+      reason: `Source planet needs at least ${(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K population (has ${(sourcePlanet.currentPopulation / 1000).toFixed(0)}K)`,
       cost,
+      mineralCost,
     };
   }
 
   // Target must be unowned.
   if (targetPlanet.ownerId !== null) {
-    return { allowed: false, reason: 'Target planet is already owned', cost };
+    return { allowed: false, reason: 'Target planet is already owned', cost, mineralCost };
   }
 
   // Gas giants require the orbital-platform path.
@@ -596,6 +683,7 @@ export function canStartMigration(
       allowed: false,
       reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
       cost,
+      mineralCost,
     };
   }
 
@@ -606,6 +694,7 @@ export function canStartMigration(
       allowed: false,
       reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
       cost,
+      mineralCost,
     };
   }
 
@@ -614,19 +703,30 @@ export function canStartMigration(
     o => o.targetPlanetId === targetPlanetId && o.status === 'migrating',
   );
   if (duplicate) {
-    return { allowed: false, reason: 'A migration to this planet is already in progress', cost };
+    return { allowed: false, reason: 'A migration to this planet is already in progress', cost, mineralCost };
   }
 
-  // Affordability check.
+  // Credit affordability check.
   if (empireCredits < cost) {
     return {
       allowed: false,
       reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
       cost,
+      mineralCost,
     };
   }
 
-  return { allowed: true, cost };
+  // Mineral affordability check.
+  if (empireMinerals < mineralCost) {
+    return {
+      allowed: false,
+      reason: `Insufficient minerals (${empireMinerals} available, ${mineralCost} required)`,
+      cost,
+      mineralCost,
+    };
+  }
+
+  return { allowed: true, cost, mineralCost };
 }
 
 /**

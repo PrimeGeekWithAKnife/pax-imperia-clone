@@ -421,6 +421,9 @@ function processPlayerActions(
           continue;
         }
 
+        // Look up minerals from the resource map.
+        const empMinerals = state.empireResourcesMap.get(empireId)?.minerals ?? 0;
+
         // Validate using canStartMigration.
         const check = canStartMigration(
           system,
@@ -430,6 +433,7 @@ function processPlayerActions(
           empire.species,
           empire.credits,
           state.migrationOrders,
+          empMinerals,
         );
 
         if (!check.allowed) {
@@ -437,7 +441,7 @@ function processPlayerActions(
           continue;
         }
 
-        // Deduct the colonisation cost upfront from both empire and resource map.
+        // Deduct the colonisation credit + mineral costs upfront from both empire and resource map.
         const updatedEmpire = { ...empire, credits: empire.credits - check.cost };
         empires = empires.map(e => (e.id === empireId ? updatedEmpire : e));
         // Also deduct from the persistent resource map
@@ -445,7 +449,11 @@ function processPlayerActions(
         const empRes = resMap.get(empireId);
         if (empRes) {
           const newMap = new Map(resMap);
-          newMap.set(empireId, { ...empRes, credits: empRes.credits - check.cost });
+          newMap.set(empireId, {
+            ...empRes,
+            credits: empRes.credits - check.cost,
+            minerals: empRes.minerals - check.mineralCost,
+          });
           state = { ...state, empireResourcesMap: newMap };
         }
 

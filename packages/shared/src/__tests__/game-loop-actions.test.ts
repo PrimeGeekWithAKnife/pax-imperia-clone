@@ -15,8 +15,19 @@ import {
   type GameTickState,
   type PlayerAction,
 } from '../engine/game-loop.js';
+import type { EmpireResources } from '../types/resources.js';
 import { initializeGame, type GameSetupConfig, type PlayerSetup } from '../engine/game-init.js';
 import { getColonisationCost } from '../engine/colony.js';
+
+/** Helper: ensure the empire has enough minerals in the resource map. */
+function withMinerals(tickState: GameTickState, empireId: string, minerals: number): GameTickState {
+  const newMap = new Map(tickState.empireResourcesMap);
+  const existing = newMap.get(empireId);
+  if (existing) {
+    newMap.set(empireId, { ...existing, minerals });
+  }
+  return { ...tickState, empireResourcesMap: newMap };
+}
 import type { Species } from '../types/species.js';
 import type { GameState } from '../types/game-state.js';
 import type { Planet, StarSystem } from '../types/galaxy.js';
@@ -111,17 +122,27 @@ function makeStateWithColonisablePlanet(): {
     planets: [...homeSystem.planets, colonisablePlanet],
   };
 
+  // Ensure the empire's home planet has at least 5M population for colonist transfer.
+  const boostedHomeSystem: StarSystem = {
+    ...updatedHomeSystem,
+    planets: updatedHomeSystem.planets.map(p =>
+      p.ownerId === empire.id
+        ? { ...p, currentPopulation: Math.max(p.currentPopulation, 5_000_000) }
+        : p,
+    ),
+  };
+
   const patchedGs: GameState = {
     ...gs,
     galaxy: {
       ...gs.galaxy,
       systems: gs.galaxy.systems.map(s =>
-        s.id === homeSystem.id ? updatedHomeSystem : s,
+        s.id === homeSystem.id ? boostedHomeSystem : s,
       ),
     },
     // Give the empire plenty of credits to afford colonisation.
     empires: gs.empires.map(e =>
-      e.id === empire.id ? { ...e, credits: 10_000 } : e,
+      e.id === empire.id ? { ...e, credits: 100_000 } : e,
     ),
   };
 
@@ -204,7 +225,7 @@ describe('submitAction', () => {
 describe('processGameTick — ColonisePlanet action', () => {
   it('creates a migration order on the next tick (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
@@ -234,7 +255,7 @@ describe('processGameTick — ColonisePlanet action', () => {
 
     const cost = getColonisationCost(targetPlanet, empire.species);
 
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
       empireId,
@@ -247,14 +268,13 @@ describe('processGameTick — ColonisePlanet action', () => {
 
     const updatedEmpire = newState.gameState.empires.find(e => e.id === empireId)!;
 
-    // The colonisation cost (200 credits) should have been deducted, though
-    // production income may partially offset it. We check the resource map
-    // to verify the deduction happened relative to what the empire would have
-    // had WITHOUT colonisation.
+    // The colonisation cost should have been deducted, though production
+    // income may partially offset it. We check the resource map to verify
+    // the deduction happened relative to what the empire would have had
+    // WITHOUT colonisation.
     // Run a control tick without colonisation to measure pure income:
     const { newState: controlState } = processGameTick(ts);
     const controlCredits = controlState.gameState.empires.find(e => e.id === empireId)!.credits;
-    // With colonisation, credits should be ~200 less than the control
     expect(updatedEmpire.credits).toBeLessThan(controlCredits);
     expect(controlCredits - updatedEmpire.credits).toBeGreaterThanOrEqual(cost * 0.8); // allow some floating point
   });
@@ -305,7 +325,7 @@ describe('processGameTick — ColonisePlanet action', () => {
 
   it('emits a MigrationStarted event (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
@@ -487,7 +507,7 @@ describe('processGameTick — multiple actions', () => {
 
   it('processes a colonise action alongside a speed change', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    let ts = initializeTickState(gs);
+    let ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const speedAction: SetGameSpeedAction = { type: 'SetGameSpeed', speed: 'fastest' };
     const coloniseAction: ColonisePlanetAction = {

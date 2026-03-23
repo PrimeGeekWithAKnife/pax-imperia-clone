@@ -39,7 +39,9 @@ import {
   getTickRate,
   canBuildOnPlanet,
   canColonize,
-  establishColony,
+  coloniseInSystem,
+  COLONISATION_MINERAL_COST,
+  COLONIST_TRANSFER_COUNT,
   addBuildingToQueue,
   demolishBuilding,
   BUILDING_DEFINITIONS,
@@ -665,15 +667,14 @@ export class GameEngine {
   /**
    * Colonise an unowned planet on behalf of an empire.
    *
-   * Validates species compatibility and credits before applying the
-   * establishColony transform.  Deducts BASE_COLONISE_COST credits and emits
+   * Validates species compatibility, credits, minerals, and source population
+   * before executing colonisation.  Deducts costs and emits
    * `engine:planet_colonised` on success.
    *
    * @returns true if colonisation succeeded, false otherwise.
    */
   colonisePlanet(systemId: string, planetId: string, empireId: string): boolean {
-    const BASE_COLONISE_COST = 200;
-    const INITIAL_POPULATION = 100_000;
+    const BASE_COLONISE_COST = 10_000;
 
     const galaxy = this.tickState.gameState.galaxy;
 
@@ -702,7 +703,7 @@ export class GameEngine {
       return false;
     }
 
-    // Affordability check
+    // Affordability check — credits
     if (empire.credits < BASE_COLONISE_COST) {
       console.warn(
         `[GameEngine.colonisePlanet] Insufficient credits (have ${empire.credits}, need ${BASE_COLONISE_COST})`,
@@ -710,22 +711,42 @@ export class GameEngine {
       return false;
     }
 
-    // Establish colony (pure — returns a new Planet owned by species.id)
-    const colonisedPlanet = establishColony(planet, empire.species, INITIAL_POPULATION);
-    // Override ownerId so it matches the empire ID rather than the species ID
-    const finalPlanet = { ...colonisedPlanet, ownerId: empireId };
+    // Affordability check — minerals
+    const empRes = this.tickState.empireResourcesMap.get(empireId);
+    const empireMinerals = empRes?.minerals ?? 0;
+    if (empireMinerals < COLONISATION_MINERAL_COST) {
+      console.warn(
+        `[GameEngine.colonisePlanet] Insufficient minerals (have ${empireMinerals}, need ${COLONISATION_MINERAL_COST})`,
+      );
+      return false;
+    }
 
-    // Deduct cost
+    // Source planet population check
+    const sourcePlanet = system.planets
+      .filter(p => p.ownerId === empireId && p.id !== planetId)
+      .sort((a, b) => b.currentPopulation - a.currentPopulation)[0];
+    if (!sourcePlanet || sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
+      console.warn(
+        `[GameEngine.colonisePlanet] Source planet needs at least ${COLONIST_TRANSFER_COUNT} population`,
+      );
+      return false;
+    }
+
+    // Execute colonisation (transfers population, applies mortality, creates colony)
+    const { system: updatedSystem, mortalityCount } = coloniseInSystem(system, planetId, empireId);
+
+    const finalPlanet = updatedSystem.planets.find(p => p.id === planetId)!;
+
+    // Deduct credits
     const updatedEmpire = { ...empire, credits: empire.credits - BASE_COLONISE_COST };
 
-    // Splice updated planet back into the galaxy
+    // Splice updated system back into the galaxy
     const updatedSystems = galaxy.systems.map(s => {
       if (s.id !== systemId) return s;
       return {
-        ...s,
-        planets: s.planets.map(p => (p.id === planetId ? finalPlanet : p)),
+        ...updatedSystem,
         // Claim the system if previously unclaimed
-        ownerId: s.ownerId ?? empireId,
+        ownerId: updatedSystem.ownerId ?? empireId,
       };
     });
 
@@ -733,14 +754,29 @@ export class GameEngine {
       e.id === empireId ? updatedEmpire : e,
     );
 
+    // Deduct minerals from resource map
+    const newResMap = new Map(this.tickState.empireResourcesMap);
+    if (empRes) {
+      newResMap.set(empireId, {
+        ...empRes,
+        credits: empRes.credits - BASE_COLONISE_COST,
+        minerals: empRes.minerals - COLONISATION_MINERAL_COST,
+      });
+    }
+
     this.tickState = {
       ...this.tickState,
+      empireResourcesMap: newResMap,
       gameState: {
         ...this.tickState.gameState,
         galaxy: { ...galaxy, systems: updatedSystems },
         empires: updatedEmpires,
       },
     };
+
+    if (mortalityCount > 0) {
+      console.log(`[GameEngine.colonisePlanet] ${mortalityCount} colonists lost during transfer to ${finalPlanet.name}`);
+    }
 
     // Emit notifications
     this.game.events.emit('engine:planet_updated', { systemId, planet: finalPlanet });

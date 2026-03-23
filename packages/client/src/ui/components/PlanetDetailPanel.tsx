@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo } from 'react';
 import type { Planet, Empire, Ship } from '@nova-imperia/shared';
-import { calculateHabitability, canColonize } from '@nova-imperia/shared';
+import type { EmpireResources } from '@nova-imperia/shared';
+import { calculateHabitability, canColonize, COLONISATION_MINERAL_COST, COLONIST_TRANSFER_COUNT } from '@nova-imperia/shared';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** Base colonisation cost in credits. */
-const BASE_COLONISE_COST = 200;
+const BASE_COLONISE_COST = 10_000;
 
 const ATMOSPHERE_LABELS: Record<string, string> = {
   oxygen_nitrogen: 'Oxygen-Nitrogen',
@@ -185,6 +186,8 @@ interface PlanetDetailPanelProps {
   sourcePlanetName?: string | null;
   /** Whether the player owns at least one planet in this system (required for in-system colonisation). */
   playerOwnsInSystem?: boolean;
+  /** Empire resources for mineral affordability checks. */
+  empireResources?: EmpireResources | null;
   /**
    * A coloniser ship belonging to the player that is currently in this system,
    * ready to establish an inter-system colony.  When provided, a
@@ -209,6 +212,7 @@ export function PlanetDetailPanel({
   estimatedWaves = 17,
   sourcePlanetName,
   playerOwnsInSystem = false,
+  empireResources = null,
   coloniserShipInSystem = null,
   onColoniseWithShip,
 }: PlanetDetailPanelProps): React.ReactElement | null {
@@ -236,21 +240,33 @@ export function PlanetDetailPanel({
     allowed: boolean;
     reason?: string;
     cost: number;
+    mineralCost: number;
   } | null => {
     if (!planet || !playerEmpire || ownership !== 'unowned') return null;
+    const mineralCost = COLONISATION_MINERAL_COST;
     const baseCheck = canColonize(planet, playerEmpire.species);
     if (!baseCheck.allowed) {
-      return { allowed: false, reason: baseCheck.reason, cost: BASE_COLONISE_COST };
+      return { allowed: false, reason: baseCheck.reason, cost: BASE_COLONISE_COST, mineralCost };
     }
     if (playerEmpire.credits < BASE_COLONISE_COST) {
       return {
         allowed: false,
-        reason: `Insufficient funds (need ${BASE_COLONISE_COST} CR, have ${playerEmpire.credits} CR)`,
+        reason: `Insufficient funds (need ${BASE_COLONISE_COST.toLocaleString()} CR, have ${playerEmpire.credits.toLocaleString()} CR)`,
         cost: BASE_COLONISE_COST,
+        mineralCost,
       };
     }
-    return { allowed: true, cost: BASE_COLONISE_COST };
-  }, [planet, playerEmpire, ownership]);
+    const minerals = empireResources?.minerals ?? 0;
+    if (minerals < mineralCost) {
+      return {
+        allowed: false,
+        reason: `Insufficient minerals (need ${mineralCost.toLocaleString()}, have ${minerals.toLocaleString()})`,
+        cost: BASE_COLONISE_COST,
+        mineralCost,
+      };
+    }
+    return { allowed: true, cost: BASE_COLONISE_COST, mineralCost };
+  }, [planet, playerEmpire, ownership, empireResources]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -483,7 +499,14 @@ export function PlanetDetailPanel({
                 <>
                   <div className="panel-row">
                     <span className="panel-label">Cost</span>
-                    <span className="panel-value">{colonisationStatus.cost} CR</span>
+                    <span className="panel-value">{colonisationStatus.cost.toLocaleString()} CR + {colonisationStatus.mineralCost.toLocaleString()} minerals</span>
+                  </div>
+
+                  <div className="panel-row">
+                    <span className="panel-label">Colonists</span>
+                    <span className="panel-value panel-value--muted">
+                      {(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K transferred (1-10% mortality)
+                    </span>
                   </div>
 
                   <div className="panel-row">

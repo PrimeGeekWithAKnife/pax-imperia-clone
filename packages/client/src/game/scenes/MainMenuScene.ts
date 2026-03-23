@@ -247,13 +247,8 @@ export class MainMenuScene extends Phaser.Scene {
         yFrac: 0.51,
         action: () => {
           this.sfx?.playClick();
-          if (hasActiveEngine) {
-            // Return to the running game
-            this.scene.start('GalaxyMapScene');
-          } else {
-            // Load auto-save (TODO: wire up auto-save load path)
-            this.game.events.emit('ui:load_autosave');
-          }
+          // Always show the save/load screen so the player can pick which game to resume.
+          this.game.events.emit('ui:load_game');
         },
       });
     }
