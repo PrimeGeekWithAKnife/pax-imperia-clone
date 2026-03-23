@@ -20,6 +20,8 @@
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
  *  9.  AI Decisions         (stub)
+ *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
+ *  9c. Building Condition   (maintenance-based decay, functionality checks)
  *  10. Victory Check        (conquest / economic / technological / diplomatic)
  *  11. Advance Tick
  */
@@ -99,6 +101,25 @@ import {
   processGovernorsTick,
   applyGovernorModifiers,
 } from './governors.js';
+import {
+  calculateEnergyProduction,
+  calculateEnergyDemand,
+  calculateEnergyBalance,
+  calculateStorageCapacity,
+  getBuildingEfficiency,
+} from './energy-flow.js';
+import type { PlanetEnergyState, PlanetWasteState } from '../types/waste.js';
+import {
+  calculateWasteCapacity,
+  calculateWasteProduction,
+  calculateWasteReduction,
+  tickWaste,
+} from './waste.js';
+import {
+  tickBuildingCondition,
+  isBuildingFunctional,
+} from './building-condition.js';
+import { BUILDING_DEFINITIONS, type BuildingDefinition } from '../constants/buildings.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -193,6 +214,22 @@ export interface GameTickState {
    * processed and persists until the stage reaches 'complete'.
    */
   terraformingProgressMap: Map<string, TerraformingProgress>;
+  /**
+   * Per-planet waste state.  Key = planetId.
+   * Created/updated each tick for every owned planet.
+   */
+  wasteMap: Map<string, PlanetWasteState>;
+  /**
+   * Per-planet energy state.  Key = planetId.
+   * Created/updated each tick for every owned planet.
+   */
+  energyStateMap: Map<string, PlanetEnergyState>;
+  /**
+   * Per-planet list of building IDs powered off by player choice.
+   * Key = planetId.  An empty array (or missing entry) means all buildings
+   * are powered on.
+   */
+  disabledBuildingsMap: Map<string, string[]>;
   /**
    * All active governors across all empires.
    * Each governor is assigned to one planet (governor.planetId).
@@ -1015,6 +1052,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     state.gameState.galaxy,
   );
 
+  let energyStateMap = new Map(state.energyStateMap);
+
   for (const empire of state.gameState.empires) {
     const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
     const isAtWar = empireIsAtWar(empire);
@@ -1034,6 +1073,50 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       if (adjustedMult !== 1.0) {
         happinessMultipliers.set(planet.id, adjustedMult);
       }
+    }
+
+    // ── Energy flow: calculate per-planet energy balance ──────────────────
+    // This must happen BEFORE resource aggregation so that the empire's
+    // stored energy is correctly set and energy-deficit penalties are based
+    // on the flow model rather than the old stockpile model.
+    let empireTotalStoredEnergy = 0;
+    let empireEnergyRatio = 1.0;
+    {
+      let totalProduction = 0;
+      let totalDemand = 0;
+      let totalStoredEnergy = 0;
+      let totalStorageCapacity = 0;
+
+      for (const planet of ownedPlanets) {
+        const disabledIds = state.disabledBuildingsMap.get(planet.id) ?? [];
+
+        const production = calculateEnergyProduction(planet.buildings);
+        const demand = calculateEnergyDemand(planet.buildings, disabledIds);
+        const storedBefore = state.energyStateMap.get(planet.id)?.storedEnergy ?? 0;
+        const storageCapacity = calculateStorageCapacity(planet.buildings);
+
+        const energyState = calculateEnergyBalance(
+          production,
+          demand,
+          storedBefore,
+          storageCapacity,
+          disabledIds,
+        );
+
+        energyStateMap.set(planet.id, energyState);
+
+        totalProduction += production;
+        totalDemand += demand;
+        totalStoredEnergy += energyState.storedEnergy;
+        totalStorageCapacity += storageCapacity;
+      }
+
+      empireTotalStoredEnergy = totalStoredEnergy;
+
+      // Empire-wide energy ratio for deficit penalties
+      empireEnergyRatio = totalDemand > 0
+        ? Math.min(totalProduction / totalDemand, 10)
+        : (totalProduction > 0 ? 10 : 1.0);
     }
 
     // Compute per-planet production and re-aggregate with happiness multipliers.
@@ -1071,7 +1154,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       const boostedProduction = applyGovernorModifiers(rawPlanetProduction, governor);
 
       production.credits        += boostedProduction.credits;
-      production.energy         += boostedProduction.energy;
+      // Energy is handled separately via the flow model — do NOT accumulate
+      // the old economy.ts production value.
       production.minerals       += boostedProduction.minerals;
       production.rareElements   += boostedProduction.rareElements;
       production.organics       += boostedProduction.organics;
@@ -1094,13 +1178,24 @@ function stepResourceProduction(state: GameTickState): GameTickState {
 
     let newResources = applyResourceTick(currentResources, production, upkeep);
 
+    // ── Energy flow override ─────────────────────────────────────────────
+    // Energy is a flow, not a stockpile.  Replace the accumulated
+    // energy value from applyResourceTick with the actual stored energy
+    // from storage buildings across all owned planets.
+    newResources = {
+      ...newResources,
+      energy: empireTotalStoredEnergy,
+    };
+
     // Apply energy deficit research penalty: halve accumulated research points.
     // Construction and ship production penalties are handled in their own steps.
-    const energyStatus = getEnergyStatus(newResources);
-    if (energyStatus.isDeficit) {
+    // Use the flow-based energy ratio rather than the old stockpile check.
+    const isEnergyDeficit = empireEnergyRatio < 1.0;
+    if (isEnergyDeficit) {
+      const researchMultiplier = empireEnergyRatio < 0.3 ? 0.25 : 0.5;
       newResources = {
         ...newResources,
-        researchPoints: Math.floor(newResources.researchPoints * energyStatus.researchMultiplier),
+        researchPoints: Math.floor(newResources.researchPoints * researchMultiplier),
       };
     }
 
@@ -1108,7 +1203,7 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     state = applyResources(state, empire.id, newResources);
   }
 
-  return state;
+  return { ...state, energyStateMap };
 }
 
 // ---------------------------------------------------------------------------
@@ -1502,6 +1597,100 @@ function stepAIDecisions(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 9b: Waste Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * For each owned planet, calculate waste production, reduction, and overflow.
+ * Updates `wasteMap` in the tick state with each planet's current waste state.
+ */
+function stepWaste(state: GameTickState): GameTickState {
+  const wasteMap = new Map(state.wasteMap);
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+
+    for (const planet of ownedPlanets) {
+      const previousWasteState = wasteMap.get(planet.id);
+      const currentWaste = previousWasteState?.currentWaste ?? 0;
+      const wasteCapacity = calculateWasteCapacity(planet.type);
+
+      const grossWaste = calculateWasteProduction(
+        planet.buildings,
+        planet.currentPopulation,
+      );
+      const reduction = calculateWasteReduction(planet.buildings, grossWaste);
+
+      const wasteState = tickWaste(
+        currentWaste,
+        wasteCapacity,
+        grossWaste,
+        reduction,
+      );
+
+      wasteMap.set(planet.id, wasteState);
+    }
+  }
+
+  return { ...state, wasteMap };
+}
+
+// ---------------------------------------------------------------------------
+// Step 9c: Building Condition
+// ---------------------------------------------------------------------------
+
+/**
+ * For each owned planet, for each building, tick condition.
+ * If an empire can afford maintenance the building holds; otherwise it decays.
+ * Updates the buildings array on each planet (immutably) and writes condition
+ * values back into the galaxy state.
+ */
+function stepBuildingCondition(state: GameTickState): GameTickState {
+  let systems = state.gameState.galaxy.systems;
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    const resources = getEmpireResources(state, empire.id);
+
+    // Determine whether the empire can pay maintenance at all.
+    // Maintenance is already deducted in the upkeep step.  Here we check
+    // whether the empire has positive credits — if they are at zero, the
+    // upkeep was not fully covered, so maintenance is unpaid for ALL
+    // buildings this tick.  This is a simplified model; a more granular
+    // per-building deduction could follow later.
+    const canPayMaintenance = resources.credits > 0;
+
+    for (const planet of ownedPlanets) {
+      let buildingsChanged = false;
+      const updatedBuildings = planet.buildings.map(building => {
+        const def = BUILDING_DEFINITIONS[building.type as BuildingType] as BuildingDefinition | undefined;
+        const newCondition = tickBuildingCondition(building, canPayMaintenance, def);
+        const currentCondition = building.condition ?? 100;
+
+        if (Math.abs(newCondition - currentCondition) > 0.0001) {
+          buildingsChanged = true;
+          return { ...building, condition: newCondition };
+        }
+        return building;
+      });
+
+      if (buildingsChanged) {
+        const updatedPlanet = { ...planet, buildings: updatedBuildings };
+        systems = replacePlanet(systems, updatedPlanet);
+      }
+    }
+  }
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 10: Victory Check
 // ---------------------------------------------------------------------------
 
@@ -1607,6 +1796,12 @@ export function processGameTick(
 
   // 9. AI Decisions (stub)
   s = stepAIDecisions(s);
+
+  // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
+  s = stepWaste(s);
+
+  // 9c. Building Condition (decay unpaid buildings, update condition values)
+  s = stepBuildingCondition(s);
 
   // 10. Victory Check — update economic lead counters then evaluate all conditions
   s = {
@@ -1719,6 +1914,9 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     economicLeadTicks: new Map<string, number>(),
     allTechCount: allTechCount ?? 0,
     terraformingProgressMap: new Map<string, TerraformingProgress>(),
+    wasteMap: new Map<string, PlanetWasteState>(),
+    energyStateMap: new Map<string, PlanetEnergyState>(),
+    disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
   };
 }
