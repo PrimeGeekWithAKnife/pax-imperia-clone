@@ -891,7 +891,14 @@ export class GameEngine {
       return false;
     }
     try {
-      const newResearchState = startResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES, allocation);
+      // Count research labs across all empire-owned planets
+      const ownedPlanets = this.tickState.gameState.galaxy.systems
+        .flatMap(s => s.planets)
+        .filter(p => p.ownerId === empireId);
+      const labCount = ownedPlanets.reduce((count, p) =>
+        count + p.buildings.filter(b => b.type === 'research_lab').length, 0);
+
+      const newResearchState = startResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES, allocation, undefined, labCount);
       const newResearchStates = new Map(this.tickState.researchStates);
       newResearchStates.set(empireId, newResearchState);
       this.tickState = { ...this.tickState, researchStates: newResearchStates };

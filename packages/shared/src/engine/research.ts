@@ -90,11 +90,13 @@ export function getAvailableTechs(
  * Throws if:
  * - The tech is not in the available tech list
  * - The requested allocation would push the total above 100%
+ * - The number of active projects would exceed the research lab count
  *
  * @param state       Current research state.
  * @param techId      ID of the technology to start.
  * @param allocation  Percentage of research points to allocate (0–100).
  * @param speciesId   Optional species ID for filtering species-specific techs.
+ * @param researchLabCount  Number of research labs the empire has (limits simultaneous projects). 0 = unlimited (legacy).
  */
 export function startResearch(
   state: ResearchState,
@@ -102,6 +104,7 @@ export function startResearch(
   allTechs: Technology[],
   allocation: number,
   speciesId?: string,
+  researchLabCount = 0,
 ): ResearchState {
   const available = getAvailableTechs(allTechs, state, speciesId);
   const tech = available.find(t => t.id === techId);
@@ -109,6 +112,13 @@ export function startResearch(
   if (!tech) {
     throw new Error(
       `Cannot start research on "${techId}": tech is not available (prerequisites unmet, already completed, or age-gated)`,
+    );
+  }
+
+  // Enforce research lab limit: 1 active project per lab
+  if (researchLabCount > 0 && state.activeResearch.length >= researchLabCount) {
+    throw new Error(
+      `Cannot start research on "${techId}": all ${researchLabCount} research lab(s) are occupied (${state.activeResearch.length} active projects)`,
     );
   }
 
