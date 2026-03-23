@@ -54,13 +54,13 @@ const ATMOSPHERE_TYPES = [
 type AtmosphereType = (typeof ATMOSPHERE_TYPES)[number];
 
 const ATMOSPHERE_LABELS: Record<AtmosphereType, string> = {
-  oxygen_nitrogen: 'N₂/O₂ (Earth-like)',
-  carbon_dioxide: 'CO₂',
+  oxygen_nitrogen: 'N\u2082/O\u2082 (Earth-like)',
+  carbon_dioxide: 'CO\u2082',
   methane: 'Methane',
   ammonia: 'Ammonia',
   hydrogen: 'Hydrogen',
-  hydrogen_helium: 'H₂/He (Gas Giant)',
-  sulfur_dioxide: 'SO₂',
+  hydrogen_helium: 'H\u2082/He (Gas Giant)',
+  sulfur_dioxide: 'SO\u2082',
   none: 'None/Vacuum',
 };
 
@@ -107,7 +107,7 @@ const ORIGIN_PRESETS: Record<OriginStory, OriginPreset> = {
   Cybernetic: {
     traits: { construction: 7, reproduction: 3, research: 8, espionage: 6, economy: 7, combat: 7, diplomacy: 4 },
     abilities: ['cybernetic'],
-    description: 'Half machine, half organism — cold, efficient, relentless.',
+    description: 'Half machine, half organism \u2014 cold, efficient, relentless.',
   },
   Nomadic: {
     traits: { construction: 5, reproduction: 6, research: 5, espionage: 7, economy: 8, combat: 7, diplomacy: 4 },
@@ -122,7 +122,7 @@ const ORIGIN_PRESETS: Record<OriginStory, OriginPreset> = {
   Subterranean: {
     traits: { construction: 8, reproduction: 6, research: 6, espionage: 8, economy: 5, combat: 5, diplomacy: 4 },
     abilities: ['subterranean'],
-    description: 'Deep-dwellers who carved civilizations from bedrock.',
+    description: 'Deep-dwellers who carved civilisations from bedrock.',
   },
 };
 
@@ -181,6 +181,77 @@ function defaultEnv(): EnvironmentPreference {
   };
 }
 
+// ── Race Picker Card ──────────────────────────────────────────────────────────
+
+interface RaceCardProps {
+  species: Species;
+  onClick: () => void;
+}
+
+function RaceCard({ species, onClick }: RaceCardProps): React.ReactElement {
+  const portraitUrl = useMemo(() => portraitCache.getPortrait(species.id, 72), [species.id]);
+  const maxVal = Math.max(...TRAIT_KEYS.map(k => species.traits[k]));
+
+  // Truncate description to 110 characters to avoid card clipping
+  const shortDesc = species.description.length > 110
+    ? species.description.slice(0, 107) + '...'
+    : species.description;
+
+  return (
+    <button className="race-card" onClick={onClick} type="button">
+      {/* Portrait + Name header */}
+      <div className="race-card__header">
+        <div className="race-card__portrait">
+          <img src={portraitUrl} alt={species.name} className="race-card__portrait-img" />
+        </div>
+        <div className="race-card__identity">
+          <div className="race-card__name">{species.name}</div>
+          {species.specialAbilities.length > 0 && (
+            <div className="race-card__abilities">
+              {species.specialAbilities.map(key => {
+                const info = ABILITY_INFO.find(a => a.key === key);
+                return info ? (
+                  <span key={key} className="race-card__ability" title={info.description}>
+                    {info.icon} {info.name}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Short description */}
+      <div className="race-card__desc">{shortDesc}</div>
+
+      {/* Compact trait bars */}
+      <div className="race-card__traits">
+        {TRAIT_KEYS.map(key => {
+          const val = species.traits[key];
+          const pct = (val / 10) * 100;
+          const isTop = val === maxVal;
+          return (
+            <div key={key} className="race-card__trait-row">
+              <span className="race-card__trait-label">{TRAIT_LABELS[key].slice(0, 3).toUpperCase()}</span>
+              <div className="race-card__trait-track">
+                <div
+                  className="race-card__trait-fill"
+                  style={{
+                    width: `${pct}%`,
+                    background: isTop ? 'var(--color-accent)' : 'rgba(0,180,220,0.45)',
+                    boxShadow: isTop ? '0 0 6px var(--color-accent)' : 'none',
+                  }}
+                />
+              </div>
+              <span className="race-card__trait-val">{val}</span>
+            </div>
+          );
+        })}
+      </div>
+    </button>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface SpeciesCreatorContinueData {
@@ -194,11 +265,32 @@ interface SpeciesCreatorScreenProps {
   onContinue: (data: SpeciesCreatorContinueData) => void;
 }
 
+type ScreenMode = 'pick-race' | 'detail' | 'custom';
+
 export function SpeciesCreatorScreen({
   onBack,
   onContinue,
 }: SpeciesCreatorScreenProps): React.ReactElement {
-  // Form state
+  // Mode: race picker (default), detail view, or custom species editor
+  const [mode, setMode] = useState<ScreenMode>('pick-race');
+
+  // Selected species for detail view
+  const [selectedSpecies, setSelectedSpecies] = useState<Species | null>(null);
+
+  // ── Pick Race: click a pre-built species to show detail screen ──
+  const handlePickRace = useCallback((sp: Species) => {
+    setSelectedSpecies(sp);
+    setMode('detail');
+  }, []);
+
+  // ── Confirm selection from the detail screen ──
+  const handleConfirmSelection = useCallback(() => {
+    if (!selectedSpecies) return;
+    const originStory = ORIGIN_MAP[selectedSpecies.id] ?? 'Balanced';
+    onContinue({ species: selectedSpecies, originStory });
+  }, [selectedSpecies, onContinue]);
+
+  // ── Custom Species editor state ─────────────────────────────────────────
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [origin, setOrigin] = useState<OriginStory>('Balanced');
@@ -206,7 +298,7 @@ export function SpeciesCreatorScreen({
   const [env, setEnv] = useState<EnvironmentPreference>(defaultEnv);
   const [abilities, setAbilities] = useState<SpecialAbility[]>([]);
 
-  // Portrait color customization — seeded from the initial origin palette
+  // Portrait colour customisation -- seeded from the initial origin palette
   const [primaryColor, setPrimaryColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[0]);
   const [secondaryColor, setSecondaryColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[1]);
   const [accentColor, setAccentColor] = useState(() => (ORIGIN_TO_COLORS['Balanced'] ?? ['#2d6b8a', '#4aa8cc', '#00d4ff'])[2]);
@@ -233,7 +325,7 @@ export function SpeciesCreatorScreen({
     features: [],
   }), [origin, primaryColor, secondaryColor, accentColor]);
 
-  // Re-render portrait when options change (debounced so color pickers don't thrash)
+  // Re-render portrait when options change (debounced so colour pickers don't thrash)
   useEffect(() => {
     if (portraitDebounceRef.current) clearTimeout(portraitDebounceRef.current);
     portraitDebounceRef.current = setTimeout(() => {
@@ -250,7 +342,7 @@ export function SpeciesCreatorScreen({
     setTraits((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Origin selection — auto-fill suggested traits/abilities + matching colour palette
+  // Origin selection -- auto-fill suggested traits/abilities + matching colour palette
   const handleOriginChange = useCallback((newOrigin: OriginStory) => {
     setOrigin(newOrigin);
     const preset = ORIGIN_PRESETS[newOrigin];
@@ -279,7 +371,7 @@ export function SpeciesCreatorScreen({
     });
   }, []);
 
-  // Randomize
+  // Randomise
   const handleRandomize = useCallback(() => {
     const names = ['Zethori', 'Valkrath', 'Nuuri', 'Thyssen', 'Orakkai', 'Serrath', 'Umbari', 'Phexis'];
     setName(names[Math.floor(Math.random() * names.length)] ?? 'Zethori');
@@ -319,18 +411,7 @@ export function SpeciesCreatorScreen({
     });
   }, []);
 
-  const [showTemplatePicker, setShowTemplatePicker] = useState(true);
-
-  // Load template
-  const handleLoadTemplate = useCallback((template: typeof TEMPLATE_SPECIES[0]) => {
-    setName(template.name);
-    setTraits(template.traits);
-    setAbilities(template.abilities);
-    setOrigin(template.origin);
-    setShowTemplatePicker(false);
-  }, []);
-
-  // Continue to game setup
+  // Continue to game setup (custom species)
   const handleStartGame = useCallback(() => {
     if (!isValid) return;
 
@@ -351,6 +432,218 @@ export function SpeciesCreatorScreen({
   // Preview: trait bar chart
   const maxTraitVal = Math.max(...TRAIT_KEYS.map((k) => traits[k]));
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  RACE PICKER MODE (default)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (mode === 'pick-race') {
+    return (
+      <div className="species-creator-overlay">
+        <div className="race-picker">
+          {/* Header */}
+          <div className="race-picker__header">
+            <div className="race-picker__title">CHOOSE YOUR SPECIES</div>
+            <div className="race-picker__subtitle">
+              Select a species to lead through the galaxy, or craft your own from scratch
+            </div>
+          </div>
+
+          {/* Grid of all 15 species */}
+          <div className="race-picker__grid">
+            {PREBUILT_SPECIES.map(species => (
+              <RaceCard
+                key={species.id}
+                species={species}
+                onClick={() => handlePickRace(species)}
+              />
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="race-picker__footer">
+            <button type="button" className="sc-btn sc-btn--secondary" onClick={onBack}>
+              &larr; Back
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn--primary"
+              onClick={() => setMode('custom')}
+            >
+              Create Custom Species +
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  RACE DETAIL MODE — intermediate confirmation screen
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (mode === 'detail' && selectedSpecies) {
+    const detailPortraitUrl = portraitCache.getPortrait(selectedSpecies.id, 128);
+    const detailMaxVal = Math.max(...TRAIT_KEYS.map(k => selectedSpecies.traits[k]));
+
+    // Derive strengths and weaknesses from traits
+    const strengths = TRAIT_KEYS
+      .filter(k => selectedSpecies.traits[k] >= 7)
+      .map(k => ({ key: k, label: TRAIT_LABELS[k], value: selectedSpecies.traits[k] }));
+    const weaknesses = TRAIT_KEYS
+      .filter(k => selectedSpecies.traits[k] <= 4)
+      .map(k => ({ key: k, label: TRAIT_LABELS[k], value: selectedSpecies.traits[k] }));
+
+    // Environment preference description
+    const detailEnv = selectedSpecies.environmentPreference;
+    const detailEnvDesc = habitabilityDescription(detailEnv);
+
+    // Special abilities with full info
+    const detailAbilities = selectedSpecies.specialAbilities
+      .map(key => ABILITY_INFO.find(a => a.key === key))
+      .filter((a): a is NonNullable<typeof a> => a != null);
+
+    // Split full description into paragraphs for display
+    const descParagraphs = selectedSpecies.description.split('\n').filter(p => p.trim().length > 0);
+
+    return (
+      <div className="species-creator-overlay">
+        <div className="race-detail">
+          {/* Header */}
+          <div className="race-detail__header">
+            <div className="race-detail__portrait">
+              <img src={detailPortraitUrl} alt={selectedSpecies.name} className="race-detail__portrait-img" />
+            </div>
+            <div className="race-detail__title-area">
+              <div className="race-detail__name">{selectedSpecies.name}</div>
+              {detailAbilities.length > 0 && (
+                <div className="race-detail__ability-tags">
+                  {detailAbilities.map(a => (
+                    <span key={a.key} className="race-card__ability">{a.icon} {a.name}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="race-detail__body">
+
+            {/* Full description / codex */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">CODEX</div>
+              <div className="race-detail__codex">
+                {descParagraphs.map((para, i) => (
+                  <p key={i} className="race-detail__codex-para">{para}</p>
+                ))}
+              </div>
+            </section>
+
+            {/* Strengths & Weaknesses side by side */}
+            {(strengths.length > 0 || weaknesses.length > 0) && (
+              <section className="race-detail__section">
+                <div className="race-detail__section-label">STRENGTHS &amp; WEAKNESSES</div>
+                <div className="race-detail__pros-cons">
+                  {strengths.length > 0 && (
+                    <div className="race-detail__column">
+                      <div className="race-detail__column-heading race-detail__column-heading--pro">Strengths</div>
+                      {strengths.map(s => (
+                        <div key={s.key} className="race-detail__pro-item">
+                          <span className="race-detail__pro-dot" /> {s.label} ({s.value})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {weaknesses.length > 0 && (
+                    <div className="race-detail__column">
+                      <div className="race-detail__column-heading race-detail__column-heading--con">Weaknesses</div>
+                      {weaknesses.map(w => (
+                        <div key={w.key} className="race-detail__con-item">
+                          <span className="race-detail__con-dot" /> {w.label} ({w.value})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Trait bars */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">TRAIT PROFILE</div>
+              <div className="race-detail__trait-chart">
+                {TRAIT_KEYS.map(key => {
+                  const val = selectedSpecies.traits[key];
+                  const pct = (val / 10) * 100;
+                  const isTop = val === detailMaxVal;
+                  return (
+                    <div key={key} className="sc-trait-bar">
+                      <span className="sc-trait-bar__label">{TRAIT_LABELS[key].slice(0, 5).toUpperCase()}</span>
+                      <div className="sc-trait-bar__track">
+                        <div
+                          className="sc-trait-bar__fill"
+                          style={{
+                            width: `${pct}%`,
+                            background: isTop ? 'var(--color-accent)' : 'rgba(0,180,220,0.5)',
+                            boxShadow: isTop ? '0 0 8px var(--color-accent)' : 'none',
+                          }}
+                        />
+                      </div>
+                      <span className="sc-trait-bar__val">{val}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Special abilities with descriptions */}
+            {detailAbilities.length > 0 && (
+              <section className="race-detail__section">
+                <div className="race-detail__section-label">SPECIAL ABILITIES</div>
+                <div className="race-detail__abilities">
+                  {detailAbilities.map(a => (
+                    <div key={a.key} className="race-detail__ability-card">
+                      <div className="race-detail__ability-name">{a.icon} {a.name}</div>
+                      <div className="race-detail__ability-desc">{a.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Environment preferences */}
+            <section className="race-detail__section">
+              <div className="race-detail__section-label">ENVIRONMENT PREFERENCES</div>
+              <div className="race-detail__env">{detailEnvDesc}</div>
+              <div className="race-detail__env-details">
+                <span className="race-detail__env-tag">Temperature: {detailEnv.idealTemperature}K (&plusmn;{detailEnv.temperatureTolerance}K)</span>
+                <span className="race-detail__env-tag">Gravity: {detailEnv.idealGravity}g (&plusmn;{detailEnv.gravityTolerance}g)</span>
+              </div>
+            </section>
+          </div>
+
+          {/* Footer */}
+          <div className="race-detail__footer">
+            <button
+              type="button"
+              className="sc-btn sc-btn--secondary"
+              onClick={() => setMode('pick-race')}
+            >
+              &larr; Back to Races
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn--primary"
+              onClick={handleConfirmSelection}
+            >
+              Confirm Selection &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  CUSTOM SPECIES EDITOR MODE
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <div className="species-creator-overlay">
       <div className="species-creator">
@@ -358,13 +651,13 @@ export function SpeciesCreatorScreen({
         <div className="species-creator__header">
           <div className="species-creator__title">SPECIES CREATOR</div>
           <div className="species-creator__subtitle">
-            Design your species — traits and choices persist throughout the galaxy
+            Design your species &mdash; traits and choices persist throughout the galaxy
           </div>
         </div>
 
         {/* Main content: two columns */}
         <div className="species-creator__body">
-          {/* ── Left column: controls ─────────────────────────────────── */}
+          {/* -- Left column: controls -- */}
           <div className="species-creator__left">
 
             {/* Name & Description */}
@@ -445,7 +738,7 @@ export function SpeciesCreatorScreen({
                 <div className="sc-env-row">
                   <label className="sc-field__label">Ideal Temperature</label>
                   <span className="sc-env-value">
-                    {env.idealTemperature}K — {temperatureLabel(env.idealTemperature)}
+                    {env.idealTemperature}K &mdash; {temperatureLabel(env.idealTemperature)}
                   </span>
                 </div>
                 <input
@@ -464,7 +757,7 @@ export function SpeciesCreatorScreen({
               <div className="sc-field">
                 <div className="sc-env-row">
                   <label className="sc-field__label">Temperature Tolerance</label>
-                  <span className="sc-env-value">±{env.temperatureTolerance}K</span>
+                  <span className="sc-env-value">&plusmn;{env.temperatureTolerance}K</span>
                 </div>
                 <input
                   type="range"
@@ -497,7 +790,7 @@ export function SpeciesCreatorScreen({
               <div className="sc-field">
                 <div className="sc-env-row">
                   <label className="sc-field__label">Gravity Tolerance</label>
-                  <span className="sc-env-value">±{env.gravityTolerance.toFixed(1)}g</span>
+                  <span className="sc-env-value">&plusmn;{env.gravityTolerance.toFixed(1)}g</span>
                 </div>
                 <input
                   type="range"
@@ -535,7 +828,7 @@ export function SpeciesCreatorScreen({
 
             {/* Special Abilities */}
             <section className="sc-section">
-              <div className="sc-section__label">SPECIAL ABILITIES <span className="sc-section__hint">(pick 0–2)</span></div>
+              <div className="sc-section__label">SPECIAL ABILITIES <span className="sc-section__hint">(pick 0-2)</span></div>
               <AbilityPicker
                 selected={abilities}
                 maxSelected={2}
@@ -545,7 +838,7 @@ export function SpeciesCreatorScreen({
 
           </div>
 
-          {/* ── Right column: preview ─────────────────────────────────── */}
+          {/* -- Right column: preview -- */}
           <div className="species-creator__right">
             <div className="sc-preview">
 
@@ -567,9 +860,9 @@ export function SpeciesCreatorScreen({
                 </div>
                 <div className="sc-preview__name">{name.trim() || 'Unnamed Species'}</div>
 
-                {/* Color customization pickers */}
+                {/* Colour customisation pickers */}
                 <div className="sc-portrait-colors">
-                  <label className="sc-color-picker" title="Primary Color">
+                  <label className="sc-color-picker" title="Primary Colour">
                     <span className="sc-color-picker__label">Primary</span>
                     <input
                       type="color"
@@ -579,7 +872,7 @@ export function SpeciesCreatorScreen({
                     />
                     <span className="sc-color-picker__swatch" style={{ background: primaryColor }} />
                   </label>
-                  <label className="sc-color-picker" title="Secondary Color">
+                  <label className="sc-color-picker" title="Secondary Colour">
                     <span className="sc-color-picker__label">Secondary</span>
                     <input
                       type="color"
@@ -589,7 +882,7 @@ export function SpeciesCreatorScreen({
                     />
                     <span className="sc-color-picker__swatch" style={{ background: secondaryColor }} />
                   </label>
-                  <label className="sc-color-picker" title="Accent Color">
+                  <label className="sc-color-picker" title="Accent Colour">
                     <span className="sc-color-picker__label">Accent</span>
                     <input
                       type="color"
@@ -630,7 +923,7 @@ export function SpeciesCreatorScreen({
                 </div>
                 <div className="sc-preview__budget-display">
                   Budget: {traitTotal}/{TRAIT_BUDGET}
-                  {overBudget && <span className="sc-preview__over"> — OVER LIMIT</span>}
+                  {overBudget && <span className="sc-preview__over"> &mdash; OVER LIMIT</span>}
                 </div>
               </div>
 
@@ -643,11 +936,11 @@ export function SpeciesCreatorScreen({
                 <div className="sc-preview__env-stats">
                   <div className="sc-preview__env-stat">
                     <span>Temperature</span>
-                    <span>{env.idealTemperature}K ±{env.temperatureTolerance}</span>
+                    <span>{env.idealTemperature}K &plusmn;{env.temperatureTolerance}</span>
                   </div>
                   <div className="sc-preview__env-stat">
                     <span>Gravity</span>
-                    <span>{env.idealGravity.toFixed(1)}g ±{env.gravityTolerance.toFixed(1)}</span>
+                    <span>{env.idealGravity.toFixed(1)}g &plusmn;{env.gravityTolerance.toFixed(1)}</span>
                   </div>
                 </div>
               </div>
@@ -692,7 +985,7 @@ export function SpeciesCreatorScreen({
                         className={`sc-hab-cell ${habitable ? 'sc-hab-cell--green' : partial ? 'sc-hab-cell--yellow' : 'sc-hab-cell--red'}`}
                       >
                         <span className="sc-hab-cell__icon">
-                          {habitable ? '✓' : partial ? '~' : '✗'}
+                          {habitable ? '\u2713' : partial ? '~' : '\u2717'}
                         </span>
                         <span>{type}</span>
                       </div>
@@ -712,15 +1005,12 @@ export function SpeciesCreatorScreen({
 
         {/* Footer */}
         <div className="species-creator__footer">
-          <button type="button" className="sc-btn sc-btn--secondary" onClick={onBack}>
-            ← Back
+          <button type="button" className="sc-btn sc-btn--secondary" onClick={() => setMode('pick-race')}>
+            &larr; Back to Races
           </button>
           <div className="sc-footer__center">
             <button type="button" className="sc-btn sc-btn--ghost" onClick={handleRandomize}>
-              ⚄ Randomize
-            </button>
-            <button type="button" className="sc-btn sc-btn--ghost" onClick={() => setShowTemplatePicker(true)}>
-              ▤ Choose Race
+              Randomise
             </button>
           </div>
           <button
@@ -730,42 +1020,10 @@ export function SpeciesCreatorScreen({
             disabled={!isValid}
             title={!name.trim() ? 'Enter a species name' : overBudget ? 'Reduce trait points to fit budget' : ''}
           >
-            Continue →
+            Continue &rarr;
           </button>
         </div>
       </div>
-
-      {/* Template / Race picker modal */}
-      {showTemplatePicker && (
-        <div className="sc-template-overlay" onClick={() => setShowTemplatePicker(false)}>
-          <div className="sc-template-modal" onClick={e => e.stopPropagation()}>
-            <div className="sc-template-modal__header">
-              <h2>Choose a Race</h2>
-              <button className="sc-btn sc-btn--ghost" onClick={() => setShowTemplatePicker(false)}>✕</button>
-            </div>
-            <div className="sc-template-grid">
-              {TEMPLATE_SPECIES.map(t => (
-                <button
-                  key={t.id}
-                  className="sc-template-card"
-                  onClick={() => handleLoadTemplate(t)}
-                >
-                  <div className="sc-template-card__name">{t.name}</div>
-                  <div className="sc-template-card__origin">{t.origin}</div>
-                  <div className="sc-template-card__desc">{t.description.length > 200 ? t.description.slice(0, 200) + '…' : t.description}</div>
-                  <div className="sc-template-card__traits">
-                    {Object.entries(t.traits).map(([k, v]) => (
-                      <span key={k} className="sc-template-card__trait">
-                        {k.slice(0, 3).toUpperCase()} {v}
-                      </span>
-                    ))}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

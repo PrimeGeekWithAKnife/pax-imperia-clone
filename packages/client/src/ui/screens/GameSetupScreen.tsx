@@ -285,39 +285,21 @@ export function GameSetupScreen({
             {/* Government */}
             <section className="sc-section">
               <div className="sc-section__label">GOVERNMENT</div>
-              <div className="gs-gov-grid" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+              <select
+                className="sc-input sc-input--select gs-gov-select"
+                value={selectedGov}
+                onChange={(e) => setSelectedGov(e.target.value as GovernmentType)}
+                aria-label="Government type"
+              >
                 {GOVERNMENT_ORDER.map((govKey) => {
                   const def = GOVERNMENTS[govKey];
-                  const govMods = getModifierEntries(govKey);
-                  const notableMods = govMods.filter((m) => !modifierIsNeutral(m)).slice(0, 3);
                   return (
-                    <button
-                      key={govKey}
-                      type="button"
-                      className={`gs-gov-card ${selectedGov === govKey ? 'gs-gov-card--active' : ''}`}
-                      onClick={() => setSelectedGov(govKey)}
-                      title={def.description}
-                    >
-                      <span className="gs-gov-card__name">{def.name}</span>
-                      <span className="gs-gov-card__desc" style={{ fontSize: '10px', opacity: 0.7, display: 'block', marginTop: '2px' }}>
-                        {def.description.slice(0, 60)}{def.description.length > 60 ? '...' : ''}
-                      </span>
-                      {notableMods.length > 0 && (
-                        <span className="gs-gov-card__mods" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px', fontSize: '10px' }}>
-                          {notableMods.map((m) => (
-                            <span
-                              key={m.label}
-                              style={{ color: modifierIsPositive(m) ? '#4a9e5c' : '#cc4422' }}
-                            >
-                              {m.label.slice(0, 4)}: {formatModifier(m)}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </button>
+                    <option key={govKey} value={govKey}>
+                      {def.name}
+                    </option>
                   );
                 })}
-              </div>
+              </select>
               {selectedGovDef && (
                 <div className="gs-gov-detail">
                   <div className="gs-gov-detail__desc">{selectedGovDef.description}</div>

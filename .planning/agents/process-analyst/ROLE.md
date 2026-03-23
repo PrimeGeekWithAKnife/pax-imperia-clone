@@ -64,3 +64,10 @@ Leaked Phaser event listeners caused the speed button bug and other scene transi
 
 ### Species Data Pipeline
 Adding a new species requires updates in 6+ files. Missing any one makes the species invisible. The pipeline: JSON → barrel export → shared index → client imports → UI mappings.
+
+### Git Merge Auto-Resolution Is Unreliable
+`git merge` can silently keep the WRONG version of files during auto-resolution. After any merge from worktree to main:
+1. Verify key files match the source branch (especially barrel exports and index files)
+2. Check for files that exist in the worktree but are missing from main
+3. For large changes, `rsync --exclude='.git' --exclude='node_modules' --exclude='dist'` from worktree to main is MORE RELIABLE than merge
+4. Always restart the dev server after merge and verify in browser

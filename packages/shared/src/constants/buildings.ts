@@ -28,7 +28,7 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
   research_lab: {
     name: 'Research Lab',
     baseCost: { credits: 120 },
-    baseProduction: { researchPoints: 5 },
+    baseProduction: { researchPoints: 50 },
     buildTime: 8,
     maintenanceCost: { credits: 2 },
     maxLevel: 5,

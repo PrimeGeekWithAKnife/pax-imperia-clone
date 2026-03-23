@@ -153,11 +153,11 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // base production for research_lab level 1 = 5 researchPoints, research trait 5 → factor 1
-    expect(result.production.researchPoints).toBeCloseTo(5);
+    // base production for research_lab level 1 = 50 researchPoints, research trait 5 → factor 1
+    expect(result.production.researchPoints).toBeCloseTo(50);
     expect(result.buildingOutputs).toHaveLength(1);
     expect(result.buildingOutputs[0].buildingType).toBe('research_lab');
-    expect(result.buildingOutputs[0].resources.researchPoints).toBeCloseTo(5);
+    expect(result.buildingOutputs[0].resources.researchPoints).toBeCloseTo(50);
   });
 
   it('research trait amplifies research lab output', () => {
@@ -254,8 +254,8 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // research_lab: +5 RP, factory: +4 minerals -1 energy, barren: +3 minerals
-    expect(result.production.researchPoints).toBeCloseTo(5);
+    // research_lab: +50 RP, factory: +4 minerals -1 energy, barren: +3 minerals
+    expect(result.production.researchPoints).toBeCloseTo(50);
     expect(result.production.minerals).toBeCloseTo(4 + 3); // factory + barren
     expect(result.production.energy).toBeCloseTo(-1);
     expect(result.buildingOutputs).toHaveLength(2);
