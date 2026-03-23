@@ -2590,6 +2590,154 @@
   border-radius: 4px;
 }
 
+/* ── Flipped layout: categories as columns, ages as rows ── */
+
+.tech-tree__category-headers {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  background: rgba(3, 3, 12, 0.97);
+  z-index: 10;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 8px;
+}
+
+.tech-tree__age-spacer {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.tech-tree__category-header {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 4px 4px;
+  gap: 3px;
+  border-left: 1px solid rgba(0, 180, 220, 0.12);
+}
+
+.tech-tree__category-header--weapons      { border-top: 3px solid var(--cat-weapons); }
+.tech-tree__category-header--defense      { border-top: 3px solid var(--cat-defense); }
+.tech-tree__category-header--propulsion   { border-top: 3px solid var(--cat-propulsion); }
+.tech-tree__category-header--biology      { border-top: 3px solid var(--cat-biology); }
+.tech-tree__category-header--construction { border-top: 3px solid var(--cat-construction); }
+.tech-tree__category-header--racial       { border-top: 3px solid var(--cat-racial); }
+
+.tech-tree__category-header-name {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--color-text);
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: 600;
+}
+
+.tech-tree__grid--age-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tech-tree__row--age {
+  display: flex;
+  align-items: flex-start;
+  border-left: 3px solid transparent;
+  border-radius: 0 2px 2px 0;
+  transition: background 0.15s;
+}
+
+.tech-tree__row--future-age {
+  opacity: 0.5;
+}
+
+.tech-tree__age-label {
+  width: 97px;
+  flex-shrink: 0;
+  padding: 8px 8px 8px 6px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-height: 96px;
+  cursor: default;
+}
+
+.tech-tree__age-label--current {
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.tech-tree__age-label--future {
+  opacity: 0.55;
+}
+
+.tech-tree__age-label-name {
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.tech-tree__age-label--current .tech-tree__age-label-name {
+  color: var(--color-accent);
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+}
+
+.tech-tree__age-label-badge {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-dim);
+  border-radius: 2px;
+  padding: 1px 5px;
+  width: fit-content;
+}
+
+/* ── Tech detail "Allows" section ── */
+
+.tech-detail-panel__allows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tech-detail-panel__allows-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tech-detail-panel__allows-kind {
+  font-family: monospace;
+  font-size: 9px;
+  color: var(--color-accent, #00d4ff);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.tech-detail-panel__allows-label {
+  color: var(--color-text, #d0dde8);
+  text-transform: capitalize;
+}
+
+.tech-detail-panel__allows-type {
+  color: var(--color-text-dim, rgba(255, 255, 255, 0.35));
+  font-size: 10px;
+  font-style: italic;
+}
+
 /* ── Tech card ── */
 .tech-card {
   position: relative;

@@ -466,82 +466,85 @@ export function ResearchScreen({
       {/* ── Main Layout ─────────────────────────────────────────────────── */}
       <div className="research-screen__main">
 
-        {/* ── Tech Tree Area ─────────────────────────────────────────── */}
+        {/* ── Tech Tree Area (Categories as COLUMNS, Ages as ROWS) ── */}
         <div className="research-screen__tree-area">
 
-          {/* Age column headers */}
-          <div className="tech-tree__age-headers">
-            <div className="tech-tree__category-spacer" />
-            {TECH_AGES_ORDERED.map((age, idx) => (
+          {/* Category column headers */}
+          <div className="tech-tree__category-headers">
+            <div className="tech-tree__age-spacer" />
+            {CATEGORIES_ORDERED.map((category) => (
               <div
-                key={age}
-                className={`tech-tree__age-header ${idx === currentAgeIndex ? 'tech-tree__age-header--current' : ''} ${idx > currentAgeIndex ? 'tech-tree__age-header--future' : 'tech-tree__age-header--past'}`}
+                key={category}
+                className={`tech-tree__category-header tech-tree__category-header--${category}`}
+                title={CATEGORY_DESCRIPTIONS[category]}
               >
-                <span className="tech-tree__age-header-name">{AGE_SHORT_NAMES[age]}</span>
-                {idx === currentAgeIndex && (
-                  <span className="tech-tree__age-header-badge">CURRENT</span>
-                )}
+                <span className="tech-tree__category-header-name">
+                  {CATEGORY_DISPLAY_NAMES[category]}
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Category rows */}
-          <div className="tech-tree__grid">
-            {CATEGORIES_ORDERED.map((category) => (
-              <div key={category} className={`tech-tree__row tech-tree__row--${category}`}>
-                {/* Category label */}
-                <div
-                  className="tech-tree__category-label"
-                  title={CATEGORY_DESCRIPTIONS[category]}
-                >
-                  <span className="tech-tree__category-name">
-                    {CATEGORY_DISPLAY_NAMES[category]}
-                  </span>
-                  <span className="tech-tree__category-desc">
-                    {CATEGORY_DESCRIPTIONS[category]}
-                  </span>
+          {/* Age rows */}
+          <div className="tech-tree__grid tech-tree__grid--age-rows">
+            {TECH_AGES_ORDERED.map((age, ageIdx) => {
+              const isFutureAge = ageIdx > currentAgeIndex;
+              const isCurrentAge = ageIdx === currentAgeIndex;
+
+              return (
+                <div key={age} className={`tech-tree__row tech-tree__row--age ${isFutureAge ? 'tech-tree__row--future-age' : ''}`}>
+                  {/* Age label */}
+                  <div
+                    className={`tech-tree__age-label ${isCurrentAge ? 'tech-tree__age-label--current' : ''} ${isFutureAge ? 'tech-tree__age-label--future' : 'tech-tree__age-label--past'}`}
+                  >
+                    <span className="tech-tree__age-label-name">
+                      {AGE_SHORT_NAMES[age]}
+                    </span>
+                    {isCurrentAge && (
+                      <span className="tech-tree__age-label-badge">CURRENT</span>
+                    )}
+                  </div>
+
+                  {/* Category cells */}
+                  {CATEGORIES_ORDERED.map((category) => {
+                    const cellTechs = techGrid[category][age];
+
+                    return (
+                      <div
+                        key={category}
+                        className={`tech-tree__cell ${isFutureAge ? 'tech-tree__cell--future-age' : ''}`}
+                      >
+                        {cellTechs.map((tech) => {
+                          const status = getTechStatus(tech, researchState, availableIds, activeIds);
+                          const activeEntry = researchState.activeResearch.find(
+                            (r) => r.techId === tech.id,
+                          );
+                          const progressPercent = activeEntry
+                            ? (activeEntry.pointsInvested / tech.cost) * 100
+                            : 0;
+
+                          return (
+                            <TechCard
+                              key={tech.id}
+                              tech={tech}
+                              status={status}
+                              progressPercent={progressPercent}
+                              onClick={handleCardClick}
+                              onStartResearch={handleQuickStart}
+                              isSelected={selectedTech?.id === tech.id}
+                            />
+                          );
+                        })}
+                        {/* Empty cell placeholder */}
+                        {cellTechs.length === 0 && (
+                          <div className="tech-tree__cell-empty" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {/* Age cells */}
-                {TECH_AGES_ORDERED.map((age, ageIdx) => {
-                  const cellTechs = techGrid[category][age];
-                  const isFutureAge = ageIdx > currentAgeIndex;
-
-                  return (
-                    <div
-                      key={age}
-                      className={`tech-tree__cell ${isFutureAge ? 'tech-tree__cell--future-age' : ''}`}
-                    >
-                      {cellTechs.map((tech) => {
-                        const status = getTechStatus(tech, researchState, availableIds, activeIds);
-                        const activeEntry = researchState.activeResearch.find(
-                          (r) => r.techId === tech.id,
-                        );
-                        const progressPercent = activeEntry
-                          ? (activeEntry.pointsInvested / tech.cost) * 100
-                          : 0;
-
-                        return (
-                          <TechCard
-                            key={tech.id}
-                            tech={tech}
-                            status={status}
-                            progressPercent={progressPercent}
-                            onClick={handleCardClick}
-                            onStartResearch={handleQuickStart}
-                            isSelected={selectedTech?.id === tech.id}
-                          />
-                        );
-                      })}
-                      {/* Empty cell placeholder */}
-                      {cellTechs.length === 0 && (
-                        <div className="tech-tree__cell-empty" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -572,6 +575,7 @@ export function ResearchScreen({
               speciesBonus={speciesBonus}
               completedTechs={completedSet}
               techNamesById={techNamesById}
+              allTechs={allTechs}
               onStartResearch={handleStartResearch}
               onCancelResearch={handleCancelResearch}
               onAdjustAllocation={onAdjustAllocation}

@@ -165,7 +165,7 @@ function estimateMaintenance(planet: Planet): Record<string, number> {
 
 // ── Building category definitions ─────────────────────────────────────────────
 
-type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure' | 'environment';
+type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure' | 'environment' | 'blueprints';
 
 const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   all: 'All',
@@ -175,9 +175,10 @@ const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   commerce: 'Commerce',
   infrastructure: 'Infrastructure',
   environment: 'Environment',
+  blueprints: 'Blueprints',
 };
 
-const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all'>, BuildingType[]> = {
+const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all' | 'blueprints'>, BuildingType[]> = {
   production: ['factory', 'mining_facility', 'power_plant', 'fusion_reactor', 'recycling_plant'] as BuildingType[],
   population: ['population_center', 'hydroponics_bay', 'medical_bay', 'advanced_medical_centre', 'entertainment_complex'] as BuildingType[],
   military: ['shipyard', 'defense_grid', 'military_academy'] as BuildingType[],
@@ -206,8 +207,14 @@ function BuildingPicker({
 }: BuildingPickerProps): React.ReactElement {
   const [activeCategory, setActiveCategory] = useState<BuildingCategory>('all');
 
-  // Show all buildings that match the category and are not racial for another species.
-  // Buildings that require unresearched tech are shown greyed-out (locked) rather than hidden.
+  // Determine which buildings are locked by unresearched tech
+  const isBuildingLockedByTech = (type: BuildingType): boolean => {
+    const def = BUILDING_DEFINITIONS[type];
+    return !!(def.requiredTech && empireTechs !== undefined && !empireTechs.includes(def.requiredTech));
+  };
+
+  // Blueprints tab: show ONLY buildings locked behind tech requirements
+  // Normal tabs: show ONLY buildings the player CAN build (hide unresearched)
   const visibleBuildings = ALL_BUILDING_TYPES.filter((type) => {
     const def = BUILDING_DEFINITIONS[type];
 
@@ -216,9 +223,19 @@ function BuildingPicker({
       return false;
     }
 
+    const lockedByTech = isBuildingLockedByTech(type);
+
+    if (activeCategory === 'blueprints') {
+      // Blueprints tab: only show buildings locked behind tech
+      return lockedByTech;
+    }
+
+    // Normal tabs: hide buildings locked behind tech
+    if (lockedByTech) return false;
+
     // Apply category filter
     if (activeCategory !== 'all') {
-      const members = BUILDING_CATEGORY_MEMBERS[activeCategory];
+      const members = BUILDING_CATEGORY_MEMBERS[activeCategory as Exclude<BuildingCategory, 'all' | 'blueprints'>];
       if (!members.includes(type)) return false;
     }
 
@@ -242,49 +259,110 @@ function BuildingPicker({
 
         {/* Category tabs */}
         <div className="bpicker__tabs" style={{ display: 'flex', gap: '4px', padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          {(Object.keys(BUILDING_CATEGORY_LABELS) as BuildingCategory[]).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              className="bpicker__tab"
-              style={{
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                background: activeCategory === cat ? 'rgba(0, 180, 220, 0.3)' : 'rgba(255,255,255,0.05)',
-                color: activeCategory === cat ? '#00d4ff' : '#8899aa',
-                fontWeight: activeCategory === cat ? 'bold' : 'normal',
-              }}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {BUILDING_CATEGORY_LABELS[cat]}
-            </button>
-          ))}
+          {(Object.keys(BUILDING_CATEGORY_LABELS) as BuildingCategory[]).map((cat) => {
+            const isBlueprints = cat === 'blueprints';
+            const isActive = activeCategory === cat;
+            const activeBg = isBlueprints ? 'rgba(220, 160, 0, 0.3)' : 'rgba(0, 180, 220, 0.3)';
+            const activeColor = isBlueprints ? '#f0b020' : '#00d4ff';
+            return (
+              <button
+                key={cat}
+                type="button"
+                className="bpicker__tab"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  border: isBlueprints ? '1px solid rgba(220, 160, 0, 0.3)' : 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  background: isActive ? activeBg : 'rgba(255,255,255,0.05)',
+                  color: isActive ? activeColor : (isBlueprints ? '#aa8833' : '#8899aa'),
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  marginLeft: isBlueprints ? 'auto' : undefined,
+                }}
+                onClick={() => setActiveCategory(cat)}
+              >
+                {BUILDING_CATEGORY_LABELS[cat]}
+              </button>
+            );
+          })}
         </div>
 
         <div className="bpicker__list">
           {visibleBuildings.length === 0 ? (
             <div className="bpicker__empty" style={{ padding: '16px', textAlign: 'center', color: '#6688aa', fontFamily: 'monospace', fontSize: '12px' }}>
-              No buildings available in this category
+              {activeCategory === 'blueprints'
+                ? 'All buildings researched — nothing left to unlock!'
+                : 'No buildings available in this category'}
             </div>
-          ) : (
+          ) : activeCategory === 'blueprints' ? (
+            /* ── Blueprints tab: informational-only, non-clickable ── */
             visibleBuildings.map((type) => {
               const def = BUILDING_DEFINITIONS[type];
-
-              // Determine if this building is locked due to tech requirements
-              const isLockedByTech = !!(def.requiredTech && empireTechs !== undefined && !empireTechs.includes(def.requiredTech));
-              const requiredTechName = isLockedByTech && def.requiredTech
+              const requiredTechName = def.requiredTech
                 ? (UNIVERSAL_TECH_BY_ID[def.requiredTech]?.name ?? def.requiredTech)
-                : null;
+                : 'Unknown';
+              const iconSrc = renderBuildingIcon(type, 48);
+
+              return (
+                <div
+                  key={type}
+                  className="bpicker-item bpicker-item--blueprint"
+                  style={{ opacity: 0.6, cursor: 'default', pointerEvents: 'none' }}
+                >
+                  <div className="bpicker-item__header">
+                    {iconSrc && (
+                      <img
+                        src={iconSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="bpicker-item__icon"
+                        width={48}
+                        height={48}
+                        style={{ filter: 'grayscale(100%) brightness(0.7)' }}
+                      />
+                    )}
+                    <span className="bpicker-item__name" style={{ color: '#667788' }}>{getBuildingDisplayName(type)}</span>
+                    <span className="bpicker-item__turns" style={{ color: '#556677' }}>{def.buildTime} turns</span>
+                  </div>
+                  <div style={{ color: '#00cccc', fontSize: '11px', fontFamily: 'monospace', padding: '2px 0 4px 0' }}>
+                    Requires: {requiredTechName}
+                  </div>
+                  <div className="bpicker-item__desc" style={{ color: '#556677' }}>{def.description}</div>
+                  <div className="bpicker-item__costs" style={{ opacity: 0.7 }}>
+                    {Object.entries(def.baseCost).map(([res, val]) => (
+                      <span key={res} className="bpicker-item__cost" style={{ color: '#667788' }}>
+                        {RESOURCE_ICONS[res] ?? res}: {val}
+                      </span>
+                    ))}
+                    <span className="bpicker-item__cost" style={{ color: '#667788' }}>
+                      EN: {def.energyConsumption}
+                    </span>
+                    {def.wasteOutput > 0 && (
+                      <span className="bpicker-item__cost" style={{ color: '#667788' }}>
+                        Waste: {def.wasteOutput}
+                      </span>
+                    )}
+                    {def.happinessImpact !== 0 && (
+                      <span className="bpicker-item__cost" style={{ color: def.happinessImpact > 0 ? '#55aa55' : '#aa5555' }}>
+                        Happiness: {def.happinessImpact > 0 ? '+' : ''}{def.happinessImpact}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            /* ── Normal tabs: clickable building entries ── */
+            visibleBuildings.map((type) => {
+              const def = BUILDING_DEFINITIONS[type];
 
               const check = canBuildOnPlanet(planet, type, undefined, empireTechs);
               const canAffordBuilding = Object.entries(def.baseCost).every(
                 ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
               );
-              const disabled = isLockedByTech || !check.allowed || !canAffordBuilding;
+              const disabled = !check.allowed || !canAffordBuilding;
               const missingResources = !canAffordBuilding
                 ? Object.entries(def.baseCost)
                     .filter(([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) < (needed ?? 0))
@@ -294,19 +372,15 @@ function BuildingPicker({
                     })
                     .join('; ')
                 : '';
-              const reason = isLockedByTech
-                ? `Requires: ${requiredTechName}`
-                : !check.allowed
-                  ? check.reason
-                  : !canAffordBuilding
-                    ? `Cannot afford -- ${missingResources}`
-                    : undefined;
+              const reason = !check.allowed
+                ? check.reason
+                : !canAffordBuilding
+                  ? `Cannot afford -- ${missingResources}`
+                  : undefined;
 
               const iconSrc = renderBuildingIcon(type, 48);
 
-              const itemClass = isLockedByTech
-                ? 'bpicker-item bpicker-item--locked'
-                : `bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`;
+              const itemClass = `bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`;
 
               return (
                 <button
@@ -345,10 +419,7 @@ function BuildingPicker({
                       </span>
                     ))}
                   </div>
-                  {isLockedByTech && requiredTechName && (
-                    <div className="bpicker-item__locked-label">Requires: {requiredTechName}</div>
-                  )}
-                  {!isLockedByTech && !check.allowed && (
+                  {!check.allowed && (
                     <div className="bpicker-item__reason">{check.reason}</div>
                   )}
                 </button>
