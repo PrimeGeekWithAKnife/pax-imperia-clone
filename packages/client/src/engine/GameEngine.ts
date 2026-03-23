@@ -59,6 +59,7 @@ import type {
   FleetMovedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
+  GameEvent,
 } from '@nova-imperia/shared';
 import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
 import {
@@ -156,7 +157,28 @@ export class GameEngine {
     const prevShips = [...this.tickState.gameState.ships];
     const prevFleets = [...this.tickState.gameState.fleets];
 
-    const { newState, events } = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
+    let newState: GameTickState;
+    let events: GameEvent[];
+    try {
+      const result = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
+      newState = result.newState;
+      events = result.events;
+    } catch (err) {
+      // CRITICAL: If processGameTick throws, the tick state must still
+      // advance the tick counter so the game doesn't freeze.  Log the
+      // error so it can be diagnosed, but keep the game running.
+      console.error('[GameEngine.tick] processGameTick threw — tick skipped:', err);
+      this.tickState = {
+        ...this.tickState,
+        gameState: {
+          ...this.tickState.gameState,
+          currentTick: this.tickState.gameState.currentTick + 1,
+        },
+      };
+      // Still emit the tick event so the UI updates
+      this.game.events.emit('engine:tick', { tick: this.tickState.gameState.currentTick });
+      return;
+    }
     this.tickState = newState;
 
     // ── Emit per-event notifications ────────────────────────────────────────

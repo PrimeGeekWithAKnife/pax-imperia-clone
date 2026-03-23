@@ -18,6 +18,7 @@ import {
   type BasicTradeRoute,
 } from '@nova-imperia/shared';
 import { getGameEngine } from '../../engine/GameEngine';
+import { useGameEvent } from '../hooks/useGameEvents';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -184,6 +185,12 @@ function BreakdownRow({ label, value, isExpense = false }: BreakdownRowProps): R
 // ---------------------------------------------------------------------------
 
 export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): React.ReactElement {
+  // Force re-render on each engine tick so resource figures stay current.
+  const [, setTickCounter] = useState(0);
+  useGameEvent('engine:tick', useCallback(() => {
+    setTickCounter(prev => prev + 1);
+  }, []));
+
   const engine = getGameEngine();
   const state = engine?.getState();
   const galaxy = state?.gameState.galaxy ?? null;

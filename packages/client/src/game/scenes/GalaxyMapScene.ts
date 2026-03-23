@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { initializeGame, PREBUILT_SPECIES } from '@nova-imperia/shared';
+import { initializeGame, PREBUILT_SPECIES, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
 import type { Galaxy, StarSystem, StarType, Species, GalaxyShape, AIPersonality, HullClass } from '@nova-imperia/shared';
 import { createGameEngine, getGameEngine, destroyGameEngine, initializeTickState } from '../../engine/GameEngine';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -327,7 +327,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
       }
 
-      const tickState = initializeTickState(gameState);
+      const tickState = initializeTickState(gameState, UNIVERSAL_TECHNOLOGIES.length);
       const engine = createGameEngine(this.game, tickState);
       engine.start();
     }

@@ -1658,7 +1658,7 @@ export function processGameTick(
  *
  * Each empire receives an empty ResearchState in the 'nano_atomic' age.
  */
-export function initializeTickState(gameState: GameState): GameTickState {
+export function initializeTickState(gameState: GameState, allTechCount?: number): GameTickState {
   const researchStates = new Map<string, ResearchState>();
 
   for (const empire of gameState.empires) {
@@ -1717,7 +1717,7 @@ export function initializeTickState(gameState: GameState): GameTickState {
     empireResourcesMap,
     tradeRoutes: [],
     economicLeadTicks: new Map<string, number>(),
-    allTechCount: 0,
+    allTechCount: allTechCount ?? 0,
     terraformingProgressMap: new Map<string, TerraformingProgress>(),
     governors: startingGovernors,
   };

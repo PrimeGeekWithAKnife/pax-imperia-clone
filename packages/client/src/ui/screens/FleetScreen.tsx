@@ -3,6 +3,7 @@ import type { Fleet, Ship, FleetStance, ShipDesign, FleetMovementOrder, HullClas
 import { findPath } from '@nova-imperia/shared';
 import { getGameEngine } from '../../engine/GameEngine';
 import { renderShipThumbnail } from '../../assets/graphics';
+import { useGameEvent } from '../hooks/useGameEvents';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,13 @@ export interface FleetScreenProps {
 // ── FleetScreen ────────────────────────────────────────────────────────────────
 
 export function FleetScreen({ onClose }: FleetScreenProps): React.ReactElement {
+  // Force re-render on each engine tick so fleet positions, movement orders,
+  // and transit progress stay in sync with the authoritative engine state.
+  const [, setTickCounter] = useState(0);
+  useGameEvent('engine:tick', useCallback(() => {
+    setTickCounter(prev => prev + 1);
+  }, []));
+
   const engine = getGameEngine();
   const state = engine?.getState();
   const galaxy = state?.gameState.galaxy ?? null;
