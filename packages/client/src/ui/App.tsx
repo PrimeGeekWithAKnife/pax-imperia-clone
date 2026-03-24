@@ -1226,6 +1226,36 @@ export function App(): React.ReactElement {
     });
   }, []);
 
+  const handleQueueResearch = useCallback((techId: string) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.queueResearch(empireId, techId);
+        return;
+      }
+    }
+    setResearchState((prev) => ({
+      ...prev,
+      researchQueue: [...(prev.researchQueue ?? []), techId],
+    }));
+  }, []);
+
+  const handleDequeueResearch = useCallback((techId: string) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.dequeueResearch(empireId, techId);
+        return;
+      }
+    }
+    setResearchState((prev) => ({
+      ...prev,
+      researchQueue: (prev.researchQueue ?? []).filter(id => id !== techId),
+    }));
+  }, []);
+
   // Species creator → game setup
   const handleSpeciesCreatorContinue = useCallback((data: SpeciesCreatorContinueData) => {
     setCreatorData(data);
@@ -1378,6 +1408,8 @@ export function App(): React.ReactElement {
           speciesBonus={speciesResearchBonus}
           onStartResearch={handleStartResearch}
           onCancelResearch={handleCancelResearch}
+          onQueueResearch={handleQueueResearch}
+          onDequeueResearch={handleDequeueResearch}
           onAdjustAllocation={handleAdjustAllocation}
           onClose={handleCloseResearch}
         />

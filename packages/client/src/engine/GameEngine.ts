@@ -49,6 +49,9 @@ import {
   startShipProduction,
   issueMovementOrder,
   startResearch as startResearchFn,
+  queueResearch as queueResearchFn,
+  dequeueResearch as dequeueResearchFn,
+  redistributeAllocation,
   setResearchAllocation,
   calculateEmpireProduction,
   UNIVERSAL_TECHNOLOGIES,
@@ -1049,15 +1052,49 @@ export class GameEngine {
       console.warn(`[GameEngine.cancelResearch] No research state for empire "${empireId}"`);
       return false;
     }
-    const remaining = researchState.activeResearch.filter(r => r.techId !== techId);
-    // Redistribute allocation evenly across remaining projects
-    if (remaining.length > 0) {
-      const evenShare = Math.floor(100 / remaining.length);
-      const rem = 100 - evenShare * remaining.length;
-      remaining.forEach((r, i) => { r.allocation = evenShare + (i === 0 ? rem : 0); });
+    const remaining = redistributeAllocation(
+      researchState.activeResearch.filter(r => r.techId !== techId),
+    );
+    // Also remove from queue if it was queued
+    const queue = (researchState.researchQueue ?? []).filter(id => id !== techId);
+    const newResearchState: ResearchState = { ...researchState, activeResearch: remaining, researchQueue: queue };
+    const newResearchStates = new Map(this.tickState.researchStates);
+    newResearchStates.set(empireId, newResearchState);
+    this.tickState = { ...this.tickState, researchStates: newResearchStates };
+    this.game.events.emit('engine:research_state', newResearchState);
+    return true;
+  }
+
+  /**
+   * Add a technology to the research queue.
+   * Queued techs are promoted to active when a slot opens.
+   */
+  queueResearch(empireId: string, techId: string): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) {
+      console.warn(`[GameEngine.queueResearch] No research state for empire "${empireId}"`);
+      return false;
     }
-    const newActiveResearch = remaining;
-    const newResearchState: ResearchState = { ...researchState, activeResearch: newActiveResearch };
+    try {
+      const newResearchState = queueResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES);
+      const newResearchStates = new Map(this.tickState.researchStates);
+      newResearchStates.set(empireId, newResearchState);
+      this.tickState = { ...this.tickState, researchStates: newResearchStates };
+      this.game.events.emit('engine:research_state', newResearchState);
+      return true;
+    } catch (err) {
+      console.warn(`[GameEngine.queueResearch] Failed:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Remove a technology from the research queue.
+   */
+  dequeueResearch(empireId: string, techId: string): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) return false;
+    const newResearchState = dequeueResearchFn(researchState, techId);
     const newResearchStates = new Map(this.tickState.researchStates);
     newResearchStates.set(empireId, newResearchState);
     this.tickState = { ...this.tickState, researchStates: newResearchStates };

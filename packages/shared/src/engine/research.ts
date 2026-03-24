@@ -28,6 +28,8 @@ export interface ResearchState {
   completedTechs: string[];
   /** Technologies currently being researched. */
   activeResearch: ActiveResearch[];
+  /** Queued tech IDs — promoted to active when a slot opens. */
+  researchQueue?: string[];
   currentAge: TechAge;
   totalResearchGenerated: number;
 }
@@ -129,19 +131,73 @@ export function startResearch(
   };
 
   // Auto-redistribute allocation evenly across all active projects (including the new one)
-  const allActive = [...state.activeResearch, newEntry];
-  const evenShare = Math.floor(100 / allActive.length);
-  const remainder = 100 - evenShare * allActive.length;
-  const redistributed = allActive.map((r, i) => ({
-    ...r,
-    // Give the first project any rounding remainder
-    allocation: evenShare + (i === 0 ? remainder : 0),
-  }));
+  const redistributed = redistributeAllocation([...state.activeResearch, newEntry]);
+
+  // Remove from queue if it was queued
+  const queue = state.researchQueue ?? [];
 
   return {
     ...state,
     activeResearch: redistributed,
+    researchQueue: queue.filter(id => id !== techId),
   };
+}
+
+/**
+ * Add a technology to the research queue. Queued techs are promoted to active
+ * slots automatically when a project completes and a lab slot opens.
+ */
+export function queueResearch(
+  state: ResearchState,
+  techId: string,
+  allTechs: Technology[],
+  speciesId?: string,
+): ResearchState {
+  const available = getAvailableTechs(allTechs, state, speciesId);
+  const tech = available.find(t => t.id === techId);
+  if (!tech) {
+    throw new Error(
+      `Cannot queue research on "${techId}": tech is not available`,
+    );
+  }
+
+  const queue = state.researchQueue ?? [];
+  if (queue.includes(techId)) {
+    throw new Error(`"${techId}" is already in the research queue`);
+  }
+  if (state.activeResearch.some(r => r.techId === techId)) {
+    throw new Error(`"${techId}" is already being actively researched`);
+  }
+
+  return {
+    ...state,
+    researchQueue: [...queue, techId],
+  };
+}
+
+/**
+ * Remove a technology from the research queue.
+ */
+export function dequeueResearch(
+  state: ResearchState,
+  techId: string,
+): ResearchState {
+  const queue = state.researchQueue ?? [];
+  return {
+    ...state,
+    researchQueue: queue.filter(id => id !== techId),
+  };
+}
+
+/** Redistribute allocation evenly across active research projects. */
+export function redistributeAllocation(active: ActiveResearch[]): ActiveResearch[] {
+  if (active.length === 0) return active;
+  const evenShare = Math.floor(100 / active.length);
+  const rem = 100 - evenShare * active.length;
+  return active.map((r, i) => ({
+    ...r,
+    allocation: evenShare + (i === 0 ? rem : 0),
+  }));
 }
 
 /**
@@ -245,20 +301,28 @@ export function processResearchTick(
     }
   }
 
-  // If any projects completed, redistribute allocation evenly across remaining ones
-  let finalActive = remainingActive;
-  if (completedThisTick.length > 0 && finalActive.length > 0) {
-    const evenShare = Math.floor(100 / finalActive.length);
-    const rem = 100 - evenShare * finalActive.length;
-    finalActive = finalActive.map((r, i) => ({
-      ...r,
-      allocation: evenShare + (i === 0 ? rem : 0),
-    }));
+  // Promote queued techs to active slots to replace completed ones
+  let queue = [...(state.researchQueue ?? [])];
+  let finalActive = [...remainingActive];
+  const maxActive = state.activeResearch.length; // maintain the same slot count
+  while (finalActive.length < maxActive && queue.length > 0) {
+    const nextTechId = queue.shift()!;
+    // Verify the queued tech is still available (prereqs may have changed)
+    const nextTech = techMap.get(nextTechId);
+    if (nextTech && !completedTechs.includes(nextTechId)) {
+      finalActive.push({ techId: nextTechId, pointsInvested: 0, allocation: 0 });
+    }
+  }
+
+  // Redistribute allocation evenly across all remaining + newly promoted projects
+  if (completedThisTick.length > 0 || finalActive.length !== remainingActive.length) {
+    finalActive = redistributeAllocation(finalActive);
   }
 
   const newState: ResearchState = {
     completedTechs,
     activeResearch: finalActive,
+    researchQueue: queue,
     currentAge: newAge,
     totalResearchGenerated: state.totalResearchGenerated + effectivePoints,
   };

@@ -78,6 +78,8 @@ export interface ResearchScreenProps {
   speciesId?: string;
   onStartResearch: (techId: string, allocation: number) => void;
   onCancelResearch: (techId: string) => void;
+  onQueueResearch?: (techId: string) => void;
+  onDequeueResearch?: (techId: string) => void;
   onAdjustAllocation: (techId: string, allocation: number) => void;
   onClose: () => void;
 }
@@ -326,6 +328,8 @@ export function ResearchScreen({
   speciesId,
   onStartResearch,
   onCancelResearch,
+  onQueueResearch,
+  onDequeueResearch,
   onAdjustAllocation,
   onClose,
 }: ResearchScreenProps): React.ReactElement {
@@ -409,12 +413,15 @@ export function ResearchScreen({
     setSelectedTech(null);
   }, [onCancelResearch]);
 
-  // Quick-start: begin research — engine auto-redistributes allocation evenly
+  // Quick-start: begin research, or queue if all active slots are occupied
   const handleQuickStart = useCallback((tech: Technology) => {
-    if (researchState.activeResearch.length >= MAX_ACTIVE_RESEARCH) return;
-    // Allocation value is ignored by the engine (auto-split), pass 0 as placeholder
-    onStartResearch(tech.id, 0);
-  }, [researchState.activeResearch, onStartResearch]);
+    if (researchState.activeResearch.length < MAX_ACTIVE_RESEARCH) {
+      // Allocation value is ignored by the engine (auto-split), pass 0 as placeholder
+      onStartResearch(tech.id, 0);
+    } else if (onQueueResearch) {
+      onQueueResearch(tech.id);
+    }
+  }, [researchState.activeResearch, onStartResearch, onQueueResearch]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -562,6 +569,42 @@ export function ResearchScreen({
             onCancelResearch={handleCancelResearch}
             onAdjustAllocation={onAdjustAllocation}
           />
+
+          {/* Research queue */}
+          {(researchState.researchQueue ?? []).length > 0 && (
+            <div className="research-active-list" style={{ marginTop: '0.5rem' }}>
+              <div className="research-active-list__header">
+                <span className="research-active-list__title">QUEUED</span>
+                <span className="research-active-list__count">
+                  {(researchState.researchQueue ?? []).length} queued
+                </span>
+              </div>
+              {(researchState.researchQueue ?? []).map((techId) => {
+                const tech = techById.get(techId);
+                if (!tech) return null;
+                return (
+                  <div key={techId} className="research-active-card" style={{ opacity: 0.6 }}>
+                    <div className="research-active-card__info">
+                      <span className="research-active-card__name">{tech.name}</span>
+                      <span className="research-active-card__axis" style={{ fontSize: '0.65rem', color: '#667788' }}>
+                        Queued — will start when a slot opens
+                      </span>
+                    </div>
+                    {onDequeueResearch && (
+                      <button
+                        type="button"
+                        className="research-active-card__cancel"
+                        onClick={() => onDequeueResearch(techId)}
+                        title="Remove from queue"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Detail panel for selected tech — below active list */}
           {selectedTech && (
