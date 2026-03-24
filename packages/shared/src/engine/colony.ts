@@ -1036,9 +1036,9 @@ export function canColoniseWithShip(
 const COLONY_SHIP_TIER_BUILDINGS: BuildingType[][] = [
   ['population_center'],                                                          // Tier 1 (nano_atomic)
   ['population_center', 'factory'],                                               // Tier 2 (fusion)
-  ['population_center', 'factory', 'mining_facility'],                            // Tier 3 (quantum)
-  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay'],         // Tier 4 (singularity)
-  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay', 'fusion_reactor'], // Tier 5 (transcendence)
+  ['population_center', 'factory', 'mining_facility'],                            // Tier 3 (nano_fusion)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay'],         // Tier 4 (anti_matter)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay', 'fusion_reactor'], // Tier 5 (singularity)
 ];
 
 /**
@@ -1049,9 +1049,9 @@ function getColonyShipTier(currentAge: string): number {
   switch (currentAge) {
     case 'nano_atomic': return 0;
     case 'fusion': return 1;
-    case 'quantum': return 2;
-    case 'singularity': return 3;
-    case 'transcendence': return 4;
+    case 'nano_fusion': return 2;
+    case 'anti_matter': return 3;
+    case 'singularity': return 4;
     default: return 0;
   }
 }

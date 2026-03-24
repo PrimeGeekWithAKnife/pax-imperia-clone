@@ -526,7 +526,17 @@ export function App(): React.ReactElement {
   // Phaser can push a full research state update (e.g. after a tick resolves)
   const handleResearchStateUpdate = useCallback(
     (state: ResearchState) => {
-      setResearchState(state);
+      setResearchState(prev => {
+        // Guard against age regression — if the engine sends an older age, keep the current one
+        const AGES: string[] = ['nano_atomic', 'fusion', 'nano_fusion', 'anti_matter', 'singularity'];
+        const prevIdx = AGES.indexOf(prev.currentAge);
+        const newIdx = AGES.indexOf(state.currentAge);
+        if (newIdx < prevIdx && prevIdx >= 0) {
+          console.warn(`[App] Research age regression detected: engine sent "${state.currentAge}" but UI has "${prev.currentAge}" — keeping higher age`);
+          return { ...state, currentAge: prev.currentAge, completedTechs: [...new Set([...prev.completedTechs, ...state.completedTechs])] };
+        }
+        return state;
+      });
     },
     [],
   );
