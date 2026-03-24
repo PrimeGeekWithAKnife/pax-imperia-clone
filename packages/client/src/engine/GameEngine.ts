@@ -1049,7 +1049,14 @@ export class GameEngine {
       console.warn(`[GameEngine.cancelResearch] No research state for empire "${empireId}"`);
       return false;
     }
-    const newActiveResearch = researchState.activeResearch.filter(r => r.techId !== techId);
+    const remaining = researchState.activeResearch.filter(r => r.techId !== techId);
+    // Redistribute allocation evenly across remaining projects
+    if (remaining.length > 0) {
+      const evenShare = Math.floor(100 / remaining.length);
+      const rem = 100 - evenShare * remaining.length;
+      remaining.forEach((r, i) => { r.allocation = evenShare + (i === 0 ? rem : 0); });
+    }
+    const newActiveResearch = remaining;
     const newResearchState: ResearchState = { ...researchState, activeResearch: newActiveResearch };
     const newResearchStates = new Map(this.tickState.researchStates);
     newResearchStates.set(empireId, newResearchState);

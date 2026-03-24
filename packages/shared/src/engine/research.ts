@@ -122,22 +122,25 @@ export function startResearch(
     );
   }
 
-  const currentTotal = state.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
-  if (currentTotal + allocation > 100) {
-    throw new Error(
-      `Cannot allocate ${allocation}% to "${techId}": total allocation would be ${currentTotal + allocation}% (max 100%)`,
-    );
-  }
-
   const newEntry: ActiveResearch = {
     techId,
     pointsInvested: 0,
-    allocation,
+    allocation: 0, // will be set by the even split below
   };
+
+  // Auto-redistribute allocation evenly across all active projects (including the new one)
+  const allActive = [...state.activeResearch, newEntry];
+  const evenShare = Math.floor(100 / allActive.length);
+  const remainder = 100 - evenShare * allActive.length;
+  const redistributed = allActive.map((r, i) => ({
+    ...r,
+    // Give the first project any rounding remainder
+    allocation: evenShare + (i === 0 ? remainder : 0),
+  }));
 
   return {
     ...state,
-    activeResearch: [...state.activeResearch, newEntry],
+    activeResearch: redistributed,
   };
 }
 
@@ -242,9 +245,20 @@ export function processResearchTick(
     }
   }
 
+  // If any projects completed, redistribute allocation evenly across remaining ones
+  let finalActive = remainingActive;
+  if (completedThisTick.length > 0 && finalActive.length > 0) {
+    const evenShare = Math.floor(100 / finalActive.length);
+    const rem = 100 - evenShare * finalActive.length;
+    finalActive = finalActive.map((r, i) => ({
+      ...r,
+      allocation: evenShare + (i === 0 ? rem : 0),
+    }));
+  }
+
   const newState: ResearchState = {
     completedTechs,
-    activeResearch: remainingActive,
+    activeResearch: finalActive,
     currentAge: newAge,
     totalResearchGenerated: state.totalResearchGenerated + effectivePoints,
   };

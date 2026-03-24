@@ -409,13 +409,11 @@ export function ResearchScreen({
     setSelectedTech(null);
   }, [onCancelResearch]);
 
-  // Quick-start: begin research at 25% allocation (or remaining capacity if less)
+  // Quick-start: begin research — engine auto-redistributes allocation evenly
   const handleQuickStart = useCallback((tech: Technology) => {
-    const used = researchState.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
-    const remaining = Math.max(0, 100 - used);
-    if (remaining === 0 || researchState.activeResearch.length >= MAX_ACTIVE_RESEARCH) return;
-    const allocation = Math.min(25, remaining);
-    onStartResearch(tech.id, allocation);
+    if (researchState.activeResearch.length >= MAX_ACTIVE_RESEARCH) return;
+    // Allocation value is ignored by the engine (auto-split), pass 0 as placeholder
+    onStartResearch(tech.id, 0);
   }, [researchState.activeResearch, onStartResearch]);
 
   // ── Render ────────────────────────────────────────────────────────────────

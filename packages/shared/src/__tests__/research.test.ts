@@ -255,14 +255,15 @@ describe('getAvailableTechs', () => {
 // ---------------------------------------------------------------------------
 
 describe('startResearch', () => {
-  it('adds a tech to activeResearch', () => {
+  it('adds a tech to activeResearch with auto 100% allocation', () => {
     const state = makeResearchState();
-    const next = startResearch(state, 'basic_propulsion', MOCK_TECHS, 50);
+    const next = startResearch(state, 'basic_propulsion', MOCK_TECHS, 0);
 
     expect(next.activeResearch).toHaveLength(1);
     expect(next.activeResearch[0].techId).toBe('basic_propulsion');
     expect(next.activeResearch[0].pointsInvested).toBe(0);
-    expect(next.activeResearch[0].allocation).toBe(50);
+    // Single project gets 100% automatically
+    expect(next.activeResearch[0].allocation).toBe(100);
   });
 
   it('does not mutate the original state', () => {
@@ -290,23 +291,16 @@ describe('startResearch', () => {
     ).toThrow();
   });
 
-  it('rejects an allocation that would push total above 100%', () => {
+  it('auto-redistributes evenly when adding a second project', () => {
     const state = makeResearchState({
-      activeResearch: [{ techId: 'basic_propulsion', pointsInvested: 0, allocation: 60 }],
+      activeResearch: [{ techId: 'basic_propulsion', pointsInvested: 0, allocation: 100 }],
     });
-    // Only 40% remaining, requesting 50%
-    expect(() =>
-      startResearch(state, 'basic_weapons', MOCK_TECHS, 50),
-    ).toThrow();
-  });
-
-  it('allows exactly 100% total allocation across multiple projects', () => {
-    const state = makeResearchState({
-      activeResearch: [{ techId: 'basic_propulsion', pointsInvested: 0, allocation: 60 }],
-    });
-    const next = startResearch(state, 'basic_weapons', MOCK_TECHS, 40);
+    const next = startResearch(state, 'basic_weapons', MOCK_TECHS, 0);
 
     expect(next.activeResearch).toHaveLength(2);
+    // 2 projects → 50% each
+    expect(next.activeResearch[0].allocation).toBe(50);
+    expect(next.activeResearch[1].allocation).toBe(50);
   });
 
   it('rejects age-gated techs', () => {
