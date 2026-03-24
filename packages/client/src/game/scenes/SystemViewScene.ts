@@ -857,8 +857,19 @@ export class SystemViewScene extends Phaser.Scene {
     this.sfx?.playColoniseStart();
   };
 
-  private _handleMigrationCompletedSfx = (): void => {
+  private _handleMigrationCompletedSfx = (payload: unknown): void => {
     this.sfx?.playColoniseComplete();
+    // Clear any in-flight colony ship animations for the completed migration
+    const mig = payload as { id?: string } | undefined;
+    if (mig?.id) {
+      this.migrationAnimations = this.migrationAnimations.filter(a => {
+        if (a.migrationId === mig.id) {
+          for (const ship of a.ships) ship.gfx.destroy();
+          return false;
+        }
+        return true;
+      });
+    }
   };
 
   private _handleShipProducedSfx = (payload: unknown): void => {

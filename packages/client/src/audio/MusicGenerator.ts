@@ -31,6 +31,11 @@ interface ActiveLayer {
 const FADE_OUT_TIME = 2.0;   // seconds
 const FADE_IN_TIME  = 3.0;   // seconds
 
+/** Auto-rotate to a different track every 5–10 minutes */
+const TRACK_ROTATE_MIN_MS = 5 * 60 * 1000;
+const TRACK_ROTATE_MAX_MS = 10 * 60 * 1000;
+const ALL_TRACKS: MusicTrack[] = ['deep_space', 'exploration', 'tension', 'serenity'];
+
 // Pentatonic C-major scale (MIDI note numbers for the motif)
 const PENTATONIC = [48, 50, 52, 55, 57]; // C3 D3 E3 G3 A3
 
@@ -58,6 +63,7 @@ export class MusicGenerator {
   private currentTrack: MusicTrack = 'deep_space';
   private activeLayers: ActiveLayer[] = [];
   private masterFade: GainNode;
+  private rotationTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(engine: AudioEngine) {
     this.engine = engine;
@@ -77,10 +83,12 @@ export class MusicGenerator {
     this.currentScene = scene;
     this._startLayers(scene, this.currentTrack);
     this._fadeMasterIn();
+    this._scheduleRotation();
   }
 
   stopMusic(): void {
     this.currentScene = null;
+    this._clearRotation();
     this._fadeMasterOut(() => this._stopAllLayers());
   }
 
@@ -92,6 +100,7 @@ export class MusicGenerator {
       this.currentScene = scene;
       this._startLayers(scene, this.currentTrack);
       this._fadeMasterIn();
+      this._scheduleRotation();
     });
   }
 
@@ -117,6 +126,32 @@ export class MusicGenerator {
 
   get track(): MusicTrack {
     return this.currentTrack;
+  }
+
+  // ── Auto-rotation ─────────────────────────────────────────────────────────
+
+  private _scheduleRotation(): void {
+    this._clearRotation();
+    const delay = TRACK_ROTATE_MIN_MS + Math.random() * (TRACK_ROTATE_MAX_MS - TRACK_ROTATE_MIN_MS);
+    this.rotationTimer = setTimeout(() => this._rotateTrack(), delay);
+  }
+
+  private _clearRotation(): void {
+    if (this.rotationTimer !== null) {
+      clearTimeout(this.rotationTimer);
+      this.rotationTimer = null;
+    }
+  }
+
+  private _rotateTrack(): void {
+    if (!this.currentScene) return;
+    // Pick a different track at random
+    const others = ALL_TRACKS.filter(t => t !== this.currentTrack);
+    const next = others[Math.floor(Math.random() * others.length)]!;
+    this.setTrack(next);
+    // Persist so scene transitions keep the new track
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ = next;
+    this._scheduleRotation();
   }
 
   // ── Layer management ────────────────────────────────────────────────────────
