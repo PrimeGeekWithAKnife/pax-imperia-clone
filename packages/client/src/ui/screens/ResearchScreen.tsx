@@ -584,27 +584,32 @@ export function ResearchScreen({
                   {(researchState.researchQueue ?? []).length} queued
                 </span>
               </div>
-              {(researchState.researchQueue ?? []).map((techId) => {
+              {(researchState.researchQueue ?? []).map((techId, idx) => {
                 const tech = techById.get(techId);
                 if (!tech) return null;
                 return (
-                  <div key={techId} className="research-active-card" style={{ opacity: 0.6 }}>
-                    <div className="research-active-card__info">
-                      <span className="research-active-card__name">{tech.name}</span>
-                      <span className="research-active-card__axis" style={{ fontSize: '0.65rem', color: '#667788' }}>
-                        Queued — will start when a slot opens
+                  <div key={techId} className="research-active-item" style={{ opacity: 0.65 }}>
+                    <div className="research-active-item__top">
+                      <span className="research-active-item__name">
+                        <span style={{ color: '#556677', marginRight: '0.4em' }}>#{idx + 1}</span>
+                        {tech.name}
+                      </span>
+                      {onDequeueResearch && (
+                        <button
+                          type="button"
+                          className="research-active-item__cancel-btn"
+                          onClick={(e) => { e.stopPropagation(); onDequeueResearch(techId); }}
+                          aria-label={`Remove ${tech.name} from queue`}
+                        >
+                          &#10005;
+                        </button>
+                      )}
+                    </div>
+                    <div className="research-active-item__bottom">
+                      <span className="research-active-item__points" style={{ color: '#556677' }}>
+                        {tech.cost} RP &middot; Queued
                       </span>
                     </div>
-                    {onDequeueResearch && (
-                      <button
-                        type="button"
-                        className="research-active-card__cancel"
-                        onClick={() => onDequeueResearch(techId)}
-                        title="Remove from queue"
-                      >
-                        ✕
-                      </button>
-                    )}
                   </div>
                 );
               })}

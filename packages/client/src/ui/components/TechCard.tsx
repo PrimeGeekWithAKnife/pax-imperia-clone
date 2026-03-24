@@ -89,7 +89,7 @@ export function TechCard({
           }}
           aria-label={atCapacity ? `Queue ${tech.name}` : `Start researching ${tech.name}`}
         >
-          {atCapacity ? '&#9654; Queue' : '&#9654; Start'}
+          {atCapacity ? '\u25B6 Queue' : '\u25B6 Start'}
         </button>
       )}
 
