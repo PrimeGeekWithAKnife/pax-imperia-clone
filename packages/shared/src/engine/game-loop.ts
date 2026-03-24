@@ -504,6 +504,20 @@ function processPlayerActions(
           continue;
         }
 
+        // Deduct building cost from the empire's resource stockpile
+        const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
+        if (buildDef) {
+          const res = getEmpireResources(state, empireId);
+          for (const [key, amount] of Object.entries(buildDef.baseCost)) {
+            if (amount && amount > 0) {
+              res[key as keyof EmpireResources] -= amount;
+            }
+          }
+          state = applyResources(state, empireId, res);
+          // Re-fetch systems after resource update (applyResources may update empires)
+          systems = state.gameState.galaxy.systems;
+        }
+
         const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs);
         systems = replacePlanet(systems, updatedPlanet);
 
@@ -1271,12 +1285,22 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
       if (planet.productionQueue.length === 0) continue;
       if (planet.ownerId === null) continue;
 
-      // Construction rate: base 1 turn per tick, modified by government constructionSpeed.
+      // Construction rate: base 1, modified by government + factories on the planet.
+      // Each factory level adds +0.15 to the rate (species construction trait scales this).
       const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
       const govConstructionMult = empire
         ? (GOVERNMENTS[empire.government]?.modifiers.constructionSpeed ?? 1.0)
         : 1.0;
-      const constructionRate = govConstructionMult;
+
+      // Sum factory contribution: each factory adds 0.15 per level, scaled by species construction trait
+      let factoryBonus = 0;
+      const speciesConstructionFactor = empire ? (empire.species.traits.construction / 5) : 1.0;
+      for (const building of planet.buildings) {
+        if (building.type === 'factory') {
+          factoryBonus += 0.15 * building.level * speciesConstructionFactor;
+        }
+      }
+      const constructionRate = govConstructionMult * (1 + factoryBonus);
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {
