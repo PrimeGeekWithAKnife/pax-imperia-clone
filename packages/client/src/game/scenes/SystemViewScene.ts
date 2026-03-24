@@ -7,6 +7,7 @@ import type { MusicTrack } from '../../audio';
 import { getGameEngine, destroyGameEngine } from '../../engine/GameEngine';
 import type { MigrationOrder } from '../../engine/migration';
 import type { GameTickState, GameSpeedName } from '@nova-imperia/shared';
+import { getTickRate } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import type { HullClass } from '@nova-imperia/shared';
 
@@ -441,18 +442,29 @@ export class SystemViewScene extends Phaser.Scene {
     const targetPos = this._getPlanetWorldPos(migration.targetPlanetId);
     if (!sourcePos || !targetPos) return;
 
+    // Sync animation travel time to game logic transit duration (TRANSIT_DURATION ticks).
+    // At normal speed: 5 ticks × 2000ms = 10,000ms for the journey.
+    const engine = getGameEngine();
+    const tickMs = engine ? getTickRate(engine.getState().gameState.speed as GameSpeedName) : 2000;
+    const transitMs = 5 * Math.max(tickMs, 500); // TRANSIT_DURATION = 5 ticks
+
     const ships: ColonyShip[] = [];
     const SHIP_COUNT = Phaser.Math.Between(8, 12);
+    const stagger = 0.08; // stagger between ships as fraction of total journey
+    const totalStagger = stagger * (SHIP_COUNT - 1);
+    // Last ship must arrive at t=1 exactly when transitMs elapses
+    // Speed = (1 + totalStagger) / transitMs — ensures last ship arrives on time
+    const baseSpeed = (1 + totalStagger) / transitMs;
+
     for (let i = 0; i < SHIP_COUNT; i++) {
       const gfx = this.add.graphics();
       gfx.setDepth(150);
-      // Add to worldContainer so they scale with the world
       this.worldContainer.add(gfx);
 
       ships.push({
         gfx,
-        t: -(i * 0.12),           // stagger: ships depart at different times
-        speed: 0.0000335 + Math.random() * 0.0000165,  // 6x slower colonisation animation (50% of previous)
+        t: -(i * stagger),
+        speed: baseSpeed * (0.95 + Math.random() * 0.10), // slight variance
         cx: 0,
         cy: 0,
         sx: sourcePos.x,
@@ -460,7 +472,7 @@ export class SystemViewScene extends Phaser.Scene {
         tx: targetPos.x,
         ty: targetPos.y,
         alpha: 0,
-        swarmOffset: (Math.random() - 0.5) * 8,  // perpendicular wobble (tighter swarm for smaller dots)
+        swarmOffset: (Math.random() - 0.5) * 8,
       });
     }
 
@@ -857,19 +869,9 @@ export class SystemViewScene extends Phaser.Scene {
     this.sfx?.playColoniseStart();
   };
 
-  private _handleMigrationCompletedSfx = (payload: unknown): void => {
+  private _handleMigrationCompletedSfx = (): void => {
     this.sfx?.playColoniseComplete();
-    // Clear any in-flight colony ship animations for the completed migration
-    const mig = payload as { id?: string } | undefined;
-    if (mig?.id) {
-      this.migrationAnimations = this.migrationAnimations.filter(a => {
-        if (a.migrationId === mig.id) {
-          for (const ship of a.ships) ship.gfx.destroy();
-          return false;
-        }
-        return true;
-      });
-    }
+    // Don't clear animations — let the last dots arrive naturally (synced with transit delay)
   };
 
   private _handleShipProducedSfx = (payload: unknown): void => {
