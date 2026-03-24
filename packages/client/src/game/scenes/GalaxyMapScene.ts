@@ -380,6 +380,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.createCosmicFeatures();   // World-space: gas clouds, asteroid fields, comets
     this.createGalacticCentre();   // World-space: black hole + accretion disk
     this.createSpaceDust();        // World-space: fine dust near star systems + arms
+    this.bakeStaticLayers();       // Bake heavy Graphics into single textures
     this.drawWormholes(null);      // World-space: connection lines
     this.createStars();            // World-space: actual star systems
     this.createSelectionRing();
@@ -1127,17 +1128,72 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.blackHoleLayer.rotation += rotSpeed * _delta;
   }
 
+  // ── Bake static layers into RenderTextures for GPU efficiency ────────────────
+
+  /**
+   * After all static Graphics are drawn (arm nebulae, cosmic features, dust),
+   * bake each into a RenderTexture so they become single-quad draws instead
+   * of thousands of individual fill calls per frame.
+   */
+  private bakeStaticLayers(): void {
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    // Bake each heavy Graphics into a RenderTexture, then replace it in worldContainer
+    const layersToBake = [
+      { gfx: this.armNebulaLayer, name: 'armNebula' },
+      { gfx: this.cosmicFeaturesLayer, name: 'cosmicFeatures' },
+      { gfx: this.dustLayer, name: 'dust' },
+    ];
+
+    for (const { gfx, name } of layersToBake) {
+      const rtKey = `baked_${name}`;
+      // Remove old texture if it exists (e.g. scene restart)
+      if (this.textures.exists(rtKey)) {
+        this.textures.remove(rtKey);
+      }
+
+      const rt = this.add.renderTexture(0, 0, W, H).setOrigin(0, 0);
+      rt.draw(gfx, 0, 0);
+
+      // Replace the Graphics with its baked image in the worldContainer
+      const idx = this.worldContainer.getIndex(gfx);
+      gfx.destroy();
+      if (idx >= 0) {
+        this.worldContainer.addAt(rt, idx);
+      } else {
+        this.worldContainer.add(rt);
+      }
+    }
+
+    // Update references (the Graphics objects are now destroyed)
+    // Use dummy Graphics so any residual calls don't crash
+    this.armNebulaLayer = this.add.graphics();
+    this.cosmicFeaturesLayer = this.add.graphics();
+    this.dustLayer = this.add.graphics();
+  }
+
   // ── Parallax update ───────────────────────────────────────────────────────────
 
+  private _prevParallaxCamX = NaN;
+  private _prevParallaxCamY = NaN;
+  private _prevParallaxZoom = NaN;
+
   private updateParallax(): void {
+    // Skip if camera hasn't moved
+    if (this.cameraOffset.x === this._prevParallaxCamX &&
+        this.cameraOffset.y === this._prevParallaxCamY &&
+        this.currentZoom === this._prevParallaxZoom) return;
+    this._prevParallaxCamX = this.cameraOffset.x;
+    this._prevParallaxCamY = this.cameraOffset.y;
+    this._prevParallaxZoom = this.currentZoom;
+
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Reference offset: what offset would be at the galaxy's "neutral" center
     const refX = this.scale.width / 2 - (this.galaxy.width / 2) * this.currentZoom;
     const refY = this.scale.height / 2 - (this.galaxy.height / 2) * this.currentZoom;
 
-    // How far the camera has moved from neutral
     const camDeltaX = this.cameraOffset.x - refX;
     const camDeltaY = this.cameraOffset.y - refY;
 
@@ -1262,7 +1318,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     const nx = dx / fullLen;
     const ny = dy / fullLen;
 
-    const lineWidth = LANE_WIDTH / this.currentZoom;
+    const lineWidth = 0.5; // fixed world-space width — no per-frame zoom adjustment
     let d = 0;
     while (d < len) {
       const dashEnd = Math.min(d + LANE_DASH_LEN, len);
@@ -1306,7 +1362,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     if (!hasWormholeTech) {
       // Very faint blue dashes — wormhole is known but not traversable yet
-      const lineWidth = 0.8 / this.currentZoom;
+      const lineWidth = 0.4;
       let d = 0;
       while (d < len) {
         const dashEnd = Math.min(d + 3, len);
@@ -1327,8 +1383,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     const highlightBoost = highlighted ? 0.15 : 0;
     const alpha = Math.min(1, pulseAlpha + highlightBoost);
 
-    const coreWidth  = WORM_WIDTH / this.currentZoom;
-    const glowWidth  = (WORM_WIDTH + 3) / this.currentZoom;
+    const coreWidth  = 0.8;
+    const glowWidth  = 2.0;
 
     // Glow layer
     this.wormholeLayer.lineStyle(glowWidth, WORM_COLOR, alpha * 0.35);
@@ -1354,8 +1410,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     if (!line) return;
     const { ax, ay, bx, by } = line;
 
-    const coreWidth = ADV_WORM_WIDTH / this.currentZoom;
-    const glowWidth = (ADV_WORM_WIDTH + 3) / this.currentZoom;
+    const coreWidth = 0.8;
+    const glowWidth = 2.0;
 
     const shimmerAlpha = ADV_WORM_ALPHA +
       0.1 * Math.sin(this._wormholePhase + Math.PI / 3);
@@ -1399,10 +1455,10 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Advance pulse phase (~0.8 rad/s → ~7.9 s full cycle)
     this._wormholePhase += 0.0008 * delta;
 
-    // Redraw wormhole lines each frame so the pulse animation is live.
-    // Only redraw when wormhole tech is active (otherwise lines are static).
+    // Animate wormhole layer alpha for pulse effect (no full redraw)
     if (this._playerHasWormholeTech()) {
-      this.drawWormholes(this.selectedSystemId);
+      const pulseAlpha = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(this._wormholePhase));
+      this.wormholeLayer.setAlpha(pulseAlpha);
     }
 
     for (const p of this.wormholeParticles) {
@@ -1866,10 +1922,6 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     this.applyWorldTransform();
     this.updateSelectionRingScale();
-    this.drawWormholes(this.selectedSystemId);
-    if (this.selectedSystemId) {
-      this.drawSelectionRing(this.selectedSystemId);
-    }
   }
 
   private updateSelectionRingScale(): void {
