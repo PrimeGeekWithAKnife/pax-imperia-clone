@@ -476,6 +476,12 @@ export class GalaxyMapScene extends Phaser.Scene {
   private applyWorldTransform(): void {
     this.worldContainer.setPosition(this.cameraOffset.x, this.cameraOffset.y);
     this.worldContainer.setScale(this.currentZoom);
+
+    // Counter-scale fleet badges so they stay the same screen size regardless of zoom
+    const inverseZoom = 1 / this.currentZoom;
+    for (const [, badge] of this.fleetBadges) {
+      badge.setScale(inverseZoom);
+    }
   }
 
   private centerOnHomeSystem(): void {
@@ -1854,6 +1860,8 @@ export class GalaxyMapScene extends Phaser.Scene {
       }).setOrigin(0.5, 0);
       badge.add(countLabel);
 
+      // Counter-scale so badge stays constant screen size regardless of zoom
+      badge.setScale(1 / this.currentZoom);
       this.starLayer.add(badge);
       this.fleetBadges.set(fleet.id, badge);
     }
