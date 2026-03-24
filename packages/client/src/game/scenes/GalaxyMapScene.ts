@@ -171,7 +171,15 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   // World sub-layers
   private armNebulaLayer!: Phaser.GameObjects.Graphics;
+  private cosmicFeaturesLayer!: Phaser.GameObjects.Graphics;
+  private cometLayer!: Phaser.GameObjects.Graphics;
   private blackHoleLayer!: Phaser.GameObjects.Container;
+
+  // Animated comets
+  private comets: Array<{
+    x: number; y: number; vx: number; vy: number;
+    length: number; alpha: number; color: number;
+  }> = [];
   private wormholeLayer!: Phaser.GameObjects.Graphics;
   private dustLayer!: Phaser.GameObjects.Graphics;
   private starLayer!: Phaser.GameObjects.Container;
@@ -244,6 +252,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Reset state from any previous run
     this.parallaxStars = [];
     this.nebulaWisps = [];
+    this.comets = [];
     this.wormholeParticles = [];
     this.dripParticles = [];
     this.starHitAreas.clear();
@@ -352,11 +361,13 @@ export class GalaxyMapScene extends Phaser.Scene {
     // World container (world-space: panned + zoomed)
     this.worldContainer = this.add.container(0, 0);
     this.armNebulaLayer = this.add.graphics();
+    this.cosmicFeaturesLayer = this.add.graphics();
+    this.cometLayer = this.add.graphics();
     this.blackHoleLayer = this.add.container(0, 0);
     this.dustLayer = this.add.graphics();
     this.wormholeLayer = this.add.graphics();
     this.starLayer = this.add.container(0, 0);
-    this.worldContainer.add([this.armNebulaLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer]);
+    this.worldContainer.add([this.armNebulaLayer, this.cosmicFeaturesLayer, this.cometLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer]);
 
     // UI (screen-space, on top of everything)
     this.uiLayer = this.add.container(0, 0);
@@ -366,6 +377,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.createMidStars();         // Layer 1: mid-distance stars with twinkle
     this.createNebulaWisps();      // Layer 2: nebula cloud wisps (reduced for spiral)
     this.createArmNebulae();       // World-space: spiral arm nebula dust
+    this.createCosmicFeatures();   // World-space: gas clouds, asteroid fields, comets
     this.createGalacticCentre();   // World-space: black hole + accretion disk
     this.createSpaceDust();        // World-space: fine dust near star systems + arms
     this.drawWormholes(null);      // World-space: connection lines
@@ -460,6 +472,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.updateWormholeParticles(delta);
     this.updateTransitDots(time, delta);
     this.updateAccretionDisk(delta);
+    this.updateComets(delta);
     this.emitViewport();
   }
 
@@ -797,6 +810,146 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   // ── Space dust (world-space) ──────────────────────────────────────────────────
+
+  // ── Cosmic features: gas clouds, asteroid fields, comets ─────────────────
+
+  private createCosmicFeatures(): void {
+    this.cosmicFeaturesLayer.clear();
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    // ── Gas clouds — large translucent blobs scattered across the galaxy ───
+    const gasCloudColours = [0x1a2840, 0x301828, 0x182030, 0x281820, 0x102030, 0x201018];
+    const gasCloudCount = Phaser.Math.Between(8, 14);
+    for (let i = 0; i < gasCloudCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const colour = gasCloudColours[Math.floor(Math.random() * gasCloudColours.length)]!;
+      const angle = Math.random() * Math.PI * 2;
+      const ellipseCount = Phaser.Math.Between(4, 7);
+
+      for (let e = 0; e < ellipseCount; e++) {
+        const ew = Phaser.Math.Between(60, 180);
+        const eh = Phaser.Math.Between(30, 100);
+        const ox = Phaser.Math.FloatBetween(-50, 50);
+        const oy = Phaser.Math.FloatBetween(-30, 30);
+        const alpha = Phaser.Math.FloatBetween(0.02, 0.06);
+
+        this.cosmicFeaturesLayer.fillStyle(colour, alpha);
+        this.cosmicFeaturesLayer.save();
+        this.cosmicFeaturesLayer.translateCanvas(cx + ox, cy + oy);
+        this.cosmicFeaturesLayer.rotateCanvas(angle + e * 0.3);
+        this.cosmicFeaturesLayer.fillEllipse(0, 0, ew, eh);
+        this.cosmicFeaturesLayer.restore();
+      }
+    }
+
+    // ── Asteroid fields — clusters of tiny dots ─────────────────────────────
+    const asteroidFieldCount = Phaser.Math.Between(5, 10);
+    for (let i = 0; i < asteroidFieldCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const spread = Phaser.Math.Between(20, 50);
+      const rockCount = Phaser.Math.Between(15, 35);
+
+      for (let r = 0; r < rockCount; r++) {
+        const dist = Math.pow(Math.random(), 0.5) * spread;
+        const ang = Math.random() * Math.PI * 2;
+        const px = cx + Math.cos(ang) * dist;
+        const py = cy + Math.sin(ang) * dist;
+        const radius = Phaser.Math.FloatBetween(0.3, 1.5);
+        // Rocky brownish-grey colours
+        const grey = Phaser.Math.Between(60, 120);
+        const colour = (grey + 20) << 16 | (grey + 10) << 8 | grey;
+        const alpha = Phaser.Math.FloatBetween(0.15, 0.35);
+
+        this.cosmicFeaturesLayer.fillStyle(colour, alpha);
+        this.cosmicFeaturesLayer.fillCircle(px, py, radius);
+      }
+    }
+
+    // ── Comets — animated streaks that drift across the galaxy ───────────────
+    this.comets = [];
+    const cometCount = Phaser.Math.Between(3, 6);
+    for (let i = 0; i < cometCount; i++) {
+      const speed = Phaser.Math.FloatBetween(0.005, 0.02);
+      const angle = Math.random() * Math.PI * 2;
+      this.comets.push({
+        x: Phaser.Math.FloatBetween(W * 0.1, W * 0.9),
+        y: Phaser.Math.FloatBetween(H * 0.1, H * 0.9),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: Phaser.Math.Between(15, 40),
+        alpha: Phaser.Math.FloatBetween(0.15, 0.35),
+        color: Math.random() < 0.5 ? 0xaaddff : 0xffeebb,
+      });
+    }
+
+    // ── Faint distant galaxy silhouettes ─────────────────────────────────────
+    const distantGalaxyCount = Phaser.Math.Between(2, 4);
+    for (let i = 0; i < distantGalaxyCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const size = Phaser.Math.Between(15, 35);
+      const angle = Math.random() * Math.PI;
+      const colour = Math.random() < 0.5 ? 0x1a1530 : 0x181a28;
+
+      // Tiny elongated ellipse with faint glow
+      for (let layer = 0; layer < 3; layer++) {
+        const scale = 1 - layer * 0.2;
+        const a = 0.03 + layer * 0.01;
+        this.cosmicFeaturesLayer.fillStyle(colour, a);
+        this.cosmicFeaturesLayer.save();
+        this.cosmicFeaturesLayer.translateCanvas(cx, cy);
+        this.cosmicFeaturesLayer.rotateCanvas(angle);
+        this.cosmicFeaturesLayer.fillEllipse(0, 0, size * 2.5 * scale, size * scale);
+        this.cosmicFeaturesLayer.restore();
+      }
+      // Bright core dot
+      this.cosmicFeaturesLayer.fillStyle(0xccccdd, 0.08);
+      this.cosmicFeaturesLayer.fillCircle(cx, cy, 1.5);
+    }
+  }
+
+  private updateComets(delta: number): void {
+    if (this.comets.length === 0) return;
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    this.cometLayer.clear();
+
+    for (const comet of this.comets) {
+      comet.x += comet.vx * delta;
+      comet.y += comet.vy * delta;
+
+      // Wrap around galaxy bounds
+      if (comet.x < -50) comet.x = W + 50;
+      if (comet.x > W + 50) comet.x = -50;
+      if (comet.y < -50) comet.y = H + 50;
+      if (comet.y > H + 50) comet.y = -50;
+
+      // Draw comet head
+      this.cometLayer.fillStyle(0xffffff, comet.alpha);
+      this.cometLayer.fillCircle(comet.x, comet.y, 1.2);
+
+      // Draw tail — fading line trailing behind the direction of travel
+      const speed = Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
+      if (speed > 0) {
+        const tailDx = -comet.vx / speed;
+        const tailDy = -comet.vy / speed;
+        const segments = 5;
+        for (let s = 1; s <= segments; s++) {
+          const t = s / segments;
+          const tx = comet.x + tailDx * comet.length * t;
+          const ty = comet.y + tailDy * comet.length * t;
+          const tailAlpha = comet.alpha * (1 - t) * 0.6;
+          const tailRadius = 1.0 * (1 - t * 0.5);
+          this.cometLayer.fillStyle(comet.color, tailAlpha);
+          this.cometLayer.fillCircle(tx, ty, tailRadius);
+        }
+      }
+    }
+  }
 
   private createSpaceDust(): void {
     this.dustLayer.clear();
