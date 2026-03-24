@@ -81,6 +81,8 @@ export interface ResearchScreenProps {
   onQueueResearch?: (techId: string) => void;
   onDequeueResearch?: (techId: string) => void;
   onAdjustAllocation: (techId: string, allocation: number) => void;
+  /** Max simultaneous active research slots (= research lab count, capped at 5). */
+  maxActiveResearch?: number;
   onClose: () => void;
 }
 
@@ -331,8 +333,10 @@ export function ResearchScreen({
   onQueueResearch,
   onDequeueResearch,
   onAdjustAllocation,
+  maxActiveResearch: maxActiveResearchProp,
   onClose,
 }: ResearchScreenProps): React.ReactElement {
+  const maxActive = maxActiveResearchProp ?? MAX_ACTIVE_RESEARCH;
   const [selectedTech, setSelectedTech] = useState<Technology | null>(null);
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -415,7 +419,7 @@ export function ResearchScreen({
 
   // Quick-start: begin research, or queue if all active slots are occupied
   const handleQuickStart = useCallback((tech: Technology) => {
-    if (researchState.activeResearch.length < MAX_ACTIVE_RESEARCH) {
+    if (researchState.activeResearch.length < maxActive) {
       // Allocation value is ignored by the engine (auto-split), pass 0 as placeholder
       onStartResearch(tech.id, 0);
     } else if (onQueueResearch) {
@@ -446,8 +450,8 @@ export function ResearchScreen({
           </div>
           <div className="research-status-bar__stat">
             <span className="research-status-bar__stat-label">Active Projects</span>
-            <span className={`research-status-bar__stat-value ${researchState.activeResearch.length >= MAX_ACTIVE_RESEARCH ? 'research-status-bar__stat-value--warn' : ''}`}>
-              {researchState.activeResearch.length} / {MAX_ACTIVE_RESEARCH}
+            <span className={`research-status-bar__stat-value ${researchState.activeResearch.length >= maxActive ? 'research-status-bar__stat-value--warn' : ''}`}>
+              {researchState.activeResearch.length} / {maxActive}
             </span>
           </div>
           <div className="research-status-bar__stat">
@@ -536,6 +540,7 @@ export function ResearchScreen({
                               progressPercent={progressPercent}
                               onClick={handleCardClick}
                               onStartResearch={handleQuickStart}
+                              atCapacity={researchState.activeResearch.length >= maxActive}
                               isSelected={selectedTech?.id === tech.id}
                             />
                           );
@@ -564,7 +569,7 @@ export function ResearchScreen({
             researchPerTick={researchPerTick}
             speciesBonus={speciesBonus}
             selectedTechId={selectedTech?.id}
-            maxActiveResearch={MAX_ACTIVE_RESEARCH}
+            maxActiveResearch={maxActive}
             onCardClick={handleCardClick}
             onCancelResearch={handleCancelResearch}
             onAdjustAllocation={onAdjustAllocation}
@@ -621,7 +626,7 @@ export function ResearchScreen({
               onCancelResearch={handleCancelResearch}
               onQueueResearch={onQueueResearch}
               onAdjustAllocation={onAdjustAllocation}
-              maxActiveResearch={MAX_ACTIVE_RESEARCH}
+              maxActiveResearch={maxActive}
               onClose={handleCloseDetail}
             />
           )}

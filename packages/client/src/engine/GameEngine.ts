@@ -1164,6 +1164,18 @@ export class GameEngine {
     return total.researchPoints;
   }
 
+  /** Return the number of research labs the player empire has (= max active research slots). */
+  getPlayerResearchLabCount(): number {
+    const playerEmpire = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (!playerEmpire) return 1;
+    const ownedPlanets = this.tickState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .filter(p => p.ownerId === playerEmpire.id);
+    const labCount = ownedPlanets.reduce((count, p) =>
+      count + p.buildings.filter(b => b.type === 'research_lab').length, 0);
+    return Math.min(Math.max(labCount, 1), 5); // at least 1, at most 5
+  }
+
   /** Return the current tick state snapshot. */
   getState(): GameTickState {
     return this.tickState;

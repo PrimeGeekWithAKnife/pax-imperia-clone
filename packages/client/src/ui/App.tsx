@@ -1418,6 +1418,9 @@ export function App(): React.ReactElement {
     const researchProductionPerTick = engineForResearch
       ? engineForResearch.getPlayerResearchProductionPerTick()
       : 0;
+    const researchLabCount = engineForResearch
+      ? engineForResearch.getPlayerResearchLabCount()
+      : 1;
     // Species research bonus: traits.research / 5 (5 = normal, 10 = double, etc.)
     const speciesResearchBonus = playerEmpire.species.traits.research / 5;
     return (
@@ -1427,6 +1430,7 @@ export function App(): React.ReactElement {
           researchState={researchState}
           researchPerTick={researchProductionPerTick}
           speciesBonus={speciesResearchBonus}
+          maxActiveResearch={researchLabCount}
           onStartResearch={handleStartResearch}
           onCancelResearch={handleCancelResearch}
           onQueueResearch={handleQueueResearch}
