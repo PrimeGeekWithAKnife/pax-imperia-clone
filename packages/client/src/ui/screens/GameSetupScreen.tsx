@@ -303,19 +303,13 @@ export function GameSetupScreen({
               {selectedGovDef && (
                 <div className="gs-gov-detail">
                   <div className="gs-gov-detail__desc">{selectedGovDef.description}</div>
-                  <div className="gs-gov-detail__mods">
-                    {modifiers.map((entry) => {
+                  <div className="gs-gov-detail__inline-mods">
+                    {notableModifiers.map((entry) => {
                       const positive = modifierIsPositive(entry);
-                      const neutral = modifierIsNeutral(entry);
-                      const colorClass = neutral
-                        ? 'gs-mod--neutral'
-                        : positive
-                          ? 'gs-mod--positive'
-                          : 'gs-mod--negative';
+                      const color = positive ? '#5ce88a' : '#ff8080';
                       return (
-                        <span key={entry.label} className={`gs-mod ${colorClass}`}>
-                          <span className="gs-mod__label">{entry.label}</span>
-                          <span className="gs-mod__value">{formatModifier(entry)}</span>
+                        <span key={entry.label} style={{ color, marginRight: 8, fontSize: 11, fontFamily: 'var(--font-mono, monospace)' }}>
+                          {entry.label}: {formatModifier(entry)}
                         </span>
                       );
                     })}
