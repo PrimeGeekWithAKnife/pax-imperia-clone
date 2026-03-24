@@ -256,8 +256,13 @@ export class MainMenuScene extends Phaser.Scene {
         yFrac: 0.51,
         action: () => {
           this.sfx?.playClick();
-          // Always show the save/load screen so the player can pick which game to resume.
-          this.game.events.emit('ui:load_game');
+          // Direct callback to React — bypasses Phaser event bridge for reliability
+          const openLoad = (window as unknown as Record<string, () => void>).__EX_NIHILO_OPEN_LOAD__;
+          if (openLoad) {
+            openLoad();
+          } else {
+            this.game.events.emit('ui:load_game');
+          }
         },
       });
     }
@@ -269,9 +274,14 @@ export class MainMenuScene extends Phaser.Scene {
         label: 'New Game',
         yFrac: 0.51 + resumeOffset,
         action: () => {
-          console.log('[MainMenuScene] New Game clicked – opening species creator');
           this.sfx?.playClick();
-          this.game.events.emit('ui:new_game');
+          // Direct callback to React — bypasses Phaser event bridge for reliability
+          const openNewGame = (window as unknown as Record<string, () => void>).__EX_NIHILO_OPEN_NEW_GAME__;
+          if (openNewGame) {
+            openNewGame();
+          } else {
+            this.game.events.emit('ui:new_game');
+          }
         },
       },
       {

@@ -487,6 +487,19 @@ export function App(): React.ReactElement {
     setSaveLoadTab('load');
   }, []);
 
+  // Expose a direct window callback for MainMenuScene to call — more reliable than event bridge
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_LOAD__ = () => setSaveLoadTab('load');
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_NEW_GAME__ = () => {
+      setCurrentScreen('species-creator');
+      setIsPaused(false);
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_LOAD__;
+      delete (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_NEW_GAME__;
+    };
+  }, []);
+
   // Phaser emits this when "Multiplayer" is clicked from the main menu
   const handleOpenMultiplayer = useCallback(() => {
     setCurrentScreen('multiplayer');
