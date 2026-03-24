@@ -73,6 +73,8 @@ import {
   processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  canColoniseWithShip,
+  coloniseWithShip,
   TRANSIT_DURATION,
   type MigrationOrder,
 } from './colony.js';
@@ -396,9 +398,80 @@ function processPlayerActions(
         const planetId = action.planetId;
 
         if (!systemId) {
-          // ColonizePlanet (US spelling) uses a fleetId rather than a systemId —
-          // the fleet-based path is not yet implemented.
-          console.warn(`[game-loop] ColonizePlanet (fleet-based) is not yet implemented — skipping`);
+          // ColonizePlanet (US spelling) — fleet-based inter-system colonisation.
+          const fleetId = (action as { fleetId: string }).fleetId;
+          const fleet = state.gameState.fleets.find(f => f.id === fleetId);
+          if (!fleet) {
+            console.warn(`[game-loop] ColonizePlanet references unknown fleet "${fleetId}" — skipping`);
+            continue;
+          }
+          const fleetSystem = systems.find(s => s.id === fleet.position.systemId);
+          if (!fleetSystem) {
+            console.warn(`[game-loop] ColonizePlanet fleet system not found — skipping`);
+            continue;
+          }
+          const empire = empires.find(e => e.id === empireId);
+          if (!empire) continue;
+
+          // Find a coloniser ship in the fleet
+          const designsMap = state.shipDesigns ?? new Map<string, Ship>();
+          const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
+          const coloniserShip = fleetShips.find(s => {
+            const design = designsMap.get(s.designId);
+            return design && (design as unknown as { hull: string }).hull === 'coloniser';
+          });
+          if (!coloniserShip) {
+            console.warn(`[game-loop] ColonizePlanet fleet has no coloniser ship — skipping`);
+            continue;
+          }
+
+          const check = canColoniseWithShip(coloniserShip, fleet, fleetSystem, planetId, empire.species);
+          if (!check.allowed) {
+            console.warn(`[game-loop] ColonizePlanet rejected: ${check.reason}`);
+            continue;
+          }
+
+          // Pass the empire's current tech age for tiered starter buildings
+          const empireResearchState = state.researchStates.get(empireId);
+          const currentAge = empireResearchState?.currentAge ?? 'nano_atomic';
+          const result = coloniseWithShip(fleetSystem, planetId, empireId, fleet, coloniserShip.id, currentAge);
+          systems = systems.map(s => s.id === fleetSystem.id ? result.system : s);
+
+          // Update the fleet (ship consumed)
+          state = {
+            ...state,
+            gameState: {
+              ...state.gameState,
+              fleets: state.gameState.fleets.map(f => f.id === fleetId ? result.fleet : f),
+              ships: state.gameState.ships.filter(s => s.id !== coloniserShip.id),
+              galaxy: { ...state.gameState.galaxy, systems },
+            },
+          };
+          systems = state.gameState.galaxy.systems;
+
+          // Emit colony established event
+          const targetPlanet = result.system.planets.find(p => p.id === planetId);
+          const establishedEvent: ColonyEstablishedEvent = {
+            type: 'ColonyEstablished',
+            empireId,
+            systemId: fleetSystem.id,
+            planetId,
+            planetName: targetPlanet?.name ?? planetId,
+            tick,
+          };
+          events.push(establishedEvent);
+
+          // Auto-assign governor
+          const newGovernor = generateGovernor(empireId, planetId);
+          state = { ...state, governors: [...state.governors, newGovernor] };
+          events.push({
+            type: 'GovernorAppointed',
+            empireId,
+            planetId,
+            governorName: newGovernor.name,
+            tick,
+          } as GovernorAppointedEvent);
+
           continue;
         }
 

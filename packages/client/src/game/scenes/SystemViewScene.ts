@@ -226,8 +226,9 @@ export class SystemViewScene extends Phaser.Scene {
     // ── Exit to main menu ─────────────────────────────────────────────────
     this.game.events.on('ui:exit_to_menu', this._handleExitToMenu, this);
 
-    // ── Colonise action listener ───────────────────────────────────────────
+    // ── Colonise action listeners ──────────────────────────────────────────
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
+    this.game.events.on('colony:colonise_with_ship', this._handleColoniseWithShip, this);
 
     // ── Migration action listeners ─────────────────────────────────────────
     this.game.events.on('colony:start_migration', this.handleStartMigrationAction, this);
@@ -264,6 +265,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('music:set_track', this._handleMusicTrack, this);
       this.game.events.off('ui:exit_to_menu', this._handleExitToMenu, this);
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
+      this.game.events.off('colony:colonise_with_ship', this._handleColoniseWithShip, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
       this.game.events.off('engine:migration_started', this._handleMigrationStartedSfx, this);
@@ -387,6 +389,19 @@ export class SystemViewScene extends Phaser.Scene {
     }
 
     engine.executeAction({ type: 'ColonisePlanet', empireId, systemId, planetId });
+  };
+
+  private _handleColoniseWithShip = (payload: unknown): void => {
+    const { fleetId, planetId, empireId } = payload as {
+      fleetId: string;
+      planetId: string;
+      empireId: string;
+    };
+
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    engine.executeAction({ type: 'ColonizePlanet', fleetId, planetId });
   };
 
   // ── Migration actions ─────────────────────────────────────────────────────────

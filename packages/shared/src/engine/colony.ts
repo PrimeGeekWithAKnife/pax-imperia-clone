@@ -1029,12 +1029,40 @@ export function canColoniseWithShip(
  *
  * @throws if the planet is not found in the system.
  */
+/**
+ * Colony ship tier determines what starter buildings are placed.
+ * Higher tiers (unlocked through tech ages) give the colony a head start.
+ */
+const COLONY_SHIP_TIER_BUILDINGS: BuildingType[][] = [
+  ['population_center'],                                                          // Tier 1 (nano_atomic)
+  ['population_center', 'factory'],                                               // Tier 2 (fusion)
+  ['population_center', 'factory', 'mining_facility'],                            // Tier 3 (quantum)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay'],         // Tier 4 (singularity)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay', 'fusion_reactor'], // Tier 5 (transcendence)
+];
+
+/**
+ * Map tech age to colony ship tier (0-indexed).
+ * Higher ages unlock better-equipped colony ships.
+ */
+function getColonyShipTier(currentAge: string): number {
+  switch (currentAge) {
+    case 'nano_atomic': return 0;
+    case 'fusion': return 1;
+    case 'quantum': return 2;
+    case 'singularity': return 3;
+    case 'transcendence': return 4;
+    default: return 0;
+  }
+}
+
 export function coloniseWithShip(
   system: StarSystem,
   targetPlanetId: string,
   empireId: string,
   fleet: Fleet,
   shipId: string,
+  currentAge = 'nano_atomic',
 ): { system: StarSystem; fleet: Fleet } {
   const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
   if (planetIndex === -1) {
@@ -1045,17 +1073,21 @@ export function coloniseWithShip(
 
   const planet = system.planets[planetIndex]!;
 
-  const starterBuilding: Building = {
+  // Determine colony ship tier from current tech age
+  const tier = getColonyShipTier(currentAge);
+  const buildingTypes = COLONY_SHIP_TIER_BUILDINGS[tier] ?? COLONY_SHIP_TIER_BUILDINGS[0]!;
+
+  const starterBuildings: Building[] = buildingTypes.map(type => ({
     id: generateId(),
-    type: 'population_center',
+    type,
     level: 1,
-  };
+  }));
 
   const colonisedPlanet: Planet = {
     ...planet,
     ownerId: empireId,
     currentPopulation: COLONISER_SHIP_INITIAL_POPULATION,
-    buildings: [...planet.buildings, starterBuilding],
+    buildings: [...planet.buildings, ...starterBuildings],
   };
 
   const updatedPlanets = [...system.planets];
