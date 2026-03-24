@@ -2354,14 +2354,29 @@ export class GalaxyMapScene extends Phaser.Scene {
   private _handleEngineTick = (): void => {
     // Refresh known systems from the engine (fog of war reveal on fleet arrival)
     const engine = getGameEngine();
+    let newSystemsDiscovered = false;
     if (engine) {
       const playerEmpire = engine.getState().gameState.empires.find(e => !e.isAI);
       if (playerEmpire) {
+        const prevSize = this.knownSystemIds.size;
         for (const sysId of playerEmpire.knownSystems) {
           this.knownSystemIds.add(sysId);
         }
+        newSystemsDiscovered = this.knownSystemIds.size > prevSize;
       }
     }
+
+    // When new systems are discovered, refresh their visuals
+    if (newSystemsDiscovered) {
+      // Redraw wormhole connections (includes newly connected systems)
+      this.drawWormholes(this.selectedSystemId);
+      // Recreate all stars so newly discovered systems upgrade from dim dots to full visuals
+      this.starLayer.removeAll(true);
+      this.starHitAreas.clear();
+      this.pulseTweens.clear();
+      this.createStars();
+    }
+
     this._renderFleetBadges();
     this._syncTransitDots();
   };

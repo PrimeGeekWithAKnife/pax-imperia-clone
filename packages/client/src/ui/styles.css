@@ -2652,7 +2652,7 @@
 }
 
 .tech-tree__row--future-age {
-  opacity: 0.5;
+  /* No row-level opacity — card-level opacity handles the visual distinction */
 }
 
 .tech-tree__age-label {
@@ -2792,9 +2792,9 @@
 }
 
 .tech-card--future {
-  border-color: rgba(60, 60, 80, 0.25);
-  background: rgba(5, 5, 14, 0.45);
-  opacity: 0.35;
+  border-color: rgba(60, 60, 80, 0.3);
+  background: rgba(5, 5, 14, 0.5);
+  opacity: 0.5;
 }
 
 .tech-card--selected {
