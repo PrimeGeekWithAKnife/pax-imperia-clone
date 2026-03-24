@@ -1172,17 +1172,17 @@ export function App(): React.ReactElement {
     }
     // Fallback: engine not yet available (e.g. pre-game screen), use local state.
     setResearchState((prev) => {
-      const currentTotal = prev.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
-      if (currentTotal + allocation > 100) return prev;
       if (prev.completedTechs.includes(techId)) return prev;
       if (prev.activeResearch.some((r) => r.techId === techId)) return prev;
-      return {
-        ...prev,
-        activeResearch: [
-          ...prev.activeResearch,
-          { techId, pointsInvested: 0, allocation },
-        ],
-      };
+      const newActive = [...prev.activeResearch, { techId, pointsInvested: 0, allocation: 0 }];
+      // Auto-redistribute evenly
+      const evenShare = Math.floor(100 / newActive.length);
+      const rem = 100 - evenShare * newActive.length;
+      const redistributed = newActive.map((r, i) => ({
+        ...r,
+        allocation: evenShare + (i === 0 ? rem : 0),
+      }));
+      return { ...prev, activeResearch: redistributed };
     });
   }, []);
 
@@ -1195,11 +1195,16 @@ export function App(): React.ReactElement {
         return;
       }
     }
-    // Fallback
-    setResearchState((prev) => ({
-      ...prev,
-      activeResearch: prev.activeResearch.filter((r) => r.techId !== techId),
-    }));
+    // Fallback — redistribute evenly after removal
+    setResearchState((prev) => {
+      const remaining = prev.activeResearch.filter((r) => r.techId !== techId);
+      if (remaining.length > 0) {
+        const evenShare = Math.floor(100 / remaining.length);
+        const rem = 100 - evenShare * remaining.length;
+        remaining.forEach((r, i) => { r.allocation = evenShare + (i === 0 ? rem : 0); });
+      }
+      return { ...prev, activeResearch: remaining };
+    });
   }, []);
 
   const handleAdjustAllocation = useCallback((techId: string, allocation: number) => {
