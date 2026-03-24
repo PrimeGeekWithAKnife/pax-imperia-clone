@@ -55,6 +55,7 @@ import {
   setResearchAllocation,
   calculateEmpireProduction,
   UNIVERSAL_TECHNOLOGIES,
+  createNotification,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -249,6 +250,20 @@ export class GameEngine {
       const playerResearchState = this.tickState.researchStates.get(playerEmpireForResearch.id);
       if (playerResearchState) {
         this.game.events.emit('engine:research_state', playerResearchState);
+
+        // Check if a tech completed this tick and the queue is now empty
+        const techCompleted = events.some(e => e.type === 'TechResearched');
+        if (techCompleted
+          && playerResearchState.activeResearch.length === 0
+          && (playerResearchState.researchQueue ?? []).length === 0) {
+          this.game.events.emit('engine:notification', createNotification(
+            'no_active_research',
+            'Research Queue Empty',
+            'All research projects have been completed and the queue is empty. Select new technologies to research.',
+            this.tickState.gameState.currentTick,
+            [{ id: 'open_research', label: 'Open Research' }],
+          ));
+        }
       }
     }
 

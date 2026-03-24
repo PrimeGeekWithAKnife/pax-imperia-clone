@@ -619,7 +619,9 @@ export function ResearchScreen({
               allTechs={allTechs}
               onStartResearch={handleStartResearch}
               onCancelResearch={handleCancelResearch}
+              onQueueResearch={onQueueResearch}
               onAdjustAllocation={onAdjustAllocation}
+              maxActiveResearch={MAX_ACTIVE_RESEARCH}
               onClose={handleCloseDetail}
             />
           )}

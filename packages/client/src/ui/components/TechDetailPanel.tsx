@@ -20,7 +20,10 @@ interface TechDetailPanelProps {
   allTechs?: Technology[];
   onStartResearch: (techId: string, allocation: number) => void;
   onCancelResearch: (techId: string) => void;
+  onQueueResearch?: (techId: string) => void;
   onAdjustAllocation: (techId: string, allocation: number) => void;
+  /** Maximum simultaneous active research projects (lab count or cap). */
+  maxActiveResearch?: number;
   onClose: () => void;
 }
 
@@ -141,7 +144,9 @@ export function TechDetailPanel({
   allTechs = [],
   onStartResearch,
   onCancelResearch,
+  onQueueResearch,
   onAdjustAllocation,
+  maxActiveResearch = 5,
   onClose,
 }: TechDetailPanelProps): React.ReactElement {
   // Find active research entry if this tech is being researched
@@ -349,15 +354,44 @@ export function TechDetailPanel({
           )}
 
           <div className="tech-detail-panel__actions">
-            {status === 'available' && (
-              <button
-                type="button"
-                className="tech-detail-panel__btn tech-detail-panel__btn--start"
-                onClick={handleStartResearch}
-              >
-                Start Research
-              </button>
-            )}
+            {status === 'available' && (() => {
+              const isQueued = (researchState.researchQueue ?? []).includes(tech.id);
+              const atCapacity = researchState.activeResearch.length >= maxActiveResearch;
+
+              if (isQueued) {
+                return (
+                  <button
+                    type="button"
+                    className="tech-detail-panel__btn tech-detail-panel__btn--start tech-detail-panel__btn--disabled"
+                    disabled
+                  >
+                    Queued
+                  </button>
+                );
+              }
+
+              if (atCapacity && onQueueResearch) {
+                return (
+                  <button
+                    type="button"
+                    className="tech-detail-panel__btn tech-detail-panel__btn--start"
+                    onClick={() => onQueueResearch(tech.id)}
+                  >
+                    Queue Research
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  type="button"
+                  className="tech-detail-panel__btn tech-detail-panel__btn--start"
+                  onClick={handleStartResearch}
+                >
+                  Start Research
+                </button>
+              );
+            })()}
             {status === 'active' && (
               <button
                 type="button"

@@ -1001,10 +1001,11 @@ export function App(): React.ReactElement {
     });
   }, [activeNotification]);
 
-  /** Handle a choice being made on a notification (e.g. power plant recommission). */
-  const handleNotificationChoice = useCallback((_choiceId: string) => {
-    // Choice handling will be wired to specific game-engine actions in a future sprint.
-    // For now, the choice is acknowledged and the notification is dismissed.
+  /** Handle a choice being made on a notification. */
+  const handleNotificationChoice = useCallback((choiceId: string) => {
+    if (choiceId === 'open_research') {
+      setCurrentScreen('research');
+    }
   }, []);
 
   /** Listen for notifications emitted by the engine. */
