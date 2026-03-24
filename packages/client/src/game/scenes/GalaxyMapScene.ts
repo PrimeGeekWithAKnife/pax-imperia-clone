@@ -616,12 +616,12 @@ export class GalaxyMapScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // 400-600 tiny dim distant stars (1px, very low alpha)
-    const starCount = Phaser.Math.Between(400, 600);
+    // Sparse dim distant stars — kept minimal so they don't compete with game systems
+    const starCount = Phaser.Math.Between(100, 180);
     for (let i = 0; i < starCount; i++) {
       const bx = Math.random() * W;
       const by = Math.random() * H;
-      const alpha = Phaser.Math.FloatBetween(0.08, 0.28);
+      const alpha = Phaser.Math.FloatBetween(0.04, 0.15);
       const brightness = Math.round(Phaser.Math.FloatBetween(140, 220));
       // Slight color variation — mostly white with occasional blue/warm tint
       const tint = Math.random();
@@ -691,17 +691,18 @@ export class GalaxyMapScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    const starCount = Phaser.Math.Between(150, 200);
+    // Fewer mid-distance stars — these are decorative, not game systems
+    const starCount = Phaser.Math.Between(40, 70);
     for (let i = 0; i < starCount; i++) {
       const bx = Math.random() * W;
       const by = Math.random() * H;
 
-      // Most are small (1-2px), a few are brighter (2-3px)
-      const isBright = Math.random() < 0.12;
-      const radius = isBright ? Phaser.Math.FloatBetween(1.2, 1.8) : Phaser.Math.FloatBetween(0.5, 1.1);
+      // Dimmer so they don't compete with actual star systems
+      const isBright = Math.random() < 0.08;
+      const radius = isBright ? Phaser.Math.FloatBetween(0.8, 1.2) : Phaser.Math.FloatBetween(0.3, 0.7);
       const alpha = isBright
-        ? Phaser.Math.FloatBetween(0.65, 0.9)
-        : Phaser.Math.FloatBetween(0.25, 0.55);
+        ? Phaser.Math.FloatBetween(0.35, 0.55)
+        : Phaser.Math.FloatBetween(0.10, 0.30);
 
       // Bright ones get warm/cool tints
       let color: number;
