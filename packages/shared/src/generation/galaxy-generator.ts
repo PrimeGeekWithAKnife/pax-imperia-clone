@@ -468,17 +468,17 @@ function generateSpiral(
   minDist: number,
 ): PositionResult {
   const numArms = 4 + rng.nextInt(0, 4); // 4–8 arms
-  const spiralB = rng.nextFloat(0.20, 0.38); // logarithmic tightness
-  const armBaseSpread = 0.18; // narrower base spread
-  const bulgeRadius = 0.20; // fraction of maxR
+  const spiralB = rng.nextFloat(0.15, 0.28); // tighter winding for more dramatic spiral
+  const armBaseSpread = 0.10; // narrow arms — clear dark gaps between fins
+  const bulgeRadius = 0.10; // small central bulge so arms dominate
   const maxR = Math.min(RX, RY);
-  const spiralA = bulgeRadius * maxR * 0.8; // arms emerge from bulge edge
+  const spiralA = bulgeRadius * maxR * 0.9; // arms emerge from bulge edge
 
-  // Pre-compute arm starting angles (evenly spaced + jitter)
+  // Pre-compute arm starting angles (evenly spaced + slight jitter)
   const armAngles: number[] = [];
   for (let i = 0; i < numArms; i++) {
     const base = (i / numArms) * Math.PI * 2;
-    const jitter = rng.nextFloat(-0.15, 0.15);
+    const jitter = rng.nextFloat(-0.08, 0.08);
     armAngles.push(base + jitter);
   }
 
@@ -491,14 +491,14 @@ function generateSpiral(
     const normDist = dist / maxR;
     const angle = Math.atan2(dy, dx);
 
-    // Central bulge: dense, Gaussian-weighted
+    // Central bulge: small, dense core
     if (normDist < bulgeRadius) {
-      const bulgeProb = 0.7 + 0.3 * (1 - normDist / bulgeRadius);
+      const bulgeProb = 0.6 + 0.4 * (1 - normDist / bulgeRadius);
       return rng.next() < bulgeProb;
     }
 
     // Logarithmic spiral arm check
-    if (dist < spiralA) return rng.next() < 0.10;
+    if (dist < spiralA) return rng.next() < 0.04;
 
     const thetaAtR = Math.log(dist / spiralA) / spiralB;
 
@@ -511,20 +511,21 @@ function generateSpiral(
       if (diff < bestArmDist) bestArmDist = diff;
     }
 
-    // Arm spread widens with distance (outer galaxy is fuzzier)
-    const effectiveSpread = armBaseSpread * (1 + 0.5 * normDist);
+    // Arm spread widens slightly with distance but stays tight
+    const effectiveSpread = armBaseSpread * (1 + 0.3 * normDist);
 
     if (bestArmDist < effectiveSpread) {
-      // Inside an arm: Gaussian falloff from arm centre
-      const armProb = Math.exp(-2 * (bestArmDist / effectiveSpread) ** 2);
-      return rng.next() < (0.3 + 0.7 * armProb);
+      // Inside an arm: steep Gaussian — dense core, sharp edges
+      const armProb = Math.exp(-4 * (bestArmDist / effectiveSpread) ** 2);
+      return rng.next() < (0.15 + 0.85 * armProb);
     }
 
-    // Sparse inter-arm stars
-    return rng.next() < 0.05;
+    // Almost no inter-arm stars — dark voids between fins
+    return rng.next() < 0.01;
   };
 
-  const pts = poissonDisk(rng, count * 4, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
+  // Higher oversampling — tight arms reject many candidates
+  const pts = poissonDisk(rng, count * 6, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
   return {
     points: pts.slice(0, count),
     shapeMetadata: {
