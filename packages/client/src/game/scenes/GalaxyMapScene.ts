@@ -386,6 +386,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.createHomeRing();
     this.createTooltip();
     this.createBackButton();
+    this.createZoomButtons();
     this.createPingGraphics();
 
     // Center and auto-select home
@@ -1226,16 +1227,40 @@ export class GalaxyMapScene extends Phaser.Scene {
    * These are always visible once both endpoints are discovered and represent
    * the basic FTL routes, independent of wormhole tech.
    */
-  private _drawNormalLane(sysA: StarSystem, sysB: StarSystem): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
+  /** Compute inset start/end points so lines don't overlap star glows. */
+  private _insetLine(sysA: StarSystem, sysB: StarSystem): { ax: number; ay: number; bx: number; by: number; dx: number; dy: number; len: number } | null {
+    const oax = sysA.position.x;
+    const oay = sysA.position.y;
+    const obx = sysB.position.x;
+    const oby = sysB.position.y;
+    const dx = obx - oax;
+    const dy = oby - oay;
+    const fullLen = Math.sqrt(dx * dx + dy * dy);
+    if (fullLen < 1) return null;
 
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1) return;
+    const insetA = STAR_VISUALS[sysA.starType].glowRadius + 4;
+    const insetB = STAR_VISUALS[sysB.starType].glowRadius + 4;
+    if (insetA + insetB >= fullLen) return null; // stars too close, skip line
+
+    const nx = dx / fullLen;
+    const ny = dy / fullLen;
+    return {
+      ax: oax + nx * insetA,
+      ay: oay + ny * insetA,
+      bx: obx - nx * insetB,
+      by: oby - ny * insetB,
+      dx, dy,
+      len: fullLen - insetA - insetB,
+    };
+  }
+
+  private _drawNormalLane(sysA: StarSystem, sysB: StarSystem): void {
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, dx, dy, len } = line;
+    const fullLen = Math.sqrt(dx * dx + dy * dy);
+    const nx = dx / fullLen;
+    const ny = dy / fullLen;
 
     const lineWidth = LANE_WIDTH / this.currentZoom;
     let d = 0;
@@ -1244,8 +1269,8 @@ export class GalaxyMapScene extends Phaser.Scene {
 
       this.wormholeLayer.lineStyle(lineWidth, LANE_COLOR, LANE_ALPHA);
       this.wormholeLayer.beginPath();
-      this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
-      this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+      this.wormholeLayer.moveTo(ax + nx * d, ay + ny * d);
+      this.wormholeLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
       this.wormholeLayer.strokePath();
 
       d += LANE_DASH_LEN + LANE_GAP_LEN;
@@ -1272,15 +1297,12 @@ export class GalaxyMapScene extends Phaser.Scene {
     highlighted: boolean,
     hasWormholeTech: boolean,
   ): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
-
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1) return;
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, bx, by, len } = line;
+    const fullLen = Math.sqrt(line.dx * line.dx + line.dy * line.dy);
+    const nx = line.dx / fullLen;
+    const ny = line.dy / fullLen;
 
     if (!hasWormholeTech) {
       // Very faint blue dashes — wormhole is known but not traversable yet
@@ -1290,10 +1312,10 @@ export class GalaxyMapScene extends Phaser.Scene {
         const dashEnd = Math.min(d + 3, len);
         this.wormholeLayer.lineStyle(lineWidth, WORM_NO_TECH_COLOR, WORM_NO_TECH_ALPHA);
         this.wormholeLayer.beginPath();
-        this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
-        this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+        this.wormholeLayer.moveTo(ax + nx * d, ay + ny * d);
+        this.wormholeLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
         this.wormholeLayer.strokePath();
-        d += 13; // long gap — barely visible
+        d += 13;
       }
       return;
     }
@@ -1308,7 +1330,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     const coreWidth  = WORM_WIDTH / this.currentZoom;
     const glowWidth  = (WORM_WIDTH + 3) / this.currentZoom;
 
-    // Glow layer — wider stroke at low alpha
+    // Glow layer
     this.wormholeLayer.lineStyle(glowWidth, WORM_COLOR, alpha * 0.35);
     this.wormholeLayer.beginPath();
     this.wormholeLayer.moveTo(ax, ay);
@@ -1328,15 +1350,13 @@ export class GalaxyMapScene extends Phaser.Scene {
    * This is provided for future use when player-created wormholes are added.
    */
   private _drawAdvancedWormholeLine(sysA: StarSystem, sysB: StarSystem): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, bx, by } = line;
 
     const coreWidth = ADV_WORM_WIDTH / this.currentZoom;
     const glowWidth = (ADV_WORM_WIDTH + 3) / this.currentZoom;
 
-    // Shimmer: slight alpha variation driven by wormhole phase offset by pi/3
     const shimmerAlpha = ADV_WORM_ALPHA +
       0.1 * Math.sin(this._wormholePhase + Math.PI / 3);
 
@@ -1741,6 +1761,40 @@ export class GalaxyMapScene extends Phaser.Scene {
     });
 
     this.uiLayer.add(backButton);
+  }
+
+  private createZoomButtons(): void {
+    const W = this.scale.width;
+    const btnStyle = {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#7799bb',
+      backgroundColor: '#0a0a18',
+      padding: { left: 10, right: 10, top: 4, bottom: 4 },
+    };
+
+    const zoomIn = this.add
+      .text(W - 60, 80, '+', btnStyle)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(200);
+    zoomIn.on('pointerover', () => zoomIn.setColor('#ffffff'));
+    zoomIn.on('pointerout', () => zoomIn.setColor('#7799bb'));
+    zoomIn.on('pointerdown', () => {
+      this.targetZoom = Phaser.Math.Clamp(this.targetZoom + ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM);
+    });
+
+    const zoomOut = this.add
+      .text(W - 60, 116, '−', btnStyle) // use minus sign (−) not hyphen
+      .setInteractive({ useHandCursor: true })
+      .setDepth(200);
+    zoomOut.on('pointerover', () => zoomOut.setColor('#ffffff'));
+    zoomOut.on('pointerout', () => zoomOut.setColor('#7799bb'));
+    zoomOut.on('pointerdown', () => {
+      this.targetZoom = Phaser.Math.Clamp(this.targetZoom - ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM);
+    });
+
+    this.uiLayer.add(zoomIn);
+    this.uiLayer.add(zoomOut);
   }
 
   // ── Scene transition ──────────────────────────────────────────────────────────
