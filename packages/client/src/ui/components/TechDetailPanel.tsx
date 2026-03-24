@@ -195,10 +195,8 @@ export function TechDetailPanel({
   }, []);
 
   const handleStartResearch = useCallback(() => {
-    if (!overLimit) {
-      onStartResearch(tech.id, allocationInput);
-    }
-  }, [tech.id, allocationInput, overLimit, onStartResearch]);
+    onStartResearch(tech.id, 0); // engine auto-redistributes allocation evenly
+  }, [tech.id, onStartResearch]);
 
   const handleAdjustAllocation = useCallback(() => {
     onAdjustAllocation(tech.id, allocationInput);
@@ -334,71 +332,40 @@ export function TechDetailPanel({
       )}
       </div>{/* end .tech-detail-panel__body */}
 
-      {/* Research controls — sticky footer, only shown when available or active */}
+      {/* Research controls — sticky footer */}
       {(status === 'available' || status === 'active') && (
         <div className="tech-detail-panel__controls tech-detail-panel__controls--sticky">
-          <div className="panel-section-label">
-            {status === 'active' ? 'Adjust Allocation' : 'Start Research'}
-          </div>
+          {status === 'active' && activeEntry && (
+            <div className="tech-detail-panel__alloc-hints">
+              <span className="tech-detail-panel__alloc-hint">
+                Allocation: {activeEntry.allocation}%
+              </span>
+              <span className="tech-detail-panel__alloc-hint">
+                {estimatedTicks(activeEntry.allocation) !== Infinity
+                  ? `~${estimatedTicks(activeEntry.allocation)} turns remaining`
+                  : '—'}
+              </span>
+            </div>
+          )}
 
-          {/* Allocation slider */}
-          <div className="tech-detail-panel__alloc-row">
-            <label className="tech-detail-panel__alloc-label" htmlFor={`alloc-${tech.id}`}>
-              Allocation
-            </label>
-            <span className="tech-detail-panel__alloc-value">
-              {allocationInput}%
-            </span>
-          </div>
-          <input
-            id={`alloc-${tech.id}`}
-            type="range"
-            min={0}
-            max={maxAllocation}
-            value={allocationInput}
-            onChange={handleSliderChange}
-            className="tech-detail-panel__alloc-slider"
-          />
-          <div className="tech-detail-panel__alloc-hints">
-            <span className={overLimit ? 'tech-detail-panel__alloc-warn' : 'tech-detail-panel__alloc-hint'}>
-              Total: {totalAllocationAfter}% / 100%
-              {overLimit && '  — OVER LIMIT'}
-            </span>
-            <span className="tech-detail-panel__alloc-hint">
-              {ticks !== Infinity ? `~${ticksDisplay}` : 'Set allocation to estimate'}
-            </span>
-          </div>
-
-          {/* Action buttons */}
           <div className="tech-detail-panel__actions">
             {status === 'available' && (
               <button
                 type="button"
-                className={`tech-detail-panel__btn tech-detail-panel__btn--start ${overLimit || allocationInput === 0 ? 'tech-detail-panel__btn--disabled' : ''}`}
+                className="tech-detail-panel__btn tech-detail-panel__btn--start"
                 onClick={handleStartResearch}
-                disabled={overLimit || allocationInput === 0}
               >
                 Start Research
               </button>
             )}
             {status === 'active' && (
-              <>
-                <button
-                  type="button"
-                  className={`tech-detail-panel__btn tech-detail-panel__btn--adjust ${overLimit ? 'tech-detail-panel__btn--disabled' : ''}`}
-                  onClick={handleAdjustAllocation}
-                  disabled={overLimit}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  className="tech-detail-panel__btn tech-detail-panel__btn--cancel"
-                  onClick={handleCancel}
-                >
-                  Cancel Research
-                </button>
-              </>
+              <button
+                type="button"
+                className="tech-detail-panel__btn tech-detail-panel__btn--cancel"
+                onClick={handleCancel}
+              >
+                Cancel Research
+              </button>
             )}
           </div>
         </div>
