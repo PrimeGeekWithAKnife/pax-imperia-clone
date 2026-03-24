@@ -35,6 +35,17 @@ import { generateId } from '../utils/id.js';
  * migrants depart every `wavePeriod` ticks and a fraction are lost in transit.
  * The colony is officially established once `arrivedPopulation >= threshold`.
  */
+/** Ticks a wave of colonists spends in transit before arriving at the target. */
+export const TRANSIT_DURATION = 5;
+
+/** A wave of colonists currently in transit between source and target. */
+export interface TransitWave {
+  /** Population in this wave (after transit losses already deducted). */
+  population: number;
+  /** Ticks remaining until this wave arrives at the target. */
+  ticksRemaining: number;
+}
+
 export interface MigrationOrder {
   id: string;
   empireId: string;
@@ -53,6 +64,8 @@ export interface MigrationOrder {
   status: 'migrating' | 'established' | 'cancelled';
   /** Credit cost paid upfront when the migration order was created. */
   totalCost: number;
+  /** Waves currently in transit — arrive when ticksRemaining reaches 0. */
+  transitWaves?: TransitWave[];
 }
 
 // ── Public interfaces ───────────────────────────────────────────────────────
@@ -773,17 +786,15 @@ export function startMigration(
  * Process one game tick of a migration order.
  *
  * Each tick:
- * - If `ticksToNextWave > 0`, decrement the counter and return unchanged.
- * - Otherwise send a wave:
- *   - Wave size = 1–3 people, capped at 10% of the source planet's population.
- *   - 10% of the wave is lost in transit (floor, minimum 0).
- *   - Remaining migrants are added to the target planet's currentPopulation.
- *   - The first arriving wave sets ownerId on the target.
- *   - ticksToNextWave is reset to wavePeriod.
- *   - If arrivedPopulation >= threshold after the wave, status → 'established'.
+ * 1. Advance all in-transit waves — any that arrive add population to the target.
+ * 2. If `ticksToNextWave > 0`, decrement the departure counter.
+ * 3. Otherwise dispatch a new wave from the source (enters transit, not instant arrival):
+ *    - Wave size = 1–3 people, capped at 10% of source population.
+ *    - 10% transit loss is applied upfront; survivors enter transitWaves.
+ *    - Source population decreases immediately on departure.
+ * 4. Colony is established once `arrivedPopulation >= threshold`.
  *
- * Returns a new order and system (pure — no mutation) plus human-readable event
- * strings for logging / event emission.
+ * Returns a new order and system (pure — no mutation) plus event strings.
  */
 export function processMigrationTick(
   order: MigrationOrder,
@@ -793,82 +804,103 @@ export function processMigrationTick(
     return { order, system, events: [] };
   }
 
-  // Not yet time for the next wave.
-  if (order.ticksToNextWave > 0) {
-    return {
-      order: { ...order, ticksToNextWave: order.ticksToNextWave - 1 },
-      system,
-      events: [],
-    };
-  }
-
-  // Find source and target planets.
   const sourcePlanetIndex = system.planets.findIndex(p => p.id === order.sourcePlanetId);
   const targetPlanetIndex = system.planets.findIndex(p => p.id === order.targetPlanetId);
 
   if (sourcePlanetIndex === -1 || targetPlanetIndex === -1) {
-    // Planets no longer exist — cancel the migration.
     return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: planet no longer exists'] };
   }
 
-  const sourcePlanet = system.planets[sourcePlanetIndex]!;
-  const targetPlanet = system.planets[targetPlanetIndex]!;
+  let sourcePlanet = system.planets[sourcePlanetIndex]!;
+  let targetPlanet = system.planets[targetPlanetIndex]!;
+  const eventMessages: string[] = [];
 
-  // Wave size: 1–3, capped at 10% of source population (rounded down, min 1).
-  const maxWave = Math.max(1, Math.floor(sourcePlanet.currentPopulation * 0.1));
-  const waveDeparted = Math.min(3, maxWave);
+  // ── 1. Advance in-transit waves — deliver those that have arrived ──────
+  let transitWaves = [...(order.transitWaves ?? [])];
+  let newArrivedTotal = order.arrivedPopulation;
+  let totalArrivingThisTick = 0;
 
-  // Can't send more than the source actually has.
-  const actualDeparted = Math.min(waveDeparted, sourcePlanet.currentPopulation);
-  if (actualDeparted <= 0) {
-    // Source is empty — cancel.
-    return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: source population exhausted'] };
+  const stillInTransit: TransitWave[] = [];
+  for (const wave of transitWaves) {
+    const remaining = wave.ticksRemaining - 1;
+    if (remaining <= 0) {
+      // Wave arrives at target
+      totalArrivingThisTick += wave.population;
+      newArrivedTotal += wave.population;
+    } else {
+      stillInTransit.push({ ...wave, ticksRemaining: remaining });
+    }
+  }
+  transitWaves = stillInTransit;
+
+  if (totalArrivingThisTick > 0) {
+    // First arriving wave claims ownership
+    const newOwnerId = targetPlanet.ownerId ?? order.empireId;
+    targetPlanet = {
+      ...targetPlanet,
+      currentPopulation: targetPlanet.currentPopulation + totalArrivingThisTick,
+      ownerId: newOwnerId,
+    };
+    eventMessages.push(`${totalArrivingThisTick} colonists arrived`);
   }
 
-  // Transit losses: 10% of wave, rounded down, minimum 0.
-  const lost = Math.floor(actualDeparted * 0.1);
-  const arrived = actualDeparted - lost;
+  // ── 2. Dispatch a new wave if the departure timer has elapsed ─────────
+  let ticksToNextWave = order.ticksToNextWave;
+  if (ticksToNextWave > 0) {
+    ticksToNextWave--;
+  } else {
+    // Wave departure
+    const maxWave = Math.max(1, Math.floor(sourcePlanet.currentPopulation * 0.1));
+    const waveDeparted = Math.min(3, maxWave);
+    const actualDeparted = Math.min(waveDeparted, sourcePlanet.currentPopulation);
 
-  // Update source and target populations.
-  const updatedSource: Planet = {
-    ...sourcePlanet,
-    currentPopulation: sourcePlanet.currentPopulation - actualDeparted,
-  };
+    if (actualDeparted > 0) {
+      // Transit losses: 10% of wave
+      const lost = Math.floor(actualDeparted * 0.1);
+      const survivors = actualDeparted - lost;
 
-  const newTargetPop = targetPlanet.currentPopulation + arrived;
-  const newArrivedTotal = order.arrivedPopulation + arrived;
+      // Source loses population immediately on departure
+      sourcePlanet = {
+        ...sourcePlanet,
+        currentPopulation: sourcePlanet.currentPopulation - actualDeparted,
+      };
 
-  // First wave claims ownership.
-  const newOwnerId = targetPlanet.ownerId ?? order.empireId;
+      // Survivors enter transit
+      if (survivors > 0) {
+        transitWaves.push({ population: survivors, ticksRemaining: TRANSIT_DURATION });
+      }
 
-  const updatedTarget: Planet = {
-    ...targetPlanet,
-    currentPopulation: newTargetPop,
-    ownerId: newOwnerId,
-  };
+      eventMessages.push(`Wave of ${actualDeparted} departed`);
+      if (lost > 0) eventMessages.push(`${lost} lost in transit`);
 
-  // Update the systems array.
+      ticksToNextWave = order.wavePeriod;
+    } else if (transitWaves.length === 0) {
+      // Source exhausted and nothing in transit — cancel
+      return {
+        order: { ...order, status: 'cancelled', transitWaves: [] },
+        system,
+        events: ['Migration cancelled: source population exhausted'],
+      };
+    }
+  }
+
+  // ── 3. Update system planets ──────────────────────────────────────────
   const updatedPlanets = [...system.planets];
-  updatedPlanets[sourcePlanetIndex] = updatedSource;
-  updatedPlanets[targetPlanetIndex] = updatedTarget;
+  updatedPlanets[sourcePlanetIndex] = sourcePlanet;
+  updatedPlanets[targetPlanetIndex] = targetPlanet;
   const updatedSystem: StarSystem = { ...system, planets: updatedPlanets };
 
-  // Determine new status.
+  // ── 4. Determine status ───────────────────────────────────────────────
   const newStatus: MigrationOrder['status'] =
     newArrivedTotal >= order.threshold ? 'established' : 'migrating';
 
   const updatedOrder: MigrationOrder = {
     ...order,
     arrivedPopulation: newArrivedTotal,
-    ticksToNextWave: order.wavePeriod,
+    ticksToNextWave,
     status: newStatus,
+    transitWaves,
   };
-
-  const eventMessages = [
-    `Wave of ${actualDeparted} departed`,
-    `${arrived} arrived`,
-    ...(lost > 0 ? [`${lost} lost in transit`] : []),
-  ];
 
   return { order: updatedOrder, system: updatedSystem, events: eventMessages };
 }

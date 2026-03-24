@@ -73,6 +73,7 @@ import {
   processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  TRANSIT_DURATION,
   type MigrationOrder,
 } from './colony.js';
 import {
@@ -912,30 +913,32 @@ function stepMigrations(
       systems = systems.map((s, i) => (i === systemIndex ? updatedSystem : s));
     }
 
-    // Emit wave events if a wave was sent this tick.
+    // Emit wave events based on what happened this tick.
     if (waveEvents.length > 0) {
-      // Calculate actual numbers from population change.
-      const targetBefore = system.planets.find(p => p.id === order.targetPlanetId);
-      const targetAfter = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
       const sourceBefore = system.planets.find(p => p.id === order.sourcePlanetId);
       const sourceAfter = updatedSystem.planets.find(p => p.id === order.sourcePlanetId);
+      const targetBefore = system.planets.find(p => p.id === order.targetPlanetId);
+      const targetAfter = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
 
-      if (targetBefore && targetAfter && sourceBefore && sourceAfter) {
-        const departed = sourceBefore.currentPopulation - sourceAfter.currentPopulation;
-        const arrived = targetAfter.currentPopulation - targetBefore.currentPopulation;
-        const lost = departed - arrived;
+      const departed = (sourceBefore && sourceAfter)
+        ? sourceBefore.currentPopulation - sourceAfter.currentPopulation : 0;
+      const arrived = (targetBefore && targetAfter)
+        ? targetAfter.currentPopulation - targetBefore.currentPopulation : 0;
+      // Transit losses are the difference between departed and what entered transit
+      const inTransitThisTick = (updatedOrder.transitWaves ?? [])
+        .filter(w => w.ticksRemaining === TRANSIT_DURATION).reduce((s, w) => s + w.population, 0);
+      const lost = departed > 0 ? departed - inTransitThisTick : 0;
 
-        const waveEvent: MigrationWaveEvent = {
-          type: 'MigrationWave',
-          empireId: order.empireId,
-          systemId: order.systemId,
-          departed,
-          arrived,
-          lost,
-          tick,
-        };
-        events.push(waveEvent);
-      }
+      const waveEvent: MigrationWaveEvent = {
+        type: 'MigrationWave',
+        empireId: order.empireId,
+        systemId: order.systemId,
+        departed,
+        arrived,
+        lost,
+        tick,
+      };
+      events.push(waveEvent);
     }
 
     // Emit ColonyEstablished when the migration completes.

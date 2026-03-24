@@ -13,6 +13,7 @@ import {
   canStartMigration,
   startMigration,
   processMigrationTick,
+  TRANSIT_DURATION,
   type MigrationOrder,
 } from '../engine/colony.js';
 import {
@@ -394,19 +395,29 @@ describe('processMigrationTick', () => {
     expect(sourcePop).toBeLessThan(originalPop);
   });
 
-  it('increases target planet population after a wave (minus 10% transit loss)', () => {
+  it('target population increases only after transit delay', () => {
     const system = makeSystem(EMPIRE_ID);
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { order: updatedOrder, system: updatedSystem } = processMigrationTick(order, system);
 
-    const targetPop = updatedSystem.planets.find(p => p.id === 'planet-target')!.currentPopulation;
+    // Dispatch a wave — target should NOT have population yet
+    let result = processMigrationTick(order, system);
+    let targetPop = result.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
+    expect(targetPop).toBe(0); // still in transit
+
+    // Wave should be in transit
+    expect(result.order.transitWaves?.length).toBeGreaterThan(0);
+
+    // Tick through transit duration — colonists arrive after TRANSIT_DURATION ticks
+    let current = result;
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      current = processMigrationTick(current.order, current.system);
+    }
+    targetPop = current.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
     expect(targetPop).toBeGreaterThan(0);
-    // arrived = departed - floor(departed * 0.1)
-    expect(updatedOrder.arrivedPopulation).toBeGreaterThan(0);
+    expect(current.order.arrivedPopulation).toBeGreaterThan(0);
   });
 
   it('applies a 10% transit loss (rounded down)', () => {
-    // Use a small source population to get a deterministic wave size.
     const smallSourcePop = 100;
     const system: StarSystem = {
       ...makeSystem(EMPIRE_ID),
@@ -415,17 +426,24 @@ describe('processMigrationTick', () => {
       ),
     };
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { order: updated, system: updatedSystem } = processMigrationTick(order, system);
 
-    const targetPop = updatedSystem.planets.find(p => p.id === 'planet-target')!.currentPopulation;
-    const sourcePop = updatedSystem.planets.find(p => p.id === 'planet-source')!.currentPopulation;
+    // Dispatch wave
+    let result = processMigrationTick(order, system);
+    const sourcePop = result.system.planets.find(p => p.id === 'planet-source')!.currentPopulation;
     const departed = smallSourcePop - sourcePop;
-
-    // Transit loss = floor(departed * 0.1)
     const expectedLost = Math.floor(departed * 0.1);
     const expectedArrived = departed - expectedLost;
+
+    // Transit wave should carry the survivors
+    expect(result.order.transitWaves?.[0]?.population).toBe(expectedArrived);
+
+    // Tick through transit delay so they arrive
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    const targetPop = result.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
     expect(targetPop).toBe(expectedArrived);
-    expect(updated.arrivedPopulation).toBe(expectedArrived);
+    expect(result.order.arrivedPopulation).toBe(expectedArrived);
   });
 
   it('resets ticksToNextWave to wavePeriod after a wave', () => {
@@ -435,13 +453,19 @@ describe('processMigrationTick', () => {
     expect(updated.ticksToNextWave).toBe(3);
   });
 
-  it('sets ownerId on the target planet when the first wave arrives', () => {
+  it('sets ownerId on the target planet when the first wave arrives after transit', () => {
     const system = makeSystem(EMPIRE_ID);
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { system: updated } = processMigrationTick(order, system);
 
-    const target = updated.planets.find(p => p.id === 'planet-target')!;
-    expect(target.ownerId).toBe(EMPIRE_ID);
+    // Dispatch wave — target unowned during transit
+    let result = processMigrationTick(order, system);
+    expect(result.system.planets.find(p => p.id === 'planet-target')!.ownerId).toBeNull();
+
+    // Tick through transit
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    expect(result.system.planets.find(p => p.id === 'planet-target')!.ownerId).toBe(EMPIRE_ID);
   });
 
   it('does not change ownerId if it was already set by an earlier wave', () => {
@@ -459,15 +483,21 @@ describe('processMigrationTick', () => {
     expect(target.ownerId).toBe(EMPIRE_ID);
   });
 
-  it('changes status to "established" when arrivedPopulation reaches threshold', () => {
+  it('changes status to "established" when arrivedPopulation reaches threshold after transit', () => {
     const system = makeSystem(EMPIRE_ID);
-    // Pre-set arrivedPopulation just below threshold so the next wave pushes it over.
-    // With a 5M source, wave size is capped at 3 (max wave) → arrived ≈ 2–3.
-    // Set arrivedPopulation = threshold - 1 to guarantee establishment.
+    // Pre-set arrivedPopulation just below threshold. A wave of 3 (arrived ~2-3) in transit
+    // will push it over once it arrives.
     const order = makeOrder({ ticksToNextWave: 0, arrivedPopulation: 49 });
-    const { order: updated } = processMigrationTick(order, system);
 
-    expect(updated.status).toBe('established');
+    // Dispatch wave
+    let result = processMigrationTick(order, system);
+    expect(result.order.status).toBe('migrating'); // still in transit
+
+    // Tick through transit
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    expect(result.order.status).toBe('established');
   });
 
   it('stays "migrating" when arrivedPopulation is below threshold', () => {
@@ -724,11 +754,12 @@ describe('Integration: migration completes over multiple game ticks', () => {
 
     expect(waveEvents.length).toBeGreaterThan(0);
     // Each wave event should have sensible values.
+    // Note: departed and arrived may be on different ticks due to transit delay,
+    // so departed !== arrived + lost in a single event.
     for (const wv of waveEvents) {
-      expect(wv.departed).toBeGreaterThan(0);
+      expect(wv.departed).toBeGreaterThanOrEqual(0);
       expect(wv.arrived).toBeGreaterThanOrEqual(0);
       expect(wv.lost).toBeGreaterThanOrEqual(0);
-      expect(wv.departed).toBe(wv.arrived + wv.lost);
     }
   });
 });

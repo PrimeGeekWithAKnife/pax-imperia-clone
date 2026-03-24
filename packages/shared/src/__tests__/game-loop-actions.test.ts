@@ -520,12 +520,18 @@ describe('processGameTick — multiple actions', () => {
     ts = submitAction(ts, empireId, speedAction);
     ts = submitAction(ts, empireId, coloniseAction);
 
-    const { newState } = processGameTick(ts);
-
-    // Speed changed.
+    // First tick processes both actions — speed change is immediate, colonisation starts.
+    let { newState } = processGameTick(ts);
     expect(newState.gameState.speed).toBe('fastest');
+    // Migration order should be active.
+    expect(newState.migrationOrders.length).toBeGreaterThan(0);
 
-    // Planet colonised.
+    // Tick enough times for colonists to transit and arrive.
+    for (let i = 0; i < 10; i++) {
+      ({ newState } = processGameTick(newState));
+    }
+
+    // Planet should now be colonised.
     const planet = newState.gameState.galaxy.systems
       .flatMap(s => s.planets)
       .find(p => p.id === targetPlanetId)!;
