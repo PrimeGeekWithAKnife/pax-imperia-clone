@@ -153,6 +153,50 @@ export interface ProductionItem {
   turnsRemaining: number;
 }
 
+// ── Galaxy shape metadata (rendering hints from generation) ─────────────────
+
+export interface SpiralGalaxyMetadata {
+  shape: 'spiral';
+  armCount: number;
+  /** Starting angle offset for each arm (radians). Length === armCount. */
+  armAngles: number[];
+  /** Logarithmic spiral tightness parameter (higher = tighter winding). */
+  spiralTightness: number;
+  /** Arm angular half-width at the galaxy edge (radians). */
+  armSpread: number;
+  /** Galactic bulge radius as fraction of max radius (0–1). */
+  bulgeRadiusFraction: number;
+  /** Spiral 'a' parameter — radius at which arms begin. */
+  spiralA: number;
+  centreX: number;
+  centreY: number;
+}
+
+export interface EllipticalGalaxyMetadata {
+  shape: 'elliptical';
+  centreX: number;
+  centreY: number;
+}
+
+export interface RingGalaxyMetadata {
+  shape: 'ring';
+  centreX: number;
+  centreY: number;
+  innerRadiusFraction: number;
+  outerRadiusFraction: number;
+}
+
+export interface IrregularGalaxyMetadata {
+  shape: 'irregular';
+  clusterCentres: Array<{ x: number; y: number }>;
+}
+
+export type GalaxyShapeMetadata =
+  | SpiralGalaxyMetadata
+  | EllipticalGalaxyMetadata
+  | RingGalaxyMetadata
+  | IrregularGalaxyMetadata;
+
 export interface Galaxy {
   id: string;
   systems: StarSystem[];
@@ -161,4 +205,6 @@ export interface Galaxy {
   width: number;
   height: number;
   seed: number;
+  /** Shape-specific rendering hints computed at generation time. */
+  shapeMetadata?: GalaxyShapeMetadata;
 }

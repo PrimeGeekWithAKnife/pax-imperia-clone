@@ -125,8 +125,16 @@ export function FleetScreen({ onClose }: FleetScreenProps): React.ReactElement {
   const engine = getGameEngine();
   const state = engine?.getState();
   const galaxy = state?.gameState.galaxy ?? null;
-  const allFleets: Fleet[] = state?.gameState.fleets ?? [];
-  const allShips: Ship[] = state?.gameState.ships ?? [];
+  const playerEmpire = state?.gameState.empires.find(e => !e.isAI) ?? null;
+  const allFleets: Fleet[] = useMemo(
+    () => (state?.gameState.fleets ?? []).filter(f => f.empireId === playerEmpire?.id),
+    [state, playerEmpire],
+  );
+  const playerFleetIds = useMemo(() => new Set(allFleets.map(f => f.id)), [allFleets]);
+  const allShips: Ship[] = useMemo(
+    () => (state?.gameState.ships ?? []).filter(s => s.fleetId !== null && playerFleetIds.has(s.fleetId)),
+    [state, playerFleetIds],
+  );
   const movementOrders = state?.movementOrders ?? [];
 
   // Derive available designs from ship designs map

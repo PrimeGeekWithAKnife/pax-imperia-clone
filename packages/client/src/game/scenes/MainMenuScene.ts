@@ -30,6 +30,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.start('GalaxyMapScene', { setupData: data });
   };
 
+  /** React emits this after creating a GameEngine from a loaded save. */
+  private onLoadSave = (): void => {
+    console.log('[MainMenuScene] game:load_save received – launching galaxy map from save');
+    this.scene.start('GalaxyMapScene');
+  };
+
   private onMusicTrack = (track: unknown): void => {
     this.music?.setTrack(track as MusicTrack);
   };
@@ -46,11 +52,13 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Remove any stale listener from a previous create() before re-registering.
     this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.off('game:load_save', this.onLoadSave);
     this.game.events.off('music:set_track', this.onMusicTrack);
 
     // React emits 'game:start_with_config' with species + galaxy config when
     // the player confirms in the game setup screen.
     this.game.events.on('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.on('game:load_save', this.onLoadSave);
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     const engine = getAudioEngine();
@@ -71,6 +79,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Clean up listeners when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+      this.game.events.off('game:load_save', this.onLoadSave);
       this.game.events.off('music:set_track', this.onMusicTrack);
     });
   }

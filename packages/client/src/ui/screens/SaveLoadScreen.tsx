@@ -9,7 +9,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { getSaveManager } from '../../engine/SaveManager.js';
 import type { SaveSlotInfo } from '../../engine/SaveManager.js';
-import { getGameEngine } from '../../engine/GameEngine.js';
+import { getGameEngine, createGameEngine } from '../../engine/GameEngine.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -153,17 +153,33 @@ function LoadTab({ onLoaded }: LoadTabProps): React.ReactElement {
 
   const handleLoad = useCallback(
     (name: string) => {
-      const engine = getGameEngine();
-      if (!engine) {
-        setErrorMsg('No active game engine — cannot load.');
-        return;
-      }
       const tickState = getSaveManager().load(name);
       if (!tickState) {
         setErrorMsg(`Failed to load "${formatSaveName(name)}".`);
         return;
       }
-      engine.loadState(tickState);
+
+      const existingEngine = getGameEngine();
+      if (existingEngine) {
+        // In-game load — push new state into the running engine
+        existingEngine.loadState(tickState);
+      } else {
+        // Loading from main menu — bootstrap a new engine and transition Phaser
+        const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+          | { events: { emit: (e: string) => void } }
+          | undefined;
+        if (!phaserGame) {
+          setErrorMsg('Game not initialised — cannot load.');
+          return;
+        }
+        const engine = createGameEngine(
+          phaserGame as unknown as Parameters<typeof createGameEngine>[0],
+          tickState,
+        );
+        engine.start();
+        phaserGame.events.emit('game:load_save');
+      }
+
       setErrorMsg('');
       onLoaded();
     },

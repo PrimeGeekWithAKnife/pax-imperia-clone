@@ -1293,6 +1293,7 @@ export function App(): React.ReactElement {
   const handleGameLoaded = useCallback(() => {
     setSaveLoadTab(null);
     setIsPaused(false);
+    setGameStarted(true);
   }, []);
 
   const handleExitToMainMenu = useCallback(() => {
@@ -1496,14 +1497,21 @@ export function App(): React.ReactElement {
   }
 
   // Don't render game HUD until a game is actually running
-  // But still allow the settings/pause menu overlay from the main menu
+  // But still allow the settings/pause menu overlay and save/load screen from the main menu
   if (!gameStarted) {
     return (
       <div className="ui-overlay">
-        {isPaused && (
+        {isPaused && !saveLoadTab && (
           <PauseMenu
             onResume={() => setIsPaused(false)}
             onExitToMainMenu={() => setIsPaused(false)}
+          />
+        )}
+        {saveLoadTab && (
+          <SaveLoadScreen
+            initialTab={saveLoadTab}
+            onClose={handleCloseSaveLoad}
+            onLoaded={handleGameLoaded}
           />
         )}
         <Tooltip />

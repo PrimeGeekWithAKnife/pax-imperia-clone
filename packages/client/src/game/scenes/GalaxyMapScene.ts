@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { initializeGame, PREBUILT_SPECIES, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
-import type { Galaxy, StarSystem, StarType, Species, GalaxyShape, AIPersonality, HullClass } from '@nova-imperia/shared';
+import type { Galaxy, SpiralGalaxyMetadata, StarSystem, StarType, Species, GalaxyShape, AIPersonality, HullClass } from '@nova-imperia/shared';
+import { sampleSpiralArm } from '@nova-imperia/shared';
 import { createGameEngine, getGameEngine, destroyGameEngine, initializeTickState } from '../../engine/GameEngine';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
@@ -169,6 +170,8 @@ export class GalaxyMapScene extends Phaser.Scene {
   private uiLayer!: Phaser.GameObjects.Container;
 
   // World sub-layers
+  private armNebulaLayer!: Phaser.GameObjects.Graphics;
+  private blackHoleLayer!: Phaser.GameObjects.Container;
   private wormholeLayer!: Phaser.GameObjects.Graphics;
   private dustLayer!: Phaser.GameObjects.Graphics;
   private starLayer!: Phaser.GameObjects.Container;
@@ -348,10 +351,12 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // World container (world-space: panned + zoomed)
     this.worldContainer = this.add.container(0, 0);
+    this.armNebulaLayer = this.add.graphics();
+    this.blackHoleLayer = this.add.container(0, 0);
     this.dustLayer = this.add.graphics();
     this.wormholeLayer = this.add.graphics();
     this.starLayer = this.add.container(0, 0);
-    this.worldContainer.add([this.dustLayer, this.wormholeLayer, this.starLayer]);
+    this.worldContainer.add([this.armNebulaLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer]);
 
     // UI (screen-space, on top of everything)
     this.uiLayer = this.add.container(0, 0);
@@ -359,8 +364,10 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Build content — order matters for layering
     this.createDeepBackground();   // Layer 0: dim distant stars + deep nebulae
     this.createMidStars();         // Layer 1: mid-distance stars with twinkle
-    this.createNebulaWisps();      // Layer 2: nebula cloud wisps
-    this.createSpaceDust();        // World-space: fine dust near star systems
+    this.createNebulaWisps();      // Layer 2: nebula cloud wisps (reduced for spiral)
+    this.createArmNebulae();       // World-space: spiral arm nebula dust
+    this.createGalacticCentre();   // World-space: black hole + accretion disk
+    this.createSpaceDust();        // World-space: fine dust near star systems + arms
     this.drawWormholes(null);      // World-space: connection lines
     this.createStars();            // World-space: actual star systems
     this.createSelectionRing();
@@ -452,6 +459,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.updateParallax();
     this.updateWormholeParticles(delta);
     this.updateTransitDots(time, delta);
+    this.updateAccretionDisk(delta);
     this.emitViewport();
   }
 
@@ -652,6 +660,23 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.bgLayer.add(gfx);
       this.nebulaWisps.push({ gfx, baseX: bx, baseY: by, layer: 0 });
     }
+
+    // Subtle radial vignette — darker edges draw the eye to the galaxy centre
+    const vignette = this.add.graphics();
+    const edgeAlpha = 0.25;
+    // Draw concentric rectangles with increasing alpha
+    for (let ring = 0; ring < 8; ring++) {
+      const t = ring / 8;
+      const inset = W * 0.4 * (1 - t);
+      const a = edgeAlpha * t * t; // quadratic falloff
+      vignette.fillStyle(0x000000, a);
+      // Fill the border ring between this rect and the next
+      vignette.fillRect(0, 0, W, inset);                    // top
+      vignette.fillRect(0, H - inset, W, inset);            // bottom
+      vignette.fillRect(0, inset, inset, H - 2 * inset);    // left
+      vignette.fillRect(W - inset, inset, inset, H - 2 * inset); // right
+    }
+    this.bgLayer.add(vignette);
   }
 
   // ── Layer 1: Mid-distance stars ───────────────────────────────────────────────
@@ -729,7 +754,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       0x1a0a20, // dark violet
     ];
 
-    const wispCount = Phaser.Math.Between(5, 8);
+    // Fewer screen-space wisps for spiral galaxies (arm nebulae handle the structure)
+    const isSpiral = this.galaxy.shapeMetadata?.shape === 'spiral';
+    const wispCount = isSpiral ? Phaser.Math.Between(3, 5) : Phaser.Math.Between(5, 8);
     for (let i = 0; i < wispCount; i++) {
       const gfx = this.add.graphics();
 
@@ -787,6 +814,156 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.dustLayer.fillCircle(px, py, radius);
       }
     }
+
+    // ── Arm-following dust (visible regardless of fog-of-war) ────────────────
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape === 'spiral') {
+      const maxR = Math.min(this.galaxy.width, this.galaxy.height) / 2 * 0.92;
+      const dustColours = [0x332211, 0x221133, 0x1a1a2e, 0x2a1a0a];
+
+      for (let arm = 0; arm < meta.armCount; arm++) {
+        const pts = sampleSpiralArm(
+          meta.armAngles[arm]!, meta.spiralA, meta.spiralTightness,
+          meta.centreX, meta.centreY, maxR, 16,
+        );
+        for (const pt of pts) {
+          const spread = 25 + pt.t * 20;
+          const count = 15 + Math.floor(pt.t * 15);
+          for (let i = 0; i < count; i++) {
+            const r = Math.pow(Math.random(), 0.5) * spread;
+            const a = Math.random() * Math.PI * 2;
+            const px = pt.x + Math.cos(a) * r;
+            const py = pt.y + Math.sin(a) * r;
+            const alpha = (1 - r / spread) * Phaser.Math.FloatBetween(0.02, 0.06);
+            const col = dustColours[Math.floor(Math.random() * dustColours.length)]!;
+            this.dustLayer.fillStyle(col, alpha);
+            this.dustLayer.fillCircle(px, py, Phaser.Math.FloatBetween(0.4, 1.2));
+          }
+        }
+      }
+    }
+  }
+
+  // ── Arm-following nebulae (world-space) ──────────────────────────────────────
+
+  private createArmNebulae(): void {
+    this.armNebulaLayer.clear();
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape !== 'spiral') return;
+
+    const maxR = Math.min(this.galaxy.width, this.galaxy.height) / 2 * 0.92;
+
+    // Alternate cool and warm nebula tints per arm
+    const coolPalette = [0x0a1a3a, 0x10083a, 0x060a30, 0x0a0a2a];
+    const warmPalette = [0x200010, 0x1a0a20, 0x180820, 0x2a1005];
+
+    for (let arm = 0; arm < meta.armCount; arm++) {
+      const palette = arm % 2 === 0 ? coolPalette : warmPalette;
+      const pts = sampleSpiralArm(
+        meta.armAngles[arm]!, meta.spiralA, meta.spiralTightness,
+        meta.centreX, meta.centreY, maxR, 10,
+      );
+
+      for (const pt of pts) {
+        const color = palette[Math.floor(Math.random() * palette.length)]!;
+        // Size increases with distance from centre (outer arms are fuzzier)
+        const baseSize = 40 + pt.t * 80;
+        const ellipseCount = Phaser.Math.Between(3, 5);
+
+        for (let e = 0; e < ellipseCount; e++) {
+          const ew = baseSize * Phaser.Math.FloatBetween(0.6, 1.4);
+          const eh = baseSize * Phaser.Math.FloatBetween(0.3, 0.7);
+          const offsetX = Phaser.Math.FloatBetween(-baseSize * 0.3, baseSize * 0.3);
+          const offsetY = Phaser.Math.FloatBetween(-baseSize * 0.2, baseSize * 0.2);
+          const ellipseAlpha = Phaser.Math.FloatBetween(0.015, 0.045);
+
+          this.armNebulaLayer.fillStyle(color, ellipseAlpha);
+          this.armNebulaLayer.save();
+          this.armNebulaLayer.translateCanvas(pt.x + offsetX, pt.y + offsetY);
+          // Rotate to roughly follow arm tangent
+          this.armNebulaLayer.rotateCanvas(pt.angle + e * 0.25);
+          this.armNebulaLayer.fillEllipse(0, 0, ew, eh);
+          this.armNebulaLayer.restore();
+        }
+      }
+    }
+
+    // Central galactic bulge glow
+    const bulgeR = meta.bulgeRadiusFraction * maxR;
+    const bulgeColours = [0x1a1020, 0x0a0a1a, 0x100818];
+    for (let i = 0; i < 5; i++) {
+      const r = bulgeR * (1 - i * 0.15);
+      const col = bulgeColours[i % bulgeColours.length]!;
+      this.armNebulaLayer.fillStyle(col, 0.03 + i * 0.008);
+      this.armNebulaLayer.fillCircle(meta.centreX, meta.centreY, r);
+    }
+  }
+
+  // ── Galactic centre: black hole + accretion disk ────────────────────────────
+
+  private createGalacticCentre(): void {
+    // Clear previous children
+    this.blackHoleLayer.removeAll(true);
+
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape !== 'spiral') return;
+
+    // Position the container at the galaxy centre so rotation spins in place
+    this.blackHoleLayer.setPosition(meta.centreX, meta.centreY);
+
+    // All children drawn at local origin (0,0) relative to container
+
+    // ── Accretion disk outer glow (diffuse warm halo) ───────────────────────
+    const outerGlow = this.add.graphics();
+    const glowRadii = [80, 60, 45, 35];
+    const glowAlphas = [0.015, 0.025, 0.035, 0.045];
+    const glowColours = [0xff8800, 0xffaa33, 0xffd080, 0xffeedd];
+    for (let i = 0; i < glowRadii.length; i++) {
+      outerGlow.fillStyle(glowColours[i]!, glowAlphas[i]!);
+      outerGlow.fillCircle(0, 0, glowRadii[i]!);
+    }
+    this.blackHoleLayer.add(outerGlow);
+
+    // ── Accretion disk ring (bright stroked circle) ─────────────────────────
+    const diskRing = this.add.graphics();
+    diskRing.lineStyle(4, 0xfff8e0, 0.35);
+    diskRing.strokeCircle(0, 0, 22);
+    diskRing.lineStyle(2, 0xffddaa, 0.25);
+    diskRing.strokeCircle(0, 0, 18);
+    this.blackHoleLayer.add(diskRing);
+
+    // Pulse the disk ring
+    this.tweens.add({
+      targets: diskRing,
+      alpha: { from: 0.7, to: 1.0 },
+      duration: 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // ── Event horizon glow ring (thin, intense) ─────────────────────────────
+    const horizonRing = this.add.graphics();
+    horizonRing.lineStyle(2, 0xeeeeff, 0.5);
+    horizonRing.strokeCircle(0, 0, 12);
+    horizonRing.lineStyle(1, 0xffffff, 0.3);
+    horizonRing.strokeCircle(0, 0, 13);
+    this.blackHoleLayer.add(horizonRing);
+
+    // ── Pitch-black centre (event horizon) ──────────────────────────────────
+    const blackHole = this.add.circle(0, 0, 10, 0x000000, 1.0);
+    this.blackHoleLayer.add(blackHole);
+  }
+
+  // ── Accretion disk animation ────────────────────────────────────────────────
+
+  private updateAccretionDisk(_delta: number): void {
+    // No-op if not spiral or no children
+    if (this.blackHoleLayer.length === 0) return;
+
+    // Slow rotation of the entire black hole layer
+    const rotSpeed = 0.0003; // rad/s — very subtle
+    this.blackHoleLayer.rotation += rotSpeed * _delta;
   }
 
   // ── Parallax update ───────────────────────────────────────────────────────────
