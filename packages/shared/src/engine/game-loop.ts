@@ -637,6 +637,7 @@ function stepFleetMovement(
   const tick = state.gameState.currentTick;
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
+  let empires = [...state.gameState.empires];
   const remainingOrders: FleetMovementOrder[] = [];
   const newPendingCombats: CombatPending[] = [...state.pendingCombats];
 
@@ -672,6 +673,16 @@ function stepFleetMovement(
         tick,
       };
       events.push(movedEvent);
+
+      // Add the arrived system to the empire's known systems (fog of war reveal)
+      const empireForDiscovery = empires.find(e => e.id === fleet.empireId);
+      if (empireForDiscovery && !empireForDiscovery.knownSystems.includes(arrivedSystemId)) {
+        empires = empires.map(e =>
+          e.id === fleet.empireId
+            ? { ...e, knownSystems: [...e.knownSystems, arrivedSystemId] }
+            : e,
+        );
+      }
 
       // Check if there are enemy fleets in the arrived system
       const empireId = fleet.empireId;
@@ -718,6 +729,7 @@ function stepFleetMovement(
     pendingCombats: newPendingCombats,
     gameState: {
       ...state.gameState,
+      empires,
       fleets,
       ships,
     },

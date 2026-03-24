@@ -348,6 +348,11 @@ export class SystemViewScene extends Phaser.Scene {
       this.cameraOffset.x = pointer.x + (this.cameraOffset.x - pointer.x) * ratio;
       this.cameraOffset.y = pointer.y + (this.cameraOffset.y - pointer.y) * ratio;
     });
+
+    // Prevent browser zoom (Ctrl+scroll) from firing alongside game zoom
+    this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   private _applyWorldTransform(): void {

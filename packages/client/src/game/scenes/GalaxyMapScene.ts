@@ -1636,6 +1636,11 @@ export class GalaxyMapScene extends Phaser.Scene {
         MAX_ZOOM,
       );
     });
+
+    // Prevent browser zoom (Ctrl+scroll) from firing alongside game zoom
+    this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   // ── Zoom lerp ─────────────────────────────────────────────────────────────────
@@ -2088,15 +2093,25 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   private _handleEngineTick = (): void => {
+    // Refresh known systems from the engine (fog of war reveal on fleet arrival)
+    const engine = getGameEngine();
+    if (engine) {
+      const playerEmpire = engine.getState().gameState.empires.find(e => !e.isAI);
+      if (playerEmpire) {
+        for (const sysId of playerEmpire.knownSystems) {
+          this.knownSystemIds.add(sysId);
+        }
+      }
+    }
     this._renderFleetBadges();
     this._syncTransitDots();
   };
 
   private _handleFleetMoved = (event: unknown): void => {
-    const evt = event as { fleet?: { position?: { systemId?: string } } };
-    const systemId = evt?.fleet?.position?.systemId;
-    if (systemId) {
-      this._playArrivalFlash(systemId);
+    // FleetMovedEvent has { fleetId, fromSystemId, toSystemId, tick }
+    const evt = event as { toSystemId?: string };
+    if (evt?.toSystemId) {
+      this._playArrivalFlash(evt.toSystemId);
     }
   };
 
