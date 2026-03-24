@@ -253,21 +253,53 @@ export class GameEngine {
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
 
     // ── Process active migrations and emit wave events ───────────────────────
+    // Each wave gradually moves population: source loses dispatched, target gains survivors.
     const waveEvents = tickMigrations();
     for (const evt of waveEvents) {
+      const mig = evt.migration;
+      const dispatched = evt.colonistsDispatched;
+      const arrived = dispatched - Math.round(dispatched * 0.05); // approx — actual mortality tracked in migration
+
+      // Deduct from source planet, add to target planet (gradual transfer)
+      const systems = this.tickState.gameState.galaxy.systems;
+      const sysIdx = systems.findIndex(s => s.id === mig.systemId);
+      if (sysIdx >= 0) {
+        const sys = systems[sysIdx]!;
+        const updatedPlanets = sys.planets.map(p => {
+          if (p.id === mig.sourcePlanetId) {
+            // Source loses dispatched colonists
+            return { ...p, currentPopulation: Math.max(0, p.currentPopulation - dispatched) };
+          }
+          if (p.id === mig.targetPlanetId && p.ownerId === mig.empireId) {
+            // Target gains survivors (only if already colonised)
+            return { ...p, currentPopulation: p.currentPopulation + arrived };
+          }
+          return p;
+        });
+        const updatedSystems = [...systems];
+        updatedSystems[sysIdx] = { ...sys, planets: updatedPlanets };
+        this.tickState = {
+          ...this.tickState,
+          gameState: {
+            ...this.tickState.gameState,
+            galaxy: { ...this.tickState.gameState.galaxy, systems: updatedSystems },
+          },
+        };
+      }
+
       this.game.events.emit('engine:migration_wave', {
-        migration: evt.migration,
+        migration: mig,
         waveNumber: evt.waveNumber,
-        colonistsDispatched: evt.colonistsDispatched,
+        colonistsDispatched: dispatched,
       });
-      if (evt.migration.status === 'completed') {
-        // Automatically establish the colony once the threshold is reached
-        this.colonisePlanet(
-          evt.migration.systemId,
-          evt.migration.targetPlanetId,
-          evt.migration.empireId,
-        );
-        this.game.events.emit('engine:migration_completed', evt.migration);
+      if (mig.status === 'completed') {
+        // If target planet isn't colonised yet (first migration), establish the colony
+        const targetSys = this.tickState.gameState.galaxy.systems.find(s => s.id === mig.systemId);
+        const targetPlanet = targetSys?.planets.find(p => p.id === mig.targetPlanetId);
+        if (targetPlanet && targetPlanet.ownerId === null) {
+          this.colonisePlanet(mig.systemId, mig.targetPlanetId, mig.empireId);
+        }
+        this.game.events.emit('engine:migration_completed', mig);
       }
     }
     // Broadcast updated migration list so React stays in sync
