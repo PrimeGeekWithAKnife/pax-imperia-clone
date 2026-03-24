@@ -4,6 +4,37 @@
 Modern web-based real-time 4X space strategy game.
 Monorepo with npm workspaces: `packages/client`, `packages/server`, `packages/shared`.
 
+## Deployment Pipeline
+
+Every fix and feature follows this promotion path:
+
+1. **DEV** → `192.168.1.172:5173` (ex-nihilo-dev, CT 108 on host2)
+   - Deploy here FIRST after every commit
+   - Developer tests here before anything else
+2. **UAT** → `192.168.1.12:5173` (ex-nihilo-uat, CT 109 on pve2)
+   - Promoted from DEV when the developer is satisfied with quality
+3. **PROD** → `192.168.1.9:5173` (ex-nihilo-prod, CT 110 on pve2)
+   - Promoted from UAT after user testing and feedback
+
+### How to deploy
+
+**DEV (.172)** — CT 108 on host2 (192.168.1.3), repo at `/opt/nova-imperia`:
+```
+# Via paramiko (no direct SSH key to .172)
+ssh.connect('192.168.1.3', username='root', password='Roarsome')
+pct exec 108 -- bash -c 'cd /opt/nova-imperia && git fetch origin && git reset --hard origin/<branch> && npm run build && systemctl restart nova-imperia-client nova-imperia-server'
+```
+
+**UAT (.12)** — CT 109 on pve2 (192.168.1.6), repo at `/opt/ex-nihilo`:
+```
+ssh -i ~/.ssh/pve2_key root@192.168.1.6 "pct exec 109 -- bash -c 'cd /opt/ex-nihilo && git fetch origin && git reset --hard origin/<branch> && npm run build && systemctl restart ex-nihilo-client ex-nihilo-server'"
+```
+
+**PROD (.9)** — CT 110 on pve2, same pattern as UAT with CT 110.
+
+Both Proxmox hosts (pve2 at .6, host2 at .3) use credentials root/Roarsome.
+Always `git push` the branch before deploying — containers pull from GitHub.
+
 ## Tech Stack
 - **Language**: TypeScript (strict mode)
 - **Client**: Phaser 3 (game engine) + React (UI overlays) + Vite (build)
