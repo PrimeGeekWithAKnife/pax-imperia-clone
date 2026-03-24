@@ -1275,6 +1275,7 @@ export function App(): React.ReactElement {
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
   const handleStartGame = useCallback((config: GameConfig) => {
     // Reset stale game-session state so the new game starts clean
+    setSaveLoadTab(null);
     setSelectedSystem(null);
     setSelectedPlanet(null);
     setActiveSystemId(null);
@@ -1334,6 +1335,7 @@ export function App(): React.ReactElement {
   const handleExitToMainMenu = useCallback(() => {
     setIsPaused(false);
     setGameStarted(false);
+    setSaveLoadTab(null);
     setCurrentScreen('game');
     // Reset all game-session state so a new game starts fresh
     setSelectedSystem(null);
