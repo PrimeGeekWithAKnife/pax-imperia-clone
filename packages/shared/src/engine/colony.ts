@@ -18,6 +18,11 @@ import {
   HABITABILITY_WEIGHTS,
 } from '../constants/planets.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import {
+  BASE_CONSTRUCTION_RATE,
+  FACTORY_CONSTRUCTION_OUTPUT,
+  BUILDING_LEVEL_MULTIPLIER,
+} from '../constants/resources.js';
 import { generateId } from '../utils/id.js';
 
 // ── Migration interfaces ─────────────────────────────────────────────────────
@@ -1221,6 +1226,27 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
 }
 
 // ── Colony stats aggregation ────────────────────────────────────────────────
+
+/**
+ * Calculate the construction points generated per tick on a planet.
+ * Base rate + factory output (scaled by level and species construction trait).
+ */
+export function getPlanetConstructionRate(
+  planet: Planet,
+  species: Species,
+  governmentConstructionSpeed = 1.0,
+): number {
+  const speciesConstructionFactor = species.traits.construction / 5;
+  let factoryOutput = 0;
+  for (const building of planet.buildings) {
+    if (building.type === 'factory') {
+      factoryOutput += FACTORY_CONSTRUCTION_OUTPUT
+        * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1)
+        * speciesConstructionFactor;
+    }
+  }
+  return (BASE_CONSTRUCTION_RATE + factoryOutput) * governmentConstructionSpeed;
+}
 
 /**
  * Computes a summary of a colony's current state in a single call.

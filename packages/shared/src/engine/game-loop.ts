@@ -49,6 +49,11 @@ import type {
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
+  BASE_CONSTRUCTION_RATE,
+  FACTORY_CONSTRUCTION_OUTPUT,
+  BUILDING_LEVEL_MULTIPLIER,
+} from '../constants/resources.js';
+import {
   calculateEmpireProduction,
   calculateUpkeep,
   applyResourceTick,
@@ -1285,22 +1290,24 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
       if (planet.productionQueue.length === 0) continue;
       if (planet.ownerId === null) continue;
 
-      // Construction rate: base 1, modified by government + factories on the planet.
-      // Each factory level adds +0.15 to the rate (species construction trait scales this).
+      // Construction points per tick = base + sum(factory outputs), scaled by government.
+      // Each factory generates FACTORY_CONSTRUCTION_OUTPUT per tick at level 1,
+      // scaled by BUILDING_LEVEL_MULTIPLIER per level and species construction trait.
       const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
       const govConstructionMult = empire
         ? (GOVERNMENTS[empire.government]?.modifiers.constructionSpeed ?? 1.0)
         : 1.0;
-
-      // Sum factory contribution: each factory adds 0.15 per level, scaled by species construction trait
-      let factoryBonus = 0;
       const speciesConstructionFactor = empire ? (empire.species.traits.construction / 5) : 1.0;
+
+      let factoryOutput = 0;
       for (const building of planet.buildings) {
         if (building.type === 'factory') {
-          factoryBonus += 0.15 * building.level * speciesConstructionFactor;
+          factoryOutput += FACTORY_CONSTRUCTION_OUTPUT
+            * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1)
+            * speciesConstructionFactor;
         }
       }
-      const constructionRate = govConstructionMult * (1 + factoryBonus);
+      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult;
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {

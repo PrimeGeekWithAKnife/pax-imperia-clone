@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -108,6 +108,14 @@ function getHabitabilityColor(score: number): string {
   if (score >= 70) return '#4a9e5c';
   if (score >= 40) return '#c9852a';
   return '#cc4422';
+}
+
+/** Estimate construction turns from construction point cost using planet's factories. */
+function estimateBuildTurns(planet: Planet, constructionCost: number): number {
+  // Use a default species construction factor of 1.0 (no species data in this scope)
+  const defaultSpecies = { traits: { construction: 5 } } as Parameters<typeof getPlanetConstructionRate>[1];
+  const rate = getPlanetConstructionRate(planet, defaultSpecies);
+  return rate > 0 ? Math.ceil(constructionCost / rate) : Infinity;
 }
 
 /** Rough per-turn production estimate based purely on buildings (no species data in UI layer) */
@@ -324,7 +332,7 @@ function BuildingPicker({
                       />
                     )}
                     <span className="bpicker-item__name" style={{ color: '#667788' }}>{getBuildingDisplayName(type)}</span>
-                    <span className="bpicker-item__turns" style={{ color: '#556677' }}>{def.buildTime} turns</span>
+                    <span className="bpicker-item__turns" style={{ color: '#556677' }}>~{estimateBuildTurns(planet, def.buildTime)} turns</span>
                   </div>
                   <div style={{ color: '#00cccc', fontSize: '11px', fontFamily: 'monospace', padding: '2px 0 4px 0' }}>
                     Requires: {requiredTechName}
@@ -402,7 +410,7 @@ function BuildingPicker({
                       />
                     )}
                     <span className="bpicker-item__name">{getBuildingDisplayName(type)}</span>
-                    <span className="bpicker-item__turns">{def.buildTime} turns</span>
+                    <span className="bpicker-item__turns">~{estimateBuildTurns(planet, def.buildTime)} turns</span>
                   </div>
                   <div className="bpicker-item__desc">{def.description}</div>
                   <div className="bpicker-item__costs">

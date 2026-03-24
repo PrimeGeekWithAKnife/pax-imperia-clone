@@ -7,7 +7,7 @@ export interface BuildingDefinition {
   name: string;
   baseCost: Partial<EmpireResources>;
   baseProduction: Partial<ResourceProduction>;
-  /** Number of days to complete construction (1 tick = 1 day) */
+  /** Construction point cost — factories generate points to complete this. */
   buildTime: number;
   maintenanceCost: Partial<ResourceProduction>;
   /** Energy draw per tick — every building consumes energy */
