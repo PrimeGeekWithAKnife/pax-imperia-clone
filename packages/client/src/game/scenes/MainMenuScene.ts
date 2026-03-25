@@ -27,12 +27,18 @@ export class MainMenuScene extends Phaser.Scene {
 
   private onGameStartWithConfig = (data: { species: unknown; config: unknown }): void => {
     console.log('[MainMenuScene] game:start_with_config received – launching galaxy map', data);
+    // Remove listener immediately to prevent stale re-fires during gameplay
+    this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.off('game:load_save', this.onLoadSave);
     this.scene.start('GalaxyMapScene', { setupData: data });
   };
 
   /** React emits this after creating a GameEngine from a loaded save. */
   private onLoadSave = (): void => {
     console.log('[MainMenuScene] game:load_save received – launching galaxy map from save');
+    // Remove listener immediately to prevent stale re-fires during gameplay
+    this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.off('game:load_save', this.onLoadSave);
     this.scene.start('GalaxyMapScene');
   };
 
