@@ -75,6 +75,9 @@ import {
   addBuildingToQueue,
   canColoniseWithShip,
   coloniseWithShip,
+  canUpgradeBuilding,
+  addUpgradeToQueue,
+  getUpgradeCost,
   TRANSIT_DURATION,
   type MigrationOrder,
 } from './colony.js';
@@ -599,6 +602,68 @@ function processPlayerActions(
 
         const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs);
         systems = replacePlanet(systems, updatedPlanet);
+
+      // ── UpgradeBuilding ───────────────────────────────────────────────────
+      } else if (action.type === 'UpgradeBuilding') {
+        const { systemId, planetId, buildingId } = action;
+
+        const systemData = systems.find(s => s.id === systemId);
+        if (!systemData) {
+          console.warn(`[game-loop] UpgradeBuilding references unknown system "${systemId}" — skipping`);
+          continue;
+        }
+
+        const planet = systemData.planets.find(p => p.id === planetId);
+        if (!planet) {
+          console.warn(`[game-loop] UpgradeBuilding references unknown planet "${planetId}" — skipping`);
+          continue;
+        }
+
+        if (planet.ownerId !== empireId) {
+          console.warn(`[game-loop] UpgradeBuilding rejected — empire "${empireId}" does not own planet "${planetId}"`);
+          continue;
+        }
+
+        const empire = state.gameState.empires.find(e => e.id === empireId);
+        const currentAge = empire?.currentAge ?? 'nano_atomic';
+
+        const upgradeCheck = canUpgradeBuilding(planet, buildingId, currentAge);
+        if (!upgradeCheck.allowed) {
+          console.warn(`[game-loop] UpgradeBuilding rejected for building "${buildingId}": ${upgradeCheck.reason}`);
+          continue;
+        }
+
+        const building = planet.buildings.find(b => b.id === buildingId)!;
+        const upgradeCost = getUpgradeCost(building.type, building.level);
+
+        // Check affordability first (all resources must be available)
+        const res = getEmpireResources(state, empireId);
+        let canAfford = true;
+        for (const [key, amount] of Object.entries(upgradeCost)) {
+          if (amount && amount > 0) {
+            if ((res[key as keyof EmpireResources] ?? 0) < amount) {
+              console.warn(`[game-loop] UpgradeBuilding rejected — cannot afford ${key}: need ${amount}, have ${res[key as keyof EmpireResources]}`);
+              canAfford = false;
+              break;
+            }
+          }
+        }
+        if (!canAfford) continue;
+
+        // Deduct costs
+        for (const [key, amount] of Object.entries(upgradeCost)) {
+          if (amount && amount > 0) {
+            res[key as keyof EmpireResources] -= amount;
+          }
+        }
+        state = applyResources(state, empireId, res);
+        systems = state.gameState.galaxy.systems;
+
+        // Queue the upgrade
+        const updatedSystem = systems.find(s => s.id === systemId)!;
+        const updatedPlanet2 = updatedSystem.planets.find(p => p.id === planetId)!;
+        const planetWithUpgrade = addUpgradeToQueue(updatedPlanet2, buildingId, currentAge);
+        systems = replacePlanet(systems, planetWithUpgrade);
 
       // ── SetGameSpeed ─────────────────────────────────────────────────────
       } else if (action.type === 'SetGameSpeed') {

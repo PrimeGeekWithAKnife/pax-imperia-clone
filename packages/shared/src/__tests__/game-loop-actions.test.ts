@@ -31,7 +31,8 @@ function withMinerals(tickState: GameTickState, empireId: string, minerals: numb
 import type { Species } from '../types/species.js';
 import type { GameState } from '../types/game-state.js';
 import type { Planet, StarSystem } from '../types/galaxy.js';
-import type { ColonisePlanetAction, ConstructBuildingAction, SetGameSpeedAction } from '../types/events.js';
+import type { ColonisePlanetAction, ConstructBuildingAction, SetGameSpeedAction, UpgradeBuildingAction } from '../types/events.js';
+import { getUpgradeCost } from '../engine/colony.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -685,5 +686,95 @@ describe('processGameTick — invalid actions do not crash the tick', () => {
     const { newState } = processGameTick(tsWithBadAction);
     // Tick counter should have advanced normally.
     expect(newState.gameState.currentTick).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UpgradeBuilding action
+// ---------------------------------------------------------------------------
+
+describe('processGameTick — UpgradeBuilding action', () => {
+  it('adds an upgrade to the planet production queue', () => {
+    const gs = makeGameState();
+    const empire = gs.empires[0]!;
+    const homeSystem = gs.galaxy.systems.find(s => s.ownerId === empire.id)!;
+    const homePlanet = homeSystem.planets.find(p => p.ownerId === empire.id)!;
+
+    const building = homePlanet.buildings[0];
+    expect(building).toBeDefined();
+
+    // Advance empire to fusion age so upgrades are allowed
+    empire.currentAge = 'fusion';
+
+    const ts = initializeTickState(gs);
+
+    // Ensure empire has enough resources
+    const upgradeCost = getUpgradeCost(building!.type, building!.level);
+    const existingRes = ts.empireResourcesMap.get(empire.id)!;
+    const boostedRes = { ...existingRes };
+    for (const [key, amount] of Object.entries(upgradeCost)) {
+      (boostedRes as Record<string, number>)[key] = ((boostedRes as Record<string, number>)[key] ?? 0) + (amount ?? 0) + 1000;
+    }
+    const boostedMap = new Map(ts.empireResourcesMap);
+    boostedMap.set(empire.id, boostedRes);
+    const tsWithResources = { ...ts, empireResourcesMap: boostedMap };
+
+    const action: UpgradeBuildingAction = {
+      type: 'UpgradeBuilding',
+      systemId: homeSystem.id,
+      planetId: homePlanet.id,
+      buildingId: building!.id,
+    };
+
+    const tsWithAction = submitAction(tsWithResources, empire.id, action);
+    const { newState } = processGameTick(tsWithAction);
+
+    const updatedPlanet = newState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .find(p => p.id === homePlanet.id)!;
+
+    const hasUpgradeInQueue = updatedPlanet.productionQueue.some(
+      item => item.type === 'building_upgrade' && item.targetBuildingId === building!.id,
+    );
+    const buildingNow = updatedPlanet.buildings.find(b => b.id === building!.id);
+    const levelIncreased = buildingNow && buildingNow.level > building!.level;
+
+    expect(hasUpgradeInQueue || levelIncreased).toBe(true);
+  });
+
+  it('rejects upgrade when the empire does not own the planet', () => {
+    const gs = makeGameState();
+    const empireA = gs.empires[0]!;
+    const empireB = gs.empires[1]!;
+
+    empireA.currentAge = 'fusion';
+
+    const systemB = gs.galaxy.systems.find(s => s.ownerId === empireB.id)!;
+    const planetB = systemB.planets.find(p => p.ownerId === empireB.id)!;
+    const building = planetB.buildings[0];
+    expect(building).toBeDefined();
+
+    const ts = initializeTickState(gs);
+    const action: UpgradeBuildingAction = {
+      type: 'UpgradeBuilding',
+      systemId: systemB.id,
+      planetId: planetB.id,
+      buildingId: building!.id,
+    };
+
+    const tsWithAction = submitAction(ts, empireA.id, action);
+    const { newState } = processGameTick(tsWithAction);
+
+    const updatedPlanet = newState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .find(p => p.id === planetB.id)!;
+
+    const hasUpgradeInQueue = updatedPlanet.productionQueue.some(
+      item => item.type === 'building_upgrade' && item.targetBuildingId === building!.id,
+    );
+    const buildingNow = updatedPlanet.buildings.find(b => b.id === building!.id);
+    const levelIncreased = buildingNow && buildingNow.level > building!.level;
+
+    expect(hasUpgradeInQueue || levelIncreased).toBe(false);
   });
 });
