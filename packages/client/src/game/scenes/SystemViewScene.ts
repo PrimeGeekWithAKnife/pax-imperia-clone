@@ -142,7 +142,7 @@ export class SystemViewScene extends Phaser.Scene {
   create(data: { system: StarSystem }): void {
     if (!data?.system) {
       console.error('[SystemViewScene] No system data provided — returning to galaxy map');
-      this.scene.start('GalaxyMapScene');
+      this.scene.start('GalaxyMapScene', {});
       return;
     }
     this.system = data.system;
@@ -1144,7 +1144,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.sfx?.playClick();
       this.ambient?.stopAll();
       this.music?.crossfadeTo('galaxy');
-      this.scene.start('GalaxyMapScene');
+      this.scene.start('GalaxyMapScene', {});
     });
   }
 
@@ -1162,13 +1162,13 @@ export class SystemViewScene extends Phaser.Scene {
     (window as unknown as Record<string, unknown>).__EX_NIHILO_PENDING_MOVE_MODE__ = fleetId;
     this.ambient?.stopAll();
     this.music?.crossfadeTo('galaxy');
-    this.scene.start('GalaxyMapScene');
+    this.scene.start('GalaxyMapScene', {});
   };
 
   /** Minimap click while in system view — return to galaxy map. */
   private _handleMinimapNavigate = (_data: unknown): void => {
     this.ambient?.stopAll();
     this.music?.crossfadeTo('galaxy');
-    this.scene.start('GalaxyMapScene');
+    this.scene.start('GalaxyMapScene', {});
   };
 }

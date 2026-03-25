@@ -39,7 +39,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Remove listener immediately to prevent stale re-fires during gameplay
     this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
     this.game.events.off('game:load_save', this.onLoadSave);
-    this.scene.start('GalaxyMapScene');
+    this.scene.start('GalaxyMapScene', {});
   };
 
   private onMusicTrack = (track: unknown): void => {
