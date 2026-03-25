@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["nitrogen", "carbon_dioxide", "oxygen_nitrogen", "methane"]
   },
   "specialAbilities": ["subterranean", "hive_mind"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "hive_mind",
+  "allowedGovernments": ["hive_mind"]
 }

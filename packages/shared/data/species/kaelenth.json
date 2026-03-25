@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["vacuum", "none", "nitrogen", "carbon_dioxide"]
   },
   "specialAbilities": ["synthetic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "technocracy",
+  "allowedGovernments": ["technocracy", "hive_mind", "republic"]
 }

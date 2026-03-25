@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen", "carbon_dioxide", "methane", "ammonia"]
   },
   "specialAbilities": ["nanomorphic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "hive_mind",
+  "allowedGovernments": ["hive_mind", "technocracy"]
 }

@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen"]
   },
   "specialAbilities": ["nomadic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "democracy",
+  "allowedGovernments": ["democracy", "republic", "federation", "autocracy", "empire", "theocracy", "oligarchy", "military_junta", "technocracy", "dictatorship", "equality", "tribal_council"]
 }

@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "carbon_dioxide"]
   },
   "specialAbilities": ["aquatic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "tribal_council",
+  "allowedGovernments": ["tribal_council", "autocracy", "military_junta", "empire", "oligarchy"]
 }

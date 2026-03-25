@@ -211,8 +211,12 @@ export function GameSetupScreen({
   const [aiOpponents, setAiOpponents] = useState(3);
   const [seed, setSeed] = useState('');
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('normal');
+  const allowedGovs = useMemo<GovernmentType[]>(
+    () => species.allowedGovernments ?? GOVERNMENT_ORDER,
+    [species],
+  );
   const [selectedGov, setSelectedGov] = useState<GovernmentType>(
-    () => GOVERNMENT_ORDER[0] ?? 'democracy',
+    () => species.defaultGovernment ?? allowedGovs[0] ?? 'democracy',
   );
   const [empireName, setEmpireName] = useState(
     () => `${species.name} Dominion`,
@@ -291,7 +295,7 @@ export function GameSetupScreen({
                 onChange={(e) => setSelectedGov(e.target.value as GovernmentType)}
                 aria-label="Government type"
               >
-                {GOVERNMENT_ORDER.map((govKey) => {
+                {allowedGovs.map((govKey) => {
                   const def = GOVERNMENTS[govKey];
                   return (
                     <option key={govKey} value={govKey}>

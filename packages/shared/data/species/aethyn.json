@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["none", "vacuum", "hydrogen", "ammonia", "toxic"]
   },
   "specialAbilities": ["dimensional"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "technocracy",
+  "allowedGovernments": ["technocracy", "equality", "federation"]
 }
