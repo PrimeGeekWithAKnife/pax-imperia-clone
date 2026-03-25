@@ -22,5 +22,5 @@
   "specialAbilities": ["nomadic"],
   "isPrebuilt": true,
   "defaultGovernment": "democracy",
-  "allowedGovernments": ["democracy", "republic", "federation", "autocracy", "empire", "theocracy", "oligarchy", "military_junta", "technocracy", "dictatorship", "equality", "tribal_council"]
+  "allowedGovernments": ["democracy", "republic", "federation", "autocracy", "empire", "theocracy", "oligarchy", "military_junta", "technocracy", "dictatorship", "equality"]
 }
