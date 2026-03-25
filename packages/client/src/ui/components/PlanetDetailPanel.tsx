@@ -302,10 +302,9 @@ export function PlanetDetailPanel({
       | { events: { emit: (e: string, d: unknown) => void } }
       | undefined;
     game?.events.emit('colony:colonise_with_ship', {
-      systemId: systemId ?? '',
-      targetPlanetId: planet.id,
+      fleetId: coloniserShipInSystem.fleetId,
+      planetId: planet.id,
       empireId: playerEmpire.id,
-      shipId: coloniserShipInSystem.id,
     });
   }, [coloniserShipInSystem, planet, playerEmpire, systemId, onColoniseWithShip]);
 

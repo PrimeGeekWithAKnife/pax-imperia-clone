@@ -966,6 +966,29 @@ export class GameEngine {
         this.colonisePlanet(systemId, planetId, empireId);
         break;
       }
+      case 'ColonizePlanet': {
+        // Fleet-based inter-system colonisation via colony ship.
+        // Push onto pendingActions so the shared game loop processes it next tick.
+        const fleetId = action.fleetId as string;
+        const planetId = action.planetId as string;
+        const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+        if (!fleet) {
+          console.warn(`[GameEngine.executeAction] Fleet "${fleetId}" not found for ColonizePlanet`);
+          break;
+        }
+        this.tickState = {
+          ...this.tickState,
+          pendingActions: [
+            ...this.tickState.pendingActions,
+            {
+              empireId: fleet.empireId,
+              action: { type: 'ColonizePlanet' as const, fleetId, planetId },
+              tick: this.tickState.gameState.currentTick,
+            },
+          ],
+        };
+        break;
+      }
       default:
         console.warn(`[GameEngine.executeAction] Unknown action type: ${action.type}`);
         break;
