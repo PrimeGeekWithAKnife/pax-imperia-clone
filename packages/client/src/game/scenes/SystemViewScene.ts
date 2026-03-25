@@ -241,6 +241,10 @@ export class SystemViewScene extends Phaser.Scene {
     this.game.events.on('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
     this.game.events.on('engine:tech_researched', this._handleTechResearchedSfx, this);
 
+    // ── Colonisation landing animation listeners ──────────────────────────
+    this.game.events.on('engine:planet_colonised', this._handlePlanetColonised, this);
+    this.game.events.on('engine:migration_completed', this._handleMigrationCompletedLanding, this);
+
     // Check existing migrations when entering the scene (e.g. loading a save)
     this._syncMigrationAnimations();
 
@@ -273,6 +277,8 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:ship_produced', this._handleShipProducedSfx, this);
       this.game.events.off('engine:planet_updated', this._handlePlanetUpdatedSfx, this);
       this.game.events.off('engine:tech_researched', this._handleTechResearchedSfx, this);
+      this.game.events.off('engine:planet_colonised', this._handlePlanetColonised, this);
+      this.game.events.off('engine:migration_completed', this._handleMigrationCompletedLanding, this);
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
       this.game.events.off('minimap:navigate', this._handleMinimapNavigate, this);
@@ -919,6 +925,105 @@ export class SystemViewScene extends Phaser.Scene {
   private _handleTechResearchedSfx = (): void => {
     this.sfx?.playResearchComplete();
   };
+
+  // ── Colonisation landing animation ─────────────────────────────────────────
+
+  /**
+   * Play a colony ship landing animation when a planet is colonised via the
+   * in-system "Colonise" button or a colony ship action.
+   *
+   * A bright dot descends toward the planet from above and triggers a pulse
+   * on landing.
+   */
+  private _handlePlanetColonised = (data: unknown): void => {
+    const { planetId, systemId } = data as { planetId?: string; systemId?: string };
+    if (!planetId) return;
+
+    // Only animate if this colonisation happened in the system we are viewing
+    if (systemId && systemId !== this.system?.id) return;
+
+    this._playLandingAnimation(planetId);
+  };
+
+  /**
+   * Play the same landing animation when an in-system migration completes,
+   * establishing a new colony on the target planet.
+   */
+  private _handleMigrationCompletedLanding = (data: unknown): void => {
+    const mig = data as MigrationOrder | undefined;
+    if (!mig) return;
+
+    // Only animate if this migration is in the system we are viewing
+    if (mig.systemId !== this.system?.id) return;
+
+    this._playLandingAnimation(mig.targetPlanetId);
+  };
+
+  /**
+   * Animate a colony ship dot descending toward a planet and triggering a
+   * pulse/glow on landing.  All graphics are added to `worldContainer` so
+   * they respect the current zoom and pan.
+   */
+  private _playLandingAnimation(planetId: string): void {
+    const pos = this._getPlanetWorldPos(planetId);
+    if (!pos) return;
+
+    const { x, y } = pos;
+
+    // Colony ship dot — starts 80px above the planet
+    const ship = this.add.circle(x, y - 80, 4, 0x00ffaa, 1);
+    ship.setDepth(200);
+    this.worldContainer.add(ship);
+
+    // Trailing glow that follows the ship
+    const trail = this.add.circle(x, y - 80, 3, 0x00ffaa, 0.5);
+    trail.setDepth(199);
+    this.worldContainer.add(trail);
+
+    // Animate ship descending toward the planet centre
+    this.tweens.add({
+      targets: ship,
+      x,
+      y,
+      scaleX: 0.2,
+      scaleY: 0.2,
+      alpha: 0.8,
+      duration: 1200,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        ship.destroy();
+        trail.destroy();
+
+        // Pulse / glow on landing
+        const pulse = this.add.circle(x, y, 12, 0x00ffaa, 0.6);
+        pulse.setDepth(200);
+        this.worldContainer.add(pulse);
+        this.tweens.add({
+          targets: pulse,
+          scaleX: 3,
+          scaleY: 3,
+          alpha: 0,
+          duration: 800,
+          ease: 'Quad.easeOut',
+          onComplete: () => pulse.destroy(),
+        });
+      },
+    });
+
+    // Trail follows with a slight delay
+    this.tweens.add({
+      targets: trail,
+      x,
+      y,
+      scaleX: 0.1,
+      scaleY: 0.1,
+      alpha: 0,
+      duration: 1200,
+      delay: 100,
+      ease: 'Quad.easeIn',
+      onComplete: () => trail.destroy(),
+    });
+  }
 
   // ── Latest planet helper ─────────────────────────────────────────────────────
 
