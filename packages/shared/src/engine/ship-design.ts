@@ -8,6 +8,8 @@
 
 import type { HullTemplate, ShipComponent, ShipDesign, Ship, ComponentType, SlotPosition } from '../types/ships.js';
 import { generateId } from '../utils/id.js';
+import { TECH_AGES } from '../constants/game.js';
+import { HULL_TEMPLATES } from '../../data/ships/index.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -391,4 +393,49 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
       // No dominant stat for 'special'; fall back to cost as a quality proxy
       return component.cost;
   }
+}
+
+// ---------------------------------------------------------------------------
+// generateDefaultDesigns
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate default ship designs for all hull types available at the given age
+ * that don't already have a design in the provided map.
+ */
+export function generateDefaultDesigns(
+  currentAge: string,
+  empireId: string,
+  existingDesigns: Map<string, ShipDesign>,
+  availableComponents: ShipComponent[],
+): ShipDesign[] {
+  const ageIdx = TECH_AGES.findIndex(a => a.name === currentAge);
+  const newDesigns: ShipDesign[] = [];
+
+  for (const hull of HULL_TEMPLATES) {
+    const hullAgeIdx = TECH_AGES.findIndex(a => a.name === hull.requiredAge);
+    if (hullAgeIdx < 0 || hullAgeIdx > ageIdx) continue;
+
+    // Check if a design already exists for this hull class
+    const alreadyHasDesign = Array.from(existingDesigns.values()).some(
+      d => d.hull === hull.class && d.empireId === empireId,
+    );
+    if (alreadyHasDesign) continue;
+
+    const design = autoEquipDesign(hull, availableComponents);
+    design.id = `default-${hull.class}-${empireId}`;
+    design.name = hull.name;
+    design.empireId = empireId;
+    // Calculate total cost
+    let totalCost = hull.baseCost;
+    for (const comp of design.components) {
+      const compDef = availableComponents.find(c => c.id === comp.componentId);
+      if (compDef) totalCost += compDef.cost;
+    }
+    design.totalCost = totalCost;
+
+    newDesigns.push(design);
+  }
+
+  return newDesigns;
 }
