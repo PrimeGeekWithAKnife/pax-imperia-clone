@@ -141,12 +141,14 @@ export class SaveManager {
       return;
     }
 
+    // Always update timestamp to prevent retry storms on persistent failure
+    this.lastAutoSaveTime = now;
+
     try {
       this._rotateAutoSaves();
       const slotName = `${AUTO_SAVE_PREFIX}1__`;
       // Auto-saves always use compression to minimise quota usage.
       this.save(slotName, tickState, true);
-      this.lastAutoSaveTime = now;
     } catch (err) {
       console.warn('[SaveManager.autoSave] Auto-save failed:', err);
     }
@@ -249,34 +251,36 @@ export class SaveManager {
     } catch (err) {
       if (this._isQuotaExceeded(err)) {
         console.warn(`[SaveManager] QuotaExceededError writing "${saveName}" — freeing auto-save space and retrying`);
-        this._deleteOldestAutoSave();
-        try {
-          localStorage.setItem(key, value);
-        } catch (retryErr) {
-          console.error(`[SaveManager] Failed to write "${saveName}" even after freeing space:`, retryErr);
-          throw retryErr;
+        const freed = this._deleteOldestAutoSave();
+        if (!freed) {
+          console.error(`[SaveManager] Cannot write "${saveName}": localStorage full and no auto-saves to evict`);
+          throw err;
         }
+        // Single retry — if this fails, let it throw
+        localStorage.setItem(key, value);
       } else {
         throw err;
       }
     }
   }
 
-  /** Delete the single oldest auto-save to reclaim space. */
-  private _deleteOldestAutoSave(): void {
+  /** Delete the single oldest auto-save to reclaim space. Returns true if space was freed. */
+  private _deleteOldestAutoSave(): boolean {
     for (let i = MAX_AUTO_SAVES; i >= 1; i--) {
       const slotName = `${AUTO_SAVE_PREFIX}${i}__`;
       const key = SAVE_KEY_PREFIX + slotName;
       if (localStorage.getItem(key) !== null) {
         console.warn(`[SaveManager] Evicting auto-save "${slotName}" to reclaim quota`);
         this.deleteSave(slotName);
-        return;
+        return true;
       }
     }
     // Try legacy slot
     if (localStorage.getItem(SAVE_KEY_PREFIX + '__autosave__') !== null) {
       this.deleteSave('__autosave__');
+      return true;
     }
+    return false;
   }
 
   /** Check if an error is a QuotaExceededError. */
