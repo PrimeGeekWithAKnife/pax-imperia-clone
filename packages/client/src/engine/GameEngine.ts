@@ -44,6 +44,9 @@ import {
   COLONIST_TRANSFER_COUNT,
   addBuildingToQueue,
   demolishBuilding,
+  canUpgradeBuilding,
+  addUpgradeToQueue,
+  getUpgradeCost,
   BUILDING_DEFINITIONS,
   HULL_TEMPLATE_BY_CLASS,
   startShipProduction,
@@ -458,6 +461,101 @@ export class GameEngine {
     // Notify listeners
     this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
 
+    return true;
+  }
+
+  /**
+   * Queue a building upgrade on a planet.
+   *
+   * Validates that:
+   *  - The system and planet exist.
+   *  - The planet has an owning empire.
+   *  - The building can be upgraded (canUpgradeBuilding).
+   *  - The empire can afford the upgrade cost.
+   *
+   * Deducts the upgrade cost from the empire's resource stockpile, adds the
+   * upgrade to the planet's construction queue, and commits new state.
+   *
+   * Emits `engine:planet_updated` with the updated Planet on success.
+   *
+   * @returns true if the upgrade was queued, false otherwise.
+   */
+  upgradeBuildingOnPlanet(systemId: string, planetId: string, buildingId: string): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] System "${systemId}" not found`);
+      return false;
+    }
+
+    const planet = system.planets.find(p => p.id === planetId);
+    if (!planet) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Planet "${planetId}" not found`);
+      return false;
+    }
+
+    const empire = this.tickState.gameState.empires.find(e => e.id === planet.ownerId);
+    if (!empire) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Planet "${planetId}" has no owning empire`);
+      return false;
+    }
+
+    const currentAge = empire.currentAge ?? 'nano_atomic';
+    const upgradeCheck = canUpgradeBuilding(planet, buildingId, currentAge);
+    if (!upgradeCheck.allowed) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Upgrade not allowed: ${upgradeCheck.reason}`);
+      return false;
+    }
+
+    const building = planet.buildings.find(b => b.id === buildingId)!;
+    const upgradeCost = getUpgradeCost(building.type, building.level);
+
+    const currentResources = this.tickState.empireResourcesMap.get(empire.id);
+    if (!currentResources) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] No resource stockpile for empire "${empire.id}"`);
+      return false;
+    }
+    for (const [resource, required] of Object.entries(upgradeCost)) {
+      const available = currentResources[resource as keyof typeof currentResources] ?? 0;
+      if (available < (required ?? 0)) {
+        console.warn(`[GameEngine.upgradeBuildingOnPlanet] Cannot afford upgrade: need ${required} ${resource}, have ${available}`);
+        return false;
+      }
+    }
+
+    const updatedResources = { ...currentResources };
+    for (const [resource, required] of Object.entries(upgradeCost)) {
+      const key = resource as keyof typeof updatedResources;
+      updatedResources[key] = (updatedResources[key] ?? 0) - (required ?? 0);
+    }
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(empire.id, updatedResources);
+
+    const updatedEmpire = {
+      ...empire,
+      credits: updatedResources.credits,
+      researchPoints: updatedResources.researchPoints,
+    };
+
+    const updatedPlanet = addUpgradeToQueue(planet, buildingId, currentAge);
+
+    const updatedSystems = galaxy.systems.map(s => {
+      if (s.id !== systemId) return s;
+      return { ...s, planets: s.planets.map(p => (p.id === planetId ? updatedPlanet : p)) };
+    });
+
+    this.tickState = {
+      ...this.tickState,
+      empireResourcesMap: updatedResourcesMap,
+      gameState: {
+        ...this.tickState.gameState,
+        empires: this.tickState.gameState.empires.map(e => (e.id === empire.id ? updatedEmpire : e)),
+        galaxy: { ...galaxy, systems: updatedSystems },
+      },
+    };
+
+    this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
     return true;
   }
 

@@ -1121,6 +1121,25 @@ export function App(): React.ReactElement {
     [managedSystemId],
   );
 
+  const handleUpgrade = useCallback(
+    (planetId: string, buildingId: string) => {
+      if (!managedSystemId) {
+        console.warn('[App.handleUpgrade] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleUpgrade] GameEngine not available');
+        return;
+      }
+      const success = engine.upgradeBuildingOnPlanet(managedSystemId, planetId, buildingId);
+      if (!success) {
+        console.warn(`[App.handleUpgrade] upgradeBuildingOnPlanet returned false for ${buildingId}`);
+      }
+    },
+    [managedSystemId],
+  );
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
       if (!managedSystemId) {
@@ -1665,6 +1684,8 @@ export function App(): React.ReactElement {
           onCancelQueue={handleCancelQueue}
           onProduceShip={handleProduceShip}
           onDemolish={handleDemolish}
+          onUpgrade={handleUpgrade}
+          currentAge={playerEmpire.currentAge}
         />
       )}
 
