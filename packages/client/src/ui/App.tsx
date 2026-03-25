@@ -1492,6 +1492,7 @@ export function App(): React.ReactElement {
       <div className="ui-overlay">
         <ShipDesignerScreen
           researchedTechs={researchState.completedTechs}
+          currentAge={researchState.currentAge}
           empireId="player"
           savedDesigns={savedDesigns}
           onSaveDesign={handleSaveDesign}

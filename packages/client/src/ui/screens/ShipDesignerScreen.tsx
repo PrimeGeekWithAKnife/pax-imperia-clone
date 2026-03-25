@@ -6,6 +6,7 @@ import {
   calculateDesignStats,
   autoEquipDesign,
   getAvailableComponents,
+  TECH_AGES,
 } from '@nova-imperia/shared';
 import type { DesignStats } from '@nova-imperia/shared';
 import { HULL_TEMPLATES, SHIP_COMPONENTS } from '@nova-imperia/shared-data/ships/index.js';
@@ -23,6 +24,15 @@ function emitToPhaser(eventName: string, data: unknown): void {
     | { events: { emit: (e: string, d: unknown) => void } }
     | undefined;
   game?.events.emit(eventName, data);
+}
+
+/** Check whether a hull's required age is at or below the player's current age. */
+function isHullUnlocked(hullRequiredAge: string, currentAge: string): boolean {
+  const reqIdx = TECH_AGES.findIndex(a => a.name === hullRequiredAge);
+  const curIdx = TECH_AGES.findIndex(a => a.name === currentAge);
+  if (reqIdx === -1) return true;  // unknown age = always available
+  if (curIdx === -1) return false;
+  return reqIdx <= curIdx;
 }
 
 // Hull class icons using text characters
@@ -151,6 +161,7 @@ function SavedDesignIcon({ hullClass }: HullIconProps): React.ReactElement {
 
 export interface ShipDesignerScreenProps {
   researchedTechs: string[];
+  currentAge: string;
   empireId: string;
   savedDesigns: ShipDesign[];
   onSaveDesign: (design: ShipDesign) => void;
@@ -161,6 +172,7 @@ export interface ShipDesignerScreenProps {
 
 export function ShipDesignerScreen({
   researchedTechs,
+  currentAge,
   empireId,
   savedDesigns,
   onSaveDesign,
@@ -361,8 +373,7 @@ export function ShipDesignerScreen({
             <div className="sd-col-label">HULL CLASS</div>
             <div className="sd-hull-list">
               {HULL_TEMPLATES.map((h) => {
-                const unlocked =
-                  researchedTechs.includes(h.requiredAge) || h.requiredAge === 'nano_atomic';
+                const unlocked = isHullUnlocked(h.requiredAge, currentAge);
                 const isSelected = h.class === selectedHullClass;
 
                 return (
