@@ -264,8 +264,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.moveModeFleetId = null;
     this.lastPointerDownTime = 0;
     this.lastPointerDownSystemId = null;
-    this.currentZoom = 1.0;
-    this.targetZoom = 1.0;
+    this.currentZoom = MAX_ZOOM;
+    this.targetZoom = MAX_ZOOM;
     this.isDragging = false;
 
     // ── Initialise or reuse game state ────────────────────────────────────────
@@ -496,6 +496,13 @@ export class GalaxyMapScene extends Phaser.Scene {
     const inverseZoom = 1 / this.currentZoom;
     for (const [, badge] of this.fleetBadges) {
       badge.setScale(inverseZoom);
+    }
+
+    // Scale hit areas inversely with zoom so they stay constant screen-pixel size
+    for (const [sysId, hitArea] of this.starHitAreas) {
+      const sys = this.galaxy.systems.find(s => s.id === sysId);
+      const baseRadius = sys ? Math.max(STAR_VISUALS[sys.starType].radius * 2, 12) : 12;
+      hitArea.setRadius(baseRadius * inverseZoom);
     }
   }
 
@@ -1538,7 +1545,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
 
     // ── Hit area (always present, invisible) ─────────────────────────────────
-    const hitRadius = Math.max(visuals.radius * 2.5, 14);
+    // Hit area scales inversely with zoom so it stays ~12-14 screen pixels
+    const hitRadius = Math.max(visuals.radius * 2, 12) / this.currentZoom;
     const hitArea = this.add.circle(x, y, hitRadius, 0xffffff, 0);
     hitArea.setInteractive({ useHandCursor: true });
     this.starLayer.add(hitArea);
