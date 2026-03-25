@@ -7,9 +7,16 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { createSaveGame } from '@nova-imperia/shared';
 import { getSaveManager } from '../../engine/SaveManager.js';
 import type { SaveSlotInfo } from '../../engine/SaveManager.js';
 import { getGameEngine, createGameEngine } from '../../engine/GameEngine.js';
+
+/** Derive the game server URL (same host, port 3001). */
+function getServerUrl(): string {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:3001`;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,19 +57,26 @@ function SaveTab({ onSaved }: SaveTabProps): React.ReactElement {
   const [saveName, setSaveName] = useState('');
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [serverBusy, setServerBusy] = useState(false);
 
-  const handleSave = useCallback(() => {
+  const validateName = useCallback((): string | null => {
     const trimmed = saveName.trim();
     if (!trimmed) {
       setStatus('error');
       setErrorMsg('Please enter a save name.');
-      return;
+      return null;
     }
     if (trimmed === AUTO_SAVE_NAME) {
       setStatus('error');
       setErrorMsg('"__autosave__" is reserved for auto-saves.');
-      return;
+      return null;
     }
+    return trimmed;
+  }, [saveName]);
+
+  const handleSave = useCallback(() => {
+    const trimmed = validateName();
+    if (!trimmed) return;
 
     const engine = getGameEngine();
     if (!engine) {
@@ -80,7 +94,41 @@ function SaveTab({ onSaved }: SaveTabProps): React.ReactElement {
       setStatus('error');
       setErrorMsg(err instanceof Error ? err.message : 'Save failed.');
     }
-  }, [saveName, onSaved]);
+  }, [validateName, onSaved]);
+
+  const handleSaveToServer = useCallback(async () => {
+    const trimmed = validateName();
+    if (!trimmed) return;
+
+    const engine = getGameEngine();
+    if (!engine) {
+      setStatus('error');
+      setErrorMsg('No active game to save.');
+      return;
+    }
+
+    setServerBusy(true);
+    try {
+      const saveData = createSaveGame(engine.getState(), trimmed);
+      const resp = await fetch(`${getServerUrl()}/api/saves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed, data: saveData }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `Server returned ${resp.status}`);
+      }
+      setStatus('success');
+      setErrorMsg('');
+      onSaved(`${trimmed} (server)`);
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : 'Server save failed.');
+    } finally {
+      setServerBusy(false);
+    }
+  }, [validateName, onSaved]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -110,14 +158,24 @@ function SaveTab({ onSaved }: SaveTabProps): React.ReactElement {
           autoFocus
         />
 
-        <button
-          type="button"
-          className="sc-btn sc-btn--primary sl-save-btn"
-          onClick={handleSave}
-          disabled={!saveName.trim()}
-        >
-          Save Game
-        </button>
+        <div className="sl-save-buttons">
+          <button
+            type="button"
+            className="sc-btn sc-btn--primary sl-save-btn"
+            onClick={handleSave}
+            disabled={!saveName.trim()}
+          >
+            Save Game
+          </button>
+          <button
+            type="button"
+            className="sc-btn sc-btn--secondary sl-save-btn"
+            onClick={() => void handleSaveToServer()}
+            disabled={!saveName.trim() || serverBusy}
+          >
+            {serverBusy ? 'Saving…' : 'Save to Server'}
+          </button>
+        </div>
       </div>
 
       {status === 'success' && (

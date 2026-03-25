@@ -8511,8 +8511,12 @@
   gap: 8px;
 }
 
+.sl-save-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .sl-save-btn {
-  align-self: flex-start;
   min-width: 120px;
 }
 

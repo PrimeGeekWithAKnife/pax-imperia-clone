@@ -10,11 +10,20 @@
  * Graceful shutdown is handled on SIGINT and SIGTERM.
  */
 
+import path from 'node:path';
+import fs from 'node:fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { GameSessionManager } from './game/GameSessionManager.js';
 import { SocketManager } from './network/socketManager.js';
+
+// ---------------------------------------------------------------------------
+// Save directory — stores server-side save files as JSON
+// ---------------------------------------------------------------------------
+
+const SAVES_DIR = process.env['SAVES_DIR'] ?? path.join(process.cwd(), 'saves');
+fs.mkdirSync(SAVES_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -70,6 +79,54 @@ async function bootstrap(): Promise<void> {
     playerCount: socketManager?.connectedCount ?? 0,
     activeSessions: sessionManager.activeSessionCount,
   }));
+
+  // ── Server-side save files ────────────────────────────────────────────────
+
+  // Accept up to 50 MB save payloads
+  fastify.addContentTypeParser('application/json', { bodyLimit: 50 * 1024 * 1024 }, (
+    _request,
+    payload,
+    done,
+  ) => {
+    let data = '';
+    payload.on('data', (chunk: string) => { data += chunk; });
+    payload.on('end', () => {
+      try {
+        done(null, JSON.parse(data));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    });
+  });
+
+  /** POST /api/saves — write a save file to the server. */
+  fastify.post<{ Body: { name: string; data: unknown } }>('/api/saves', async (request, reply) => {
+    const { name, data } = request.body as { name?: string; data?: unknown };
+    if (!name || typeof name !== 'string' || !data) {
+      return reply.status(400).send({ error: 'Missing "name" or "data" in request body.' });
+    }
+    // Sanitise file name — allow only word chars, hyphens, spaces, dots
+    const safeName = name.replace(/[^\w\s.\-]/g, '_').trim();
+    if (!safeName) {
+      return reply.status(400).send({ error: 'Invalid save name.' });
+    }
+    const filePath = path.join(SAVES_DIR, `${safeName}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    fastify.log.info(`Save written: ${filePath}`);
+    return { ok: true, file: `${safeName}.json` };
+  });
+
+  /** GET /api/saves — list all server-side save files. */
+  fastify.get('/api/saves', async () => {
+    const files = fs.readdirSync(SAVES_DIR)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const stat = fs.statSync(path.join(SAVES_DIR, f));
+        return { name: f.replace(/\.json$/, ''), file: f, size: stat.size, modified: stat.mtimeMs };
+      })
+      .sort((a, b) => b.modified - a.modified);
+    return { saves: files };
+  });
 
   // -- Start ----------------------------------------------------------------
 
