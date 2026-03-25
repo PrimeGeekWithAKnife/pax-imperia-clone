@@ -1,10 +1,12 @@
 import React from 'react';
-import type { ProductionItem, BuildingType } from '@nova-imperia/shared';
+import type { ProductionItem, BuildingType, Building } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
 
 interface ConstructionQueueProps {
   queue: ProductionItem[];
   onCancel: (index: number) => void;
+  /** Planet's current buildings — used to resolve upgrade target levels. */
+  buildings?: Building[];
 }
 
 function getBuildingName(templateId: string): string {
@@ -23,6 +25,7 @@ function getMaxTurns(templateId: string): number {
 export function ConstructionQueue({
   queue,
   onCancel,
+  buildings,
 }: ConstructionQueueProps): React.ReactElement {
   if (queue.length === 0) {
     return (
@@ -35,8 +38,16 @@ export function ConstructionQueue({
   return (
     <div className="cq">
       {queue.map((item, index) => {
-        const name = getBuildingName(item.templateId);
-        const maxTurns = getMaxTurns(item.templateId);
+        const isUpgrade = item.type === 'building_upgrade';
+        let name: string;
+        if (isUpgrade && item.targetBuildingId && buildings) {
+          const target = buildings.find(b => b.id === item.targetBuildingId);
+          const bName = getBuildingName(item.templateId);
+          name = target ? `Upgrading ${bName} → Lv.${target.level + 1}` : `Upgrading ${bName}`;
+        } else {
+          name = getBuildingName(item.templateId);
+        }
+        const maxTurns = item.totalTurns ?? getMaxTurns(item.templateId);
         const progressPct = Math.max(0, Math.min(100, ((maxTurns - item.turnsRemaining) / maxTurns) * 100));
         const isFirst = index === 0;
 
@@ -63,7 +74,7 @@ export function ConstructionQueue({
               />
             </div>
             {isFirst && (
-              <div className="cq-item__status">BUILDING...</div>
+              <div className="cq-item__status">{isUpgrade ? 'UPGRADING...' : 'BUILDING...'}</div>
             )}
           </div>
         );

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate } from '@nova-imperia/shared';
+import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -595,6 +595,10 @@ interface PlanetManagementScreenProps {
   onProduceShip: (planetId: string, design: ShipDesign) => void;
   /** Called when the player confirms demolition of a building. */
   onDemolish?: (planetId: string, buildingId: string) => void;
+  /** Called when the player upgrades a building. */
+  onUpgrade?: (planetId: string, buildingId: string) => void;
+  /** The player empire's current technology age — gates upgrade levels. */
+  currentAge?: TechAge;
 }
 
 export function PlanetManagementScreen({
@@ -614,6 +618,8 @@ export function PlanetManagementScreen({
   onCancelQueue,
   onProduceShip,
   onDemolish,
+  onUpgrade,
+  currentAge = 'nano_atomic',
 }: PlanetManagementScreenProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [shipPickerOpen, setShipPickerOpen] = useState(false);
@@ -700,9 +706,17 @@ export function PlanetManagementScreen({
     setPickerOpen(true);
   }, []);
 
-  const handleBuildingClick = useCallback((_building: Building, _index: number) => {
-    // Future: show building details / upgrade options
+  const [upgradeTarget, setUpgradeTarget] = useState<Building | null>(null);
+
+  const handleBuildingClick = useCallback((building: Building, _index: number) => {
+    setUpgradeTarget(prev => (prev?.id === building.id ? null : building));
   }, []);
+
+  const handleConfirmUpgrade = useCallback(() => {
+    if (!upgradeTarget || !onUpgrade) return;
+    onUpgrade(planet.id, upgradeTarget.id);
+    setUpgradeTarget(null);
+  }, [upgradeTarget, onUpgrade, planet.id]);
 
   const handleSelectBuilding = useCallback(
     (type: BuildingType) => {
@@ -1215,11 +1229,87 @@ export function PlanetManagementScreen({
               onDemolish={onDemolish ? handleDemolishRequest : undefined}
             />
 
+            {upgradeTarget && (() => {
+              const def = BUILDING_DEFINITIONS[upgradeTarget.type];
+              const check = canUpgradeBuilding(planet, upgradeTarget.id, currentAge);
+              const cost = getUpgradeCost(upgradeTarget.type, upgradeTarget.level);
+              const buildTime = getUpgradeBuildTime(upgradeTarget.type, upgradeTarget.level);
+              const isMaxLevel = upgradeTarget.level >= def.maxLevel;
+              const ageCap = getMaxLevelForAge(upgradeTarget.type, currentAge);
+              const isAgeCapped = upgradeTarget.level >= ageCap && !isMaxLevel;
+              const canAfford = Object.entries(cost).every(([key, amount]) =>
+                (empireResources[key as keyof EmpireResources] ?? 0) >= (amount ?? 0),
+              );
+
+              return (
+                <div className="upgrade-popover">
+                  <div className="upgrade-popover__header">
+                    <span className="upgrade-popover__name">{def.name}</span>
+                    <span className="upgrade-popover__level">
+                      Lv.{upgradeTarget.level}
+                      {isMaxLevel ? ' (MAX)' : isAgeCapped ? ` / ${ageCap} (age limit)` : ` → ${upgradeTarget.level + 1}`}
+                    </span>
+                    <button
+                      type="button"
+                      className="upgrade-popover__close panel-close-btn"
+                      onClick={() => setUpgradeTarget(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <p className="upgrade-popover__desc">{def.description}</p>
+
+                  {!isMaxLevel && !isAgeCapped && (
+                    <>
+                      <div className="upgrade-popover__costs">
+                        <span className="upgrade-popover__label">Upgrade cost:</span>
+                        {Object.entries(cost).map(([key, amount]) => (
+                          <span
+                            key={key}
+                            className={`upgrade-popover__cost ${
+                              (empireResources[key as keyof EmpireResources] ?? 0) < (amount ?? 0)
+                                ? 'upgrade-popover__cost--unaffordable'
+                                : ''
+                            }`}
+                          >
+                            {RESOURCE_ICONS[key] ?? key}: {amount}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="upgrade-popover__time">
+                        Build time: {buildTime} construction points
+                      </div>
+                    </>
+                  )}
+
+                  {isAgeCapped && (
+                    <div className="upgrade-popover__reason">
+                      Advance to the next technology age to unlock further upgrades.
+                    </div>
+                  )}
+
+                  {!isMaxLevel && !isAgeCapped && (
+                    <button
+                      type="button"
+                      className="sc-btn sc-btn--primary upgrade-popover__btn"
+                      disabled={!check.allowed || !canAfford}
+                      onClick={handleConfirmUpgrade}
+                      title={!check.allowed ? check.reason : !canAfford ? 'Insufficient resources' : `Upgrade to Lv.${upgradeTarget.level + 1}`}
+                    >
+                      Upgrade to Lv.{upgradeTarget.level + 1}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="pm-divider" />
             <div className="pm-section-label">CONSTRUCTION QUEUE</div>
             <ConstructionQueue
               queue={planet.productionQueue}
               onCancel={handleCancelQueue}
+              buildings={planet.buildings}
             />
           </div>
 
