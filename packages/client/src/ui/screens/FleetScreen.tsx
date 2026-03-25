@@ -110,11 +110,13 @@ function FleetListItem({ fleet, ships, movementOrders, allSystems, isSelected, o
 
 export interface FleetScreenProps {
   onClose: () => void;
+  /** Called when the player clicks "Go to Fleet" — navigates the galaxy map to that system. */
+  onGoToFleet?: (systemId: string) => void;
 }
 
 // ── FleetScreen ────────────────────────────────────────────────────────────────
 
-export function FleetScreen({ onClose }: FleetScreenProps): React.ReactElement {
+export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.ReactElement {
   // Force re-render on each engine tick so fleet positions, movement orders,
   // and transit progress stay in sync with the authoritative engine state.
   const [, setTickCounter] = useState(0);
@@ -406,9 +408,22 @@ export function FleetScreen({ onClose }: FleetScreenProps): React.ReactElement {
                   )}
                   <div className="fleet-screen__location-line">
                     {inTransitInfo
-                      ? `In transit → ${inTransitInfo.destName} (${inTransitInfo.etaTurns} turn${inTransitInfo.etaTurns !== 1 ? 's' : ''})`
+                      ? `In transit \u2192 ${inTransitInfo.destName} (${inTransitInfo.etaTurns} turn${inTransitInfo.etaTurns !== 1 ? 's' : ''})`
                       : (allSystems.find(s => s.id === selectedFleet.position.systemId)?.name ?? selectedFleet.position.systemId)
                     }
+                    {onGoToFleet && !inTransitInfo && (
+                      <button
+                        type="button"
+                        className="fleet-screen__goto-btn"
+                        onClick={() => {
+                          onGoToFleet(selectedFleet.position.systemId);
+                          onClose();
+                        }}
+                        title="Navigate galaxy map to this fleet's system"
+                      >
+                        Go to Fleet
+                      </button>
+                    )}
                   </div>
                 </div>
 

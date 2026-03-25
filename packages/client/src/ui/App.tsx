@@ -1500,7 +1500,17 @@ export function App(): React.ReactElement {
   if (currentScreen === 'fleet') {
     return (
       <div className="ui-overlay">
-        <FleetScreen onClose={() => setCurrentScreen('game')} />
+        <FleetScreen
+          onClose={() => setCurrentScreen('game')}
+          onGoToFleet={(systemId) => {
+            setCurrentScreen('game');
+            // Emit event for GalaxyMapScene to centre on this system
+            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+              | { events: { emit: (e: string, d: unknown) => void } }
+              | undefined;
+            game?.events.emit('galaxy:navigate_to_system', { systemId });
+          }}
+        />
       </div>
     );
   }

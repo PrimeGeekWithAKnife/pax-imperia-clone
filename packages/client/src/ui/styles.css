@@ -7475,6 +7475,27 @@
   font-size: 11px;
   color: var(--color-text-muted);
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fleet-screen__goto-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #00d4ff;
+  background: rgba(0, 180, 255, 0.08);
+  border: 1px solid rgba(0, 180, 255, 0.25);
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fleet-screen__goto-btn:hover {
+  background: rgba(0, 180, 255, 0.18);
+  border-color: rgba(0, 180, 255, 0.5);
+  color: #ffffff;
 }
 
 /* Stance selector */

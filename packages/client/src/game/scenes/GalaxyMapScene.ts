@@ -606,6 +606,9 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Play arrival flash when a fleet reaches its destination (or any intermediate hop)
     this.game.events.on('engine:fleet_moved', this._handleFleetMoved);
 
+    // "Go to Fleet" button in Fleet Management screen centres the galaxy map
+    this.game.events.on('galaxy:navigate_to_system', this._handleNavigateToSystem);
+
     // Play battle flash + "Battle!" label when two opposing fleets meet
     this.game.events.on('engine:combat_resolved', this._handleCombatResolved);
 
@@ -2387,6 +2390,18 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     this._renderFleetBadges();
     this._syncTransitDots();
+  };
+
+  private _handleNavigateToSystem = (data: unknown): void => {
+    const { systemId } = data as { systemId: string };
+    const sys = this.galaxy.systems.find(s => s.id === systemId);
+    if (!sys) return;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    this.cameraOffset.x = cx - sys.position.x * this.currentZoom;
+    this.cameraOffset.y = cy - sys.position.y * this.currentZoom;
+    this.applyWorldTransform();
+    this.selectSystem(systemId);
   };
 
   private _handleFleetMoved = (event: unknown): void => {
