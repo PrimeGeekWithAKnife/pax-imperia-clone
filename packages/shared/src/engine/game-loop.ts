@@ -1526,6 +1526,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
   const remainingOrders: ShipProductionOrder[] = [];
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
+  let systems = state.gameState.galaxy.systems;
 
   for (const order of state.productionOrders) {
     const result = processShipProduction(order);
@@ -1535,7 +1536,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
       let planetOwnerId: string | null = null;
       let systemId: string | null = null;
 
-      for (const system of state.gameState.galaxy.systems) {
+      for (const system of systems) {
         const planet = system.planets.find(p => p.id === order.planetId);
         if (planet) {
           planetOwnerId = planet.ownerId;
@@ -1550,6 +1551,25 @@ function stepShipProduction(state: GameTickState): GameTickState {
         );
         continue;
       }
+
+      // Remove the matching ship entry from the planet's production queue
+      systems = systems.map(s => {
+        if (s.id !== systemId) return s;
+        return {
+          ...s,
+          planets: s.planets.map(p => {
+            if (p.id !== order.planetId) return p;
+            const idx = p.productionQueue.findIndex(
+              q => q.type === 'ship' && q.templateId === order.designId,
+            );
+            if (idx < 0) return p;
+            return {
+              ...p,
+              productionQueue: p.productionQueue.filter((_, i) => i !== idx),
+            };
+          }),
+        };
+      });
 
       // Create a new ship at the construction planet's system
       const newShipId = generateId();
@@ -1610,6 +1630,27 @@ function stepShipProduction(state: GameTickState): GameTickState {
       }
     } else if (result.order !== null) {
       remainingOrders.push(result.order);
+
+      // Sync the planet queue entry's turnsRemaining to match the production order
+      const updatedOrder = result.order;
+      systems = systems.map(s => ({
+        ...s,
+        planets: s.planets.map(p => {
+          if (p.id !== updatedOrder.planetId) return p;
+          const idx = p.productionQueue.findIndex(
+            q => q.type === 'ship' && q.templateId === updatedOrder.designId,
+          );
+          if (idx < 0) return p;
+          const queueItem = p.productionQueue[idx]!;
+          if (queueItem.turnsRemaining === updatedOrder.ticksRemaining) return p;
+          return {
+            ...p,
+            productionQueue: p.productionQueue.map((q, i) =>
+              i === idx ? { ...q, turnsRemaining: updatedOrder.ticksRemaining } : q,
+            ),
+          };
+        }),
+      }));
     }
   }
 
@@ -1620,6 +1661,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
       ...state.gameState,
       fleets,
       ships,
+      galaxy: { ...state.gameState.galaxy, systems },
     },
   };
 }

@@ -325,8 +325,8 @@
         "allowedTypes": ["sensor"]
       }
     ],
-    "baseCost": 100000,
-    "baseMineralCost": 5000,
+    "baseCost": 1000,
+    "baseMineralCost": 500,
     "baseSpeed": 3,
     "requiredAge": "nano_atomic"
   },

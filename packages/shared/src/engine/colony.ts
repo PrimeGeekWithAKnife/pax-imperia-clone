@@ -1252,8 +1252,45 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
   // first is always defined here because of the length check above
   const item = first!;
 
+  if (item.type === 'ship') {
+    // Ship items are synced by stepShipProduction in game-loop.ts.
+    // Skip them so they don't block buildings behind them in the queue.
+    // Process the next non-ship item instead.
+    const nonShipIdx = planet.productionQueue.findIndex(q => q.type !== 'ship');
+    if (nonShipIdx < 0) return planet; // all items are ships — nothing to process
+    const target = planet.productionQueue[nonShipIdx]!;
+    const newTurns = target.turnsRemaining - constructionRate;
+
+    if (target.type === 'building' && newTurns <= 0) {
+      const newBuilding: Building = {
+        id: generateId(),
+        type: target.templateId as BuildingType,
+        level: 1,
+      };
+      return {
+        ...planet,
+        buildings: [...planet.buildings, newBuilding],
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
+
+    if (newTurns <= 0) {
+      return {
+        ...planet,
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
+
+    return {
+      ...planet,
+      productionQueue: planet.productionQueue.map((q, i) =>
+        i === nonShipIdx ? { ...q, turnsRemaining: newTurns } : q,
+      ),
+    };
+  }
+
   if (item.type !== 'building') {
-    // Non-building items (ships, defenses) are not handled by this function
+    // Defense items: decrement and remove when done
     const newTurns = Math.max(0, item.turnsRemaining - constructionRate);
     if (newTurns === 0) {
       return {
