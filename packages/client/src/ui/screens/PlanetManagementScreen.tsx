@@ -82,6 +82,10 @@ const RESOURCE_LABELS: Record<string, string> = {
 
 const ALL_BUILDING_TYPES: BuildingType[] = Object.keys(BUILDING_DEFINITIONS) as BuildingType[];
 
+const ORBITAL_BUILDING_TYPES = new Set<string>([
+  'shipyard', 'spaceport', 'orbital_platform', 'orbital_waste_ejector', 'defense_grid',
+]);
+
 const GOVERNOR_MOD_LABELS: Record<string, string> = {
   manufacturing:    'Manufacturing',
   research:         'Research',
@@ -707,6 +711,7 @@ export function PlanetManagementScreen({
   }, []);
 
   const [upgradeTarget, setUpgradeTarget] = useState<Building | null>(null);
+  const [activeTab, setActiveTab] = useState<'build-queue' | 'population' | 'economy' | 'orbitals'>('economy');
 
   const handleBuildingClick = useCallback((building: Building, _index: number) => {
     setUpgradeTarget(prev => (prev?.id === building.id ? null : building));
@@ -1352,75 +1357,200 @@ export function PlanetManagementScreen({
               );
             })()}
 
-            <div className="pm-divider" />
-            <div className="pm-section-label">CONSTRUCTION QUEUE</div>
-            <ConstructionQueue
-              queue={planet.productionQueue}
-              onCancel={handleCancelQueue}
-              buildings={planet.buildings}
-            />
           </div>
 
-          {/* Right column: Production summary */}
+          {/* Right column: Tabbed panels */}
           <div className="pm-col pm-col--production">
-            <div className="pm-section-label">PRODUCTION / TURN</div>
-
-            <div className="pm-prod-group">
-              {RESOURCE_KEYS.map((key) => {
-                const val = production[key] ?? 0;
-                if (val === 0) return null;
-                return (
-                  <ResourceBar
-                    key={key}
-                    label={RESOURCE_LABELS[key] ?? key}
-                    icon={RESOURCE_ICONS[key] ?? '?'}
-                    value={val}
-                    showSign
-                  />
-                );
-              })}
+            {/* Tab strip */}
+            <div className="pm-tabs" role="tablist">
+              {([
+                ['build-queue', 'Build Queue'],
+                ['population', 'Population'],
+                ['economy', 'Economy'],
+                ['orbitals', 'Orbitals'],
+              ] as Array<['build-queue' | 'population' | 'economy' | 'orbitals', string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={activeTab === key}
+                  className={`pm-tab ${activeTab === key ? 'pm-tab--active' : ''}`}
+                  onClick={() => setActiveTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <div className="pm-divider" />
-            <div className="pm-section-label">MAINTENANCE</div>
+            <div className="pm-tab-content">
+              {/* ── Economy tab ── */}
+              {activeTab === 'economy' && (
+                <>
+                  <div className="pm-section-label">PRODUCTION / TURN</div>
+                  <div className="pm-prod-group">
+                    {RESOURCE_KEYS.map((key) => {
+                      const val = production[key] ?? 0;
+                      if (val === 0) return null;
+                      return (
+                        <ResourceBar
+                          key={key}
+                          label={RESOURCE_LABELS[key] ?? key}
+                          icon={RESOURCE_ICONS[key] ?? '?'}
+                          value={val}
+                          showSign
+                        />
+                      );
+                    })}
+                  </div>
 
-            <div className="pm-prod-group">
-              {Object.entries(maintenance).map(([key, val]) => {
-                if (val === 0) return null;
-                return (
-                  <ResourceBar
-                    key={key}
-                    label={RESOURCE_LABELS[key] ?? key}
-                    icon={RESOURCE_ICONS[key] ?? '?'}
-                    value={-val}
-                    showSign
-                  />
-                );
-              })}
-              {Object.values(maintenance).every((v) => v === 0) && (
-                <div className="pm-prod-empty">No maintenance costs</div>
+                  <div className="pm-divider" />
+                  <div className="pm-section-label">MAINTENANCE</div>
+                  <div className="pm-prod-group">
+                    {Object.entries(maintenance).map(([key, val]) => {
+                      if (val === 0) return null;
+                      return (
+                        <ResourceBar
+                          key={key}
+                          label={RESOURCE_LABELS[key] ?? key}
+                          icon={RESOURCE_ICONS[key] ?? '?'}
+                          value={-val}
+                          showSign
+                        />
+                      );
+                    })}
+                    {Object.values(maintenance).every((v) => v === 0) && (
+                      <div className="pm-prod-empty">No maintenance costs</div>
+                    )}
+                  </div>
+
+                  <div className="pm-divider" />
+                  <div className="pm-section-label">NET OUTPUT</div>
+                  <div className="pm-prod-group pm-prod-group--net">
+                    {RESOURCE_KEYS.map((key) => {
+                      const net = netProduction[key] ?? 0;
+                      if (net === 0) return null;
+                      return (
+                        <ResourceBar
+                          key={key}
+                          label={RESOURCE_LABELS[key] ?? key}
+                          icon={RESOURCE_ICONS[key] ?? '?'}
+                          value={net}
+                          showSign
+                        />
+                      );
+                    })}
+                    {RESOURCE_KEYS.every((k) => (netProduction[k] ?? 0) === 0) && (
+                      <div className="pm-prod-empty">No output — build something</div>
+                    )}
+                  </div>
+                </>
               )}
-            </div>
 
-            <div className="pm-divider" />
-            <div className="pm-section-label">NET OUTPUT</div>
+              {/* ── Build Queue tab ── */}
+              {activeTab === 'build-queue' && (
+                <>
+                  {planet.productionQueue.length === 0 ? (
+                    <div className="pm-prod-empty">No items in production</div>
+                  ) : (
+                    <>
+                      {planet.productionQueue.some(q => q.type === 'building' || q.type === 'building_upgrade') && (
+                        <>
+                          <div className="pm-section-label">BUILDINGS</div>
+                          <ConstructionQueue
+                            queue={planet.productionQueue.filter(q => q.type === 'building' || q.type === 'building_upgrade')}
+                            onCancel={(idx) => {
+                              const filtered = planet.productionQueue.filter(q => q.type === 'building' || q.type === 'building_upgrade');
+                              const origIdx = planet.productionQueue.indexOf(filtered[idx]!);
+                              if (origIdx >= 0) handleCancelQueue(origIdx);
+                            }}
+                            buildings={planet.buildings}
+                          />
+                        </>
+                      )}
+                      {planet.productionQueue.some(q => q.type === 'ship') && (
+                        <>
+                          <div className="pm-section-label">SHIPS</div>
+                          <ConstructionQueue
+                            queue={planet.productionQueue.filter(q => q.type === 'ship')}
+                            onCancel={(idx) => {
+                              const filtered = planet.productionQueue.filter(q => q.type === 'ship');
+                              const origIdx = planet.productionQueue.indexOf(filtered[idx]!);
+                              if (origIdx >= 0) handleCancelQueue(origIdx);
+                            }}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
 
-            <div className="pm-prod-group pm-prod-group--net">
-              {RESOURCE_KEYS.map((key) => {
-                const net = netProduction[key] ?? 0;
-                if (net === 0) return null;
-                return (
-                  <ResourceBar
-                    key={key}
-                    label={RESOURCE_LABELS[key] ?? key}
-                    icon={RESOURCE_ICONS[key] ?? '?'}
-                    value={net}
-                    showSign
-                  />
-                );
-              })}
-              {RESOURCE_KEYS.every((k) => (netProduction[k] ?? 0) === 0) && (
-                <div className="pm-prod-empty">No output — build something</div>
+              {/* ── Population tab ── */}
+              {activeTab === 'population' && (
+                <>
+                  <div className="pm-section-label">POPULATION</div>
+                  <div className="pm-prod-group">
+                    <div className="pm-stat-row">
+                      <span className="pm-stat-label">Current</span>
+                      <span className="pm-stat-value">{planet.currentPopulation.toLocaleString()}</span>
+                    </div>
+                    <div className="pm-stat-row">
+                      <span className="pm-stat-label">Capacity</span>
+                      <span className="pm-stat-value">{planet.maxPopulation.toLocaleString()}</span>
+                    </div>
+                    <div className="pm-stat-row">
+                      <span className="pm-stat-label">Utilisation</span>
+                      <span className="pm-stat-value">
+                        {planet.maxPopulation > 0 ? Math.round((planet.currentPopulation / planet.maxPopulation) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pm-divider" />
+
+                  <div className="pm-section-label">DEMOGRAPHICS</div>
+                  <div className="pm-prod-empty" style={{ fontStyle: 'italic', fontSize: '10px' }}>
+                    Detailed demographics coming soon — species breakdown, age groups, happiness distribution.
+                  </div>
+                </>
+              )}
+
+              {/* ── Orbitals tab ── */}
+              {activeTab === 'orbitals' && (
+                <>
+                  <div className="pm-section-label">ORBITAL STRUCTURES</div>
+                  {(() => {
+                    const orbitalBuildings = planet.buildings.filter(b => ORBITAL_BUILDING_TYPES.has(b.type));
+                    return orbitalBuildings.length === 0 ? (
+                      <div className="pm-prod-empty">No orbital structures</div>
+                    ) : (
+                      <div className="pm-prod-group">
+                        {orbitalBuildings.map(b => {
+                          const bDef = BUILDING_DEFINITIONS[b.type];
+                          return (
+                            <div key={b.id} className="pm-stat-row">
+                              <span className="pm-stat-label">{bDef?.name ?? b.type}</span>
+                              <span className="pm-stat-value">Lv.{b.level}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="pm-divider" />
+
+                  <div className="pm-section-label">SHIPS IN ORBIT</div>
+                  <div className="pm-prod-empty" style={{ fontStyle: 'italic', fontSize: '10px' }}>
+                    Ship listing will be wired in a future update.
+                  </div>
+
+                  <div className="pm-divider" />
+
+                  <div className="pm-section-label">DEFENCES</div>
+                  <div className="pm-prod-empty" style={{ fontStyle: 'italic', fontSize: '10px' }}>
+                    Minefields, weapon platforms, and satellite networks coming soon.
+                  </div>
+                </>
               )}
             </div>
           </div>
