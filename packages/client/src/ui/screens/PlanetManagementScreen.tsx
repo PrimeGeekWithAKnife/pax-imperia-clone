@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -137,7 +137,7 @@ function estimatePlanetProduction(planet: Planet): Record<string, number> {
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];
     if (!def) continue;
-    const multiplier = Math.pow(1.25, building.level - 1);
+    const multiplier = Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1);
     for (const [key, val] of Object.entries(def.baseProduction)) {
       if (val !== undefined && key in totals) {
         totals[key] = (totals[key] ?? 0) + val * multiplier;
