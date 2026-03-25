@@ -7,8 +7,10 @@
  */
 
 import type { Planet, Building, BuildingType, StarSystem } from '../types/galaxy.js';
-import type { Species } from '../types/species.js';
+import type { Species, TechAge } from '../types/species.js';
 import type { Ship, Fleet } from '../types/ships.js';
+import type { EmpireResources } from '../types/resources.js';
+import { TECH_AGES } from '../constants/game.js';
 import {
   PLANET_BUILDING_SLOTS,
   ATMOSPHERE_ADJACENCY,
@@ -1235,6 +1237,104 @@ export function addBuildingToQueue(
   };
 }
 
+// ── Building upgrades ─────────────────────────────────────────────────────
+
+/** Cost multiplier per level for building upgrades. */
+const UPGRADE_COST_MULTIPLIER = 1.5;
+
+function techAgeIndex(age: TechAge | string): number {
+  return TECH_AGES.findIndex(a => a.name === age);
+}
+
+export function getMaxLevelForAge(
+  buildingType: BuildingType,
+  currentAge: TechAge,
+): number {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  const ageIdx = techAgeIndex(currentAge);
+  const ageCap = ageIdx < 0 ? 1 : ageIdx + 1;
+  return Math.min(ageCap, def.maxLevel);
+}
+
+export function getUpgradeCost(
+  buildingType: BuildingType,
+  currentLevel: number,
+): Partial<EmpireResources> {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  const result: Partial<EmpireResources> = {};
+  for (const [key, base] of Object.entries(def.baseCost)) {
+    if (base && base > 0) {
+      result[key as keyof EmpireResources] = Math.ceil(base * currentLevel * UPGRADE_COST_MULTIPLIER);
+    }
+  }
+  return result;
+}
+
+export function getUpgradeBuildTime(
+  buildingType: BuildingType,
+  currentLevel: number,
+): number {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  return Math.ceil(def.buildTime * currentLevel * UPGRADE_COST_MULTIPLIER);
+}
+
+export function canUpgradeBuilding(
+  planet: Planet,
+  buildingId: string,
+  currentAge: TechAge,
+): { allowed: boolean; reason?: string } {
+  const building = planet.buildings.find(b => b.id === buildingId);
+  if (!building) {
+    return { allowed: false, reason: 'Building not found on this planet.' };
+  }
+
+  const def = BUILDING_DEFINITIONS[building.type];
+  if (building.level >= def.maxLevel) {
+    return { allowed: false, reason: `Already at maximum level (${def.maxLevel}).` };
+  }
+
+  const ageCap = getMaxLevelForAge(building.type, currentAge);
+  if (building.level >= ageCap) {
+    return {
+      allowed: false,
+      reason: `Current technology age limits this building to level ${ageCap}. Advance to the next age to unlock further upgrades.`,
+    };
+  }
+
+  const alreadyQueued = planet.productionQueue.some(
+    item => item.type === 'building_upgrade' && item.targetBuildingId === buildingId,
+  );
+  if (alreadyQueued) {
+    return { allowed: false, reason: 'An upgrade for this building is already in the queue.' };
+  }
+
+  return { allowed: true };
+}
+
+export function addUpgradeToQueue(planet: Planet, buildingId: string, currentAge: TechAge): Planet {
+  const check = canUpgradeBuilding(planet, buildingId, currentAge);
+  if (!check.allowed) {
+    throw new Error(`Cannot queue upgrade: ${check.reason}`);
+  }
+
+  const building = planet.buildings.find(b => b.id === buildingId)!;
+  const turnsRemaining = getUpgradeBuildTime(building.type, building.level);
+
+  return {
+    ...planet,
+    productionQueue: [
+      ...planet.productionQueue,
+      {
+        type: 'building_upgrade' as const,
+        templateId: building.type,
+        turnsRemaining,
+        totalTurns: turnsRemaining,
+        targetBuildingId: building.id,
+      },
+    ],
+  };
+}
+
 /**
  * Advances the construction queue by `constructionRate` turns.
  *
@@ -1260,6 +1360,20 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
     if (nonShipIdx < 0) return planet; // all items are ships — nothing to process
     const target = planet.productionQueue[nonShipIdx]!;
     const newTurns = target.turnsRemaining - constructionRate;
+
+    if (target.type === 'building_upgrade' && target.targetBuildingId && newTurns <= 0) {
+      const upgradedBuildings = planet.buildings.map(b => {
+        if (b.id === target.targetBuildingId) {
+          return { ...b, level: b.level + 1, condition: 100 };
+        }
+        return b;
+      });
+      return {
+        ...planet,
+        buildings: upgradedBuildings,
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
 
     if (target.type === 'building' && newTurns <= 0) {
       const newBuilding: Building = {
@@ -1289,7 +1403,7 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
     };
   }
 
-  if (item.type !== 'building') {
+  if (item.type !== 'building' && item.type !== 'building_upgrade') {
     // Defense items: decrement and remove when done
     const newTurns = Math.max(0, item.turnsRemaining - constructionRate);
     if (newTurns === 0) {
@@ -1305,6 +1419,17 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
   }
 
   const newTurns = item.turnsRemaining - constructionRate;
+
+  if (item.type === 'building_upgrade' && item.targetBuildingId && newTurns <= 0) {
+    // Upgrade complete — increment the existing building's level and reset condition
+    const upgradedBuildings = planet.buildings.map(b => {
+      if (b.id === item.targetBuildingId) {
+        return { ...b, level: b.level + 1, condition: 100 };
+      }
+      return b;
+    });
+    return { ...planet, buildings: upgradedBuildings, productionQueue: rest };
+  }
 
   if (newTurns <= 0) {
     // Construction complete — add building to planet

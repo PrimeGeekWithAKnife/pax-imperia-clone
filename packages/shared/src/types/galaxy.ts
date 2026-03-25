@@ -148,9 +148,13 @@ export type BuildingType =
   | 'seismic_resonator';
 
 export interface ProductionItem {
-  type: 'ship' | 'building' | 'defense';
+  type: 'ship' | 'building' | 'defense' | 'building_upgrade';
   templateId: string;
   turnsRemaining: number;
+  /** For building_upgrade items: the ID of the building being upgraded. */
+  targetBuildingId?: string;
+  /** Total construction points when queued — used by the UI for progress display. */
+  totalTurns?: number;
 }
 
 // ── Galaxy shape metadata (rendering hints from generation) ─────────────────

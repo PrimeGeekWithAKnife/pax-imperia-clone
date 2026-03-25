@@ -39,6 +39,13 @@ export interface ConstructBuildingAction {
   buildingType: string;
 }
 
+export interface UpgradeBuildingAction {
+  type: 'UpgradeBuilding';
+  systemId: string;
+  planetId: string;
+  buildingId: string;
+}
+
 export interface ColonizePlanetAction {
   type: 'ColonizePlanet';
   fleetId: string;
@@ -87,6 +94,7 @@ export type GameAction =
   | ResearchAction
   | SetFleetStanceAction
   | ConstructBuildingAction
+  | UpgradeBuildingAction
   | ColonizePlanetAction
   | ColonisePlanetAction
   | ProposeTreatyAction
