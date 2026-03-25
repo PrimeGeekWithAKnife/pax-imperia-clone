@@ -1260,6 +1260,54 @@ export function PlanetManagementScreen({
 
                   <p className="upgrade-popover__desc">{def.description}</p>
 
+                  {/* Current building stats at this level */}
+                  <div className="upgrade-popover__stats">
+                    <span className="upgrade-popover__stats-label">Output at Lv.{upgradeTarget.level}:</span>
+                    {(() => {
+                      const lvlMult = Math.pow(BUILDING_LEVEL_MULTIPLIER, upgradeTarget.level - 1);
+                      const entries: Array<{ label: string; value: string; positive: boolean }> = [];
+
+                      for (const [key, base] of Object.entries(def.baseProduction)) {
+                        if (base && base > 0) {
+                          const scaled = Math.round(base * lvlMult * 10) / 10;
+                          entries.push({ label: RESOURCE_LABELS[key] ?? key, value: `+${scaled}`, positive: true });
+                        }
+                      }
+
+                      if (def.energyConsumption > 0) {
+                        const scaled = Math.round(def.energyConsumption * lvlMult * 10) / 10;
+                        entries.push({ label: 'Energy draw', value: `-${scaled}`, positive: false });
+                      }
+
+                      if (def.wasteOutput > 0) {
+                        const scaled = Math.round(def.wasteOutput * lvlMult * 10) / 10;
+                        entries.push({ label: 'Waste', value: `+${scaled}`, positive: false });
+                      }
+
+                      for (const [key, base] of Object.entries(def.maintenanceCost)) {
+                        if (base && base > 0) {
+                          entries.push({ label: `${RESOURCE_LABELS[key] ?? key} maint.`, value: `-${base}`, positive: false });
+                        }
+                      }
+
+                      if (def.happinessImpact !== 0) {
+                        entries.push({
+                          label: 'Happiness',
+                          value: `${def.happinessImpact > 0 ? '+' : ''}${def.happinessImpact}`,
+                          positive: def.happinessImpact > 0,
+                        });
+                      }
+
+                      if (entries.length === 0) return null;
+
+                      return entries.map((e, i) => (
+                        <span key={i} className={`upgrade-popover__stat ${e.positive ? '' : 'upgrade-popover__stat--negative'}`}>
+                          {e.label}: {e.value}
+                        </span>
+                      ));
+                    })()}
+                  </div>
+
                   {!isMaxLevel && !isAgeCapped && (
                     <>
                       <div className="upgrade-popover__costs">

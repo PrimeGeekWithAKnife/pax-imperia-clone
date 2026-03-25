@@ -10566,6 +10566,36 @@ button:active:not(:disabled),
   margin-top: 4px;
 }
 
+.upgrade-popover__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.upgrade-popover__stats-label {
+  width: 100%;
+  font-size: 10px;
+  color: #8899aa;
+  margin-bottom: 2px;
+}
+
+.upgrade-popover__stat {
+  font-size: 11px;
+  color: #88cc88;
+  padding: 1px 5px;
+  background: rgba(100, 200, 100, 0.08);
+  border-radius: 2px;
+}
+
+.upgrade-popover__stat--negative {
+  color: #cc8866;
+  background: rgba(200, 130, 100, 0.08);
+}
+
 .upgrade-popover__reason {
   font-size: 10px;
   color: #cc8844;
