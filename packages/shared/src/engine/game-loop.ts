@@ -1196,9 +1196,9 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     // on the flow model rather than the old stockpile model.
     let empireTotalStoredEnergy = 0;
     let empireEnergyRatio = 1.0;
+    let totalEnergyProduction = 0;
+    let totalEnergyDemand = 0;
     {
-      let totalProduction = 0;
-      let totalDemand = 0;
       let totalStoredEnergy = 0;
       let totalStorageCapacity = 0;
 
@@ -1220,8 +1220,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
 
         energyStateMap.set(planet.id, energyState);
 
-        totalProduction += production;
-        totalDemand += demand;
+        totalEnergyProduction += production;
+        totalEnergyDemand += demand;
         totalStoredEnergy += energyState.storedEnergy;
         totalStorageCapacity += storageCapacity;
       }
@@ -1229,9 +1229,9 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       empireTotalStoredEnergy = totalStoredEnergy;
 
       // Empire-wide energy ratio for deficit penalties
-      empireEnergyRatio = totalDemand > 0
-        ? Math.min(totalProduction / totalDemand, 10)
-        : (totalProduction > 0 ? 10 : 1.0);
+      empireEnergyRatio = totalEnergyDemand > 0
+        ? Math.min(totalEnergyProduction / totalEnergyDemand, 10)
+        : (totalEnergyProduction > 0 ? 10 : 1.0);
     }
 
     // Compute per-planet production and re-aggregate with happiness multipliers.
@@ -1294,12 +1294,12 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     let newResources = applyResourceTick(currentResources, production, upkeep);
 
     // ── Energy flow override ─────────────────────────────────────────────
-    // Energy is a flow, not a stockpile.  Replace the accumulated
-    // energy value from applyResourceTick with the actual stored energy
-    // from storage buildings across all owned planets.
+    // Energy display = current surplus (production - demand) + stored battery.
+    // This gives the player a meaningful readout of their energy situation.
+    const energySurplus = Math.max(0, totalEnergyProduction - totalEnergyDemand);
     newResources = {
       ...newResources,
-      energy: empireTotalStoredEnergy,
+      energy: energySurplus + empireTotalStoredEnergy,
     };
 
     // Apply energy deficit research penalty: halve accumulated research points.
