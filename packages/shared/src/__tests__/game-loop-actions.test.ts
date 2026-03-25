@@ -15,12 +15,24 @@ import {
   type GameTickState,
   type PlayerAction,
 } from '../engine/game-loop.js';
+import type { EmpireResources } from '../types/resources.js';
 import { initializeGame, type GameSetupConfig, type PlayerSetup } from '../engine/game-init.js';
 import { getColonisationCost } from '../engine/colony.js';
+
+/** Helper: ensure the empire has enough minerals in the resource map. */
+function withMinerals(tickState: GameTickState, empireId: string, minerals: number): GameTickState {
+  const newMap = new Map(tickState.empireResourcesMap);
+  const existing = newMap.get(empireId);
+  if (existing) {
+    newMap.set(empireId, { ...existing, minerals });
+  }
+  return { ...tickState, empireResourcesMap: newMap };
+}
 import type { Species } from '../types/species.js';
 import type { GameState } from '../types/game-state.js';
 import type { Planet, StarSystem } from '../types/galaxy.js';
-import type { ColonisePlanetAction, ConstructBuildingAction, SetGameSpeedAction } from '../types/events.js';
+import type { ColonisePlanetAction, ConstructBuildingAction, SetGameSpeedAction, UpgradeBuildingAction } from '../types/events.js';
+import { getUpgradeCost } from '../engine/colony.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -111,17 +123,27 @@ function makeStateWithColonisablePlanet(): {
     planets: [...homeSystem.planets, colonisablePlanet],
   };
 
+  // Ensure the empire's home planet has at least 5M population for colonist transfer.
+  const boostedHomeSystem: StarSystem = {
+    ...updatedHomeSystem,
+    planets: updatedHomeSystem.planets.map(p =>
+      p.ownerId === empire.id
+        ? { ...p, currentPopulation: Math.max(p.currentPopulation, 5_000_000) }
+        : p,
+    ),
+  };
+
   const patchedGs: GameState = {
     ...gs,
     galaxy: {
       ...gs.galaxy,
       systems: gs.galaxy.systems.map(s =>
-        s.id === homeSystem.id ? updatedHomeSystem : s,
+        s.id === homeSystem.id ? boostedHomeSystem : s,
       ),
     },
     // Give the empire plenty of credits to afford colonisation.
     empires: gs.empires.map(e =>
-      e.id === empire.id ? { ...e, credits: 10_000 } : e,
+      e.id === empire.id ? { ...e, credits: 100_000 } : e,
     ),
   };
 
@@ -204,7 +226,7 @@ describe('submitAction', () => {
 describe('processGameTick — ColonisePlanet action', () => {
   it('creates a migration order on the next tick (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
@@ -234,7 +256,7 @@ describe('processGameTick — ColonisePlanet action', () => {
 
     const cost = getColonisationCost(targetPlanet, empire.species);
 
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
       empireId,
@@ -247,14 +269,13 @@ describe('processGameTick — ColonisePlanet action', () => {
 
     const updatedEmpire = newState.gameState.empires.find(e => e.id === empireId)!;
 
-    // The colonisation cost (200 credits) should have been deducted, though
-    // production income may partially offset it. We check the resource map
-    // to verify the deduction happened relative to what the empire would have
-    // had WITHOUT colonisation.
+    // The colonisation cost should have been deducted, though production
+    // income may partially offset it. We check the resource map to verify
+    // the deduction happened relative to what the empire would have had
+    // WITHOUT colonisation.
     // Run a control tick without colonisation to measure pure income:
     const { newState: controlState } = processGameTick(ts);
     const controlCredits = controlState.gameState.empires.find(e => e.id === empireId)!.credits;
-    // With colonisation, credits should be ~200 less than the control
     expect(updatedEmpire.credits).toBeLessThan(controlCredits);
     expect(controlCredits - updatedEmpire.credits).toBeGreaterThanOrEqual(cost * 0.8); // allow some floating point
   });
@@ -305,7 +326,7 @@ describe('processGameTick — ColonisePlanet action', () => {
 
   it('emits a MigrationStarted event (colonisation is multi-turn)', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    const ts = initializeTickState(gs);
+    const ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const action: ColonisePlanetAction = {
       type: 'ColonisePlanet',
@@ -487,7 +508,7 @@ describe('processGameTick — multiple actions', () => {
 
   it('processes a colonise action alongside a speed change', () => {
     const { gs, empireId, systemId, targetPlanetId } = makeStateWithColonisablePlanet();
-    let ts = initializeTickState(gs);
+    let ts = withMinerals(initializeTickState(gs), empireId, 10_000);
 
     const speedAction: SetGameSpeedAction = { type: 'SetGameSpeed', speed: 'fastest' };
     const coloniseAction: ColonisePlanetAction = {
@@ -500,12 +521,18 @@ describe('processGameTick — multiple actions', () => {
     ts = submitAction(ts, empireId, speedAction);
     ts = submitAction(ts, empireId, coloniseAction);
 
-    const { newState } = processGameTick(ts);
-
-    // Speed changed.
+    // First tick processes both actions — speed change is immediate, colonisation starts.
+    let { newState } = processGameTick(ts);
     expect(newState.gameState.speed).toBe('fastest');
+    // Migration order should be active.
+    expect(newState.migrationOrders.length).toBeGreaterThan(0);
 
-    // Planet colonised.
+    // Tick enough times for colonists to transit and arrive.
+    for (let i = 0; i < 10; i++) {
+      ({ newState } = processGameTick(newState));
+    }
+
+    // Planet should now be colonised.
     const planet = newState.gameState.galaxy.systems
       .flatMap(s => s.planets)
       .find(p => p.id === targetPlanetId)!;
@@ -659,5 +686,95 @@ describe('processGameTick — invalid actions do not crash the tick', () => {
     const { newState } = processGameTick(tsWithBadAction);
     // Tick counter should have advanced normally.
     expect(newState.gameState.currentTick).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UpgradeBuilding action
+// ---------------------------------------------------------------------------
+
+describe('processGameTick — UpgradeBuilding action', () => {
+  it('adds an upgrade to the planet production queue', () => {
+    const gs = makeGameState();
+    const empire = gs.empires[0]!;
+    const homeSystem = gs.galaxy.systems.find(s => s.ownerId === empire.id)!;
+    const homePlanet = homeSystem.planets.find(p => p.ownerId === empire.id)!;
+
+    const building = homePlanet.buildings[0];
+    expect(building).toBeDefined();
+
+    // Advance empire to fusion age so upgrades are allowed
+    empire.currentAge = 'fusion';
+
+    const ts = initializeTickState(gs);
+
+    // Ensure empire has enough resources
+    const upgradeCost = getUpgradeCost(building!.type, building!.level);
+    const existingRes = ts.empireResourcesMap.get(empire.id)!;
+    const boostedRes = { ...existingRes };
+    for (const [key, amount] of Object.entries(upgradeCost)) {
+      (boostedRes as Record<string, number>)[key] = ((boostedRes as Record<string, number>)[key] ?? 0) + (amount ?? 0) + 1000;
+    }
+    const boostedMap = new Map(ts.empireResourcesMap);
+    boostedMap.set(empire.id, boostedRes);
+    const tsWithResources = { ...ts, empireResourcesMap: boostedMap };
+
+    const action: UpgradeBuildingAction = {
+      type: 'UpgradeBuilding',
+      systemId: homeSystem.id,
+      planetId: homePlanet.id,
+      buildingId: building!.id,
+    };
+
+    const tsWithAction = submitAction(tsWithResources, empire.id, action);
+    const { newState } = processGameTick(tsWithAction);
+
+    const updatedPlanet = newState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .find(p => p.id === homePlanet.id)!;
+
+    const hasUpgradeInQueue = updatedPlanet.productionQueue.some(
+      item => item.type === 'building_upgrade' && item.targetBuildingId === building!.id,
+    );
+    const buildingNow = updatedPlanet.buildings.find(b => b.id === building!.id);
+    const levelIncreased = buildingNow && buildingNow.level > building!.level;
+
+    expect(hasUpgradeInQueue || levelIncreased).toBe(true);
+  });
+
+  it('rejects upgrade when the empire does not own the planet', () => {
+    const gs = makeGameState();
+    const empireA = gs.empires[0]!;
+    const empireB = gs.empires[1]!;
+
+    empireA.currentAge = 'fusion';
+
+    const systemB = gs.galaxy.systems.find(s => s.ownerId === empireB.id)!;
+    const planetB = systemB.planets.find(p => p.ownerId === empireB.id)!;
+    const building = planetB.buildings[0];
+    expect(building).toBeDefined();
+
+    const ts = initializeTickState(gs);
+    const action: UpgradeBuildingAction = {
+      type: 'UpgradeBuilding',
+      systemId: systemB.id,
+      planetId: planetB.id,
+      buildingId: building!.id,
+    };
+
+    const tsWithAction = submitAction(ts, empireA.id, action);
+    const { newState } = processGameTick(tsWithAction);
+
+    const updatedPlanet = newState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .find(p => p.id === planetB.id)!;
+
+    const hasUpgradeInQueue = updatedPlanet.productionQueue.some(
+      item => item.type === 'building_upgrade' && item.targetBuildingId === building!.id,
+    );
+    const buildingNow = updatedPlanet.buildings.find(b => b.id === building!.id);
+    const levelIncreased = buildingNow && buildingNow.level > building!.level;
+
+    expect(hasUpgradeInQueue || levelIncreased).toBe(false);
   });
 });

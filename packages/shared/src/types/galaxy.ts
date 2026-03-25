@@ -72,6 +72,8 @@ export interface Building {
   id: string;
   type: BuildingType;
   level: number;
+  /** Building condition 0–100%. Defaults to 100 when constructed. */
+  condition?: number;
 }
 
 export type BuildingType =
@@ -94,6 +96,11 @@ export type BuildingType =
   | 'fusion_reactor'
   | 'medical_bay'
   | 'advanced_medical_centre'
+  | 'waste_dump'
+  | 'waste_incinerator'
+  | 'atmosphere_cleanser'
+  | 'orbital_waste_ejector'
+  | 'energy_storage'
   // ── Vaelori unique buildings ──────────────────────────────────────────────
   | 'crystal_resonance_chamber'
   | 'psionic_amplifier'
@@ -141,10 +148,58 @@ export type BuildingType =
   | 'seismic_resonator';
 
 export interface ProductionItem {
-  type: 'ship' | 'building' | 'defense';
+  type: 'ship' | 'building' | 'defense' | 'building_upgrade';
   templateId: string;
   turnsRemaining: number;
+  /** For building_upgrade items: the ID of the building being upgraded. */
+  targetBuildingId?: string;
+  /** Total construction points when queued — used by the UI for progress display. */
+  totalTurns?: number;
 }
+
+// ── Galaxy shape metadata (rendering hints from generation) ─────────────────
+
+export interface SpiralGalaxyMetadata {
+  shape: 'spiral';
+  armCount: number;
+  /** Starting angle offset for each arm (radians). Length === armCount. */
+  armAngles: number[];
+  /** Logarithmic spiral tightness parameter (higher = tighter winding). */
+  spiralTightness: number;
+  /** Arm angular half-width at the galaxy edge (radians). */
+  armSpread: number;
+  /** Galactic bulge radius as fraction of max radius (0–1). */
+  bulgeRadiusFraction: number;
+  /** Spiral 'a' parameter — radius at which arms begin. */
+  spiralA: number;
+  centreX: number;
+  centreY: number;
+}
+
+export interface EllipticalGalaxyMetadata {
+  shape: 'elliptical';
+  centreX: number;
+  centreY: number;
+}
+
+export interface RingGalaxyMetadata {
+  shape: 'ring';
+  centreX: number;
+  centreY: number;
+  innerRadiusFraction: number;
+  outerRadiusFraction: number;
+}
+
+export interface IrregularGalaxyMetadata {
+  shape: 'irregular';
+  clusterCentres: Array<{ x: number; y: number }>;
+}
+
+export type GalaxyShapeMetadata =
+  | SpiralGalaxyMetadata
+  | EllipticalGalaxyMetadata
+  | RingGalaxyMetadata
+  | IrregularGalaxyMetadata;
 
 export interface Galaxy {
   id: string;
@@ -154,4 +209,6 @@ export interface Galaxy {
   width: number;
   height: number;
   seed: number;
+  /** Shape-specific rendering hints computed at generation time. */
+  shapeMetadata?: GalaxyShapeMetadata;
 }

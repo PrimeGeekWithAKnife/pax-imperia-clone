@@ -109,6 +109,21 @@ const TRACK_OPTIONS: TrackOption[] = [
     label: 'Serenity',
     description: 'Minimal sustained pad with very slow filter sweeps. Calm and meditative.',
   },
+  {
+    id: 'stellar_drift',
+    label: 'Stellar Drift',
+    description: 'Dreamy upbeat trance with arpeggiated synth and soft kick. Uplifting and flowing.',
+  },
+  {
+    id: 'void_pulse',
+    label: 'Void Pulse',
+    description: 'Dark minimal trance with pulsing bass and sparse stabs. Driving and hypnotic.',
+  },
+  {
+    id: 'nebula_flow',
+    label: 'Nebula Flow',
+    description: 'Warm progressive trance with flowing melody and gentle rhythm. Smooth and melodic.',
+  },
 ];
 
 // ── Sub-panels ─────────────────────────────────────────────────────────────────

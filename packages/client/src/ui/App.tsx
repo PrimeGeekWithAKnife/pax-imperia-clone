@@ -11,6 +11,8 @@ import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
 import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
 import type { Empire } from '@nova-imperia/shared';
+import type { GameNotification, NotificationPreferences, NotificationType } from '@nova-imperia/shared';
+import { shouldShowNotification } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
 import { useGameEvent } from './hooks/useGameEvents';
 import { getAudioEngine, SfxGenerator } from '../audio';
@@ -45,6 +47,7 @@ import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
+import { NotificationPopup } from './components/NotificationPopup';
 import type { GameLogEntry } from './components/EventLog';
 import { VictoryTracker } from './components/VictoryTracker';
 import { calculateVictoryProgress } from '@nova-imperia/shared';
@@ -227,6 +230,20 @@ export function App(): React.ReactElement {
       return next.length > 50 ? next.slice(-50) : next;
     });
   }, []);
+
+  // ── Notification queue (auto-pause popups) ──
+  const [notificationQueue, setNotificationQueue] = useState<GameNotification[]>([]);
+  const [activeNotification, setActiveNotification] = useState<GameNotification | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(() => {
+    try {
+      const stored = localStorage.getItem('ex-nihilo:silenced-notifications');
+      if (stored) {
+        const arr = JSON.parse(stored) as NotificationType[];
+        return { silencedTypes: new Set(arr) };
+      }
+    } catch { /* ignore */ }
+    return { silencedTypes: new Set() };
+  });
 
   // ── "Coming Soon" overlay state ──
   const [comingSoonLabel, _setComingSoonLabel] = useState<string | null>(null);
@@ -465,6 +482,24 @@ export function App(): React.ReactElement {
     setIsPaused(false);
   }, []);
 
+  // Phaser emits this when "Resume" is clicked — open the save/load screen in load mode
+  const handleOpenLoadGame = useCallback(() => {
+    setSaveLoadTab('load');
+  }, []);
+
+  // Expose a direct window callback for MainMenuScene to call — more reliable than event bridge
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_LOAD__ = () => setSaveLoadTab('load');
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_NEW_GAME__ = () => {
+      setCurrentScreen('species-creator');
+      setIsPaused(false);
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_LOAD__;
+      delete (window as unknown as Record<string, unknown>).__EX_NIHILO_OPEN_NEW_GAME__;
+    };
+  }, []);
+
   // Phaser emits this when "Multiplayer" is clicked from the main menu
   const handleOpenMultiplayer = useCallback(() => {
     setCurrentScreen('multiplayer');
@@ -491,7 +526,17 @@ export function App(): React.ReactElement {
   // Phaser can push a full research state update (e.g. after a tick resolves)
   const handleResearchStateUpdate = useCallback(
     (state: ResearchState) => {
-      setResearchState(state);
+      setResearchState(prev => {
+        // Guard against age regression — if the engine sends an older age, keep the current one
+        const AGES: string[] = ['nano_atomic', 'fusion', 'nano_fusion', 'anti_matter', 'singularity'];
+        const prevIdx = AGES.indexOf(prev.currentAge);
+        const newIdx = AGES.indexOf(state.currentAge);
+        if (newIdx < prevIdx && prevIdx >= 0) {
+          console.warn(`[App] Research age regression detected: engine sent "${state.currentAge}" but UI has "${prev.currentAge}" — keeping higher age`);
+          return { ...state, currentAge: prev.currentAge, completedTechs: [...new Set([...prev.completedTechs, ...state.completedTechs])] };
+        }
+        return state;
+      });
     },
     [],
   );
@@ -908,6 +953,76 @@ export function App(): React.ReactElement {
     setCurrentScreen('victory');
   }, []);
 
+  // ── Notification system ────────────────────────────────────────────────────
+
+  /** Push a notification onto the queue.  If nothing is active, show it immediately and pause. */
+  const pushNotification = useCallback((notification: GameNotification) => {
+    // Always log the notification in the event log
+    const category: GameLogEntry['category'] =
+      notification.priority === 'critical' ? 'combat'
+        : notification.priority === 'warning' ? 'colony'
+          : 'general';
+    pushLogEntry(notification.tick, notification.title, category);
+
+    // If the player has silenced this type and it is silenceable, skip the popup
+    if (!shouldShowNotification(notification, notificationPreferences)) return;
+
+    // If no notification is currently shown, display this one and pause
+    if (!activeNotification) {
+      setActiveNotification(notification);
+      if (notification.autoPause) {
+        const engine = getGameEngine();
+        if (engine) engine.pause();
+      }
+    } else {
+      // Queue behind the currently displayed notification
+      setNotificationQueue(prev => [...prev, notification]);
+    }
+  }, [activeNotification, notificationPreferences, pushLogEntry]);
+
+  /** Dismiss the active notification.  If `silenceType` is true, persist the preference. */
+  const handleNotificationDismiss = useCallback((silenceType: boolean) => {
+    if (activeNotification && silenceType && activeNotification.canSilence) {
+      setNotificationPreferences(prev => {
+        const next = new Set(prev.silencedTypes);
+        next.add(activeNotification.type);
+        try {
+          localStorage.setItem(
+            'ex-nihilo:silenced-notifications',
+            JSON.stringify([...next]),
+          );
+        } catch { /* ignore quota errors */ }
+        return { silencedTypes: next };
+      });
+    }
+
+    // Show next queued notification, or resume the engine if the queue is empty
+    setNotificationQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setActiveNotification(next);
+        return rest;
+      }
+      // Queue empty — clear active and resume engine
+      setActiveNotification(null);
+      const engine = getGameEngine();
+      if (engine) engine.start();
+      return prev;
+    });
+  }, [activeNotification]);
+
+  /** Handle a choice being made on a notification. */
+  const handleNotificationChoice = useCallback((choiceId: string) => {
+    if (choiceId === 'open_research') {
+      setCurrentScreen('research');
+    }
+  }, []);
+
+  /** Listen for notifications emitted by the engine. */
+  const handleEngineNotification = useCallback((notification: GameNotification) => {
+    pushNotification(notification);
+  }, [pushNotification]);
+
   // Player clicks "Cancel Migration" in PlanetDetailPanel
   const handleCancelMigration = useCallback(() => {
     if (!selectedPlanet) return;
@@ -925,6 +1040,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('system:exited', handleSystemExited);
   useGameEvent<string>('scene:change', handleSceneChange);
   useGameEvent<void>('ui:new_game', handleNewGame);
+  useGameEvent<void>('ui:load_game', handleOpenLoadGame);
   useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
   useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
   useGameEvent<void>('ui:research', handleOpenResearch);
@@ -952,6 +1068,7 @@ export function App(): React.ReactElement {
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
   useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
+  useGameEvent<GameNotification>('engine:notification', handleEngineNotification);
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);
@@ -984,6 +1101,44 @@ export function App(): React.ReactElement {
     setManagedPlanet(planet);
     setManagedSystemId(systemId);
   }, []);
+
+  const handleDemolish = useCallback(
+    (planetId: string, buildingId: string) => {
+      if (!managedSystemId) {
+        console.warn('[App.handleDemolish] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleDemolish] GameEngine not available');
+        return;
+      }
+      const success = engine.demolishBuildingOnPlanet(managedSystemId, planetId, buildingId);
+      if (!success) {
+        console.warn(`[App.handleDemolish] demolishBuildingOnPlanet returned false for ${buildingId}`);
+      }
+    },
+    [managedSystemId],
+  );
+
+  const handleUpgrade = useCallback(
+    (planetId: string, buildingId: string) => {
+      if (!managedSystemId) {
+        console.warn('[App.handleUpgrade] No system ID for managed planet');
+        return;
+      }
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleUpgrade] GameEngine not available');
+        return;
+      }
+      const success = engine.upgradeBuildingOnPlanet(managedSystemId, planetId, buildingId);
+      if (!success) {
+        console.warn(`[App.handleUpgrade] upgradeBuildingOnPlanet returned false for ${buildingId}`);
+      }
+    },
+    [managedSystemId],
+  );
 
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
@@ -1060,17 +1215,17 @@ export function App(): React.ReactElement {
     }
     // Fallback: engine not yet available (e.g. pre-game screen), use local state.
     setResearchState((prev) => {
-      const currentTotal = prev.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
-      if (currentTotal + allocation > 100) return prev;
       if (prev.completedTechs.includes(techId)) return prev;
       if (prev.activeResearch.some((r) => r.techId === techId)) return prev;
-      return {
-        ...prev,
-        activeResearch: [
-          ...prev.activeResearch,
-          { techId, pointsInvested: 0, allocation },
-        ],
-      };
+      const newActive = [...prev.activeResearch, { techId, pointsInvested: 0, allocation: 0 }];
+      // Auto-redistribute evenly
+      const evenShare = Math.floor(100 / newActive.length);
+      const rem = 100 - evenShare * newActive.length;
+      const redistributed = newActive.map((r, i) => ({
+        ...r,
+        allocation: evenShare + (i === 0 ? rem : 0),
+      }));
+      return { ...prev, activeResearch: redistributed };
     });
   }, []);
 
@@ -1083,11 +1238,16 @@ export function App(): React.ReactElement {
         return;
       }
     }
-    // Fallback
-    setResearchState((prev) => ({
-      ...prev,
-      activeResearch: prev.activeResearch.filter((r) => r.techId !== techId),
-    }));
+    // Fallback — redistribute evenly after removal
+    setResearchState((prev) => {
+      const remaining = prev.activeResearch.filter((r) => r.techId !== techId);
+      if (remaining.length > 0) {
+        const evenShare = Math.floor(100 / remaining.length);
+        const rem = 100 - evenShare * remaining.length;
+        remaining.forEach((r, i) => { r.allocation = evenShare + (i === 0 ? rem : 0); });
+      }
+      return { ...prev, activeResearch: remaining };
+    });
   }, []);
 
   const handleAdjustAllocation = useCallback((techId: string, allocation: number) => {
@@ -1114,6 +1274,36 @@ export function App(): React.ReactElement {
     });
   }, []);
 
+  const handleQueueResearch = useCallback((techId: string) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.queueResearch(empireId, techId);
+        return;
+      }
+    }
+    setResearchState((prev) => ({
+      ...prev,
+      researchQueue: [...(prev.researchQueue ?? []), techId],
+    }));
+  }, []);
+
+  const handleDequeueResearch = useCallback((techId: string) => {
+    const engine: GameEngine | undefined = getGameEngine();
+    if (engine) {
+      const empireId = engine.getState().gameState.empires.find(e => !e.isAI)?.id;
+      if (empireId) {
+        engine.dequeueResearch(empireId, techId);
+        return;
+      }
+    }
+    setResearchState((prev) => ({
+      ...prev,
+      researchQueue: (prev.researchQueue ?? []).filter(id => id !== techId),
+    }));
+  }, []);
+
   // Species creator → game setup
   const handleSpeciesCreatorContinue = useCallback((data: SpeciesCreatorContinueData) => {
     setCreatorData(data);
@@ -1128,6 +1318,7 @@ export function App(): React.ReactElement {
   // Game setup → start game (GameSetupScreen already emitted 'game:start_with_config')
   const handleStartGame = useCallback((config: GameConfig) => {
     // Reset stale game-session state so the new game starts clean
+    setSaveLoadTab(null);
     setSelectedSystem(null);
     setSelectedPlanet(null);
     setActiveSystemId(null);
@@ -1181,11 +1372,13 @@ export function App(): React.ReactElement {
   const handleGameLoaded = useCallback(() => {
     setSaveLoadTab(null);
     setIsPaused(false);
+    setGameStarted(true);
   }, []);
 
   const handleExitToMainMenu = useCallback(() => {
     setIsPaused(false);
     setGameStarted(false);
+    setSaveLoadTab(null);
     setCurrentScreen('game');
     // Reset all game-session state so a new game starts fresh
     setSelectedSystem(null);
@@ -1254,6 +1447,9 @@ export function App(): React.ReactElement {
     const researchProductionPerTick = engineForResearch
       ? engineForResearch.getPlayerResearchProductionPerTick()
       : 0;
+    const researchLabCount = engineForResearch
+      ? engineForResearch.getPlayerResearchLabCount()
+      : 1;
     // Species research bonus: traits.research / 5 (5 = normal, 10 = double, etc.)
     const speciesResearchBonus = playerEmpire.species.traits.research / 5;
     return (
@@ -1263,8 +1459,11 @@ export function App(): React.ReactElement {
           researchState={researchState}
           researchPerTick={researchProductionPerTick}
           speciesBonus={speciesResearchBonus}
+          maxActiveResearch={researchLabCount}
           onStartResearch={handleStartResearch}
           onCancelResearch={handleCancelResearch}
+          onQueueResearch={handleQueueResearch}
+          onDequeueResearch={handleDequeueResearch}
           onAdjustAllocation={handleAdjustAllocation}
           onClose={handleCloseResearch}
         />
@@ -1320,7 +1519,17 @@ export function App(): React.ReactElement {
   if (currentScreen === 'fleet') {
     return (
       <div className="ui-overlay">
-        <FleetScreen onClose={() => setCurrentScreen('game')} />
+        <FleetScreen
+          onClose={() => setCurrentScreen('game')}
+          onGoToFleet={(systemId) => {
+            setCurrentScreen('game');
+            // Emit event for GalaxyMapScene to centre on this system
+            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+              | { events: { emit: (e: string, d: unknown) => void } }
+              | undefined;
+            game?.events.emit('galaxy:navigate_to_system', { systemId });
+          }}
+        />
       </div>
     );
   }
@@ -1384,14 +1593,21 @@ export function App(): React.ReactElement {
   }
 
   // Don't render game HUD until a game is actually running
-  // But still allow the settings/pause menu overlay from the main menu
+  // But still allow the settings/pause menu overlay and save/load screen from the main menu
   if (!gameStarted) {
     return (
       <div className="ui-overlay">
-        {isPaused && (
+        {isPaused && !saveLoadTab && (
           <PauseMenu
             onResume={() => setIsPaused(false)}
             onExitToMainMenu={() => setIsPaused(false)}
+          />
+        )}
+        {saveLoadTab && (
+          <SaveLoadScreen
+            initialTab={saveLoadTab}
+            onClose={handleCloseSaveLoad}
+            onLoaded={handleGameLoaded}
           />
         )}
         <Tooltip />
@@ -1433,6 +1649,7 @@ export function App(): React.ReactElement {
         estimatedWaves={estimatedWavesForMigration}
         sourcePlanetName={migrationSourcePlanetName}
         playerOwnsInSystem={playerOwnsInSystem}
+        empireResources={empireResources}
       />
 
       <Minimap
@@ -1466,6 +1683,9 @@ export function App(): React.ReactElement {
           onBuild={handleBuild}
           onCancelQueue={handleCancelQueue}
           onProduceShip={handleProduceShip}
+          onDemolish={handleDemolish}
+          onUpgrade={handleUpgrade}
+          currentAge={playerEmpire.currentAge}
         />
       )}
 
@@ -1522,6 +1742,16 @@ export function App(): React.ReactElement {
           initialTab={saveLoadTab}
           onClose={handleCloseSaveLoad}
           onLoaded={handleGameLoaded}
+        />
+      )}
+
+      {/* Auto-pause notification popup */}
+      {activeNotification !== null && (
+        <NotificationPopup
+          notification={activeNotification}
+          queueLength={notificationQueue.length}
+          onDismiss={handleNotificationDismiss}
+          onChoice={handleNotificationChoice}
         />
       )}
 

@@ -445,10 +445,10 @@ describe('processGameTick — construction queues', () => {
       .find(p => p.id === targetPlanet!.id)!;
 
     if (afterPlanet.productionQueue.length > 0) {
-      // Not completed yet — turns should have decreased
-      expect(afterPlanet.productionQueue[0]!.turnsRemaining).toBe(initialTurns - 1);
+      // Not completed yet — turns should have decreased (rate >= 1.0 due to factories)
+      expect(afterPlanet.productionQueue[0]!.turnsRemaining).toBeLessThan(initialTurns);
     } else {
-      // Completed (if turnsRemaining was 1 or construction_rate > 4)
+      // Completed (if turnsRemaining was 1 or construction_rate was high)
       expect(afterPlanet.buildings.some(b => b.type === 'mining_facility')).toBe(true);
     }
   });

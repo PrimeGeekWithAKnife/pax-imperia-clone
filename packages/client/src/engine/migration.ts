@@ -60,14 +60,17 @@ function generateMigrationId(): string {
   return `mig_${Date.now()}_${_nextMigrationIndex}`;
 }
 
-// Ticks between each wave departure.
+// Ticks (days) between each wave departure.
 const WAVE_INTERVAL_TICKS = 3;
-// Colonists delivered per wave.
-const COLONISTS_PER_WAVE = 3;
-// Chance a colonist is lost in transit (0–1).
+// Colonists dispatched per wave (source loses this, target gains survivors).
+const COLONISTS_PER_WAVE = 5_000;
+// Random mortality per wave: 1-10% of wave dies in transit.
+const TRANSIT_LOSS_RATE_MIN = 0.01;
+const TRANSIT_LOSS_RATE_MAX = 0.10;
+// Kept for backwards compat — average loss rate for estimates.
 const TRANSIT_LOSS_RATE = 0.05;
-// Number of waves needed (~17 for threshold 50, 3 per wave).
-const MIGRATION_THRESHOLD = 50;
+// Total colonists to transfer (migration completes when this many have departed).
+const MIGRATION_THRESHOLD = 100_000;
 
 /**
  * Start a new migration order.
@@ -129,10 +132,13 @@ export function tickMigrations(): Array<{
     m.ticksToNextWave -= 1;
 
     if (m.ticksToNextWave <= 0) {
-      // Dispatch a wave
+      // Dispatch a wave — random 1-10% mortality per wave
       m.currentWave += 1;
-      const lost = Math.round(COLONISTS_PER_WAVE * TRANSIT_LOSS_RATE);
-      const arrived = COLONISTS_PER_WAVE - lost;
+      const remaining = m.threshold - m.arrivedPopulation - m.colonistsLost;
+      const dispatched = Math.min(COLONISTS_PER_WAVE, Math.max(0, remaining));
+      const mortalityRate = TRANSIT_LOSS_RATE_MIN + Math.random() * (TRANSIT_LOSS_RATE_MAX - TRANSIT_LOSS_RATE_MIN);
+      const lost = Math.round(dispatched * mortalityRate);
+      const arrived = dispatched - lost;
       m.colonistsLost += lost;
       m.arrivedPopulation += arrived;
       m.ticksToNextWave = WAVE_INTERVAL_TICKS;
@@ -140,10 +146,11 @@ export function tickMigrations(): Array<{
       waveEvents.push({
         migration: m,
         waveNumber: m.currentWave,
-        colonistsDispatched: COLONISTS_PER_WAVE,
+        colonistsDispatched: dispatched,
       });
 
-      if (m.arrivedPopulation >= m.threshold) {
+      // Complete when all colonists have been dispatched
+      if (m.arrivedPopulation + m.colonistsLost >= m.threshold) {
         m.status = 'completed';
       }
     }

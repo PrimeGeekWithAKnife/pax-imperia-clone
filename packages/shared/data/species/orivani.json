@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen"]
   },
   "specialAbilities": ["devout"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "theocracy",
+  "allowedGovernments": ["theocracy", "empire", "autocracy"]
 }

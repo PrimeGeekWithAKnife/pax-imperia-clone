@@ -20,6 +20,8 @@
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
  *  9.  AI Decisions         (stub)
+ *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
+ *  9c. Building Condition   (maintenance-based decay, functionality checks)
  *  10. Victory Check        (conquest / economic / technological / diplomatic)
  *  11. Advance Tick
  */
@@ -47,6 +49,11 @@ import type {
 } from '../types/events.js';
 import { GAME_SPEEDS } from '../constants/game.js';
 import {
+  BASE_CONSTRUCTION_RATE,
+  FACTORY_CONSTRUCTION_OUTPUT,
+  BUILDING_LEVEL_MULTIPLIER,
+} from '../constants/resources.js';
+import {
   calculateEmpireProduction,
   calculateUpkeep,
   applyResourceTick,
@@ -66,6 +73,12 @@ import {
   processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  canColoniseWithShip,
+  coloniseWithShip,
+  canUpgradeBuilding,
+  addUpgradeToQueue,
+  getUpgradeCost,
+  TRANSIT_DURATION,
   type MigrationOrder,
 } from './colony.js';
 import {
@@ -99,6 +112,25 @@ import {
   processGovernorsTick,
   applyGovernorModifiers,
 } from './governors.js';
+import {
+  calculateEnergyProduction,
+  calculateEnergyDemand,
+  calculateEnergyBalance,
+  calculateStorageCapacity,
+  getBuildingEfficiency,
+} from './energy-flow.js';
+import type { PlanetEnergyState, PlanetWasteState } from '../types/waste.js';
+import {
+  calculateWasteCapacity,
+  calculateWasteProduction,
+  calculateWasteReduction,
+  tickWaste,
+} from './waste.js';
+import {
+  tickBuildingCondition,
+  isBuildingFunctional,
+} from './building-condition.js';
+import { BUILDING_DEFINITIONS, type BuildingDefinition } from '../constants/buildings.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -193,6 +225,22 @@ export interface GameTickState {
    * processed and persists until the stage reaches 'complete'.
    */
   terraformingProgressMap: Map<string, TerraformingProgress>;
+  /**
+   * Per-planet waste state.  Key = planetId.
+   * Created/updated each tick for every owned planet.
+   */
+  wasteMap: Map<string, PlanetWasteState>;
+  /**
+   * Per-planet energy state.  Key = planetId.
+   * Created/updated each tick for every owned planet.
+   */
+  energyStateMap: Map<string, PlanetEnergyState>;
+  /**
+   * Per-planet list of building IDs powered off by player choice.
+   * Key = planetId.  An empty array (or missing entry) means all buildings
+   * are powered on.
+   */
+  disabledBuildingsMap: Map<string, string[]>;
   /**
    * All active governors across all empires.
    * Each governor is assigned to one planet (governor.planetId).
@@ -353,9 +401,80 @@ function processPlayerActions(
         const planetId = action.planetId;
 
         if (!systemId) {
-          // ColonizePlanet (US spelling) uses a fleetId rather than a systemId —
-          // the fleet-based path is not yet implemented.
-          console.warn(`[game-loop] ColonizePlanet (fleet-based) is not yet implemented — skipping`);
+          // ColonizePlanet (US spelling) — fleet-based inter-system colonisation.
+          const fleetId = (action as { fleetId: string }).fleetId;
+          const fleet = state.gameState.fleets.find(f => f.id === fleetId);
+          if (!fleet) {
+            console.warn(`[game-loop] ColonizePlanet references unknown fleet "${fleetId}" — skipping`);
+            continue;
+          }
+          const fleetSystem = systems.find(s => s.id === fleet.position.systemId);
+          if (!fleetSystem) {
+            console.warn(`[game-loop] ColonizePlanet fleet system not found — skipping`);
+            continue;
+          }
+          const empire = empires.find(e => e.id === empireId);
+          if (!empire) continue;
+
+          // Find a coloniser ship in the fleet
+          const designsMap = state.shipDesigns ?? new Map<string, Ship>();
+          const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
+          const coloniserShip = fleetShips.find(s => {
+            const design = designsMap.get(s.designId);
+            return design && (design as unknown as { hull: string }).hull === 'coloniser';
+          });
+          if (!coloniserShip) {
+            console.warn(`[game-loop] ColonizePlanet fleet has no coloniser ship — skipping`);
+            continue;
+          }
+
+          const check = canColoniseWithShip(coloniserShip, fleet, fleetSystem, planetId, empire.species);
+          if (!check.allowed) {
+            console.warn(`[game-loop] ColonizePlanet rejected: ${check.reason}`);
+            continue;
+          }
+
+          // Pass the empire's current tech age for tiered starter buildings
+          const empireResearchState = state.researchStates.get(empireId);
+          const currentAge = empireResearchState?.currentAge ?? 'nano_atomic';
+          const result = coloniseWithShip(fleetSystem, planetId, empireId, fleet, coloniserShip.id, currentAge);
+          systems = systems.map(s => s.id === fleetSystem.id ? result.system : s);
+
+          // Update the fleet (ship consumed)
+          state = {
+            ...state,
+            gameState: {
+              ...state.gameState,
+              fleets: state.gameState.fleets.map(f => f.id === fleetId ? result.fleet : f),
+              ships: state.gameState.ships.filter(s => s.id !== coloniserShip.id),
+              galaxy: { ...state.gameState.galaxy, systems },
+            },
+          };
+          systems = state.gameState.galaxy.systems;
+
+          // Emit colony established event
+          const targetPlanet = result.system.planets.find(p => p.id === planetId);
+          const establishedEvent: ColonyEstablishedEvent = {
+            type: 'ColonyEstablished',
+            empireId,
+            systemId: fleetSystem.id,
+            planetId,
+            planetName: targetPlanet?.name ?? planetId,
+            tick,
+          };
+          events.push(establishedEvent);
+
+          // Auto-assign governor
+          const newGovernor = generateGovernor(empireId, planetId);
+          state = { ...state, governors: [...state.governors, newGovernor] };
+          events.push({
+            type: 'GovernorAppointed',
+            empireId,
+            planetId,
+            governorName: newGovernor.name,
+            tick,
+          } as GovernorAppointedEvent);
+
           continue;
         }
 
@@ -384,6 +503,9 @@ function processPlayerActions(
           continue;
         }
 
+        // Look up minerals from the resource map.
+        const empMinerals = state.empireResourcesMap.get(empireId)?.minerals ?? 0;
+
         // Validate using canStartMigration.
         const check = canStartMigration(
           system,
@@ -393,6 +515,7 @@ function processPlayerActions(
           empire.species,
           empire.credits,
           state.migrationOrders,
+          empMinerals,
         );
 
         if (!check.allowed) {
@@ -400,7 +523,7 @@ function processPlayerActions(
           continue;
         }
 
-        // Deduct the colonisation cost upfront from both empire and resource map.
+        // Deduct the colonisation credit + mineral costs upfront from both empire and resource map.
         const updatedEmpire = { ...empire, credits: empire.credits - check.cost };
         empires = empires.map(e => (e.id === empireId ? updatedEmpire : e));
         // Also deduct from the persistent resource map
@@ -408,7 +531,11 @@ function processPlayerActions(
         const empRes = resMap.get(empireId);
         if (empRes) {
           const newMap = new Map(resMap);
-          newMap.set(empireId, { ...empRes, credits: empRes.credits - check.cost });
+          newMap.set(empireId, {
+            ...empRes,
+            credits: empRes.credits - check.cost,
+            minerals: empRes.minerals - check.mineralCost,
+          });
           state = { ...state, empireResourcesMap: newMap };
         }
 
@@ -459,8 +586,84 @@ function processPlayerActions(
           continue;
         }
 
+        // Deduct building cost from the empire's resource stockpile
+        const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
+        if (buildDef) {
+          const res = getEmpireResources(state, empireId);
+          for (const [key, amount] of Object.entries(buildDef.baseCost)) {
+            if (amount && amount > 0) {
+              res[key as keyof EmpireResources] -= amount;
+            }
+          }
+          state = applyResources(state, empireId, res);
+          // Re-fetch systems after resource update (applyResources may update empires)
+          systems = state.gameState.galaxy.systems;
+        }
+
         const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs);
         systems = replacePlanet(systems, updatedPlanet);
+
+      // ── UpgradeBuilding ───────────────────────────────────────────────────
+      } else if (action.type === 'UpgradeBuilding') {
+        const { systemId, planetId, buildingId } = action;
+
+        const systemData = systems.find(s => s.id === systemId);
+        if (!systemData) {
+          console.warn(`[game-loop] UpgradeBuilding references unknown system "${systemId}" — skipping`);
+          continue;
+        }
+
+        const planet = systemData.planets.find(p => p.id === planetId);
+        if (!planet) {
+          console.warn(`[game-loop] UpgradeBuilding references unknown planet "${planetId}" — skipping`);
+          continue;
+        }
+
+        if (planet.ownerId !== empireId) {
+          console.warn(`[game-loop] UpgradeBuilding rejected — empire "${empireId}" does not own planet "${planetId}"`);
+          continue;
+        }
+
+        const empire = state.gameState.empires.find(e => e.id === empireId);
+        const currentAge = empire?.currentAge ?? 'nano_atomic';
+
+        const upgradeCheck = canUpgradeBuilding(planet, buildingId, currentAge);
+        if (!upgradeCheck.allowed) {
+          console.warn(`[game-loop] UpgradeBuilding rejected for building "${buildingId}": ${upgradeCheck.reason}`);
+          continue;
+        }
+
+        const building = planet.buildings.find(b => b.id === buildingId)!;
+        const upgradeCost = getUpgradeCost(building.type, building.level);
+
+        // Check affordability first (all resources must be available)
+        const res = getEmpireResources(state, empireId);
+        let canAfford = true;
+        for (const [key, amount] of Object.entries(upgradeCost)) {
+          if (amount && amount > 0) {
+            if ((res[key as keyof EmpireResources] ?? 0) < amount) {
+              console.warn(`[game-loop] UpgradeBuilding rejected — cannot afford ${key}: need ${amount}, have ${res[key as keyof EmpireResources]}`);
+              canAfford = false;
+              break;
+            }
+          }
+        }
+        if (!canAfford) continue;
+
+        // Deduct costs
+        for (const [key, amount] of Object.entries(upgradeCost)) {
+          if (amount && amount > 0) {
+            res[key as keyof EmpireResources] -= amount;
+          }
+        }
+        state = applyResources(state, empireId, res);
+        systems = state.gameState.galaxy.systems;
+
+        // Queue the upgrade
+        const updatedSystem = systems.find(s => s.id === systemId)!;
+        const updatedPlanet2 = updatedSystem.planets.find(p => p.id === planetId)!;
+        const planetWithUpgrade = addUpgradeToQueue(updatedPlanet2, buildingId, currentAge);
+        systems = replacePlanet(systems, planetWithUpgrade);
 
       // ── SetGameSpeed ─────────────────────────────────────────────────────
       } else if (action.type === 'SetGameSpeed') {
@@ -499,6 +702,7 @@ function stepFleetMovement(
   const tick = state.gameState.currentTick;
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
+  let empires = [...state.gameState.empires];
   const remainingOrders: FleetMovementOrder[] = [];
   const newPendingCombats: CombatPending[] = [...state.pendingCombats];
 
@@ -534,6 +738,16 @@ function stepFleetMovement(
         tick,
       };
       events.push(movedEvent);
+
+      // Add the arrived system to the empire's known systems (fog of war reveal)
+      const empireForDiscovery = empires.find(e => e.id === fleet.empireId);
+      if (empireForDiscovery && !empireForDiscovery.knownSystems.includes(arrivedSystemId)) {
+        empires = empires.map(e =>
+          e.id === fleet.empireId
+            ? { ...e, knownSystems: [...e.knownSystems, arrivedSystemId] }
+            : e,
+        );
+      }
 
       // Check if there are enemy fleets in the arrived system
       const empireId = fleet.empireId;
@@ -580,6 +794,7 @@ function stepFleetMovement(
     pendingCombats: newPendingCombats,
     gameState: {
       ...state.gameState,
+      empires,
       fleets,
       ships,
     },
@@ -848,30 +1063,32 @@ function stepMigrations(
       systems = systems.map((s, i) => (i === systemIndex ? updatedSystem : s));
     }
 
-    // Emit wave events if a wave was sent this tick.
+    // Emit wave events based on what happened this tick.
     if (waveEvents.length > 0) {
-      // Calculate actual numbers from population change.
-      const targetBefore = system.planets.find(p => p.id === order.targetPlanetId);
-      const targetAfter = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
       const sourceBefore = system.planets.find(p => p.id === order.sourcePlanetId);
       const sourceAfter = updatedSystem.planets.find(p => p.id === order.sourcePlanetId);
+      const targetBefore = system.planets.find(p => p.id === order.targetPlanetId);
+      const targetAfter = updatedSystem.planets.find(p => p.id === order.targetPlanetId);
 
-      if (targetBefore && targetAfter && sourceBefore && sourceAfter) {
-        const departed = sourceBefore.currentPopulation - sourceAfter.currentPopulation;
-        const arrived = targetAfter.currentPopulation - targetBefore.currentPopulation;
-        const lost = departed - arrived;
+      const departed = (sourceBefore && sourceAfter)
+        ? sourceBefore.currentPopulation - sourceAfter.currentPopulation : 0;
+      const arrived = (targetBefore && targetAfter)
+        ? targetAfter.currentPopulation - targetBefore.currentPopulation : 0;
+      // Transit losses are the difference between departed and what entered transit
+      const inTransitThisTick = (updatedOrder.transitWaves ?? [])
+        .filter(w => w.ticksRemaining === TRANSIT_DURATION).reduce((s, w) => s + w.population, 0);
+      const lost = departed > 0 ? departed - inTransitThisTick : 0;
 
-        const waveEvent: MigrationWaveEvent = {
-          type: 'MigrationWave',
-          empireId: order.empireId,
-          systemId: order.systemId,
-          departed,
-          arrived,
-          lost,
-          tick,
-        };
-        events.push(waveEvent);
-      }
+      const waveEvent: MigrationWaveEvent = {
+        type: 'MigrationWave',
+        empireId: order.empireId,
+        systemId: order.systemId,
+        departed,
+        arrived,
+        lost,
+        tick,
+      };
+      events.push(waveEvent);
     }
 
     // Emit ColonyEstablished when the migration completes.
@@ -1015,6 +1232,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     state.gameState.galaxy,
   );
 
+  let energyStateMap = new Map(state.energyStateMap);
+
   for (const empire of state.gameState.empires) {
     const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
     const isAtWar = empireIsAtWar(empire);
@@ -1034,6 +1253,50 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       if (adjustedMult !== 1.0) {
         happinessMultipliers.set(planet.id, adjustedMult);
       }
+    }
+
+    // ── Energy flow: calculate per-planet energy balance ──────────────────
+    // This must happen BEFORE resource aggregation so that the empire's
+    // stored energy is correctly set and energy-deficit penalties are based
+    // on the flow model rather than the old stockpile model.
+    let empireTotalStoredEnergy = 0;
+    let empireEnergyRatio = 1.0;
+    let totalEnergyProduction = 0;
+    let totalEnergyDemand = 0;
+    {
+      let totalStoredEnergy = 0;
+      let totalStorageCapacity = 0;
+
+      for (const planet of ownedPlanets) {
+        const disabledIds = state.disabledBuildingsMap.get(planet.id) ?? [];
+
+        const production = calculateEnergyProduction(planet.buildings);
+        const demand = calculateEnergyDemand(planet.buildings, disabledIds);
+        const storedBefore = state.energyStateMap.get(planet.id)?.storedEnergy ?? 0;
+        const storageCapacity = calculateStorageCapacity(planet.buildings);
+
+        const energyState = calculateEnergyBalance(
+          production,
+          demand,
+          storedBefore,
+          storageCapacity,
+          disabledIds,
+        );
+
+        energyStateMap.set(planet.id, energyState);
+
+        totalEnergyProduction += production;
+        totalEnergyDemand += demand;
+        totalStoredEnergy += energyState.storedEnergy;
+        totalStorageCapacity += storageCapacity;
+      }
+
+      empireTotalStoredEnergy = totalStoredEnergy;
+
+      // Empire-wide energy ratio for deficit penalties
+      empireEnergyRatio = totalEnergyDemand > 0
+        ? Math.min(totalEnergyProduction / totalEnergyDemand, 10)
+        : (totalEnergyProduction > 0 ? 10 : 1.0);
     }
 
     // Compute per-planet production and re-aggregate with happiness multipliers.
@@ -1071,7 +1334,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       const boostedProduction = applyGovernorModifiers(rawPlanetProduction, governor);
 
       production.credits        += boostedProduction.credits;
-      production.energy         += boostedProduction.energy;
+      // Energy is handled separately via the flow model — do NOT accumulate
+      // the old economy.ts production value.
       production.minerals       += boostedProduction.minerals;
       production.rareElements   += boostedProduction.rareElements;
       production.organics       += boostedProduction.organics;
@@ -1094,13 +1358,24 @@ function stepResourceProduction(state: GameTickState): GameTickState {
 
     let newResources = applyResourceTick(currentResources, production, upkeep);
 
+    // ── Energy flow override ─────────────────────────────────────────────
+    // Energy display = current surplus (production - demand) + stored battery.
+    // This gives the player a meaningful readout of their energy situation.
+    const energySurplus = Math.max(0, totalEnergyProduction - totalEnergyDemand);
+    newResources = {
+      ...newResources,
+      energy: energySurplus + empireTotalStoredEnergy,
+    };
+
     // Apply energy deficit research penalty: halve accumulated research points.
     // Construction and ship production penalties are handled in their own steps.
-    const energyStatus = getEnergyStatus(newResources);
-    if (energyStatus.isDeficit) {
+    // Use the flow-based energy ratio rather than the old stockpile check.
+    const isEnergyDeficit = empireEnergyRatio < 1.0;
+    if (isEnergyDeficit) {
+      const researchMultiplier = empireEnergyRatio < 0.3 ? 0.25 : 0.5;
       newResources = {
         ...newResources,
-        researchPoints: Math.floor(newResources.researchPoints * energyStatus.researchMultiplier),
+        researchPoints: Math.floor(newResources.researchPoints * researchMultiplier),
       };
     }
 
@@ -1108,7 +1383,7 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     state = applyResources(state, empire.id, newResources);
   }
 
-  return state;
+  return { ...state, energyStateMap };
 }
 
 // ---------------------------------------------------------------------------
@@ -1168,12 +1443,24 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
       if (planet.productionQueue.length === 0) continue;
       if (planet.ownerId === null) continue;
 
-      // Construction rate: base 1 turn per tick, modified by government constructionSpeed.
+      // Construction points per tick = base + sum(factory outputs), scaled by government.
+      // Each factory generates FACTORY_CONSTRUCTION_OUTPUT per tick at level 1,
+      // scaled by BUILDING_LEVEL_MULTIPLIER per level and species construction trait.
       const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
       const govConstructionMult = empire
         ? (GOVERNMENTS[empire.government]?.modifiers.constructionSpeed ?? 1.0)
         : 1.0;
-      const constructionRate = govConstructionMult;
+      const speciesConstructionFactor = empire ? (empire.species.traits.construction / 5) : 1.0;
+
+      let factoryOutput = 0;
+      for (const building of planet.buildings) {
+        if (building.type === 'factory') {
+          factoryOutput += FACTORY_CONSTRUCTION_OUTPUT
+            * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1)
+            * speciesConstructionFactor;
+        }
+      }
+      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult;
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {
@@ -1304,6 +1591,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
   const remainingOrders: ShipProductionOrder[] = [];
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
+  let systems = state.gameState.galaxy.systems;
 
   for (const order of state.productionOrders) {
     const result = processShipProduction(order);
@@ -1313,7 +1601,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
       let planetOwnerId: string | null = null;
       let systemId: string | null = null;
 
-      for (const system of state.gameState.galaxy.systems) {
+      for (const system of systems) {
         const planet = system.planets.find(p => p.id === order.planetId);
         if (planet) {
           planetOwnerId = planet.ownerId;
@@ -1328,6 +1616,25 @@ function stepShipProduction(state: GameTickState): GameTickState {
         );
         continue;
       }
+
+      // Remove the matching ship entry from the planet's production queue
+      systems = systems.map(s => {
+        if (s.id !== systemId) return s;
+        return {
+          ...s,
+          planets: s.planets.map(p => {
+            if (p.id !== order.planetId) return p;
+            const idx = p.productionQueue.findIndex(
+              q => q.type === 'ship' && q.templateId === order.designId,
+            );
+            if (idx < 0) return p;
+            return {
+              ...p,
+              productionQueue: p.productionQueue.filter((_, i) => i !== idx),
+            };
+          }),
+        };
+      });
 
       // Create a new ship at the construction planet's system
       const newShipId = generateId();
@@ -1388,6 +1695,27 @@ function stepShipProduction(state: GameTickState): GameTickState {
       }
     } else if (result.order !== null) {
       remainingOrders.push(result.order);
+
+      // Sync the planet queue entry's turnsRemaining to match the production order
+      const updatedOrder = result.order;
+      systems = systems.map(s => ({
+        ...s,
+        planets: s.planets.map(p => {
+          if (p.id !== updatedOrder.planetId) return p;
+          const idx = p.productionQueue.findIndex(
+            q => q.type === 'ship' && q.templateId === updatedOrder.designId,
+          );
+          if (idx < 0) return p;
+          const queueItem = p.productionQueue[idx]!;
+          if (queueItem.turnsRemaining === updatedOrder.ticksRemaining) return p;
+          return {
+            ...p,
+            productionQueue: p.productionQueue.map((q, i) =>
+              i === idx ? { ...q, turnsRemaining: updatedOrder.ticksRemaining } : q,
+            ),
+          };
+        }),
+      }));
     }
   }
 
@@ -1398,6 +1726,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
       ...state.gameState,
       fleets,
       ships,
+      galaxy: { ...state.gameState.galaxy, systems },
     },
   };
 }
@@ -1499,6 +1828,100 @@ function stepAIDecisions(state: GameTickState): GameTickState {
   // AI decisions run after all simulation steps so they can react to this
   // tick's changes before orders take effect next tick.
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// Step 9b: Waste Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * For each owned planet, calculate waste production, reduction, and overflow.
+ * Updates `wasteMap` in the tick state with each planet's current waste state.
+ */
+function stepWaste(state: GameTickState): GameTickState {
+  const wasteMap = new Map(state.wasteMap);
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+
+    for (const planet of ownedPlanets) {
+      const previousWasteState = wasteMap.get(planet.id);
+      const currentWaste = previousWasteState?.currentWaste ?? 0;
+      const wasteCapacity = calculateWasteCapacity(planet.type);
+
+      const grossWaste = calculateWasteProduction(
+        planet.buildings,
+        planet.currentPopulation,
+      );
+      const reduction = calculateWasteReduction(planet.buildings, grossWaste);
+
+      const wasteState = tickWaste(
+        currentWaste,
+        wasteCapacity,
+        grossWaste,
+        reduction,
+      );
+
+      wasteMap.set(planet.id, wasteState);
+    }
+  }
+
+  return { ...state, wasteMap };
+}
+
+// ---------------------------------------------------------------------------
+// Step 9c: Building Condition
+// ---------------------------------------------------------------------------
+
+/**
+ * For each owned planet, for each building, tick condition.
+ * If an empire can afford maintenance the building holds; otherwise it decays.
+ * Updates the buildings array on each planet (immutably) and writes condition
+ * values back into the galaxy state.
+ */
+function stepBuildingCondition(state: GameTickState): GameTickState {
+  let systems = state.gameState.galaxy.systems;
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    const resources = getEmpireResources(state, empire.id);
+
+    // Determine whether the empire can pay maintenance at all.
+    // Maintenance is already deducted in the upkeep step.  Here we check
+    // whether the empire has positive credits — if they are at zero, the
+    // upkeep was not fully covered, so maintenance is unpaid for ALL
+    // buildings this tick.  This is a simplified model; a more granular
+    // per-building deduction could follow later.
+    const canPayMaintenance = resources.credits > 0;
+
+    for (const planet of ownedPlanets) {
+      let buildingsChanged = false;
+      const updatedBuildings = planet.buildings.map(building => {
+        const def = BUILDING_DEFINITIONS[building.type as BuildingType] as BuildingDefinition | undefined;
+        const newCondition = tickBuildingCondition(building, canPayMaintenance, def);
+        const currentCondition = building.condition ?? 100;
+
+        if (Math.abs(newCondition - currentCondition) > 0.0001) {
+          buildingsChanged = true;
+          return { ...building, condition: newCondition };
+        }
+        return building;
+      });
+
+      if (buildingsChanged) {
+        const updatedPlanet = { ...planet, buildings: updatedBuildings };
+        systems = replacePlanet(systems, updatedPlanet);
+      }
+    }
+  }
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1608,6 +2031,12 @@ export function processGameTick(
   // 9. AI Decisions (stub)
   s = stepAIDecisions(s);
 
+  // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
+  s = stepWaste(s);
+
+  // 9c. Building Condition (decay unpaid buildings, update condition values)
+  s = stepBuildingCondition(s);
+
   // 10. Victory Check — update economic lead counters then evaluate all conditions
   s = {
     ...s,
@@ -1658,7 +2087,7 @@ export function processGameTick(
  *
  * Each empire receives an empty ResearchState in the 'nano_atomic' age.
  */
-export function initializeTickState(gameState: GameState): GameTickState {
+export function initializeTickState(gameState: GameState, allTechCount?: number): GameTickState {
   const researchStates = new Map<string, ResearchState>();
 
   for (const empire of gameState.empires) {
@@ -1717,8 +2146,11 @@ export function initializeTickState(gameState: GameState): GameTickState {
     empireResourcesMap,
     tradeRoutes: [],
     economicLeadTicks: new Map<string, number>(),
-    allTechCount: 0,
+    allTechCount: allTechCount ?? 0,
     terraformingProgressMap: new Map<string, TerraformingProgress>(),
+    wasteMap: new Map<string, PlanetWasteState>(),
+    energyStateMap: new Map<string, PlanetEnergyState>(),
+    disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
   };
 }

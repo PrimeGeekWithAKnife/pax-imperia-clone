@@ -9,6 +9,8 @@ interface TechCardProps {
   onClick: (tech: Technology) => void;
   /** Called when the quick-start button is clicked; only relevant for 'available' cards */
   onStartResearch?: (tech: Technology) => void;
+  /** When true, the button says "Queue" instead of "Start" */
+  atCapacity?: boolean;
   isSelected?: boolean;
 }
 
@@ -28,6 +30,7 @@ export function TechCard({
   progressPercent = 0,
   onClick,
   onStartResearch,
+  atCapacity = false,
   isSelected = false,
 }: TechCardProps): React.ReactElement {
   const [hovered, setHovered] = useState(false);
@@ -84,9 +87,9 @@ export function TechCard({
               onStartResearch(tech);
             }
           }}
-          aria-label={`Start researching ${tech.name}`}
+          aria-label={atCapacity ? `Queue ${tech.name}` : `Start researching ${tech.name}`}
         >
-          &#9654; Start
+          {atCapacity ? '\u25B6 Queue' : '\u25B6 Start'}
         </button>
       )}
 

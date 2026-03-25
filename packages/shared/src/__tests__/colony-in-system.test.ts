@@ -13,6 +13,8 @@ import {
   canColoniseInSystem,
   getColonisationCost,
   coloniseInSystem,
+  COLONISATION_MINERAL_COST,
+  COLONIST_TRANSFER_COUNT,
 } from '../engine/colony.js';
 import {
   processGameTick,
@@ -117,7 +119,7 @@ function makeSystem(empireId: string, targetOverrides: Partial<Planet> = {}): St
 // ── getColonisationCost ───────────────────────────────────────────────────────
 
 describe('getColonisationCost', () => {
-  it('returns the base cost of 200 for a highly habitable planet (score 100)', () => {
+  it('returns the base cost of 10,000 for a highly habitable planet (score 100)', () => {
     const species = makeSpecies();
     const planet = makePlanet({
       atmosphere: 'oxygen_nitrogen',
@@ -125,8 +127,8 @@ describe('getColonisationCost', () => {
       temperature: species.environmentPreference.idealTemperature,
     });
     const cost = getColonisationCost(planet, species);
-    // habitability 100 → cost = ceil(200 * 100/100) = 200
-    expect(cost).toBe(200);
+    // habitability 100 → cost = ceil(10000 * 100/100) = 10000
+    expect(cost).toBe(10_000);
   });
 
   it('returns a higher cost for a low-habitability planet', () => {
@@ -172,8 +174,8 @@ describe('getColonisationCost', () => {
     // Worst possible planet for humans
     const planet = makePlanet({ atmosphere: 'hydrogen_helium', gravity: 3.0, temperature: 30 });
     const cost = getColonisationCost(planet, species);
-    // Effective score clamped to 10 → max cost = 200 * (100/10) = 2000
-    expect(cost).toBeLessThanOrEqual(2000);
+    // Effective score clamped to 10 → max cost = 10000 * (100/10) = 100000
+    expect(cost).toBeLessThanOrEqual(100_000);
   });
 });
 
@@ -181,21 +183,23 @@ describe('getColonisationCost', () => {
 
 describe('canColoniseInSystem', () => {
   const EMPIRE_ID = 'empire-1';
+  const ENOUGH_MINERALS = 10_000;
 
   it('allows colonisation when empire owns a planet in the same system', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it('includes the correct cost even when allowed', () => {
+  it('includes the correct cost and mineralCost even when allowed', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.cost).toBeGreaterThan(0);
     expect(result.cost).toBe(getColonisationCost(makePlanet(), species));
+    expect(result.mineralCost).toBe(COLONISATION_MINERAL_COST);
   });
 
   it('rejects when empire owns NO planets in the system', () => {
@@ -213,7 +217,7 @@ describe('canColoniseInSystem', () => {
       ownerId: null,
       discovered: {},
     };
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/does not control/i);
   });
@@ -221,7 +225,7 @@ describe('canColoniseInSystem', () => {
   it('rejects when the target planet is already owned', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, { ownerId: 'empire-2' });
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/owned/i);
   });
@@ -229,7 +233,17 @@ describe('canColoniseInSystem', () => {
   it('rejects when the target planet already has a population', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, { currentPopulation: 500 });
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/population/i);
+  });
+
+  it('rejects when source planet has insufficient population for transfer', () => {
+    const species = makeSpecies();
+    // Source planet only has 50K pop — need 100K for transfer.
+    const system = makeSystem(EMPIRE_ID);
+    system.planets[0] = makeOwnedPlanet(EMPIRE_ID, { currentPopulation: 50_000 });
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/population/i);
   });
@@ -257,7 +271,8 @@ describe('canColoniseInSystem', () => {
       hostilePlanet.id,
       EMPIRE_ID,
       species,
-      10_000,
+      100_000,
+      ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/habitability/i);
@@ -266,18 +281,27 @@ describe('canColoniseInSystem', () => {
   it('rejects when the empire cannot afford the colonisation cost', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
-    // Provide only 1 credit — far below the 200 base cost.
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 1);
+    // Provide only 1 credit — far below the 10,000 base cost.
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 1, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/insufficient credits/i);
   });
 
-  it('still returns a cost even when the action is rejected', () => {
+  it('rejects when the empire cannot afford the mineral cost', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 0);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, 0);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/insufficient minerals/i);
+  });
+
+  it('still returns a cost and mineralCost even when the action is rejected', () => {
+    const species = makeSpecies();
+    const system = makeSystem(EMPIRE_ID);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 0, 0);
     expect(result.allowed).toBe(false);
     expect(result.cost).toBeGreaterThan(0);
+    expect(result.mineralCost).toBe(COLONISATION_MINERAL_COST);
   });
 
   it('rejects colonisation of a gas giant via the in-system path', () => {
@@ -299,7 +323,7 @@ describe('canColoniseInSystem', () => {
       ownerId: null,
       discovered: {},
     };
-    const result = canColoniseInSystem(system, gasPlanet.id, EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, gasPlanet.id, EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/gas giant/i);
   });
@@ -307,7 +331,7 @@ describe('canColoniseInSystem', () => {
   it('returns allowed:false with a descriptive reason when planet id is unknown', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
-    const result = canColoniseInSystem(system, 'nonexistent-planet', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'nonexistent-planet', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toBeTruthy();
   });
@@ -316,7 +340,7 @@ describe('canColoniseInSystem', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const cost = getColonisationCost(makePlanet(), species);
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, cost);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, cost, ENOUGH_MINERALS);
     expect(result.allowed).toBe(true);
   });
 
@@ -336,7 +360,7 @@ describe('canColoniseInSystem', () => {
       ownerId: null,
       discovered: {},
     };
-    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 10_000);
+    const result = canColoniseInSystem(system, 'planet-target', EMPIRE_ID, species, 100_000, ENOUGH_MINERALS);
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/does not control/i);
   });
@@ -349,14 +373,14 @@ describe('coloniseInSystem', () => {
 
   it('sets ownerId on the target planet', () => {
     const system = makeSystem(EMPIRE_ID);
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const { system: updated } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
     const target = updated.planets.find(p => p.id === 'planet-target')!;
     expect(target.ownerId).toBe(EMPIRE_ID);
   });
 
   it('adds a population_center building to the colonised planet', () => {
     const system = makeSystem(EMPIRE_ID);
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const { system: updated } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
     const target = updated.planets.find(p => p.id === 'planet-target')!;
     const popCenter = target.buildings.find(b => b.type === 'population_center');
     expect(popCenter).toBeDefined();
@@ -364,36 +388,42 @@ describe('coloniseInSystem', () => {
     expect(popCenter?.id).toBeTruthy();
   });
 
-  it('sets the default initial population of 1000', () => {
+  it('places survivors (COLONIST_TRANSFER_COUNT minus mortality) on the target', () => {
     const system = makeSystem(EMPIRE_ID);
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const { system: updated, mortalityCount } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
     const target = updated.planets.find(p => p.id === 'planet-target')!;
-    expect(target.currentPopulation).toBe(1000);
+    // Survivors = COLONIST_TRANSFER_COUNT - mortalityCount
+    expect(target.currentPopulation).toBe(COLONIST_TRANSFER_COUNT - mortalityCount);
+    expect(target.currentPopulation).toBeGreaterThan(0);
+    expect(target.currentPopulation).toBeLessThanOrEqual(COLONIST_TRANSFER_COUNT);
   });
 
-  it('accepts a custom initial population', () => {
+  it('deducts COLONIST_TRANSFER_COUNT from the source planet', () => {
     const system = makeSystem(EMPIRE_ID);
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID, 5000);
-    const target = updated.planets.find(p => p.id === 'planet-target')!;
-    expect(target.currentPopulation).toBe(5000);
+    const sourceBefore = system.planets.find(p => p.id === 'planet-home')!;
+    const { system: updated } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const sourceAfter = updated.planets.find(p => p.id === 'planet-home')!;
+    expect(sourceAfter.currentPopulation).toBe(sourceBefore.currentPopulation - COLONIST_TRANSFER_COUNT);
   });
 
-  it('does not modify any other planet in the system', () => {
+  it('applies 1-10% mortality during transfer', () => {
     const system = makeSystem(EMPIRE_ID);
-    const before = system.planets.find(p => p.id === 'planet-home')!;
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
-    const after = updated.planets.find(p => p.id === 'planet-home')!;
-    expect(after).toEqual(before);
+    const { mortalityCount } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    // Mortality should be between 1% and 10% of COLONIST_TRANSFER_COUNT
+    expect(mortalityCount).toBeGreaterThanOrEqual(Math.floor(COLONIST_TRANSFER_COUNT * 0.01));
+    expect(mortalityCount).toBeLessThanOrEqual(Math.floor(COLONIST_TRANSFER_COUNT * 0.10));
   });
 
   it('does not mutate the original system', () => {
     const system = makeSystem(EMPIRE_ID);
     const originalTarget = system.planets.find(p => p.id === 'planet-target')!;
+    const originalSource = system.planets.find(p => p.id === 'planet-home')!;
     coloniseInSystem(system, 'planet-target', EMPIRE_ID);
-    // Original planet should be untouched.
+    // Original planets should be untouched.
     expect(originalTarget.ownerId).toBeNull();
     expect(originalTarget.currentPopulation).toBe(0);
     expect(originalTarget.buildings).toHaveLength(0);
+    expect(originalSource.currentPopulation).toBe(5_000_000);
   });
 
   it('throws if the planet id does not exist in the system', () => {
@@ -405,7 +435,7 @@ describe('coloniseInSystem', () => {
     const system = makeSystem(EMPIRE_ID, {
       buildings: [{ id: 'existing-b', type: 'mining_facility', level: 1 }],
     });
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const { system: updated } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
     const target = updated.planets.find(p => p.id === 'planet-target')!;
     // Should have the original building PLUS the new population_center.
     expect(target.buildings.length).toBe(2);
@@ -415,7 +445,7 @@ describe('coloniseInSystem', () => {
 
   it('returns a new system object (referential immutability)', () => {
     const system = makeSystem(EMPIRE_ID);
-    const updated = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
+    const { system: updated } = coloniseInSystem(system, 'planet-target', EMPIRE_ID);
     expect(updated).not.toBe(system);
     expect(updated.planets).not.toBe(system.planets);
   });
@@ -434,7 +464,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
       name: 'Human Republic',
       species,
       color: '#00aaff',
-      credits: 10_000,
+      credits: 100_000,
       researchPoints: 0,
       knownSystems: ['system-loop'],
       diplomacy: [],
@@ -489,10 +519,20 @@ describe('Integration: colonisation action in game-loop tick', () => {
     return submitAction(base, empireId, action);
   }
 
+  /** Helper: ensure the empire has enough minerals in the resource map. */
+  function withMinerals(tickState: GameTickState, empireId: string, minerals: number): GameTickState {
+    const newMap = new Map(tickState.empireResourcesMap);
+    const existing = newMap.get(empireId);
+    if (existing) {
+      newMap.set(empireId, { ...existing, minerals });
+    }
+    return { ...tickState, empireResourcesMap: newMap };
+  }
+
   it('processes a ColonisePlanet action and starts a migration (not instant colonisation)', () => {
     const gameState = makeGameState();
     const tickState = addColonisePlanetAction(
-      initializeTickState(gameState),
+      withMinerals(initializeTickState(gameState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -518,7 +558,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
   it('emits a MigrationStarted event (not an instant PlanetColonised event)', () => {
     const gameState = makeGameState();
     const tickState = addColonisePlanetAction(
-      initializeTickState(gameState),
+      withMinerals(initializeTickState(gameState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -552,7 +592,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
       empires: makeGameState().empires.map(e => ({ ...e, credits: cost })),
     };
     const tickStateExact = addColonisePlanetAction(
-      initializeTickState(exactCreditState),
+      withMinerals(initializeTickState(exactCreditState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -570,7 +610,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
       empires: makeGameState().empires.map(e => ({ ...e, credits: cost - 1 })),
     };
     const tickStateShort = addColonisePlanetAction(
-      initializeTickState(shortCreditState),
+      withMinerals(initializeTickState(shortCreditState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -589,7 +629,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
   it('drains pendingActions after the tick', () => {
     const gameState = makeGameState();
     const tickState = addColonisePlanetAction(
-      initializeTickState(gameState),
+      withMinerals(initializeTickState(gameState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -608,7 +648,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
     };
 
     const tickState = addColonisePlanetAction(
-      initializeTickState(brokeState),
+      withMinerals(initializeTickState(brokeState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -645,7 +685,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
     };
 
     const tickState = addColonisePlanetAction(
-      initializeTickState(noFootholdState),
+      withMinerals(initializeTickState(noFootholdState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',
@@ -660,7 +700,7 @@ describe('Integration: colonisation action in game-loop tick', () => {
   it('does not process colonisation actions when the game is paused', () => {
     const gameState: GameState = { ...makeGameState(), status: 'paused' };
     const tickState = addColonisePlanetAction(
-      initializeTickState(gameState),
+      withMinerals(initializeTickState(gameState), EMPIRE_ID, 10_000),
       EMPIRE_ID,
       'system-loop',
       'planet-target-loop',

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { initializeGame, PREBUILT_SPECIES } from '@nova-imperia/shared';
-import type { Galaxy, StarSystem, StarType, Species, GalaxyShape, AIPersonality, HullClass } from '@nova-imperia/shared';
+import { initializeGame, PREBUILT_SPECIES, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
+import type { Galaxy, SpiralGalaxyMetadata, StarSystem, StarType, Species, GalaxyShape, AIPersonality, HullClass } from '@nova-imperia/shared';
+import { sampleSpiralArm } from '@nova-imperia/shared';
 import { createGameEngine, getGameEngine, destroyGameEngine, initializeTickState } from '../../engine/GameEngine';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
@@ -169,6 +170,16 @@ export class GalaxyMapScene extends Phaser.Scene {
   private uiLayer!: Phaser.GameObjects.Container;
 
   // World sub-layers
+  private armNebulaLayer!: Phaser.GameObjects.Graphics;
+  private cosmicFeaturesLayer!: Phaser.GameObjects.Graphics;
+  private cometLayer!: Phaser.GameObjects.Graphics;
+  private blackHoleLayer!: Phaser.GameObjects.Container;
+
+  // Animated comets
+  private comets: Array<{
+    x: number; y: number; vx: number; vy: number;
+    length: number; alpha: number; color: number;
+  }> = [];
   private wormholeLayer!: Phaser.GameObjects.Graphics;
   private dustLayer!: Phaser.GameObjects.Graphics;
   private starLayer!: Phaser.GameObjects.Container;
@@ -241,6 +252,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Reset state from any previous run
     this.parallaxStars = [];
     this.nebulaWisps = [];
+    this.comets = [];
     this.wormholeParticles = [];
     this.dripParticles = [];
     this.starHitAreas.clear();
@@ -252,8 +264,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.moveModeFleetId = null;
     this.lastPointerDownTime = 0;
     this.lastPointerDownSystemId = null;
-    this.currentZoom = 1.0;
-    this.targetZoom = 1.0;
+    this.currentZoom = MAX_ZOOM;
+    this.targetZoom = MAX_ZOOM;
     this.isDragging = false;
 
     // ── Initialise or reuse game state ────────────────────────────────────────
@@ -327,7 +339,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
       }
 
-      const tickState = initializeTickState(gameState);
+      const tickState = initializeTickState(gameState, UNIVERSAL_TECHNOLOGIES.length);
       const engine = createGameEngine(this.game, tickState);
       engine.start();
     }
@@ -348,10 +360,14 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // World container (world-space: panned + zoomed)
     this.worldContainer = this.add.container(0, 0);
+    this.armNebulaLayer = this.add.graphics();
+    this.cosmicFeaturesLayer = this.add.graphics();
+    this.cometLayer = this.add.graphics();
+    this.blackHoleLayer = this.add.container(0, 0);
     this.dustLayer = this.add.graphics();
     this.wormholeLayer = this.add.graphics();
     this.starLayer = this.add.container(0, 0);
-    this.worldContainer.add([this.dustLayer, this.wormholeLayer, this.starLayer]);
+    this.worldContainer.add([this.armNebulaLayer, this.cosmicFeaturesLayer, this.cometLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer]);
 
     // UI (screen-space, on top of everything)
     this.uiLayer = this.add.container(0, 0);
@@ -359,14 +375,19 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Build content — order matters for layering
     this.createDeepBackground();   // Layer 0: dim distant stars + deep nebulae
     this.createMidStars();         // Layer 1: mid-distance stars with twinkle
-    this.createNebulaWisps();      // Layer 2: nebula cloud wisps
-    this.createSpaceDust();        // World-space: fine dust near star systems
+    this.createNebulaWisps();      // Layer 2: nebula cloud wisps (reduced for spiral)
+    this.createArmNebulae();       // World-space: spiral arm nebula dust
+    this.createCosmicFeatures();   // World-space: gas clouds, asteroid fields, comets
+    this.createGalacticCentre();   // World-space: black hole + accretion disk
+    this.createSpaceDust();        // World-space: fine dust near star systems + arms
+    this.bakeStaticLayers();       // Bake heavy Graphics into single textures
     this.drawWormholes(null);      // World-space: connection lines
     this.createStars();            // World-space: actual star systems
     this.createSelectionRing();
     this.createHomeRing();
     this.createTooltip();
     this.createBackButton();
+    this.createZoomButtons();
     this.createPingGraphics();
 
     // Center and auto-select home
@@ -452,6 +473,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.updateParallax();
     this.updateWormholeParticles(delta);
     this.updateTransitDots(time, delta);
+    this.updateAccretionDisk(delta);
+    this.updateComets(delta);
     this.emitViewport();
   }
 
@@ -468,6 +491,19 @@ export class GalaxyMapScene extends Phaser.Scene {
   private applyWorldTransform(): void {
     this.worldContainer.setPosition(this.cameraOffset.x, this.cameraOffset.y);
     this.worldContainer.setScale(this.currentZoom);
+
+    // Counter-scale fleet badges so they stay the same screen size regardless of zoom
+    const inverseZoom = 1 / this.currentZoom;
+    for (const [, badge] of this.fleetBadges) {
+      badge.setScale(inverseZoom);
+    }
+
+    // Scale hit areas inversely with zoom so they stay constant screen-pixel size
+    for (const [sysId, hitArea] of this.starHitAreas) {
+      const sys = this.galaxy.systems.find(s => s.id === sysId);
+      const baseRadius = sys ? Math.max(STAR_VISUALS[sys.starType].radius * 2, 12) : 12;
+      hitArea.setRadius(baseRadius * inverseZoom);
+    }
   }
 
   private centerOnHomeSystem(): void {
@@ -570,6 +606,9 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Play arrival flash when a fleet reaches its destination (or any intermediate hop)
     this.game.events.on('engine:fleet_moved', this._handleFleetMoved);
 
+    // "Go to Fleet" button in Fleet Management screen centres the galaxy map
+    this.game.events.on('galaxy:navigate_to_system', this._handleNavigateToSystem);
+
     // Play battle flash + "Battle!" label when two opposing fleets meet
     this.game.events.on('engine:combat_resolved', this._handleCombatResolved);
 
@@ -602,12 +641,12 @@ export class GalaxyMapScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // 400-600 tiny dim distant stars (1px, very low alpha)
-    const starCount = Phaser.Math.Between(400, 600);
+    // Sparse dim distant stars — kept minimal so they don't compete with game systems
+    const starCount = Phaser.Math.Between(100, 180);
     for (let i = 0; i < starCount; i++) {
       const bx = Math.random() * W;
       const by = Math.random() * H;
-      const alpha = Phaser.Math.FloatBetween(0.08, 0.28);
+      const alpha = Phaser.Math.FloatBetween(0.04, 0.15);
       const brightness = Math.round(Phaser.Math.FloatBetween(140, 220));
       // Slight color variation — mostly white with occasional blue/warm tint
       const tint = Math.random();
@@ -652,6 +691,23 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.bgLayer.add(gfx);
       this.nebulaWisps.push({ gfx, baseX: bx, baseY: by, layer: 0 });
     }
+
+    // Subtle radial vignette — darker edges draw the eye to the galaxy centre
+    const vignette = this.add.graphics();
+    const edgeAlpha = 0.25;
+    // Draw concentric rectangles with increasing alpha
+    for (let ring = 0; ring < 8; ring++) {
+      const t = ring / 8;
+      const inset = W * 0.4 * (1 - t);
+      const a = edgeAlpha * t * t; // quadratic falloff
+      vignette.fillStyle(0x000000, a);
+      // Fill the border ring between this rect and the next
+      vignette.fillRect(0, 0, W, inset);                    // top
+      vignette.fillRect(0, H - inset, W, inset);            // bottom
+      vignette.fillRect(0, inset, inset, H - 2 * inset);    // left
+      vignette.fillRect(W - inset, inset, inset, H - 2 * inset); // right
+    }
+    this.bgLayer.add(vignette);
   }
 
   // ── Layer 1: Mid-distance stars ───────────────────────────────────────────────
@@ -660,17 +716,18 @@ export class GalaxyMapScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    const starCount = Phaser.Math.Between(150, 200);
+    // Fewer mid-distance stars — these are decorative, not game systems
+    const starCount = Phaser.Math.Between(40, 70);
     for (let i = 0; i < starCount; i++) {
       const bx = Math.random() * W;
       const by = Math.random() * H;
 
-      // Most are small (1-2px), a few are brighter (2-3px)
-      const isBright = Math.random() < 0.12;
-      const radius = isBright ? Phaser.Math.FloatBetween(1.2, 1.8) : Phaser.Math.FloatBetween(0.5, 1.1);
+      // Dimmer so they don't compete with actual star systems
+      const isBright = Math.random() < 0.08;
+      const radius = isBright ? Phaser.Math.FloatBetween(0.8, 1.2) : Phaser.Math.FloatBetween(0.3, 0.7);
       const alpha = isBright
-        ? Phaser.Math.FloatBetween(0.65, 0.9)
-        : Phaser.Math.FloatBetween(0.25, 0.55);
+        ? Phaser.Math.FloatBetween(0.35, 0.55)
+        : Phaser.Math.FloatBetween(0.10, 0.30);
 
       // Bright ones get warm/cool tints
       let color: number;
@@ -729,7 +786,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       0x1a0a20, // dark violet
     ];
 
-    const wispCount = Phaser.Math.Between(5, 8);
+    // Fewer screen-space wisps for spiral galaxies (arm nebulae handle the structure)
+    const isSpiral = this.galaxy.shapeMetadata?.shape === 'spiral';
+    const wispCount = isSpiral ? Phaser.Math.Between(3, 5) : Phaser.Math.Between(5, 8);
     for (let i = 0; i < wispCount; i++) {
       const gfx = this.add.graphics();
 
@@ -764,6 +823,146 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   // ── Space dust (world-space) ──────────────────────────────────────────────────
 
+  // ── Cosmic features: gas clouds, asteroid fields, comets ─────────────────
+
+  private createCosmicFeatures(): void {
+    this.cosmicFeaturesLayer.clear();
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    // ── Gas clouds — large translucent blobs scattered across the galaxy ───
+    const gasCloudColours = [0x1a2840, 0x301828, 0x182030, 0x281820, 0x102030, 0x201018];
+    const gasCloudCount = Phaser.Math.Between(8, 14);
+    for (let i = 0; i < gasCloudCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const colour = gasCloudColours[Math.floor(Math.random() * gasCloudColours.length)]!;
+      const angle = Math.random() * Math.PI * 2;
+      const ellipseCount = Phaser.Math.Between(4, 7);
+
+      for (let e = 0; e < ellipseCount; e++) {
+        const ew = Phaser.Math.Between(60, 180);
+        const eh = Phaser.Math.Between(30, 100);
+        const ox = Phaser.Math.FloatBetween(-50, 50);
+        const oy = Phaser.Math.FloatBetween(-30, 30);
+        const alpha = Phaser.Math.FloatBetween(0.02, 0.06);
+
+        this.cosmicFeaturesLayer.fillStyle(colour, alpha);
+        this.cosmicFeaturesLayer.save();
+        this.cosmicFeaturesLayer.translateCanvas(cx + ox, cy + oy);
+        this.cosmicFeaturesLayer.rotateCanvas(angle + e * 0.3);
+        this.cosmicFeaturesLayer.fillEllipse(0, 0, ew, eh);
+        this.cosmicFeaturesLayer.restore();
+      }
+    }
+
+    // ── Asteroid fields — clusters of tiny dots ─────────────────────────────
+    const asteroidFieldCount = Phaser.Math.Between(5, 10);
+    for (let i = 0; i < asteroidFieldCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const spread = Phaser.Math.Between(20, 50);
+      const rockCount = Phaser.Math.Between(15, 35);
+
+      for (let r = 0; r < rockCount; r++) {
+        const dist = Math.pow(Math.random(), 0.5) * spread;
+        const ang = Math.random() * Math.PI * 2;
+        const px = cx + Math.cos(ang) * dist;
+        const py = cy + Math.sin(ang) * dist;
+        const radius = Phaser.Math.FloatBetween(0.3, 1.5);
+        // Rocky brownish-grey colours
+        const grey = Phaser.Math.Between(60, 120);
+        const colour = (grey + 20) << 16 | (grey + 10) << 8 | grey;
+        const alpha = Phaser.Math.FloatBetween(0.15, 0.35);
+
+        this.cosmicFeaturesLayer.fillStyle(colour, alpha);
+        this.cosmicFeaturesLayer.fillCircle(px, py, radius);
+      }
+    }
+
+    // ── Comets — animated streaks that drift across the galaxy ───────────────
+    this.comets = [];
+    const cometCount = Phaser.Math.Between(3, 6);
+    for (let i = 0; i < cometCount; i++) {
+      const speed = Phaser.Math.FloatBetween(0.005, 0.02);
+      const angle = Math.random() * Math.PI * 2;
+      this.comets.push({
+        x: Phaser.Math.FloatBetween(W * 0.1, W * 0.9),
+        y: Phaser.Math.FloatBetween(H * 0.1, H * 0.9),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: Phaser.Math.Between(15, 40),
+        alpha: Phaser.Math.FloatBetween(0.15, 0.35),
+        color: Math.random() < 0.5 ? 0xaaddff : 0xffeebb,
+      });
+    }
+
+    // ── Faint distant galaxy silhouettes ─────────────────────────────────────
+    const distantGalaxyCount = Phaser.Math.Between(2, 4);
+    for (let i = 0; i < distantGalaxyCount; i++) {
+      const cx = Phaser.Math.FloatBetween(W * 0.05, W * 0.95);
+      const cy = Phaser.Math.FloatBetween(H * 0.05, H * 0.95);
+      const size = Phaser.Math.Between(15, 35);
+      const angle = Math.random() * Math.PI;
+      const colour = Math.random() < 0.5 ? 0x1a1530 : 0x181a28;
+
+      // Tiny elongated ellipse with faint glow
+      for (let layer = 0; layer < 3; layer++) {
+        const scale = 1 - layer * 0.2;
+        const a = 0.03 + layer * 0.01;
+        this.cosmicFeaturesLayer.fillStyle(colour, a);
+        this.cosmicFeaturesLayer.save();
+        this.cosmicFeaturesLayer.translateCanvas(cx, cy);
+        this.cosmicFeaturesLayer.rotateCanvas(angle);
+        this.cosmicFeaturesLayer.fillEllipse(0, 0, size * 2.5 * scale, size * scale);
+        this.cosmicFeaturesLayer.restore();
+      }
+      // Bright core dot
+      this.cosmicFeaturesLayer.fillStyle(0xccccdd, 0.08);
+      this.cosmicFeaturesLayer.fillCircle(cx, cy, 1.5);
+    }
+  }
+
+  private updateComets(delta: number): void {
+    if (this.comets.length === 0) return;
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    this.cometLayer.clear();
+
+    for (const comet of this.comets) {
+      comet.x += comet.vx * delta;
+      comet.y += comet.vy * delta;
+
+      // Wrap around galaxy bounds
+      if (comet.x < -50) comet.x = W + 50;
+      if (comet.x > W + 50) comet.x = -50;
+      if (comet.y < -50) comet.y = H + 50;
+      if (comet.y > H + 50) comet.y = -50;
+
+      // Draw comet head
+      this.cometLayer.fillStyle(0xffffff, comet.alpha);
+      this.cometLayer.fillCircle(comet.x, comet.y, 1.2);
+
+      // Draw tail — fading line trailing behind the direction of travel
+      const speed = Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
+      if (speed > 0) {
+        const tailDx = -comet.vx / speed;
+        const tailDy = -comet.vy / speed;
+        const segments = 5;
+        for (let s = 1; s <= segments; s++) {
+          const t = s / segments;
+          const tx = comet.x + tailDx * comet.length * t;
+          const ty = comet.y + tailDy * comet.length * t;
+          const tailAlpha = comet.alpha * (1 - t) * 0.6;
+          const tailRadius = 1.0 * (1 - t * 0.5);
+          this.cometLayer.fillStyle(comet.color, tailAlpha);
+          this.cometLayer.fillCircle(tx, ty, tailRadius);
+        }
+      }
+    }
+  }
+
   private createSpaceDust(): void {
     this.dustLayer.clear();
 
@@ -787,19 +986,224 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.dustLayer.fillCircle(px, py, radius);
       }
     }
+
+    // ── Arm-following dust (visible regardless of fog-of-war) ────────────────
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape === 'spiral') {
+      const maxR = Math.min(this.galaxy.width, this.galaxy.height) / 2 * 0.92;
+      const dustColours = [0x332211, 0x221133, 0x1a1a2e, 0x2a1a0a];
+
+      for (let arm = 0; arm < meta.armCount; arm++) {
+        const pts = sampleSpiralArm(
+          meta.armAngles[arm]!, meta.spiralA, meta.spiralTightness,
+          meta.centreX, meta.centreY, maxR, 16,
+        );
+        for (const pt of pts) {
+          const spread = 25 + pt.t * 20;
+          const count = 15 + Math.floor(pt.t * 15);
+          for (let i = 0; i < count; i++) {
+            const r = Math.pow(Math.random(), 0.5) * spread;
+            const a = Math.random() * Math.PI * 2;
+            const px = pt.x + Math.cos(a) * r;
+            const py = pt.y + Math.sin(a) * r;
+            const alpha = (1 - r / spread) * Phaser.Math.FloatBetween(0.02, 0.06);
+            const col = dustColours[Math.floor(Math.random() * dustColours.length)]!;
+            this.dustLayer.fillStyle(col, alpha);
+            this.dustLayer.fillCircle(px, py, Phaser.Math.FloatBetween(0.4, 1.2));
+          }
+        }
+      }
+    }
+  }
+
+  // ── Arm-following nebulae (world-space) ──────────────────────────────────────
+
+  private createArmNebulae(): void {
+    this.armNebulaLayer.clear();
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape !== 'spiral') return;
+
+    const maxR = Math.min(this.galaxy.width, this.galaxy.height) / 2 * 0.92;
+
+    // Alternate cool and warm nebula tints per arm
+    const coolPalette = [0x0a1a3a, 0x10083a, 0x060a30, 0x0a0a2a];
+    const warmPalette = [0x200010, 0x1a0a20, 0x180820, 0x2a1005];
+
+    for (let arm = 0; arm < meta.armCount; arm++) {
+      const palette = arm % 2 === 0 ? coolPalette : warmPalette;
+      const pts = sampleSpiralArm(
+        meta.armAngles[arm]!, meta.spiralA, meta.spiralTightness,
+        meta.centreX, meta.centreY, maxR, 10,
+      );
+
+      for (const pt of pts) {
+        const color = palette[Math.floor(Math.random() * palette.length)]!;
+        // Size increases with distance from centre (outer arms are fuzzier)
+        const baseSize = 40 + pt.t * 80;
+        const ellipseCount = Phaser.Math.Between(3, 5);
+
+        for (let e = 0; e < ellipseCount; e++) {
+          const ew = baseSize * Phaser.Math.FloatBetween(0.6, 1.4);
+          const eh = baseSize * Phaser.Math.FloatBetween(0.3, 0.7);
+          const offsetX = Phaser.Math.FloatBetween(-baseSize * 0.3, baseSize * 0.3);
+          const offsetY = Phaser.Math.FloatBetween(-baseSize * 0.2, baseSize * 0.2);
+          const ellipseAlpha = Phaser.Math.FloatBetween(0.015, 0.045);
+
+          this.armNebulaLayer.fillStyle(color, ellipseAlpha);
+          this.armNebulaLayer.save();
+          this.armNebulaLayer.translateCanvas(pt.x + offsetX, pt.y + offsetY);
+          // Rotate to roughly follow arm tangent
+          this.armNebulaLayer.rotateCanvas(pt.angle + e * 0.25);
+          this.armNebulaLayer.fillEllipse(0, 0, ew, eh);
+          this.armNebulaLayer.restore();
+        }
+      }
+    }
+
+    // Central galactic bulge glow
+    const bulgeR = meta.bulgeRadiusFraction * maxR;
+    const bulgeColours = [0x1a1020, 0x0a0a1a, 0x100818];
+    for (let i = 0; i < 5; i++) {
+      const r = bulgeR * (1 - i * 0.15);
+      const col = bulgeColours[i % bulgeColours.length]!;
+      this.armNebulaLayer.fillStyle(col, 0.03 + i * 0.008);
+      this.armNebulaLayer.fillCircle(meta.centreX, meta.centreY, r);
+    }
+  }
+
+  // ── Galactic centre: black hole + accretion disk ────────────────────────────
+
+  private createGalacticCentre(): void {
+    // Clear previous children
+    this.blackHoleLayer.removeAll(true);
+
+    const meta = this.galaxy.shapeMetadata;
+    if (meta?.shape !== 'spiral') return;
+
+    // Position the container at the galaxy centre so rotation spins in place
+    this.blackHoleLayer.setPosition(meta.centreX, meta.centreY);
+
+    // All children drawn at local origin (0,0) relative to container
+
+    // ── Accretion disk outer glow (diffuse warm halo) ───────────────────────
+    const outerGlow = this.add.graphics();
+    const glowRadii = [80, 60, 45, 35];
+    const glowAlphas = [0.015, 0.025, 0.035, 0.045];
+    const glowColours = [0xff8800, 0xffaa33, 0xffd080, 0xffeedd];
+    for (let i = 0; i < glowRadii.length; i++) {
+      outerGlow.fillStyle(glowColours[i]!, glowAlphas[i]!);
+      outerGlow.fillCircle(0, 0, glowRadii[i]!);
+    }
+    this.blackHoleLayer.add(outerGlow);
+
+    // ── Accretion disk ring (bright stroked circle) ─────────────────────────
+    const diskRing = this.add.graphics();
+    diskRing.lineStyle(4, 0xfff8e0, 0.35);
+    diskRing.strokeCircle(0, 0, 22);
+    diskRing.lineStyle(2, 0xffddaa, 0.25);
+    diskRing.strokeCircle(0, 0, 18);
+    this.blackHoleLayer.add(diskRing);
+
+    // Pulse the disk ring
+    this.tweens.add({
+      targets: diskRing,
+      alpha: { from: 0.7, to: 1.0 },
+      duration: 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // ── Event horizon glow ring (thin, intense) ─────────────────────────────
+    const horizonRing = this.add.graphics();
+    horizonRing.lineStyle(2, 0xeeeeff, 0.5);
+    horizonRing.strokeCircle(0, 0, 12);
+    horizonRing.lineStyle(1, 0xffffff, 0.3);
+    horizonRing.strokeCircle(0, 0, 13);
+    this.blackHoleLayer.add(horizonRing);
+
+    // ── Pitch-black centre (event horizon) ──────────────────────────────────
+    const blackHole = this.add.circle(0, 0, 10, 0x000000, 1.0);
+    this.blackHoleLayer.add(blackHole);
+  }
+
+  // ── Accretion disk animation ────────────────────────────────────────────────
+
+  private updateAccretionDisk(_delta: number): void {
+    // No-op if not spiral or no children
+    if (this.blackHoleLayer.length === 0) return;
+
+    // Slow rotation of the entire black hole layer
+    const rotSpeed = 0.0003; // rad/s — very subtle
+    this.blackHoleLayer.rotation += rotSpeed * _delta;
+  }
+
+  // ── Bake static layers into RenderTextures for GPU efficiency ────────────────
+
+  /**
+   * After all static Graphics are drawn (arm nebulae, cosmic features, dust),
+   * bake each into a RenderTexture so they become single-quad draws instead
+   * of thousands of individual fill calls per frame.
+   */
+  private bakeStaticLayers(): void {
+    const W = this.galaxy.width;
+    const H = this.galaxy.height;
+
+    // Bake each heavy Graphics into a RenderTexture, then replace it in worldContainer
+    const layersToBake = [
+      { gfx: this.armNebulaLayer, name: 'armNebula' },
+      { gfx: this.cosmicFeaturesLayer, name: 'cosmicFeatures' },
+      { gfx: this.dustLayer, name: 'dust' },
+    ];
+
+    for (const { gfx, name } of layersToBake) {
+      const rtKey = `baked_${name}`;
+      // Remove old texture if it exists (e.g. scene restart)
+      if (this.textures.exists(rtKey)) {
+        this.textures.remove(rtKey);
+      }
+
+      const rt = this.add.renderTexture(0, 0, W, H).setOrigin(0, 0);
+      rt.draw(gfx, 0, 0);
+
+      // Replace the Graphics with its baked image in the worldContainer
+      const idx = this.worldContainer.getIndex(gfx);
+      gfx.destroy();
+      if (idx >= 0) {
+        this.worldContainer.addAt(rt, idx);
+      } else {
+        this.worldContainer.add(rt);
+      }
+    }
+
+    // Update references (the Graphics objects are now destroyed)
+    // Use dummy Graphics so any residual calls don't crash
+    this.armNebulaLayer = this.add.graphics();
+    this.cosmicFeaturesLayer = this.add.graphics();
+    this.dustLayer = this.add.graphics();
   }
 
   // ── Parallax update ───────────────────────────────────────────────────────────
 
+  private _prevParallaxCamX = NaN;
+  private _prevParallaxCamY = NaN;
+  private _prevParallaxZoom = NaN;
+
   private updateParallax(): void {
+    // Skip if camera hasn't moved
+    if (this.cameraOffset.x === this._prevParallaxCamX &&
+        this.cameraOffset.y === this._prevParallaxCamY &&
+        this.currentZoom === this._prevParallaxZoom) return;
+    this._prevParallaxCamX = this.cameraOffset.x;
+    this._prevParallaxCamY = this.cameraOffset.y;
+    this._prevParallaxZoom = this.currentZoom;
+
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Reference offset: what offset would be at the galaxy's "neutral" center
     const refX = this.scale.width / 2 - (this.galaxy.width / 2) * this.currentZoom;
     const refY = this.scale.height / 2 - (this.galaxy.height / 2) * this.currentZoom;
 
-    // How far the camera has moved from neutral
     const camDeltaX = this.cameraOffset.x - refX;
     const camDeltaY = this.cameraOffset.y - refY;
 
@@ -889,26 +1293,50 @@ export class GalaxyMapScene extends Phaser.Scene {
    * These are always visible once both endpoints are discovered and represent
    * the basic FTL routes, independent of wormhole tech.
    */
+  /** Compute inset start/end points so lines don't overlap star glows. */
+  private _insetLine(sysA: StarSystem, sysB: StarSystem): { ax: number; ay: number; bx: number; by: number; dx: number; dy: number; len: number } | null {
+    const oax = sysA.position.x;
+    const oay = sysA.position.y;
+    const obx = sysB.position.x;
+    const oby = sysB.position.y;
+    const dx = obx - oax;
+    const dy = oby - oay;
+    const fullLen = Math.sqrt(dx * dx + dy * dy);
+    if (fullLen < 1) return null;
+
+    const insetA = STAR_VISUALS[sysA.starType].glowRadius + 4;
+    const insetB = STAR_VISUALS[sysB.starType].glowRadius + 4;
+    if (insetA + insetB >= fullLen) return null; // stars too close, skip line
+
+    const nx = dx / fullLen;
+    const ny = dy / fullLen;
+    return {
+      ax: oax + nx * insetA,
+      ay: oay + ny * insetA,
+      bx: obx - nx * insetB,
+      by: oby - ny * insetB,
+      dx, dy,
+      len: fullLen - insetA - insetB,
+    };
+  }
+
   private _drawNormalLane(sysA: StarSystem, sysB: StarSystem): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, dx, dy, len } = line;
+    const fullLen = Math.sqrt(dx * dx + dy * dy);
+    const nx = dx / fullLen;
+    const ny = dy / fullLen;
 
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1) return;
-
-    const lineWidth = LANE_WIDTH / this.currentZoom;
+    const lineWidth = 0.5; // fixed world-space width — no per-frame zoom adjustment
     let d = 0;
     while (d < len) {
       const dashEnd = Math.min(d + LANE_DASH_LEN, len);
 
       this.wormholeLayer.lineStyle(lineWidth, LANE_COLOR, LANE_ALPHA);
       this.wormholeLayer.beginPath();
-      this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
-      this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+      this.wormholeLayer.moveTo(ax + nx * d, ay + ny * d);
+      this.wormholeLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
       this.wormholeLayer.strokePath();
 
       d += LANE_DASH_LEN + LANE_GAP_LEN;
@@ -935,28 +1363,25 @@ export class GalaxyMapScene extends Phaser.Scene {
     highlighted: boolean,
     hasWormholeTech: boolean,
   ): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
-
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1) return;
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, bx, by, len } = line;
+    const fullLen = Math.sqrt(line.dx * line.dx + line.dy * line.dy);
+    const nx = line.dx / fullLen;
+    const ny = line.dy / fullLen;
 
     if (!hasWormholeTech) {
       // Very faint blue dashes — wormhole is known but not traversable yet
-      const lineWidth = 0.8 / this.currentZoom;
+      const lineWidth = 0.4;
       let d = 0;
       while (d < len) {
         const dashEnd = Math.min(d + 3, len);
         this.wormholeLayer.lineStyle(lineWidth, WORM_NO_TECH_COLOR, WORM_NO_TECH_ALPHA);
         this.wormholeLayer.beginPath();
-        this.wormholeLayer.moveTo(ax + (d / len) * dx, ay + (d / len) * dy);
-        this.wormholeLayer.lineTo(ax + (dashEnd / len) * dx, ay + (dashEnd / len) * dy);
+        this.wormholeLayer.moveTo(ax + nx * d, ay + ny * d);
+        this.wormholeLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
         this.wormholeLayer.strokePath();
-        d += 13; // long gap — barely visible
+        d += 13;
       }
       return;
     }
@@ -968,10 +1393,10 @@ export class GalaxyMapScene extends Phaser.Scene {
     const highlightBoost = highlighted ? 0.15 : 0;
     const alpha = Math.min(1, pulseAlpha + highlightBoost);
 
-    const coreWidth  = WORM_WIDTH / this.currentZoom;
-    const glowWidth  = (WORM_WIDTH + 3) / this.currentZoom;
+    const coreWidth  = 0.8;
+    const glowWidth  = 2.0;
 
-    // Glow layer — wider stroke at low alpha
+    // Glow layer
     this.wormholeLayer.lineStyle(glowWidth, WORM_COLOR, alpha * 0.35);
     this.wormholeLayer.beginPath();
     this.wormholeLayer.moveTo(ax, ay);
@@ -991,15 +1416,13 @@ export class GalaxyMapScene extends Phaser.Scene {
    * This is provided for future use when player-created wormholes are added.
    */
   private _drawAdvancedWormholeLine(sysA: StarSystem, sysB: StarSystem): void {
-    const ax = sysA.position.x;
-    const ay = sysA.position.y;
-    const bx = sysB.position.x;
-    const by = sysB.position.y;
+    const line = this._insetLine(sysA, sysB);
+    if (!line) return;
+    const { ax, ay, bx, by } = line;
 
-    const coreWidth = ADV_WORM_WIDTH / this.currentZoom;
-    const glowWidth = (ADV_WORM_WIDTH + 3) / this.currentZoom;
+    const coreWidth = 0.8;
+    const glowWidth = 2.0;
 
-    // Shimmer: slight alpha variation driven by wormhole phase offset by pi/3
     const shimmerAlpha = ADV_WORM_ALPHA +
       0.1 * Math.sin(this._wormholePhase + Math.PI / 3);
 
@@ -1042,10 +1465,10 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Advance pulse phase (~0.8 rad/s → ~7.9 s full cycle)
     this._wormholePhase += 0.0008 * delta;
 
-    // Redraw wormhole lines each frame so the pulse animation is live.
-    // Only redraw when wormhole tech is active (otherwise lines are static).
+    // Animate wormhole layer alpha for pulse effect (no full redraw)
     if (this._playerHasWormholeTech()) {
-      this.drawWormholes(this.selectedSystemId);
+      const pulseAlpha = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(this._wormholePhase));
+      this.wormholeLayer.setAlpha(pulseAlpha);
     }
 
     for (const p of this.wormholeParticles) {
@@ -1125,7 +1548,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
 
     // ── Hit area (always present, invisible) ─────────────────────────────────
-    const hitRadius = Math.max(visuals.radius * 2.5, 14);
+    // Hit area scales inversely with zoom so it stays ~12-14 screen pixels
+    const hitRadius = Math.max(visuals.radius * 2, 12) / this.currentZoom;
     const hitArea = this.add.circle(x, y, hitRadius, 0xffffff, 0);
     hitArea.setInteractive({ useHandCursor: true });
     this.starLayer.add(hitArea);
@@ -1406,6 +1830,40 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.uiLayer.add(backButton);
   }
 
+  private createZoomButtons(): void {
+    const W = this.scale.width;
+    const btnStyle = {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#7799bb',
+      backgroundColor: '#0a0a18',
+      padding: { left: 10, right: 10, top: 4, bottom: 4 },
+    };
+
+    const zoomIn = this.add
+      .text(W - 60, 80, '+', btnStyle)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(200);
+    zoomIn.on('pointerover', () => zoomIn.setColor('#ffffff'));
+    zoomIn.on('pointerout', () => zoomIn.setColor('#7799bb'));
+    zoomIn.on('pointerdown', () => {
+      this.targetZoom = Phaser.Math.Clamp(this.targetZoom + ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM);
+    });
+
+    const zoomOut = this.add
+      .text(W - 60, 116, '−', btnStyle) // use minus sign (−) not hyphen
+      .setInteractive({ useHandCursor: true })
+      .setDepth(200);
+    zoomOut.on('pointerover', () => zoomOut.setColor('#ffffff'));
+    zoomOut.on('pointerout', () => zoomOut.setColor('#7799bb'));
+    zoomOut.on('pointerdown', () => {
+      this.targetZoom = Phaser.Math.Clamp(this.targetZoom - ZOOM_FACTOR, MIN_ZOOM, MAX_ZOOM);
+    });
+
+    this.uiLayer.add(zoomIn);
+    this.uiLayer.add(zoomOut);
+  }
+
   // ── Scene transition ──────────────────────────────────────────────────────────
 
   private transitionToSystemView(sys: StarSystem): void {
@@ -1452,6 +1910,11 @@ export class GalaxyMapScene extends Phaser.Scene {
         MAX_ZOOM,
       );
     });
+
+    // Prevent browser zoom (Ctrl+scroll) from firing alongside game zoom
+    this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   // ── Zoom lerp ─────────────────────────────────────────────────────────────────
@@ -1470,10 +1933,6 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     this.applyWorldTransform();
     this.updateSelectionRingScale();
-    this.drawWormholes(this.selectedSystemId);
-    if (this.selectedSystemId) {
-      this.drawSelectionRing(this.selectedSystemId);
-    }
   }
 
   private updateSelectionRingScale(): void {
@@ -1677,6 +2136,8 @@ export class GalaxyMapScene extends Phaser.Scene {
       }).setOrigin(0.5, 0);
       badge.add(countLabel);
 
+      // Counter-scale so badge stays constant screen size regardless of zoom
+      badge.setScale(1 / this.currentZoom);
       this.starLayer.add(badge);
       this.fleetBadges.set(fleet.id, badge);
     }
@@ -1902,15 +2363,52 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   private _handleEngineTick = (): void => {
+    // Refresh known systems from the engine (fog of war reveal on fleet arrival)
+    const engine = getGameEngine();
+    let newSystemsDiscovered = false;
+    if (engine) {
+      const playerEmpire = engine.getState().gameState.empires.find(e => !e.isAI);
+      if (playerEmpire) {
+        const prevSize = this.knownSystemIds.size;
+        for (const sysId of playerEmpire.knownSystems) {
+          this.knownSystemIds.add(sysId);
+        }
+        newSystemsDiscovered = this.knownSystemIds.size > prevSize;
+      }
+    }
+
+    // When new systems are discovered, refresh their visuals
+    if (newSystemsDiscovered) {
+      // Redraw wormhole connections (includes newly connected systems)
+      this.drawWormholes(this.selectedSystemId);
+      // Recreate all stars so newly discovered systems upgrade from dim dots to full visuals
+      this.starLayer.removeAll(true);
+      this.starHitAreas.clear();
+      this.pulseTweens.clear();
+      this.createStars();
+    }
+
     this._renderFleetBadges();
     this._syncTransitDots();
   };
 
+  private _handleNavigateToSystem = (data: unknown): void => {
+    const { systemId } = data as { systemId: string };
+    const sys = this.galaxy.systems.find(s => s.id === systemId);
+    if (!sys) return;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    this.cameraOffset.x = cx - sys.position.x * this.currentZoom;
+    this.cameraOffset.y = cy - sys.position.y * this.currentZoom;
+    this.applyWorldTransform();
+    this.selectSystem(systemId);
+  };
+
   private _handleFleetMoved = (event: unknown): void => {
-    const evt = event as { fleet?: { position?: { systemId?: string } } };
-    const systemId = evt?.fleet?.position?.systemId;
-    if (systemId) {
-      this._playArrivalFlash(systemId);
+    // FleetMovedEvent has { fleetId, fromSystemId, toSystemId, tick }
+    const evt = event as { toSystemId?: string };
+    if (evt?.toSystemId) {
+      this._playArrivalFlash(evt.toSystemId);
     }
   };
 

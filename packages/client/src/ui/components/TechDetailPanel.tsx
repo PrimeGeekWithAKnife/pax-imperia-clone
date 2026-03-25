@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { Technology, TechEffect } from '@nova-imperia/shared';
 import type { ActiveResearch, ResearchState } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, HULL_TEMPLATE_BY_CLASS, SHIP_COMPONENT_BY_ID } from '@nova-imperia/shared';
 import type { TechCardStatus } from '../screens/ResearchScreen';
 
 interface TechDetailPanelProps {
@@ -15,11 +16,81 @@ interface TechDetailPanelProps {
   completedTechs: Set<string>;
   /** All tech names by id (for human-readable prereq names) */
   techNamesById: Map<string, string>;
+  /** Full list of all technologies (for computing "Allows" section) */
+  allTechs?: Technology[];
   onStartResearch: (techId: string, allocation: number) => void;
   onCancelResearch: (techId: string) => void;
+  onQueueResearch?: (techId: string) => void;
   onAdjustAllocation: (techId: string, allocation: number) => void;
+  /** Maximum simultaneous active research projects (lab count or cap). */
+  maxActiveResearch?: number;
   onClose: () => void;
 }
+
+// ── "Allows" label types ──────────────────────────────────────────────────────
+
+interface AllowsEntry {
+  label: string;
+  kind: 'building' | 'ship hull' | 'component' | 'ability' | 'technology' | 'age';
+}
+
+/** Collect everything this technology unlocks. */
+function computeAllows(tech: Technology, allTechs: Technology[]): AllowsEntry[] {
+  const entries: AllowsEntry[] = [];
+
+  // 1. Direct effects from this tech
+  for (const effect of tech.effects) {
+    switch (effect.type) {
+      case 'unlock_building': {
+        const bDef = BUILDING_DEFINITIONS[effect.buildingType as keyof typeof BUILDING_DEFINITIONS];
+        const name = bDef?.name ?? effect.buildingType.replace(/_/g, ' ');
+        entries.push({ label: name, kind: 'building' });
+        break;
+      }
+      case 'unlock_hull': {
+        const hull = HULL_TEMPLATE_BY_CLASS[effect.hullClass];
+        const name = hull?.name ?? effect.hullClass.replace(/_/g, ' ');
+        entries.push({ label: name, kind: 'ship hull' });
+        break;
+      }
+      case 'unlock_component': {
+        const comp = SHIP_COMPONENT_BY_ID[effect.componentId];
+        const name = comp?.name ?? effect.componentId.replace(/_/g, ' ');
+        entries.push({ label: name, kind: 'component' });
+        break;
+      }
+      case 'enable_ability': {
+        const name = effect.ability.replace(/_/g, ' ');
+        entries.push({ label: name, kind: 'ability' });
+        break;
+      }
+      case 'age_unlock': {
+        const ageName = AGE_LABELS[effect.age] ?? effect.age.replace(/_/g, ' ');
+        entries.push({ label: ageName, kind: 'age' });
+        break;
+      }
+      // stat_bonus and resource_bonus are already shown in Effects; skip
+    }
+  }
+
+  // 2. Technologies that require this tech as a prerequisite
+  for (const other of allTechs) {
+    if (other.prerequisites.includes(tech.id)) {
+      entries.push({ label: other.name, kind: 'technology' });
+    }
+  }
+
+  return entries;
+}
+
+const ALLOWS_KIND_ICONS: Record<AllowsEntry['kind'], string> = {
+  building: '[BLD]',
+  'ship hull': '[HUL]',
+  component: '[CMP]',
+  ability: '[ABL]',
+  technology: '[TCH]',
+  age: '[AGE]',
+};
 
 // Human-readable effect label
 function formatEffect(effect: TechEffect): string {
@@ -70,14 +141,23 @@ export function TechDetailPanel({
   speciesBonus,
   completedTechs,
   techNamesById,
+  allTechs = [],
   onStartResearch,
   onCancelResearch,
+  onQueueResearch,
   onAdjustAllocation,
+  maxActiveResearch = 5,
   onClose,
 }: TechDetailPanelProps): React.ReactElement {
   // Find active research entry if this tech is being researched
   const activeEntry: ActiveResearch | undefined = researchState.activeResearch.find(
     (r) => r.techId === tech.id,
+  );
+
+  // Compute what this tech allows/unlocks
+  const allowsEntries = useMemo(
+    () => computeAllows(tech, allTechs),
+    [tech, allTechs],
   );
 
   // Current total allocation used by all other active projects
@@ -120,10 +200,8 @@ export function TechDetailPanel({
   }, []);
 
   const handleStartResearch = useCallback(() => {
-    if (!overLimit) {
-      onStartResearch(tech.id, allocationInput);
-    }
-  }, [tech.id, allocationInput, overLimit, onStartResearch]);
+    onStartResearch(tech.id, 0); // engine auto-redistributes allocation evenly
+  }, [tech.id, onStartResearch]);
 
   const handleAdjustAllocation = useCallback(() => {
     onAdjustAllocation(tech.id, allocationInput);
@@ -228,6 +306,22 @@ export function TechDetailPanel({
         </div>
       )}
 
+      {/* Allows / Unlocks */}
+      {allowsEntries.length > 0 && (
+        <div className="tech-detail-panel__section">
+          <div className="panel-section-label">Allows</div>
+          <ul className="tech-detail-panel__allows">
+            {allowsEntries.map((entry, i) => (
+              <li key={i} className="tech-detail-panel__allows-item">
+                <span className="tech-detail-panel__allows-kind">{ALLOWS_KIND_ICONS[entry.kind]}</span>
+                <span className="tech-detail-panel__allows-label">{entry.label}</span>
+                <span className="tech-detail-panel__allows-type">({entry.kind})</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Locked message */}
       {status === 'locked' && (
         <div className="tech-detail-panel__locked-msg">
@@ -238,76 +332,74 @@ export function TechDetailPanel({
       {/* Future age message */}
       {status === 'future' && (
         <div className="tech-detail-panel__locked-msg">
-          This technology belongs to a future age. Advance your civilization to unlock it.
+          This technology belongs to a future age. Advance your civilisation to unlock it.
         </div>
       )}
       </div>{/* end .tech-detail-panel__body */}
 
-      {/* Research controls — sticky footer, only shown when available or active */}
+      {/* Research controls — sticky footer */}
       {(status === 'available' || status === 'active') && (
         <div className="tech-detail-panel__controls tech-detail-panel__controls--sticky">
-          <div className="panel-section-label">
-            {status === 'active' ? 'Adjust Allocation' : 'Start Research'}
-          </div>
+          {status === 'active' && activeEntry && (
+            <div className="tech-detail-panel__alloc-hints">
+              <span className="tech-detail-panel__alloc-hint">
+                Allocation: {activeEntry.allocation}%
+              </span>
+              <span className="tech-detail-panel__alloc-hint">
+                {estimatedTicks(activeEntry.allocation) !== Infinity
+                  ? `~${estimatedTicks(activeEntry.allocation)} turns remaining`
+                  : '—'}
+              </span>
+            </div>
+          )}
 
-          {/* Allocation slider */}
-          <div className="tech-detail-panel__alloc-row">
-            <label className="tech-detail-panel__alloc-label" htmlFor={`alloc-${tech.id}`}>
-              Allocation
-            </label>
-            <span className="tech-detail-panel__alloc-value">
-              {allocationInput}%
-            </span>
-          </div>
-          <input
-            id={`alloc-${tech.id}`}
-            type="range"
-            min={0}
-            max={maxAllocation}
-            value={allocationInput}
-            onChange={handleSliderChange}
-            className="tech-detail-panel__alloc-slider"
-          />
-          <div className="tech-detail-panel__alloc-hints">
-            <span className={overLimit ? 'tech-detail-panel__alloc-warn' : 'tech-detail-panel__alloc-hint'}>
-              Total: {totalAllocationAfter}% / 100%
-              {overLimit && '  — OVER LIMIT'}
-            </span>
-            <span className="tech-detail-panel__alloc-hint">
-              {ticks !== Infinity ? `~${ticksDisplay}` : 'Set allocation to estimate'}
-            </span>
-          </div>
-
-          {/* Action buttons */}
           <div className="tech-detail-panel__actions">
-            {status === 'available' && (
+            {status === 'available' && (() => {
+              const isQueued = (researchState.researchQueue ?? []).includes(tech.id);
+              const atCapacity = researchState.activeResearch.length >= maxActiveResearch;
+
+              if (isQueued) {
+                return (
+                  <button
+                    type="button"
+                    className="tech-detail-panel__btn tech-detail-panel__btn--start tech-detail-panel__btn--disabled"
+                    disabled
+                  >
+                    Queued
+                  </button>
+                );
+              }
+
+              if (atCapacity && onQueueResearch) {
+                return (
+                  <button
+                    type="button"
+                    className="tech-detail-panel__btn tech-detail-panel__btn--start"
+                    onClick={() => onQueueResearch(tech.id)}
+                  >
+                    Queue Research
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  type="button"
+                  className="tech-detail-panel__btn tech-detail-panel__btn--start"
+                  onClick={handleStartResearch}
+                >
+                  Start Research
+                </button>
+              );
+            })()}
+            {status === 'active' && (
               <button
                 type="button"
-                className={`tech-detail-panel__btn tech-detail-panel__btn--start ${overLimit || allocationInput === 0 ? 'tech-detail-panel__btn--disabled' : ''}`}
-                onClick={handleStartResearch}
-                disabled={overLimit || allocationInput === 0}
+                className="tech-detail-panel__btn tech-detail-panel__btn--cancel"
+                onClick={handleCancel}
               >
-                Start Research
+                Cancel Research
               </button>
-            )}
-            {status === 'active' && (
-              <>
-                <button
-                  type="button"
-                  className={`tech-detail-panel__btn tech-detail-panel__btn--adjust ${overLimit ? 'tech-detail-panel__btn--disabled' : ''}`}
-                  onClick={handleAdjustAllocation}
-                  disabled={overLimit}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  className="tech-detail-panel__btn tech-detail-panel__btn--cancel"
-                  onClick={handleCancel}
-                >
-                  Cancel Research
-                </button>
-              </>
             )}
           </div>
         </div>

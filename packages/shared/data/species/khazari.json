@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["carbon_dioxide", "sulfur_dioxide"]
   },
   "specialAbilities": ["silicon_based"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "autocracy",
+  "allowedGovernments": ["autocracy", "empire", "military_junta", "oligarchy", "dictatorship"]
 }

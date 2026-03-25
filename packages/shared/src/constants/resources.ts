@@ -52,6 +52,18 @@ export const PLANET_TYPE_RESOURCE_BONUSES: Record<PlanetType, Partial<ResourcePr
  */
 export const BUILDING_LEVEL_MULTIPLIER = 1.5;
 
+/**
+ * Construction points generated per tick without any factories.
+ * Ensures a colony can slowly build its first factory.
+ */
+export const BASE_CONSTRUCTION_RATE = 5;
+
+/**
+ * Construction points generated per factory at level 1 per tick.
+ * Scaled by BUILDING_LEVEL_MULTIPLIER per level and species construction trait.
+ */
+export const FACTORY_CONSTRUCTION_OUTPUT = 10;
+
 /** Credits and energy consumed per ship per tick */
 export const FLEET_UPKEEP_PER_SHIP: Partial<ResourceProduction> = {
   credits: 2,

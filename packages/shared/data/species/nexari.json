@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen", "carbon_dioxide", "methane"]
   },
   "specialAbilities": ["cybernetic", "hive_mind"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "hive_mind",
+  "allowedGovernments": ["hive_mind", "technocracy"]
 }

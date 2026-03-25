@@ -11,7 +11,7 @@ import type { Galaxy, Planet, BuildingType } from '../types/galaxy.js';
 import type { GameState } from '../types/game-state.js';
 import type { Fleet, Ship } from '../types/ships.js';
 import type { Technology } from '../types/technology.js';
-import { calculateHabitability, canColonize } from './colony.js';
+import { calculateHabitability, canColonize, getUpgradeCost, getMaxLevelForAge } from './colony.js';
 import { getFleetStrength } from './fleet.js';
 import { getAvailableTechs, type ResearchState } from './research.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
@@ -677,6 +677,41 @@ export function evaluateBuildingPriority(
         params: { planetId: planet.id, buildingType: 'research_lab' },
         reasoning: `Build research lab on ${planet.name} (no research lab yet)`,
       });
+    }
+
+    // Evaluate upgrading existing buildings
+    for (const building of planet.buildings) {
+      const bDef = BUILDING_DEFINITIONS[building.type];
+      if (!bDef) continue;
+
+      const ageCap = getMaxLevelForAge(building.type, empire.currentAge);
+      if (building.level >= ageCap) continue;
+      if (building.level >= bDef.maxLevel) continue;
+
+      // Don't queue if already upgrading this building
+      const alreadyUpgrading = planet.productionQueue.some(
+        q => q.type === 'building_upgrade' && q.targetBuildingId === building.id,
+      );
+      if (alreadyUpgrading) continue;
+
+      // Check affordability (credits only — a rough gate)
+      const upgradeCost = getUpgradeCost(building.type, building.level);
+      const creditCost = upgradeCost.credits ?? 0;
+      if (empire.credits < creditCost) continue;
+
+      // Priority: preferred types get a bonus, higher levels get lower priority
+      const isPreferred = preferred.includes(building.type);
+      const levelPenalty = building.level * 5;
+      const basePriority = 30 + (isPreferred ? 15 : 0) - levelPenalty;
+
+      if (basePriority > 0) {
+        decisions.push({
+          type: 'build',
+          priority: applyWeight(basePriority, 'build', personality),
+          params: { planetId: planet.id, buildingId: building.id, buildingType: building.type },
+          reasoning: `Upgrade ${building.type} on ${planet.name} from Lv.${building.level} to Lv.${building.level + 1}`,
+        });
+      }
     }
   }
 

@@ -7,8 +7,10 @@
  */
 
 import type { Planet, Building, BuildingType, StarSystem } from '../types/galaxy.js';
-import type { Species } from '../types/species.js';
+import type { Species, TechAge } from '../types/species.js';
 import type { Ship, Fleet } from '../types/ships.js';
+import type { EmpireResources } from '../types/resources.js';
+import { TECH_AGES } from '../constants/game.js';
 import {
   PLANET_BUILDING_SLOTS,
   ATMOSPHERE_ADJACENCY,
@@ -18,6 +20,11 @@ import {
   HABITABILITY_WEIGHTS,
 } from '../constants/planets.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import {
+  BASE_CONSTRUCTION_RATE,
+  FACTORY_CONSTRUCTION_OUTPUT,
+  BUILDING_LEVEL_MULTIPLIER,
+} from '../constants/resources.js';
 import { generateId } from '../utils/id.js';
 
 // ── Migration interfaces ─────────────────────────────────────────────────────
@@ -30,6 +37,17 @@ import { generateId } from '../utils/id.js';
  * migrants depart every `wavePeriod` ticks and a fraction are lost in transit.
  * The colony is officially established once `arrivedPopulation >= threshold`.
  */
+/** Ticks a wave of colonists spends in transit before arriving at the target. */
+export const TRANSIT_DURATION = 5;
+
+/** A wave of colonists currently in transit between source and target. */
+export interface TransitWave {
+  /** Population in this wave (after transit losses already deducted). */
+  population: number;
+  /** Ticks remaining until this wave arrives at the target. */
+  ticksRemaining: number;
+}
+
 export interface MigrationOrder {
   id: string;
   empireId: string;
@@ -48,6 +66,8 @@ export interface MigrationOrder {
   status: 'migrating' | 'established' | 'cancelled';
   /** Credit cost paid upfront when the migration order was created. */
   totalCost: number;
+  /** Waves currently in transit — arrive when ticksRemaining reaches 0. */
+  transitWaves?: TransitWave[];
 }
 
 // ── Public interfaces ───────────────────────────────────────────────────────
@@ -199,14 +219,36 @@ export function calculateHabitability(planet: Planet, species: Species): Habitab
 // ── Population growth ───────────────────────────────────────────────────────
 
 /**
+ * Calculate the effective maximum population for a planet, including
+ * bonuses from population_center buildings.
+ *
+ * Each population_center adds its `populationCapacityBonus` (default 1.5M),
+ * scaled by the compound level multiplier: L2 +20%, L3 +25%, L4 +30%, L5 +35%.
+ */
+export function getEffectiveMaxPopulation(planet: Planet): number {
+  const LEVEL_MULTIPLIERS = [1.0, 1.0, 1.20, 1.50, 1.95, 2.63];
+  let bonus = 0;
+  for (const building of planet.buildings) {
+    if (building.type === 'population_center') {
+      const def = BUILDING_DEFINITIONS[building.type];
+      const baseBonus = def?.populationCapacityBonus ?? 0;
+      const levelMul = LEVEL_MULTIPLIERS[building.level] ?? 1.0;
+      bonus += baseBonus * levelMul;
+    }
+  }
+  return planet.maxPopulation + bonus;
+}
+
+/**
  * Calculates the number of population units to add this turn.
  *
  * Formula (logistic):
  *   baseGrowth = pop * BASE_GROWTH_RATE * (reproduction / 5)
  *   adjusted   = baseGrowth * (habitability / 100)
- *   logistic   = adjusted * (1 - currentPop / maxPop)
+ *   logistic   = adjusted * (1 - currentPop / effectiveMaxPop)
  *
- * Each population_center building at level L adds +10% * L to growth.
+ * Each population_center building at level L adds +10% * L to growth rate.
+ * Population centres also increase max capacity (see getEffectiveMaxPopulation).
  * Returns at least 1 when the colony is alive and below the population cap.
  *
  * If the empire is starving (isStarving = true), growth is always zero.
@@ -219,7 +261,9 @@ export function calculatePopulationGrowth(
 ): number {
   if (isStarving) return 0;
   if (planet.currentPopulation <= 0) return 0;
-  if (planet.currentPopulation >= planet.maxPopulation) return 0;
+
+  const effectiveMax = getEffectiveMaxPopulation(planet);
+  if (planet.currentPopulation >= effectiveMax) return 0;
 
   const reproductionFactor = species.traits.reproduction / 5;
   let baseGrowth = planet.currentPopulation * BASE_GROWTH_RATE * reproductionFactor;
@@ -227,15 +271,15 @@ export function calculatePopulationGrowth(
   // Habitability modifier
   baseGrowth *= habitability / 100;
 
-  // Population center building bonus: +10% per level per building
+  // Population center building bonus: +10% per level per building (growth RATE boost)
   for (const building of planet.buildings) {
     if (building.type === 'population_center') {
       baseGrowth *= 1 + 0.1 * building.level;
     }
   }
 
-  // Logistic curve — growth approaches zero as population nears max
-  const logisticFactor = 1 - planet.currentPopulation / planet.maxPopulation;
+  // Logistic curve — growth approaches zero as population nears effective max
+  const logisticFactor = 1 - planet.currentPopulation / effectiveMax;
   let growth = baseGrowth * logisticFactor;
 
   // Minimum growth guarantee
@@ -313,13 +357,57 @@ export function establishColony(
   };
 }
 
+// ── Demolish building ──────────────────────────────────────────────────────
+
+/**
+ * Removes a building from a planet by its ID.
+ *
+ * Returns a new Planet object with the building removed from the buildings
+ * array. If no building with the given ID exists, the planet is returned
+ * unchanged.
+ *
+ * This is a pure function — it does not mutate its inputs.
+ */
+export function demolishBuilding(planet: Planet, buildingId: string): Planet {
+  const filtered = planet.buildings.filter(b => b.id !== buildingId);
+  if (filtered.length === planet.buildings.length) {
+    // No building matched — return unchanged
+    return planet;
+  }
+  return {
+    ...planet,
+    buildings: filtered,
+  };
+}
+
 // ── In-system colonisation ──────────────────────────────────────────────────
 
 /**
  * Base credit cost for in-system colonisation.
  * Applies when habitability is at maximum (100).
  */
-const BASE_COLONISATION_COST = 200;
+const BASE_COLONISATION_COST = 10_000;
+
+/**
+ * Mineral cost for in-system colonisation.
+ * Paid upfront alongside the credit cost.
+ */
+export const COLONISATION_MINERAL_COST = 3_000;
+
+/**
+ * Number of colonists transferred from the source planet to the new colony.
+ */
+export const COLONIST_TRANSFER_COUNT = 100_000;
+
+/**
+ * Minimum mortality rate during colonist transfer (1%).
+ */
+const TRANSFER_MORTALITY_MIN = 0.01;
+
+/**
+ * Maximum mortality rate during colonist transfer (10%).
+ */
+const TRANSFER_MORTALITY_MAX = 0.10;
 
 /**
  * Calculate the credit cost to colonise a planet based on its habitability.
@@ -344,14 +432,15 @@ export function getColonisationCost(planet: Planet, species: Species): number {
  *
  * Requirements (all must be satisfied):
  * - Empire owns at least one other planet in the same system.
+ * - Source planet (most populous owned planet) has >= COLONIST_TRANSFER_COUNT population.
  * - Target planet is unowned (ownerId === null).
  * - Target planet is not already populated (currentPopulation === 0).
  * - Target planet is not a gas giant (use the orbital-platform path for those).
  * - Habitability for the empire's species is >= MIN_COLONIZE_HABITABILITY (10).
- * - Empire can afford the colonisation cost.
+ * - Empire can afford the credit and mineral colonisation costs.
  *
- * Returns the colonisation cost even when the action is not allowed, so
- * callers can display the cost in the UI regardless.
+ * Returns the colonisation cost and mineral cost even when the action is not
+ * allowed, so callers can display them in the UI regardless.
  */
 export function canColoniseInSystem(
   system: StarSystem,
@@ -359,36 +448,50 @@ export function canColoniseInSystem(
   empireId: string,
   species: Species,
   empireCredits: number,
-): { allowed: boolean; reason?: string; cost: number } {
+  empireMinerals = 0,
+): { allowed: boolean; reason?: string; cost: number; mineralCost: number } {
   const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
+  const mineralCost = COLONISATION_MINERAL_COST;
 
   if (!targetPlanet) {
-    return { allowed: false, reason: 'Planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Planet not found in this system', cost: 0, mineralCost };
   }
 
   // The cost is always calculated so callers can show it even on rejection.
   const cost = getColonisationCost(targetPlanet, species);
 
   // Must own at least one planet in the same system.
-  const ownsSystemPlanet = system.planets.some(
+  const ownedPlanets = system.planets.filter(
     p => p.id !== targetPlanetId && p.ownerId === empireId,
   );
-  if (!ownsSystemPlanet) {
+  if (ownedPlanets.length === 0) {
     return {
       allowed: false,
       reason: 'Empire does not control any planets in this system',
       cost,
+      mineralCost,
+    };
+  }
+
+  // Check source planet has enough population for the transfer.
+  const sourcePlanet = ownedPlanets.sort((a, b) => b.currentPopulation - a.currentPopulation)[0]!;
+  if (sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
+    return {
+      allowed: false,
+      reason: `Source planet needs at least ${(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K population (${sourcePlanet.name} has ${(sourcePlanet.currentPopulation / 1000).toFixed(0)}K)`,
+      cost,
+      mineralCost,
     };
   }
 
   // Target must be unowned.
   if (targetPlanet.ownerId !== null) {
-    return { allowed: false, reason: 'Planet is already owned', cost };
+    return { allowed: false, reason: 'Planet is already owned', cost, mineralCost };
   }
 
   // Target must be unpopulated.
   if (targetPlanet.currentPopulation > 0) {
-    return { allowed: false, reason: 'Planet already has a population', cost };
+    return { allowed: false, reason: 'Planet already has a population', cost, mineralCost };
   }
 
   // Gas giants require the orbital-platform path.
@@ -397,6 +500,7 @@ export function canColoniseInSystem(
       allowed: false,
       reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
       cost,
+      mineralCost,
     };
   }
 
@@ -407,45 +511,79 @@ export function canColoniseInSystem(
       allowed: false,
       reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
       cost,
+      mineralCost,
     };
   }
 
-  // Affordability check.
+  // Credit affordability check.
   if (empireCredits < cost) {
     return {
       allowed: false,
       reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
       cost,
+      mineralCost,
     };
   }
 
-  return { allowed: true, cost };
+  // Mineral affordability check.
+  if (empireMinerals < mineralCost) {
+    return {
+      allowed: false,
+      reason: `Insufficient minerals (${empireMinerals} available, ${mineralCost} required)`,
+      cost,
+      mineralCost,
+    };
+  }
+
+  return { allowed: true, cost, mineralCost };
 }
 
 /**
  * Execute in-system colonisation on a star system.
  *
- * Sets `ownerId` on the target planet, places `initialPopulation` colonists
- * there, and adds a level-1 `population_center` building.
+ * Transfers `COLONIST_TRANSFER_COUNT` colonists from the source planet (most
+ * populous empire planet in the system) to the target planet, applying random
+ * mortality during transit (1-10% die from disease, accidents, and rocket
+ * explosions). The survivors are placed on the target planet, which receives
+ * a level-1 `population_center` building.
  *
- * Returns a new StarSystem — does not mutate the original.
+ * Returns a new StarSystem and the number of colonists that died in transit.
+ * Does not mutate the original.
  *
- * @throws if the planet is not found in the system.
+ * @throws if the target planet or a suitable source planet is not found.
  */
 export function coloniseInSystem(
   system: StarSystem,
   targetPlanetId: string,
   empireId: string,
-  initialPopulation = 1000,
-): StarSystem {
-  const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
-  if (planetIndex === -1) {
+): { system: StarSystem; mortalityCount: number } {
+  const targetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
+  if (targetIndex === -1) {
     throw new Error(
       `Planet "${targetPlanetId}" not found in system "${system.id}"`,
     );
   }
 
-  const planet = system.planets[planetIndex]!;
+  // Find the most populous owned planet as the source.
+  const sourcePlanets = system.planets
+    .map((p, i) => ({ planet: p, index: i }))
+    .filter(e => e.planet.ownerId === empireId && e.planet.id !== targetPlanetId)
+    .sort((a, b) => b.planet.currentPopulation - a.planet.currentPopulation);
+
+  if (sourcePlanets.length === 0) {
+    throw new Error(
+      `No owned source planet found for empire "${empireId}" in system "${system.id}"`,
+    );
+  }
+
+  const { planet: sourcePlanet, index: sourceIndex } = sourcePlanets[0]!;
+  const targetPlanet = system.planets[targetIndex]!;
+
+  // Apply random mortality: 1-10% of colonists die during transfer.
+  const mortalityRate = TRANSFER_MORTALITY_MIN +
+    Math.random() * (TRANSFER_MORTALITY_MAX - TRANSFER_MORTALITY_MIN);
+  const mortalityCount = Math.floor(COLONIST_TRANSFER_COUNT * mortalityRate);
+  const survivors = COLONIST_TRANSFER_COUNT - mortalityCount;
 
   const starterBuilding: Building = {
     id: generateId(),
@@ -453,17 +591,28 @@ export function coloniseInSystem(
     level: 1,
   };
 
-  const colonisedPlanet: Planet = {
-    ...planet,
+  // Deduct population from source.
+  const updatedSource: Planet = {
+    ...sourcePlanet,
+    currentPopulation: sourcePlanet.currentPopulation - COLONIST_TRANSFER_COUNT,
+  };
+
+  // Place survivors on target.
+  const colonisedTarget: Planet = {
+    ...targetPlanet,
     ownerId: empireId,
-    currentPopulation: initialPopulation,
-    buildings: [...planet.buildings, starterBuilding],
+    currentPopulation: survivors,
+    buildings: [...targetPlanet.buildings, starterBuilding],
   };
 
   const updatedPlanets = [...system.planets];
-  updatedPlanets[planetIndex] = colonisedPlanet;
+  updatedPlanets[sourceIndex] = updatedSource;
+  updatedPlanets[targetIndex] = colonisedTarget;
 
-  return { ...system, planets: updatedPlanets };
+  return {
+    system: { ...system, planets: updatedPlanets },
+    mortalityCount,
+  };
 }
 
 // ── Migration ────────────────────────────────────────────────────────────────
@@ -491,11 +640,11 @@ const MIN_SOURCE_POPULATION = 100;
  *
  * Requirements (all must be satisfied):
  * - Source planet is owned by the empire.
- * - Source planet has population >= MIN_SOURCE_POPULATION (100).
+ * - Source planet has population >= COLONIST_TRANSFER_COUNT (100K).
  * - Target planet is unowned.
  * - Target planet is not a gas giant.
  * - Target planet habitability for the species is >= MIN_COLONIZE_HABITABILITY (10).
- * - Empire can afford the cost.
+ * - Empire can afford the credit and mineral costs.
  * - No existing active migration to this target planet.
  */
 export function canStartMigration(
@@ -506,15 +655,18 @@ export function canStartMigration(
   species: Species,
   empireCredits: number,
   existingOrders: MigrationOrder[] = [],
-): { allowed: boolean; reason?: string; cost: number } {
+  empireMinerals = 0,
+): { allowed: boolean; reason?: string; cost: number; mineralCost: number } {
+  const mineralCost = COLONISATION_MINERAL_COST;
+
   const sourcePlanet = system.planets.find(p => p.id === sourcePlanetId);
   if (!sourcePlanet) {
-    return { allowed: false, reason: 'Source planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Source planet not found in this system', cost: 0, mineralCost };
   }
 
   const targetPlanet = system.planets.find(p => p.id === targetPlanetId);
   if (!targetPlanet) {
-    return { allowed: false, reason: 'Target planet not found in this system', cost: 0 };
+    return { allowed: false, reason: 'Target planet not found in this system', cost: 0, mineralCost };
   }
 
   // Cost is always calculated so callers can show it even on rejection.
@@ -526,21 +678,23 @@ export function canStartMigration(
       allowed: false,
       reason: 'Source planet is not owned by this empire',
       cost,
+      mineralCost,
     };
   }
 
-  // Source must have sufficient population.
-  if (sourcePlanet.currentPopulation < MIN_SOURCE_POPULATION) {
+  // Source must have sufficient population for the colonist transfer.
+  if (sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
     return {
       allowed: false,
-      reason: `Source planet population too low (${sourcePlanet.currentPopulation}, minimum ${MIN_SOURCE_POPULATION})`,
+      reason: `Source planet needs at least ${(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K population (has ${(sourcePlanet.currentPopulation / 1000).toFixed(0)}K)`,
       cost,
+      mineralCost,
     };
   }
 
   // Target must be unowned.
   if (targetPlanet.ownerId !== null) {
-    return { allowed: false, reason: 'Target planet is already owned', cost };
+    return { allowed: false, reason: 'Target planet is already owned', cost, mineralCost };
   }
 
   // Gas giants require the orbital-platform path.
@@ -549,6 +703,7 @@ export function canStartMigration(
       allowed: false,
       reason: 'Gas giants cannot be colonised this way — an orbital platform is required',
       cost,
+      mineralCost,
     };
   }
 
@@ -559,6 +714,7 @@ export function canStartMigration(
       allowed: false,
       reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
       cost,
+      mineralCost,
     };
   }
 
@@ -567,19 +723,30 @@ export function canStartMigration(
     o => o.targetPlanetId === targetPlanetId && o.status === 'migrating',
   );
   if (duplicate) {
-    return { allowed: false, reason: 'A migration to this planet is already in progress', cost };
+    return { allowed: false, reason: 'A migration to this planet is already in progress', cost, mineralCost };
   }
 
-  // Affordability check.
+  // Credit affordability check.
   if (empireCredits < cost) {
     return {
       allowed: false,
       reason: `Insufficient credits (${empireCredits} available, ${cost} required)`,
       cost,
+      mineralCost,
     };
   }
 
-  return { allowed: true, cost };
+  // Mineral affordability check.
+  if (empireMinerals < mineralCost) {
+    return {
+      allowed: false,
+      reason: `Insufficient minerals (${empireMinerals} available, ${mineralCost} required)`,
+      cost,
+      mineralCost,
+    };
+  }
+
+  return { allowed: true, cost, mineralCost };
 }
 
 /**
@@ -621,17 +788,15 @@ export function startMigration(
  * Process one game tick of a migration order.
  *
  * Each tick:
- * - If `ticksToNextWave > 0`, decrement the counter and return unchanged.
- * - Otherwise send a wave:
- *   - Wave size = 1–3 people, capped at 10% of the source planet's population.
- *   - 10% of the wave is lost in transit (floor, minimum 0).
- *   - Remaining migrants are added to the target planet's currentPopulation.
- *   - The first arriving wave sets ownerId on the target.
- *   - ticksToNextWave is reset to wavePeriod.
- *   - If arrivedPopulation >= threshold after the wave, status → 'established'.
+ * 1. Advance all in-transit waves — any that arrive add population to the target.
+ * 2. If `ticksToNextWave > 0`, decrement the departure counter.
+ * 3. Otherwise dispatch a new wave from the source (enters transit, not instant arrival):
+ *    - Wave size = 1–3 people, capped at 10% of source population.
+ *    - 10% transit loss is applied upfront; survivors enter transitWaves.
+ *    - Source population decreases immediately on departure.
+ * 4. Colony is established once `arrivedPopulation >= threshold`.
  *
- * Returns a new order and system (pure — no mutation) plus human-readable event
- * strings for logging / event emission.
+ * Returns a new order and system (pure — no mutation) plus event strings.
  */
 export function processMigrationTick(
   order: MigrationOrder,
@@ -641,82 +806,103 @@ export function processMigrationTick(
     return { order, system, events: [] };
   }
 
-  // Not yet time for the next wave.
-  if (order.ticksToNextWave > 0) {
-    return {
-      order: { ...order, ticksToNextWave: order.ticksToNextWave - 1 },
-      system,
-      events: [],
-    };
-  }
-
-  // Find source and target planets.
   const sourcePlanetIndex = system.planets.findIndex(p => p.id === order.sourcePlanetId);
   const targetPlanetIndex = system.planets.findIndex(p => p.id === order.targetPlanetId);
 
   if (sourcePlanetIndex === -1 || targetPlanetIndex === -1) {
-    // Planets no longer exist — cancel the migration.
     return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: planet no longer exists'] };
   }
 
-  const sourcePlanet = system.planets[sourcePlanetIndex]!;
-  const targetPlanet = system.planets[targetPlanetIndex]!;
+  let sourcePlanet = system.planets[sourcePlanetIndex]!;
+  let targetPlanet = system.planets[targetPlanetIndex]!;
+  const eventMessages: string[] = [];
 
-  // Wave size: 1–3, capped at 10% of source population (rounded down, min 1).
-  const maxWave = Math.max(1, Math.floor(sourcePlanet.currentPopulation * 0.1));
-  const waveDeparted = Math.min(3, maxWave);
+  // ── 1. Advance in-transit waves — deliver those that have arrived ──────
+  let transitWaves = [...(order.transitWaves ?? [])];
+  let newArrivedTotal = order.arrivedPopulation;
+  let totalArrivingThisTick = 0;
 
-  // Can't send more than the source actually has.
-  const actualDeparted = Math.min(waveDeparted, sourcePlanet.currentPopulation);
-  if (actualDeparted <= 0) {
-    // Source is empty — cancel.
-    return { order: { ...order, status: 'cancelled' }, system, events: ['Migration cancelled: source population exhausted'] };
+  const stillInTransit: TransitWave[] = [];
+  for (const wave of transitWaves) {
+    const remaining = wave.ticksRemaining - 1;
+    if (remaining <= 0) {
+      // Wave arrives at target
+      totalArrivingThisTick += wave.population;
+      newArrivedTotal += wave.population;
+    } else {
+      stillInTransit.push({ ...wave, ticksRemaining: remaining });
+    }
+  }
+  transitWaves = stillInTransit;
+
+  if (totalArrivingThisTick > 0) {
+    // First arriving wave claims ownership
+    const newOwnerId = targetPlanet.ownerId ?? order.empireId;
+    targetPlanet = {
+      ...targetPlanet,
+      currentPopulation: targetPlanet.currentPopulation + totalArrivingThisTick,
+      ownerId: newOwnerId,
+    };
+    eventMessages.push(`${totalArrivingThisTick} colonists arrived`);
   }
 
-  // Transit losses: 10% of wave, rounded down, minimum 0.
-  const lost = Math.floor(actualDeparted * 0.1);
-  const arrived = actualDeparted - lost;
+  // ── 2. Dispatch a new wave if the departure timer has elapsed ─────────
+  let ticksToNextWave = order.ticksToNextWave;
+  if (ticksToNextWave > 0) {
+    ticksToNextWave--;
+  } else {
+    // Wave departure
+    const maxWave = Math.max(1, Math.floor(sourcePlanet.currentPopulation * 0.1));
+    const waveDeparted = Math.min(3, maxWave);
+    const actualDeparted = Math.min(waveDeparted, sourcePlanet.currentPopulation);
 
-  // Update source and target populations.
-  const updatedSource: Planet = {
-    ...sourcePlanet,
-    currentPopulation: sourcePlanet.currentPopulation - actualDeparted,
-  };
+    if (actualDeparted > 0) {
+      // Transit losses: 10% of wave
+      const lost = Math.floor(actualDeparted * 0.1);
+      const survivors = actualDeparted - lost;
 
-  const newTargetPop = targetPlanet.currentPopulation + arrived;
-  const newArrivedTotal = order.arrivedPopulation + arrived;
+      // Source loses population immediately on departure
+      sourcePlanet = {
+        ...sourcePlanet,
+        currentPopulation: sourcePlanet.currentPopulation - actualDeparted,
+      };
 
-  // First wave claims ownership.
-  const newOwnerId = targetPlanet.ownerId ?? order.empireId;
+      // Survivors enter transit
+      if (survivors > 0) {
+        transitWaves.push({ population: survivors, ticksRemaining: TRANSIT_DURATION });
+      }
 
-  const updatedTarget: Planet = {
-    ...targetPlanet,
-    currentPopulation: newTargetPop,
-    ownerId: newOwnerId,
-  };
+      eventMessages.push(`Wave of ${actualDeparted} departed`);
+      if (lost > 0) eventMessages.push(`${lost} lost in transit`);
 
-  // Update the systems array.
+      ticksToNextWave = order.wavePeriod;
+    } else if (transitWaves.length === 0) {
+      // Source exhausted and nothing in transit — cancel
+      return {
+        order: { ...order, status: 'cancelled', transitWaves: [] },
+        system,
+        events: ['Migration cancelled: source population exhausted'],
+      };
+    }
+  }
+
+  // ── 3. Update system planets ──────────────────────────────────────────
   const updatedPlanets = [...system.planets];
-  updatedPlanets[sourcePlanetIndex] = updatedSource;
-  updatedPlanets[targetPlanetIndex] = updatedTarget;
+  updatedPlanets[sourcePlanetIndex] = sourcePlanet;
+  updatedPlanets[targetPlanetIndex] = targetPlanet;
   const updatedSystem: StarSystem = { ...system, planets: updatedPlanets };
 
-  // Determine new status.
+  // ── 4. Determine status ───────────────────────────────────────────────
   const newStatus: MigrationOrder['status'] =
     newArrivedTotal >= order.threshold ? 'established' : 'migrating';
 
   const updatedOrder: MigrationOrder = {
     ...order,
     arrivedPopulation: newArrivedTotal,
-    ticksToNextWave: order.wavePeriod,
+    ticksToNextWave,
     status: newStatus,
+    transitWaves,
   };
-
-  const eventMessages = [
-    `Wave of ${actualDeparted} departed`,
-    `${arrived} arrived`,
-    ...(lost > 0 ? [`${lost} lost in transit`] : []),
-  ];
 
   return { order: updatedOrder, system: updatedSystem, events: eventMessages };
 }
@@ -845,12 +1031,40 @@ export function canColoniseWithShip(
  *
  * @throws if the planet is not found in the system.
  */
+/**
+ * Colony ship tier determines what starter buildings are placed.
+ * Higher tiers (unlocked through tech ages) give the colony a head start.
+ */
+const COLONY_SHIP_TIER_BUILDINGS: BuildingType[][] = [
+  ['population_center'],                                                          // Tier 1 (nano_atomic)
+  ['population_center', 'factory'],                                               // Tier 2 (fusion)
+  ['population_center', 'factory', 'mining_facility'],                            // Tier 3 (nano_fusion)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay'],         // Tier 4 (anti_matter)
+  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay', 'fusion_reactor'], // Tier 5 (singularity)
+];
+
+/**
+ * Map tech age to colony ship tier (0-indexed).
+ * Higher ages unlock better-equipped colony ships.
+ */
+function getColonyShipTier(currentAge: string): number {
+  switch (currentAge) {
+    case 'nano_atomic': return 0;
+    case 'fusion': return 1;
+    case 'nano_fusion': return 2;
+    case 'anti_matter': return 3;
+    case 'singularity': return 4;
+    default: return 0;
+  }
+}
+
 export function coloniseWithShip(
   system: StarSystem,
   targetPlanetId: string,
   empireId: string,
   fleet: Fleet,
   shipId: string,
+  currentAge = 'nano_atomic',
 ): { system: StarSystem; fleet: Fleet } {
   const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
   if (planetIndex === -1) {
@@ -861,17 +1075,21 @@ export function coloniseWithShip(
 
   const planet = system.planets[planetIndex]!;
 
-  const starterBuilding: Building = {
+  // Determine colony ship tier from current tech age
+  const tier = getColonyShipTier(currentAge);
+  const buildingTypes = COLONY_SHIP_TIER_BUILDINGS[tier] ?? COLONY_SHIP_TIER_BUILDINGS[0]!;
+
+  const starterBuildings: Building[] = buildingTypes.map(type => ({
     id: generateId(),
-    type: 'population_center',
+    type,
     level: 1,
-  };
+  }));
 
   const colonisedPlanet: Planet = {
     ...planet,
     ownerId: empireId,
     currentPopulation: COLONISER_SHIP_INITIAL_POPULATION,
-    buildings: [...planet.buildings, starterBuilding],
+    buildings: [...planet.buildings, ...starterBuildings],
   };
 
   const updatedPlanets = [...system.planets];
@@ -1019,6 +1237,104 @@ export function addBuildingToQueue(
   };
 }
 
+// ── Building upgrades ─────────────────────────────────────────────────────
+
+/** Cost multiplier per level for building upgrades. */
+const UPGRADE_COST_MULTIPLIER = 1.5;
+
+function techAgeIndex(age: TechAge | string): number {
+  return TECH_AGES.findIndex(a => a.name === age);
+}
+
+export function getMaxLevelForAge(
+  buildingType: BuildingType,
+  currentAge: TechAge,
+): number {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  const ageIdx = techAgeIndex(currentAge);
+  const ageCap = ageIdx < 0 ? 1 : ageIdx + 1;
+  return Math.min(ageCap, def.maxLevel);
+}
+
+export function getUpgradeCost(
+  buildingType: BuildingType,
+  currentLevel: number,
+): Partial<EmpireResources> {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  const result: Partial<EmpireResources> = {};
+  for (const [key, base] of Object.entries(def.baseCost)) {
+    if (base && base > 0) {
+      result[key as keyof EmpireResources] = Math.ceil(base * currentLevel * UPGRADE_COST_MULTIPLIER);
+    }
+  }
+  return result;
+}
+
+export function getUpgradeBuildTime(
+  buildingType: BuildingType,
+  currentLevel: number,
+): number {
+  const def = BUILDING_DEFINITIONS[buildingType];
+  return Math.ceil(def.buildTime * currentLevel * UPGRADE_COST_MULTIPLIER);
+}
+
+export function canUpgradeBuilding(
+  planet: Planet,
+  buildingId: string,
+  currentAge: TechAge,
+): { allowed: boolean; reason?: string } {
+  const building = planet.buildings.find(b => b.id === buildingId);
+  if (!building) {
+    return { allowed: false, reason: 'Building not found on this planet.' };
+  }
+
+  const def = BUILDING_DEFINITIONS[building.type];
+  if (building.level >= def.maxLevel) {
+    return { allowed: false, reason: `Already at maximum level (${def.maxLevel}).` };
+  }
+
+  const ageCap = getMaxLevelForAge(building.type, currentAge);
+  if (building.level >= ageCap) {
+    return {
+      allowed: false,
+      reason: `Current technology age limits this building to level ${ageCap}. Advance to the next age to unlock further upgrades.`,
+    };
+  }
+
+  const alreadyQueued = planet.productionQueue.some(
+    item => item.type === 'building_upgrade' && item.targetBuildingId === buildingId,
+  );
+  if (alreadyQueued) {
+    return { allowed: false, reason: 'An upgrade for this building is already in the queue.' };
+  }
+
+  return { allowed: true };
+}
+
+export function addUpgradeToQueue(planet: Planet, buildingId: string, currentAge: TechAge): Planet {
+  const check = canUpgradeBuilding(planet, buildingId, currentAge);
+  if (!check.allowed) {
+    throw new Error(`Cannot queue upgrade: ${check.reason}`);
+  }
+
+  const building = planet.buildings.find(b => b.id === buildingId)!;
+  const turnsRemaining = getUpgradeBuildTime(building.type, building.level);
+
+  return {
+    ...planet,
+    productionQueue: [
+      ...planet.productionQueue,
+      {
+        type: 'building_upgrade' as const,
+        templateId: building.type,
+        turnsRemaining,
+        totalTurns: turnsRemaining,
+        targetBuildingId: building.id,
+      },
+    ],
+  };
+}
+
 /**
  * Advances the construction queue by `constructionRate` turns.
  *
@@ -1036,8 +1352,59 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
   // first is always defined here because of the length check above
   const item = first!;
 
-  if (item.type !== 'building') {
-    // Non-building items (ships, defenses) are not handled by this function
+  if (item.type === 'ship') {
+    // Ship items are synced by stepShipProduction in game-loop.ts.
+    // Skip them so they don't block buildings behind them in the queue.
+    // Process the next non-ship item instead.
+    const nonShipIdx = planet.productionQueue.findIndex(q => q.type !== 'ship');
+    if (nonShipIdx < 0) return planet; // all items are ships — nothing to process
+    const target = planet.productionQueue[nonShipIdx]!;
+    const newTurns = target.turnsRemaining - constructionRate;
+
+    if (target.type === 'building_upgrade' && target.targetBuildingId && newTurns <= 0) {
+      const upgradedBuildings = planet.buildings.map(b => {
+        if (b.id === target.targetBuildingId) {
+          return { ...b, level: b.level + 1, condition: 100 };
+        }
+        return b;
+      });
+      return {
+        ...planet,
+        buildings: upgradedBuildings,
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
+
+    if (target.type === 'building' && newTurns <= 0) {
+      const newBuilding: Building = {
+        id: generateId(),
+        type: target.templateId as BuildingType,
+        level: 1,
+      };
+      return {
+        ...planet,
+        buildings: [...planet.buildings, newBuilding],
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
+
+    if (newTurns <= 0) {
+      return {
+        ...planet,
+        productionQueue: planet.productionQueue.filter((_, i) => i !== nonShipIdx),
+      };
+    }
+
+    return {
+      ...planet,
+      productionQueue: planet.productionQueue.map((q, i) =>
+        i === nonShipIdx ? { ...q, turnsRemaining: newTurns } : q,
+      ),
+    };
+  }
+
+  if (item.type !== 'building' && item.type !== 'building_upgrade') {
+    // Defense items: decrement and remove when done
     const newTurns = Math.max(0, item.turnsRemaining - constructionRate);
     if (newTurns === 0) {
       return {
@@ -1052,6 +1419,17 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
   }
 
   const newTurns = item.turnsRemaining - constructionRate;
+
+  if (item.type === 'building_upgrade' && item.targetBuildingId && newTurns <= 0) {
+    // Upgrade complete — increment the existing building's level and reset condition
+    const upgradedBuildings = planet.buildings.map(b => {
+      if (b.id === item.targetBuildingId) {
+        return { ...b, level: b.level + 1, condition: 100 };
+      }
+      return b;
+    });
+    return { ...planet, buildings: upgradedBuildings, productionQueue: rest };
+  }
 
   if (newTurns <= 0) {
     // Construction complete — add building to planet
@@ -1074,6 +1452,27 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
 }
 
 // ── Colony stats aggregation ────────────────────────────────────────────────
+
+/**
+ * Calculate the construction points generated per tick on a planet.
+ * Base rate + factory output (scaled by level and species construction trait).
+ */
+export function getPlanetConstructionRate(
+  planet: Planet,
+  species: Species,
+  governmentConstructionSpeed = 1.0,
+): number {
+  const speciesConstructionFactor = species.traits.construction / 5;
+  let factoryOutput = 0;
+  for (const building of planet.buildings) {
+    if (building.type === 'factory') {
+      factoryOutput += FACTORY_CONSTRUCTION_OUTPUT
+        * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1)
+        * speciesConstructionFactor;
+    }
+  }
+  return (BASE_CONSTRUCTION_RATE + factoryOutput) * governmentConstructionSpeed;
+}
 
 /**
  * Computes a summary of a colony's current state in a single call.

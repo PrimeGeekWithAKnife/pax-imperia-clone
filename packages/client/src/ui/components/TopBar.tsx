@@ -2,6 +2,17 @@ import React, { useCallback } from 'react';
 import type { GameSpeedName, GovernmentType } from '@nova-imperia/shared';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS, GOVERNMENTS } from '@nova-imperia/shared';
 
+/** Compact number formatter: 1000 → 1K, 1000000 → 1M, 1000000000 → 1B */
+function compact(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}${(abs / 1_000).toFixed(1)}K`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}${Math.floor(abs)}`;
+}
+
 interface TopBarProps {
   gameSpeed: GameSpeedName;
   onSpeedChange: (speed: GameSpeedName) => void;
@@ -117,23 +128,23 @@ export function TopBar({
       <div className="top-bar__resources">
         <span className="resource-item" title="Credits">
           <span className="resource-icon">₵</span>
-          <span className="resource-value">{Math.floor(credits).toLocaleString()}</span>
+          <span className="resource-value">{compact(credits)}</span>
         </span>
         <span className="resource-item" title="Minerals">
           <span className="resource-icon">⛏</span>
-          <span className="resource-value">{Math.floor(minerals).toLocaleString()}</span>
+          <span className="resource-value">{compact(minerals)}</span>
         </span>
         <span className="resource-item" title="Energy">
           <span className="resource-icon" style={{ color: energy < 0 ? '#ff4444' : undefined }}>⚡</span>
-          <span className="resource-value" style={{ color: energy < 0 ? '#ff4444' : undefined }}>{Math.floor(energy).toLocaleString()}</span>
+          <span className="resource-value" style={{ color: energy < 0 ? '#ff4444' : undefined }}>{compact(energy)}</span>
         </span>
         <span className="resource-item" title="Organics (Food)">
           <span className="resource-icon" style={{ color: organics < 0 ? '#ff4444' : undefined }}>🌾</span>
-          <span className="resource-value" style={{ color: organics < 0 ? '#ff4444' : undefined }}>{Math.floor(organics).toLocaleString()}</span>
+          <span className="resource-value" style={{ color: organics < 0 ? '#ff4444' : undefined }}>{compact(organics)}</span>
         </span>
         <span className="resource-item" title="Research">
           <span className="resource-icon">⚗</span>
-          <span className="resource-value">{Math.floor(researchPoints).toLocaleString()}</span>
+          <span className="resource-value">{compact(researchPoints)}</span>
         </span>
       </div>
     </div>

@@ -7,6 +7,7 @@ import type { MusicTrack } from '../../audio';
 import { getGameEngine, destroyGameEngine } from '../../engine/GameEngine';
 import type { MigrationOrder } from '../../engine/migration';
 import type { GameTickState, GameSpeedName } from '@nova-imperia/shared';
+import { getTickRate } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import type { HullClass } from '@nova-imperia/shared';
 
@@ -225,8 +226,9 @@ export class SystemViewScene extends Phaser.Scene {
     // ── Exit to main menu ─────────────────────────────────────────────────
     this.game.events.on('ui:exit_to_menu', this._handleExitToMenu, this);
 
-    // ── Colonise action listener ───────────────────────────────────────────
+    // ── Colonise action listeners ──────────────────────────────────────────
     this.game.events.on('colony:colonise', this.handleColoniseAction, this);
+    this.game.events.on('colony:colonise_with_ship', this._handleColoniseWithShip, this);
 
     // ── Migration action listeners ─────────────────────────────────────────
     this.game.events.on('colony:start_migration', this.handleStartMigrationAction, this);
@@ -251,6 +253,9 @@ export class SystemViewScene extends Phaser.Scene {
     // Relocate Fleet — switch to galaxy map with move mode activated
     this.game.events.on('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
 
+    // Minimap click — return to galaxy map view
+    this.game.events.on('minimap:navigate', this._handleMinimapNavigate, this);
+
     // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
@@ -260,6 +265,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('music:set_track', this._handleMusicTrack, this);
       this.game.events.off('ui:exit_to_menu', this._handleExitToMenu, this);
       this.game.events.off('colony:colonise', this.handleColoniseAction, this);
+      this.game.events.off('colony:colonise_with_ship', this._handleColoniseWithShip, this);
       this.game.events.off('colony:start_migration', this.handleStartMigrationAction, this);
       this.game.events.off('engine:migration_wave', this.handleMigrationWave, this);
       this.game.events.off('engine:migration_started', this._handleMigrationStartedSfx, this);
@@ -269,6 +275,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:tech_researched', this._handleTechResearchedSfx, this);
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
+      this.game.events.off('minimap:navigate', this._handleMinimapNavigate, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
       for (const [, sprites] of this.shipSprites) {
@@ -341,6 +348,11 @@ export class SystemViewScene extends Phaser.Scene {
       this.cameraOffset.x = pointer.x + (this.cameraOffset.x - pointer.x) * ratio;
       this.cameraOffset.y = pointer.y + (this.cameraOffset.y - pointer.y) * ratio;
     });
+
+    // Prevent browser zoom (Ctrl+scroll) from firing alongside game zoom
+    this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+    }, { passive: false });
   }
 
   private _applyWorldTransform(): void {
@@ -382,6 +394,19 @@ export class SystemViewScene extends Phaser.Scene {
     }
 
     engine.executeAction({ type: 'ColonisePlanet', empireId, systemId, planetId });
+  };
+
+  private _handleColoniseWithShip = (payload: unknown): void => {
+    const { fleetId, planetId, empireId } = payload as {
+      fleetId: string;
+      planetId: string;
+      empireId: string;
+    };
+
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    engine.executeAction({ type: 'ColonizePlanet', fleetId, planetId });
   };
 
   // ── Migration actions ─────────────────────────────────────────────────────────
@@ -437,18 +462,29 @@ export class SystemViewScene extends Phaser.Scene {
     const targetPos = this._getPlanetWorldPos(migration.targetPlanetId);
     if (!sourcePos || !targetPos) return;
 
+    // Sync animation travel time to game logic transit duration (TRANSIT_DURATION ticks).
+    // At normal speed: 5 ticks × 2000ms = 10,000ms for the journey.
+    const engine = getGameEngine();
+    const tickMs = engine ? getTickRate(engine.getState().gameState.speed as GameSpeedName) : 2000;
+    const transitMs = 5 * Math.max(tickMs, 500); // TRANSIT_DURATION = 5 ticks
+
     const ships: ColonyShip[] = [];
     const SHIP_COUNT = Phaser.Math.Between(8, 12);
+    const stagger = 0.08; // stagger between ships as fraction of total journey
+    const totalStagger = stagger * (SHIP_COUNT - 1);
+    // Last ship must arrive at t=1 exactly when transitMs elapses
+    // Speed = (1 + totalStagger) / transitMs — ensures last ship arrives on time
+    const baseSpeed = (1 + totalStagger) / transitMs;
+
     for (let i = 0; i < SHIP_COUNT; i++) {
       const gfx = this.add.graphics();
       gfx.setDepth(150);
-      // Add to worldContainer so they scale with the world
       this.worldContainer.add(gfx);
 
       ships.push({
         gfx,
-        t: -(i * 0.12),           // stagger: ships depart at different times
-        speed: 0.000067 + Math.random() * 0.000033,  // 3x slower colonisation animation
+        t: -(i * stagger),
+        speed: baseSpeed * (0.95 + Math.random() * 0.10), // slight variance
         cx: 0,
         cy: 0,
         sx: sourcePos.x,
@@ -456,7 +492,7 @@ export class SystemViewScene extends Phaser.Scene {
         tx: targetPos.x,
         ty: targetPos.y,
         alpha: 0,
-        swarmOffset: (Math.random() - 0.5) * 12,  // perpendicular wobble (tighter swarm)
+        swarmOffset: (Math.random() - 0.5) * 8,
       });
     }
 
@@ -563,19 +599,19 @@ export class SystemViewScene extends Phaser.Scene {
     gfx.clear();
     if (alpha <= 0) return;
 
-    // Warm amber trail dots behind — smaller for subtler effect
+    // Warm amber trail dots behind — 50% smaller for graceful, subtle effect
     gfx.fillStyle(0xcc6600, 0.25 * alpha);
-    gfx.fillCircle(x - 3, y, 0.8);
+    gfx.fillCircle(x - 1.5, y, 0.4);
     gfx.fillStyle(0xff9900, 0.15 * alpha);
-    gfx.fillCircle(x - 6, y, 0.5);
+    gfx.fillCircle(x - 3, y, 0.25);
 
-    // Main dot — amber/gold, smaller
+    // Main dot — amber/gold, halved to micro-dot
     gfx.fillStyle(0xffcc44, 0.95 * alpha);
-    gfx.fillCircle(x, y, 1.2);
+    gfx.fillCircle(x, y, 0.6);
 
     // Bright core
     gfx.fillStyle(0xfff0aa, 0.90 * alpha);
-    gfx.fillCircle(x, y, 0.5);
+    gfx.fillCircle(x, y, 0.25);
   }
 
   /**
@@ -855,6 +891,7 @@ export class SystemViewScene extends Phaser.Scene {
 
   private _handleMigrationCompletedSfx = (): void => {
     this.sfx?.playColoniseComplete();
+    // Don't clear animations — let the last dots arrive naturally (synced with transit delay)
   };
 
   private _handleShipProducedSfx = (payload: unknown): void => {
@@ -1123,6 +1160,13 @@ export class SystemViewScene extends Phaser.Scene {
     const { fleetId } = data as { fleetId: string };
     // Stash on window for the galaxy scene to pick up in create()
     (window as unknown as Record<string, unknown>).__EX_NIHILO_PENDING_MOVE_MODE__ = fleetId;
+    this.ambient?.stopAll();
+    this.music?.crossfadeTo('galaxy');
+    this.scene.start('GalaxyMapScene');
+  };
+
+  /** Minimap click while in system view — return to galaxy map. */
+  private _handleMinimapNavigate = (_data: unknown): void => {
     this.ambient?.stopAll();
     this.music?.crossfadeTo('galaxy');
     this.scene.start('GalaxyMapScene');

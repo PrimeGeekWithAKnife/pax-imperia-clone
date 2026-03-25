@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen"]
   },
   "specialAbilities": ["photosynthetic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "equality",
+  "allowedGovernments": ["equality", "federation", "democracy"]
 }

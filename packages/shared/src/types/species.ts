@@ -12,6 +12,10 @@ export interface Species {
   environmentPreference: EnvironmentPreference;
   specialAbilities: SpecialAbility[];
   isPrebuilt: boolean;
+  /** Default government type for this species. */
+  defaultGovernment?: GovernmentType;
+  /** Government types available to this species. If omitted, all types are available. */
+  allowedGovernments?: GovernmentType[];
 }
 
 export interface SpeciesTraits {

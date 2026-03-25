@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["hydrogen", "hydrogen_helium", "none"]
   },
   "specialAbilities": ["energy_form"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "technocracy",
+  "allowedGovernments": ["technocracy", "equality", "federation", "democracy"]
 }

@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["ammonia", "oxygen_nitrogen", "methane"]
   },
   "specialAbilities": ["symbiotic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "federation",
+  "allowedGovernments": ["federation", "democracy", "republic", "equality"]
 }

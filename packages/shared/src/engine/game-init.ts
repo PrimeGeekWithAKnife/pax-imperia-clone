@@ -347,7 +347,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
-      government: playerSetup.government ?? 'democracy',
+      government: playerSetup.government ?? playerSetup.species.defaultGovernment ?? 'democracy',
       ...(playerSetup.aiPersonality !== undefined
         ? { aiPersonality: playerSetup.aiPersonality }
         : {}),

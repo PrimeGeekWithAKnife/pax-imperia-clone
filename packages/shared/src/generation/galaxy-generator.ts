@@ -16,6 +16,7 @@
 
 import type {
   Galaxy,
+  GalaxyShapeMetadata,
   StarSystem,
   StarType,
   Planet,
@@ -408,20 +409,34 @@ const CY = GALAXY_HEIGHT / 2;
 const RX = GALAXY_WIDTH * 0.46;  // half-width radius
 const RY = GALAXY_HEIGHT * 0.46; // half-height radius
 
+interface PositionResult {
+  points: CandidatePoint[];
+  shapeMetadata?: GalaxyShapeMetadata;
+}
+
 function generatePositions(
   rng: SeededRng,
   count: number,
   shape: GalaxyShape,
-): CandidatePoint[] {
+): PositionResult {
   const minDist = Math.sqrt((GALAXY_WIDTH * GALAXY_HEIGHT) / (count * 4));
 
   switch (shape) {
     case 'elliptical':
-      return generateElliptical(rng, count, minDist);
+      return {
+        points: generateElliptical(rng, count, minDist),
+        shapeMetadata: { shape: 'elliptical', centreX: CX, centreY: CY },
+      };
     case 'spiral':
       return generateSpiral(rng, count, minDist);
     case 'ring':
-      return generateRing(rng, count, minDist);
+      return {
+        points: generateRing(rng, count, minDist),
+        shapeMetadata: {
+          shape: 'ring', centreX: CX, centreY: CY,
+          innerRadiusFraction: 0.35, outerRadiusFraction: 0.90,
+        },
+      };
     case 'irregular':
     default:
       return generateIrregular(rng, count, minDist);
@@ -451,39 +466,80 @@ function generateSpiral(
   rng: SeededRng,
   count: number,
   minDist: number,
-): CandidatePoint[] {
-  const numArms = 2 + rng.nextInt(0, 2); // 2–4 arms
-  const armSpread = 0.28;
-  const armTwist = Math.PI * 2.5; // radians over full arm length
+): PositionResult {
+  const numArms = 4 + rng.nextInt(0, 4); // 4–8 arms
+  const spiralB = rng.nextFloat(0.15, 0.28); // tighter winding for more dramatic spiral
+  const armBaseSpread = 0.10; // narrow arms — clear dark gaps between fins
+  const bulgeRadius = 0.10; // small central bulge so arms dominate
+  const maxR = Math.min(RX, RY);
+  const spiralA = bulgeRadius * maxR * 0.9; // arms emerge from bulge edge
+
+  // Pre-compute arm starting angles (evenly spaced + slight jitter)
+  const armAngles: number[] = [];
+  for (let i = 0; i < numArms; i++) {
+    const base = (i / numArms) * Math.PI * 2;
+    const jitter = rng.nextFloat(-0.08, 0.08);
+    armAngles.push(base + jitter);
+  }
 
   const inBounds = (x: number, y: number): boolean => {
     const dx = x - CX;
     const dy = y - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxR = Math.min(RX, RY);
     if (dist > maxR) return false;
 
-    const angle = Math.atan2(dy, dx);
     const normDist = dist / maxR;
+    const angle = Math.atan2(dy, dx);
 
-    // Check proximity to any arm
-    for (let arm = 0; arm < numArms; arm++) {
-      const armAngle = (arm / numArms) * Math.PI * 2;
-      const expectedAngle = armAngle + normDist * armTwist;
-      let diff = ((angle - expectedAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-      if (diff > Math.PI) diff = Math.PI * 2 - diff;
-      if (diff < armSpread * (1 + normDist)) return true;
+    // Central bulge: small, dense core
+    if (normDist < bulgeRadius) {
+      const bulgeProb = 0.6 + 0.4 * (1 - normDist / bulgeRadius);
+      return rng.next() < bulgeProb;
     }
 
-    // Core region: always accept within 15% of galaxy radius
-    if (normDist < 0.15) return true;
+    // Logarithmic spiral arm check
+    if (dist < spiralA) return rng.next() < 0.04;
 
-    // Sparse inter-arm stars (10% chance)
-    return rng.next() < 0.10;
+    const thetaAtR = Math.log(dist / spiralA) / spiralB;
+
+    let bestArmDist = Infinity;
+    for (let arm = 0; arm < numArms; arm++) {
+      const expectedAngle = armAngles[arm]! + thetaAtR;
+      // Normalise angular difference to [-PI, PI]
+      let diff = ((angle - expectedAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      diff = Math.abs(diff);
+      if (diff < bestArmDist) bestArmDist = diff;
+    }
+
+    // Arm spread widens slightly with distance but stays tight
+    const effectiveSpread = armBaseSpread * (1 + 0.3 * normDist);
+
+    if (bestArmDist < effectiveSpread) {
+      // Inside an arm: steep Gaussian — dense core, sharp edges
+      const armProb = Math.exp(-4 * (bestArmDist / effectiveSpread) ** 2);
+      return rng.next() < (0.15 + 0.85 * armProb);
+    }
+
+    // Almost no inter-arm stars — dark voids between fins
+    return rng.next() < 0.01;
   };
 
-  const pts = poissonDisk(rng, count * 4, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
-  return pts.slice(0, count);
+  // Higher oversampling — tight arms reject many candidates
+  const pts = poissonDisk(rng, count * 6, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
+  return {
+    points: pts.slice(0, count),
+    shapeMetadata: {
+      shape: 'spiral',
+      armCount: numArms,
+      armAngles,
+      spiralTightness: spiralB,
+      armSpread: armBaseSpread,
+      bulgeRadiusFraction: bulgeRadius,
+      spiralA,
+      centreX: CX,
+      centreY: CY,
+    },
+  };
 }
 
 function generateRing(
@@ -513,7 +569,7 @@ function generateIrregular(
   rng: SeededRng,
   count: number,
   minDist: number,
-): CandidatePoint[] {
+): PositionResult {
   // Cosmic web: dense clusters connected by thin chains of stars (filaments).
   const numClusters = 3 + rng.nextInt(0, 3); // 3-6 clusters
 
@@ -633,7 +689,13 @@ function generateIrregular(
   };
 
   const pts = poissonDisk(rng, count * 5, GALAXY_WIDTH, GALAXY_HEIGHT, minDist, inBounds);
-  return pts.slice(0, count);
+  return {
+    points: pts.slice(0, count),
+    shapeMetadata: {
+      shape: 'irregular',
+      clusterCentres: clusters.map(c => ({ x: c.cx, y: c.cy })),
+    },
+  };
 }
 
 // ── wormhole graph construction ───────────────────────────────────────────────
@@ -1131,7 +1193,7 @@ export function generateGalaxy(config: GalaxyGenerationConfig): Galaxy {
   const targetCount = GALAXY_SIZES[config.size];
 
   // 1. Place star positions
-  const positions = generatePositions(rng, targetCount, config.shape);
+  const { points: positions, shapeMetadata } = generatePositions(rng, targetCount, config.shape);
 
   // Fallback: if Poisson didn't produce enough points, fill randomly
   while (positions.length < targetCount) {
@@ -1189,5 +1251,6 @@ export function generateGalaxy(config: GalaxyGenerationConfig): Galaxy {
     width: GALAXY_WIDTH,
     height: GALAXY_HEIGHT,
     seed: config.seed,
+    shapeMetadata,
   };
 }

@@ -39,16 +39,26 @@ import {
   getTickRate,
   canBuildOnPlanet,
   canColonize,
-  establishColony,
+  coloniseInSystem,
+  COLONISATION_MINERAL_COST,
+  COLONIST_TRANSFER_COUNT,
   addBuildingToQueue,
+  demolishBuilding,
+  canUpgradeBuilding,
+  addUpgradeToQueue,
+  getUpgradeCost,
   BUILDING_DEFINITIONS,
   HULL_TEMPLATE_BY_CLASS,
   startShipProduction,
   issueMovementOrder,
   startResearch as startResearchFn,
+  queueResearch as queueResearchFn,
+  dequeueResearch as dequeueResearchFn,
+  redistributeAllocation,
   setResearchAllocation,
   calculateEmpireProduction,
   UNIVERSAL_TECHNOLOGIES,
+  createNotification,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -59,6 +69,7 @@ import type {
   FleetMovedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
+  GameEvent,
 } from '@nova-imperia/shared';
 import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
 import {
@@ -156,7 +167,28 @@ export class GameEngine {
     const prevShips = [...this.tickState.gameState.ships];
     const prevFleets = [...this.tickState.gameState.fleets];
 
-    const { newState, events } = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
+    let newState: GameTickState;
+    let events: GameEvent[];
+    try {
+      const result = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
+      newState = result.newState;
+      events = result.events;
+    } catch (err) {
+      // CRITICAL: If processGameTick throws, the tick state must still
+      // advance the tick counter so the game doesn't freeze.  Log the
+      // error so it can be diagnosed, but keep the game running.
+      console.error('[GameEngine.tick] processGameTick threw — tick skipped:', err);
+      this.tickState = {
+        ...this.tickState,
+        gameState: {
+          ...this.tickState.gameState,
+          currentTick: this.tickState.gameState.currentTick + 1,
+        },
+      };
+      // Still emit the tick event so the UI updates
+      this.game.events.emit('engine:tick', { tick: this.tickState.gameState.currentTick });
+      return;
+    }
     this.tickState = newState;
 
     // ── Emit per-event notifications ────────────────────────────────────────
@@ -221,6 +253,20 @@ export class GameEngine {
       const playerResearchState = this.tickState.researchStates.get(playerEmpireForResearch.id);
       if (playerResearchState) {
         this.game.events.emit('engine:research_state', playerResearchState);
+
+        // Check if a tech completed this tick and the queue is now empty
+        const techCompleted = events.some(e => e.type === 'TechResearched');
+        if (techCompleted
+          && playerResearchState.activeResearch.length === 0
+          && (playerResearchState.researchQueue ?? []).length === 0) {
+          this.game.events.emit('engine:notification', createNotification(
+            'no_active_research',
+            'Research Queue Empty',
+            'All research projects have been completed and the queue is empty. Select new technologies to research.',
+            this.tickState.gameState.currentTick,
+            [{ id: 'open_research', label: 'Open Research' }],
+          ));
+        }
       }
     }
 
@@ -228,21 +274,53 @@ export class GameEngine {
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
 
     // ── Process active migrations and emit wave events ───────────────────────
+    // Each wave gradually moves population: source loses dispatched, target gains survivors.
     const waveEvents = tickMigrations();
     for (const evt of waveEvents) {
+      const mig = evt.migration;
+      const dispatched = evt.colonistsDispatched;
+      const arrived = dispatched - Math.round(dispatched * 0.05); // approx — actual mortality tracked in migration
+
+      // Deduct from source planet, add to target planet (gradual transfer)
+      const systems = this.tickState.gameState.galaxy.systems;
+      const sysIdx = systems.findIndex(s => s.id === mig.systemId);
+      if (sysIdx >= 0) {
+        const sys = systems[sysIdx]!;
+        const updatedPlanets = sys.planets.map(p => {
+          if (p.id === mig.sourcePlanetId) {
+            // Source loses dispatched colonists
+            return { ...p, currentPopulation: Math.max(0, p.currentPopulation - dispatched) };
+          }
+          if (p.id === mig.targetPlanetId && p.ownerId === mig.empireId) {
+            // Target gains survivors (only if already colonised)
+            return { ...p, currentPopulation: p.currentPopulation + arrived };
+          }
+          return p;
+        });
+        const updatedSystems = [...systems];
+        updatedSystems[sysIdx] = { ...sys, planets: updatedPlanets };
+        this.tickState = {
+          ...this.tickState,
+          gameState: {
+            ...this.tickState.gameState,
+            galaxy: { ...this.tickState.gameState.galaxy, systems: updatedSystems },
+          },
+        };
+      }
+
       this.game.events.emit('engine:migration_wave', {
-        migration: evt.migration,
+        migration: mig,
         waveNumber: evt.waveNumber,
-        colonistsDispatched: evt.colonistsDispatched,
+        colonistsDispatched: dispatched,
       });
-      if (evt.migration.status === 'completed') {
-        // Automatically establish the colony once the threshold is reached
-        this.colonisePlanet(
-          evt.migration.systemId,
-          evt.migration.targetPlanetId,
-          evt.migration.empireId,
-        );
-        this.game.events.emit('engine:migration_completed', evt.migration);
+      if (mig.status === 'completed') {
+        // If target planet isn't colonised yet (first migration), establish the colony
+        const targetSys = this.tickState.gameState.galaxy.systems.find(s => s.id === mig.systemId);
+        const targetPlanet = targetSys?.planets.find(p => p.id === mig.targetPlanetId);
+        if (targetPlanet && targetPlanet.ownerId === null) {
+          this.colonisePlanet(mig.systemId, mig.targetPlanetId, mig.empireId);
+        }
+        this.game.events.emit('engine:migration_completed', mig);
       }
     }
     // Broadcast updated migration list so React stays in sync
@@ -383,6 +461,101 @@ export class GameEngine {
     // Notify listeners
     this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
 
+    return true;
+  }
+
+  /**
+   * Queue a building upgrade on a planet.
+   *
+   * Validates that:
+   *  - The system and planet exist.
+   *  - The planet has an owning empire.
+   *  - The building can be upgraded (canUpgradeBuilding).
+   *  - The empire can afford the upgrade cost.
+   *
+   * Deducts the upgrade cost from the empire's resource stockpile, adds the
+   * upgrade to the planet's construction queue, and commits new state.
+   *
+   * Emits `engine:planet_updated` with the updated Planet on success.
+   *
+   * @returns true if the upgrade was queued, false otherwise.
+   */
+  upgradeBuildingOnPlanet(systemId: string, planetId: string, buildingId: string): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] System "${systemId}" not found`);
+      return false;
+    }
+
+    const planet = system.planets.find(p => p.id === planetId);
+    if (!planet) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Planet "${planetId}" not found`);
+      return false;
+    }
+
+    const empire = this.tickState.gameState.empires.find(e => e.id === planet.ownerId);
+    if (!empire) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Planet "${planetId}" has no owning empire`);
+      return false;
+    }
+
+    const currentAge = empire.currentAge ?? 'nano_atomic';
+    const upgradeCheck = canUpgradeBuilding(planet, buildingId, currentAge);
+    if (!upgradeCheck.allowed) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] Upgrade not allowed: ${upgradeCheck.reason}`);
+      return false;
+    }
+
+    const building = planet.buildings.find(b => b.id === buildingId)!;
+    const upgradeCost = getUpgradeCost(building.type, building.level);
+
+    const currentResources = this.tickState.empireResourcesMap.get(empire.id);
+    if (!currentResources) {
+      console.warn(`[GameEngine.upgradeBuildingOnPlanet] No resource stockpile for empire "${empire.id}"`);
+      return false;
+    }
+    for (const [resource, required] of Object.entries(upgradeCost)) {
+      const available = currentResources[resource as keyof typeof currentResources] ?? 0;
+      if (available < (required ?? 0)) {
+        console.warn(`[GameEngine.upgradeBuildingOnPlanet] Cannot afford upgrade: need ${required} ${resource}, have ${available}`);
+        return false;
+      }
+    }
+
+    const updatedResources = { ...currentResources };
+    for (const [resource, required] of Object.entries(upgradeCost)) {
+      const key = resource as keyof typeof updatedResources;
+      updatedResources[key] = (updatedResources[key] ?? 0) - (required ?? 0);
+    }
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(empire.id, updatedResources);
+
+    const updatedEmpire = {
+      ...empire,
+      credits: updatedResources.credits,
+      researchPoints: updatedResources.researchPoints,
+    };
+
+    const updatedPlanet = addUpgradeToQueue(planet, buildingId, currentAge);
+
+    const updatedSystems = galaxy.systems.map(s => {
+      if (s.id !== systemId) return s;
+      return { ...s, planets: s.planets.map(p => (p.id === planetId ? updatedPlanet : p)) };
+    });
+
+    this.tickState = {
+      ...this.tickState,
+      empireResourcesMap: updatedResourcesMap,
+      gameState: {
+        ...this.tickState.gameState,
+        empires: this.tickState.gameState.empires.map(e => (e.id === empire.id ? updatedEmpire : e)),
+        galaxy: { ...galaxy, systems: updatedSystems },
+      },
+    };
+
+    this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
     return true;
   }
 
@@ -582,17 +755,74 @@ export class GameEngine {
   }
 
   /**
+   * Demolish (remove) a building from a planet.
+   *
+   * Validates that:
+   *  - The system and planet exist in the current tick state.
+   *  - The building exists on the planet.
+   *
+   * Uses the shared `demolishBuilding` pure function to produce the updated
+   * planet, then splices it back into the galaxy.
+   *
+   * Emits `engine:planet_updated` with the updated Planet on success.
+   *
+   * @returns true if the building was demolished, false otherwise.
+   */
+  demolishBuildingOnPlanet(systemId: string, planetId: string, buildingId: string): boolean {
+    const galaxy = this.tickState.gameState.galaxy;
+
+    const system = galaxy.systems.find(s => s.id === systemId);
+    if (!system) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] System "${systemId}" not found`);
+      return false;
+    }
+
+    const planet = system.planets.find(p => p.id === planetId);
+    if (!planet) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] Planet "${planetId}" not found in system "${systemId}"`);
+      return false;
+    }
+
+    const buildingExists = planet.buildings.some(b => b.id === buildingId);
+    if (!buildingExists) {
+      console.warn(`[GameEngine.demolishBuildingOnPlanet] Building "${buildingId}" not found on planet "${planetId}"`);
+      return false;
+    }
+
+    const updatedPlanet = demolishBuilding(planet, buildingId);
+
+    const updatedSystems = galaxy.systems.map(s => {
+      if (s.id !== systemId) return s;
+      return {
+        ...s,
+        planets: s.planets.map(p => (p.id === planetId ? updatedPlanet : p)),
+      };
+    });
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: {
+        ...this.tickState.gameState,
+        galaxy: { ...galaxy, systems: updatedSystems },
+      },
+    };
+
+    this.game.events.emit('engine:planet_updated', { systemId, planet: updatedPlanet });
+
+    return true;
+  }
+
+  /**
    * Colonise an unowned planet on behalf of an empire.
    *
-   * Validates species compatibility and credits before applying the
-   * establishColony transform.  Deducts BASE_COLONISE_COST credits and emits
+   * Validates species compatibility, credits, minerals, and source population
+   * before executing colonisation.  Deducts costs and emits
    * `engine:planet_colonised` on success.
    *
    * @returns true if colonisation succeeded, false otherwise.
    */
   colonisePlanet(systemId: string, planetId: string, empireId: string): boolean {
-    const BASE_COLONISE_COST = 200;
-    const INITIAL_POPULATION = 100_000;
+    const BASE_COLONISE_COST = 10_000;
 
     const galaxy = this.tickState.gameState.galaxy;
 
@@ -621,7 +851,7 @@ export class GameEngine {
       return false;
     }
 
-    // Affordability check
+    // Affordability check — credits
     if (empire.credits < BASE_COLONISE_COST) {
       console.warn(
         `[GameEngine.colonisePlanet] Insufficient credits (have ${empire.credits}, need ${BASE_COLONISE_COST})`,
@@ -629,22 +859,42 @@ export class GameEngine {
       return false;
     }
 
-    // Establish colony (pure — returns a new Planet owned by species.id)
-    const colonisedPlanet = establishColony(planet, empire.species, INITIAL_POPULATION);
-    // Override ownerId so it matches the empire ID rather than the species ID
-    const finalPlanet = { ...colonisedPlanet, ownerId: empireId };
+    // Affordability check — minerals
+    const empRes = this.tickState.empireResourcesMap.get(empireId);
+    const empireMinerals = empRes?.minerals ?? 0;
+    if (empireMinerals < COLONISATION_MINERAL_COST) {
+      console.warn(
+        `[GameEngine.colonisePlanet] Insufficient minerals (have ${empireMinerals}, need ${COLONISATION_MINERAL_COST})`,
+      );
+      return false;
+    }
 
-    // Deduct cost
+    // Source planet population check
+    const sourcePlanet = system.planets
+      .filter(p => p.ownerId === empireId && p.id !== planetId)
+      .sort((a, b) => b.currentPopulation - a.currentPopulation)[0];
+    if (!sourcePlanet || sourcePlanet.currentPopulation < COLONIST_TRANSFER_COUNT) {
+      console.warn(
+        `[GameEngine.colonisePlanet] Source planet needs at least ${COLONIST_TRANSFER_COUNT} population`,
+      );
+      return false;
+    }
+
+    // Execute colonisation (transfers population, applies mortality, creates colony)
+    const { system: updatedSystem, mortalityCount } = coloniseInSystem(system, planetId, empireId);
+
+    const finalPlanet = updatedSystem.planets.find(p => p.id === planetId)!;
+
+    // Deduct credits
     const updatedEmpire = { ...empire, credits: empire.credits - BASE_COLONISE_COST };
 
-    // Splice updated planet back into the galaxy
+    // Splice updated system back into the galaxy
     const updatedSystems = galaxy.systems.map(s => {
       if (s.id !== systemId) return s;
       return {
-        ...s,
-        planets: s.planets.map(p => (p.id === planetId ? finalPlanet : p)),
+        ...updatedSystem,
         // Claim the system if previously unclaimed
-        ownerId: s.ownerId ?? empireId,
+        ownerId: updatedSystem.ownerId ?? empireId,
       };
     });
 
@@ -652,14 +902,29 @@ export class GameEngine {
       e.id === empireId ? updatedEmpire : e,
     );
 
+    // Deduct minerals from resource map
+    const newResMap = new Map(this.tickState.empireResourcesMap);
+    if (empRes) {
+      newResMap.set(empireId, {
+        ...empRes,
+        credits: empRes.credits - BASE_COLONISE_COST,
+        minerals: empRes.minerals - COLONISATION_MINERAL_COST,
+      });
+    }
+
     this.tickState = {
       ...this.tickState,
+      empireResourcesMap: newResMap,
       gameState: {
         ...this.tickState.gameState,
         galaxy: { ...galaxy, systems: updatedSystems },
         empires: updatedEmpires,
       },
     };
+
+    if (mortalityCount > 0) {
+      console.log(`[GameEngine.colonisePlanet] ${mortalityCount} colonists lost during transfer to ${finalPlanet.name}`);
+    }
 
     // Emit notifications
     this.game.events.emit('engine:planet_updated', { systemId, planet: finalPlanet });
@@ -869,7 +1134,14 @@ export class GameEngine {
       return false;
     }
     try {
-      const newResearchState = startResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES, allocation);
+      // Count research labs across all empire-owned planets
+      const ownedPlanets = this.tickState.gameState.galaxy.systems
+        .flatMap(s => s.planets)
+        .filter(p => p.ownerId === empireId);
+      const labCount = ownedPlanets.reduce((count, p) =>
+        count + p.buildings.filter(b => b.type === 'research_lab').length, 0);
+
+      const newResearchState = startResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES, allocation, undefined, labCount);
       const newResearchStates = new Map(this.tickState.researchStates);
       newResearchStates.set(empireId, newResearchState);
       this.tickState = { ...this.tickState, researchStates: newResearchStates };
@@ -893,8 +1165,49 @@ export class GameEngine {
       console.warn(`[GameEngine.cancelResearch] No research state for empire "${empireId}"`);
       return false;
     }
-    const newActiveResearch = researchState.activeResearch.filter(r => r.techId !== techId);
-    const newResearchState: ResearchState = { ...researchState, activeResearch: newActiveResearch };
+    const remaining = redistributeAllocation(
+      researchState.activeResearch.filter(r => r.techId !== techId),
+    );
+    // Also remove from queue if it was queued
+    const queue = (researchState.researchQueue ?? []).filter(id => id !== techId);
+    const newResearchState: ResearchState = { ...researchState, activeResearch: remaining, researchQueue: queue };
+    const newResearchStates = new Map(this.tickState.researchStates);
+    newResearchStates.set(empireId, newResearchState);
+    this.tickState = { ...this.tickState, researchStates: newResearchStates };
+    this.game.events.emit('engine:research_state', newResearchState);
+    return true;
+  }
+
+  /**
+   * Add a technology to the research queue.
+   * Queued techs are promoted to active when a slot opens.
+   */
+  queueResearch(empireId: string, techId: string): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) {
+      console.warn(`[GameEngine.queueResearch] No research state for empire "${empireId}"`);
+      return false;
+    }
+    try {
+      const newResearchState = queueResearchFn(researchState, techId, UNIVERSAL_TECHNOLOGIES);
+      const newResearchStates = new Map(this.tickState.researchStates);
+      newResearchStates.set(empireId, newResearchState);
+      this.tickState = { ...this.tickState, researchStates: newResearchStates };
+      this.game.events.emit('engine:research_state', newResearchState);
+      return true;
+    } catch (err) {
+      console.warn(`[GameEngine.queueResearch] Failed:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Remove a technology from the research queue.
+   */
+  dequeueResearch(empireId: string, techId: string): boolean {
+    const researchState = this.tickState.researchStates.get(empireId);
+    if (!researchState) return false;
+    const newResearchState = dequeueResearchFn(researchState, techId);
     const newResearchStates = new Map(this.tickState.researchStates);
     newResearchStates.set(empireId, newResearchState);
     this.tickState = { ...this.tickState, researchStates: newResearchStates };
@@ -947,6 +1260,18 @@ export class GameEngine {
     if (ownedPlanets.length === 0) return 0;
     const { total } = calculateEmpireProduction(ownedPlanets, playerEmpire.species, playerEmpire);
     return total.researchPoints;
+  }
+
+  /** Return the number of research labs the player empire has (= max active research slots). */
+  getPlayerResearchLabCount(): number {
+    const playerEmpire = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (!playerEmpire) return 1;
+    const ownedPlanets = this.tickState.gameState.galaxy.systems
+      .flatMap(s => s.planets)
+      .filter(p => p.ownerId === playerEmpire.id);
+    const labCount = ownedPlanets.reduce((count, p) =>
+      count + p.buildings.filter(b => b.type === 'research_lab').length, 0);
+    return Math.min(Math.max(labCount, 1), 5); // at least 1, at most 5
   }
 
   /** Return the current tick state snapshot. */

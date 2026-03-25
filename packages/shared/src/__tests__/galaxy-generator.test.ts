@@ -284,3 +284,54 @@ describe('generateGalaxy – ID uniqueness', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+// ── spiral galaxy metadata ───────────────────────────────────────────────────
+
+describe('generateGalaxy – spiral shape metadata', () => {
+  it('spiral galaxies include shapeMetadata with valid arm parameters', () => {
+    const galaxy = generateGalaxy(baseConfig({ shape: 'spiral', seed: 42 }));
+    expect(galaxy.shapeMetadata).toBeDefined();
+    expect(galaxy.shapeMetadata!.shape).toBe('spiral');
+    if (galaxy.shapeMetadata!.shape === 'spiral') {
+      expect(galaxy.shapeMetadata!.armCount).toBeGreaterThanOrEqual(4);
+      expect(galaxy.shapeMetadata!.armCount).toBeLessThanOrEqual(8);
+      expect(galaxy.shapeMetadata!.armAngles).toHaveLength(galaxy.shapeMetadata!.armCount);
+      expect(galaxy.shapeMetadata!.spiralTightness).toBeGreaterThan(0);
+      expect(galaxy.shapeMetadata!.spiralA).toBeGreaterThan(0);
+    }
+  });
+
+  it('spiral metadata is deterministic for the same seed', () => {
+    const g1 = generateGalaxy(baseConfig({ shape: 'spiral', seed: 99 }));
+    const g2 = generateGalaxy(baseConfig({ shape: 'spiral', seed: 99 }));
+    expect(g1.shapeMetadata).toEqual(g2.shapeMetadata);
+  });
+
+  it('non-spiral shapes have appropriate metadata', () => {
+    const elliptical = generateGalaxy(baseConfig({ shape: 'elliptical' }));
+    expect(elliptical.shapeMetadata?.shape).toBe('elliptical');
+
+    const ring = generateGalaxy(baseConfig({ shape: 'ring', seed: 7 }));
+    expect(ring.shapeMetadata?.shape).toBe('ring');
+
+    const irregular = generateGalaxy(baseConfig({ shape: 'irregular', seed: 3 }));
+    expect(irregular.shapeMetadata?.shape).toBe('irregular');
+  });
+
+  it('spiral stars are denser near centre than outer galaxy', () => {
+    const galaxy = generateGalaxy(baseConfig({ shape: 'spiral', size: 'large', seed: 42 }));
+    const cx = galaxy.width / 2;
+    const cy = galaxy.height / 2;
+    const maxR = Math.min(galaxy.width, galaxy.height) / 2;
+
+    const innerCount = galaxy.systems.filter(s => {
+      const dx = s.position.x - cx;
+      const dy = s.position.y - cy;
+      return Math.sqrt(dx * dx + dy * dy) < maxR * 0.25;
+    }).length;
+
+    // Inner 25% radius = ~6.25% of area — should have more than that proportion
+    const innerFraction = innerCount / galaxy.systems.length;
+    expect(innerFraction).toBeGreaterThan(0.08);
+  });
+});

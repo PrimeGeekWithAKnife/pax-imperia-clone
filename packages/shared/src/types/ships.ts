@@ -19,6 +19,8 @@ export interface HullTemplate {
   maxSlots: number;
   slotLayout: SlotPosition[];
   baseCost: number;
+  /** Optional mineral cost — deducted alongside credits when production starts. */
+  baseMineralCost?: number;
   baseSpeed: number;
   requiredAge: string; // TechAge required to build
 }

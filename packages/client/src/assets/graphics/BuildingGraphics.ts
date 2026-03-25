@@ -50,6 +50,12 @@ const ACCENT: Record<BuildingType, string> = {
   fusion_reactor:           '#ff8800',
   medical_bay:              '#55ddaa',
   advanced_medical_centre:  '#33bbcc',
+  // ── Waste & environment ────────────────────────────────────────────────
+  waste_dump:              '#8b7355',
+  waste_incinerator:       '#cc6633',
+  atmosphere_cleanser:     '#44ccaa',
+  orbital_waste_ejector:   '#6688cc',
+  energy_storage:          '#ffaa22',
   // ── Vaelori ─────────────────────────────────────────────────────────────
   crystal_resonance_chamber: '#c084fc',
   psionic_amplifier:         '#a855f7',
@@ -4115,6 +4121,150 @@ const drawSeismicResonator: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, cx, sc(32, s), sc(8, s), accent, 0.4);
 };
 
+// ── Waste & environment buildings ─────────────────────────────────────────────
+
+const drawWasteDump: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Landfill mound
+  const moundGrad = ctx.createLinearGradient(sc(12, s), sc(16, s), sc(12, s), sc(54, s));
+  moundGrad.addColorStop(0, '#5a4a30');
+  moundGrad.addColorStop(1, '#3a2a18');
+  ctx.fillStyle = moundGrad;
+  ctx.beginPath();
+  ctx.moveTo(sc(8, s), sc(54, s));
+  ctx.lineTo(sc(16, s), sc(24, s));
+  ctx.lineTo(sc(32, s), sc(16, s));
+  ctx.lineTo(sc(48, s), sc(24, s));
+  ctx.lineTo(sc(56, s), sc(54, s));
+  ctx.closePath();
+  ctx.fill();
+  // Containment wall outline
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1.5, s);
+  ctx.stroke();
+  // Hazard stripes
+  ctx.fillStyle = accent + '66';
+  for (let i = 0; i < 3; i++) {
+    roundRect(ctx, sc(18 + i * 10, s), sc(36, s), sc(6, s), sc(3, s), sc(1, s));
+    ctx.fill();
+  }
+  drawGlow(ctx, sc(32, s), sc(30, s), sc(14, s), accent, 0.25);
+};
+
+const drawWasteIncinerator: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Furnace body
+  const bodyGrad = ctx.createLinearGradient(sc(14, s), sc(16, s), sc(14, s), sc(54, s));
+  bodyGrad.addColorStop(0, '#3a2010');
+  bodyGrad.addColorStop(1, '#1a1008');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, sc(14, s), sc(20, s), sc(36, s), sc(34, s), sc(2, s));
+  ctx.fill();
+  // Chimney stacks
+  ctx.fillStyle = '#2a1810';
+  roundRect(ctx, sc(18, s), sc(8, s), sc(6, s), sc(18, s), sc(1, s));
+  ctx.fill();
+  roundRect(ctx, sc(40, s), sc(10, s), sc(6, s), sc(16, s), sc(1, s));
+  ctx.fill();
+  // Smoke wisps
+  ctx.strokeStyle = accent + '44';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(21, s), sc(8, s));
+  ctx.quadraticCurveTo(sc(24, s), sc(3, s), sc(19, s), sc(1, s));
+  ctx.stroke();
+  // Furnace glow
+  ctx.fillStyle = accent + 'aa';
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(40, s), sc(6, s), 0, Math.PI * 2);
+  ctx.fill();
+  drawGlow(ctx, sc(32, s), sc(40, s), sc(10, s), accent, 0.4);
+};
+
+const drawAtmosphereCleanser: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Main tower
+  const towerGrad = ctx.createLinearGradient(sc(24, s), sc(8, s), sc(24, s), sc(54, s));
+  towerGrad.addColorStop(0, '#1a2a28');
+  towerGrad.addColorStop(1, '#0c1a16');
+  ctx.fillStyle = towerGrad;
+  roundRect(ctx, sc(24, s), sc(12, s), sc(16, s), sc(42, s), sc(3, s));
+  ctx.fill();
+  // Side vents
+  ctx.fillStyle = '#0e1e1a';
+  roundRect(ctx, sc(10, s), sc(28, s), sc(14, s), sc(20, s), sc(2, s));
+  ctx.fill();
+  roundRect(ctx, sc(40, s), sc(28, s), sc(14, s), sc(20, s), sc(2, s));
+  ctx.fill();
+  // Air flow indicators
+  ctx.strokeStyle = accent + '88';
+  ctx.lineWidth = sc(1.5, s);
+  for (let i = 0; i < 3; i++) {
+    const y = sc(18 + i * 10, s);
+    ctx.beginPath();
+    ctx.moveTo(sc(28, s), y);
+    ctx.lineTo(sc(36, s), y);
+    ctx.stroke();
+  }
+  // Top emission glow (clean air)
+  drawGlow(ctx, sc(32, s), sc(12, s), sc(8, s), accent, 0.5);
+};
+
+const drawOrbitalWasteEjector: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Launch rail
+  ctx.fillStyle = '#182838';
+  ctx.beginPath();
+  ctx.moveTo(sc(20, s), sc(54, s));
+  ctx.lineTo(sc(28, s), sc(10, s));
+  ctx.lineTo(sc(36, s), sc(10, s));
+  ctx.lineTo(sc(44, s), sc(54, s));
+  ctx.closePath();
+  ctx.fill();
+  // Rail tracks
+  ctx.strokeStyle = accent + '88';
+  ctx.lineWidth = sc(1, s);
+  ctx.beginPath();
+  ctx.moveTo(sc(26, s), sc(54, s));
+  ctx.lineTo(sc(30, s), sc(12, s));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sc(38, s), sc(54, s));
+  ctx.lineTo(sc(34, s), sc(12, s));
+  ctx.stroke();
+  // Payload capsule
+  ctx.fillStyle = accent + 'cc';
+  ctx.beginPath();
+  ctx.arc(sc(32, s), sc(20, s), sc(4, s), 0, Math.PI * 2);
+  ctx.fill();
+  // Launch glow
+  drawGlow(ctx, sc(32, s), sc(14, s), sc(10, s), accent, 0.45);
+};
+
+const drawEnergyStorage: DrawFn = (ctx, s, accent) => {
+  drawGroundPlatform(ctx, s, sc(8, s), sc(54, s), sc(48, s), accent);
+  // Battery cells (three cylinders)
+  const cellX = [sc(14, s), sc(28, s), sc(42, s)];
+  for (const cx of cellX) {
+    const cellGrad = ctx.createLinearGradient(cx - sc(5, s), sc(16, s), cx + sc(5, s), sc(16, s));
+    cellGrad.addColorStop(0, '#2a2000');
+    cellGrad.addColorStop(0.5, '#3a3010');
+    cellGrad.addColorStop(1, '#2a2000');
+    ctx.fillStyle = cellGrad;
+    roundRect(ctx, cx - sc(5, s), sc(16, s), sc(10, s), sc(36, s), sc(2, s));
+    ctx.fill();
+    // Charge level indicator
+    ctx.fillStyle = accent + '88';
+    roundRect(ctx, cx - sc(3, s), sc(28, s), sc(6, s), sc(18, s), sc(1, s));
+    ctx.fill();
+    // Terminal cap
+    ctx.fillStyle = accent + 'cc';
+    roundRect(ctx, cx - sc(3, s), sc(14, s), sc(6, s), sc(4, s), sc(1, s));
+    ctx.fill();
+  }
+  drawGlow(ctx, sc(28, s), sc(32, s), sc(12, s), accent, 0.3);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -4137,6 +4287,12 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   fusion_reactor:           drawFusionReactor,
   medical_bay:              drawMedicalBay,
   advanced_medical_centre:  drawAdvancedMedicalCentre,
+  // ── Waste & environment ────────────────────────────────────────────────────
+  waste_dump:              drawWasteDump,
+  waste_incinerator:       drawWasteIncinerator,
+  atmosphere_cleanser:     drawAtmosphereCleanser,
+  orbital_waste_ejector:   drawOrbitalWasteEjector,
+  energy_storage:          drawEnergyStorage,
   // ── Race-specific buildings (generic placeholder icon) ─────────────────────
   crystal_resonance_chamber: drawCrystalResonanceChamber,
   psionic_amplifier:         drawPsionicAmplifier,

@@ -30,6 +30,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.start('GalaxyMapScene', { setupData: data });
   };
 
+  /** React emits this after creating a GameEngine from a loaded save. */
+  private onLoadSave = (): void => {
+    console.log('[MainMenuScene] game:load_save received – launching galaxy map from save');
+    this.scene.start('GalaxyMapScene');
+  };
+
   private onMusicTrack = (track: unknown): void => {
     this.music?.setTrack(track as MusicTrack);
   };
@@ -46,11 +52,13 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Remove any stale listener from a previous create() before re-registering.
     this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.off('game:load_save', this.onLoadSave);
     this.game.events.off('music:set_track', this.onMusicTrack);
 
     // React emits 'game:start_with_config' with species + galaxy config when
     // the player confirms in the game setup screen.
     this.game.events.on('game:start_with_config', this.onGameStartWithConfig);
+    this.game.events.on('game:load_save', this.onLoadSave);
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     const engine = getAudioEngine();
@@ -71,6 +79,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Clean up listeners when the scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('game:start_with_config', this.onGameStartWithConfig);
+      this.game.events.off('game:load_save', this.onLoadSave);
       this.game.events.off('music:set_track', this.onMusicTrack);
     });
   }
@@ -247,12 +256,12 @@ export class MainMenuScene extends Phaser.Scene {
         yFrac: 0.51,
         action: () => {
           this.sfx?.playClick();
-          if (hasActiveEngine) {
-            // Return to the running game
-            this.scene.start('GalaxyMapScene');
+          // Direct callback to React — bypasses Phaser event bridge for reliability
+          const openLoad = (window as unknown as Record<string, () => void>).__EX_NIHILO_OPEN_LOAD__;
+          if (openLoad) {
+            openLoad();
           } else {
-            // Load auto-save (TODO: wire up auto-save load path)
-            this.game.events.emit('ui:load_autosave');
+            this.game.events.emit('ui:load_game');
           }
         },
       });
@@ -265,9 +274,14 @@ export class MainMenuScene extends Phaser.Scene {
         label: 'New Game',
         yFrac: 0.51 + resumeOffset,
         action: () => {
-          console.log('[MainMenuScene] New Game clicked – opening species creator');
           this.sfx?.playClick();
-          this.game.events.emit('ui:new_game');
+          // Direct callback to React — bypasses Phaser event bridge for reliability
+          const openNewGame = (window as unknown as Record<string, () => void>).__EX_NIHILO_OPEN_NEW_GAME__;
+          if (openNewGame) {
+            openNewGame();
+          } else {
+            this.game.events.emit('ui:new_game');
+          }
         },
       },
       {

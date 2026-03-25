@@ -13,6 +13,7 @@ import {
   canStartMigration,
   startMigration,
   processMigrationTick,
+  TRANSIT_DURATION,
   type MigrationOrder,
 } from '../engine/colony.js';
 import {
@@ -116,11 +117,14 @@ const EMPIRE_ID = 'empire-1';
 // ── canStartMigration ──────────────────────────────────────────────────────────
 
 describe('canStartMigration', () => {
+  const ENOUGH_MINERALS = 10_000;
+
   it('is allowed when source has sufficient population and target is unowned', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
     expect(result.reason).toBeUndefined();
@@ -130,54 +134,58 @@ describe('canStartMigration', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.cost).toBeGreaterThan(0);
   });
 
-  it('is rejected when source planet has too little population (< 100)', () => {
+  it('is rejected when source planet has too little population (< 100K)', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, {});
-    // Override source planet to have only 50 population.
+    // Override source planet to have only 50K population.
     const lowPopSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 50 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 50_000 } : p,
       ),
     };
     const result = canStartMigration(
-      lowPopSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      lowPopSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
-    expect(result.reason).toMatch(/too low/i);
+    expect(result.reason).toMatch(/population/i);
   });
 
-  it('is rejected when source planet has exactly 99 population', () => {
+  it('is rejected when source planet has exactly 99,999 population', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const tooSmallSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 99 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 99_999 } : p,
       ),
     };
     const result = canStartMigration(
-      tooSmallSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      tooSmallSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
   });
 
-  it('is allowed when source planet has exactly 100 population', () => {
+  it('is allowed when source planet has exactly 100,000 population', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID);
     const exactSystem: StarSystem = {
       ...system,
       planets: system.planets.map(p =>
-        p.id === 'planet-source' ? { ...p, currentPopulation: 100 } : p,
+        p.id === 'planet-source' ? { ...p, currentPopulation: 100_000 } : p,
       ),
     };
     const result = canStartMigration(
-      exactSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      exactSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
   });
@@ -186,7 +194,8 @@ describe('canStartMigration', () => {
     const species = makeSpecies();
     const system = makeSystem(EMPIRE_ID, { ownerId: 'empire-2' });
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/already owned/i);
@@ -201,7 +210,8 @@ describe('canStartMigration', () => {
       temperature: 130,
     });
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/gas giant/i);
@@ -225,7 +235,8 @@ describe('canStartMigration', () => {
       discovered: {},
     };
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/habitability/i);
@@ -236,6 +247,7 @@ describe('canStartMigration', () => {
     const system = makeSystem(EMPIRE_ID);
     const result = canStartMigration(
       system, 'planet-source', 'planet-target', EMPIRE_ID, species, 0,
+      [], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/insufficient credits/i);
@@ -258,8 +270,8 @@ describe('canStartMigration', () => {
       totalCost: 200,
     };
     const result = canStartMigration(
-      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
-      [existingOrder],
+      system, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [existingOrder], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/already in progress/i);
@@ -289,8 +301,8 @@ describe('canStartMigration', () => {
       ),
     };
     const result = canStartMigration(
-      unownedSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 10_000,
-      [completedOrder],
+      unownedSystem, 'planet-source', 'planet-target', EMPIRE_ID, species, 100_000,
+      [completedOrder], ENOUGH_MINERALS,
     );
     expect(result.allowed).toBe(true);
   });
@@ -383,19 +395,29 @@ describe('processMigrationTick', () => {
     expect(sourcePop).toBeLessThan(originalPop);
   });
 
-  it('increases target planet population after a wave (minus 10% transit loss)', () => {
+  it('target population increases only after transit delay', () => {
     const system = makeSystem(EMPIRE_ID);
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { order: updatedOrder, system: updatedSystem } = processMigrationTick(order, system);
 
-    const targetPop = updatedSystem.planets.find(p => p.id === 'planet-target')!.currentPopulation;
+    // Dispatch a wave — target should NOT have population yet
+    let result = processMigrationTick(order, system);
+    let targetPop = result.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
+    expect(targetPop).toBe(0); // still in transit
+
+    // Wave should be in transit
+    expect(result.order.transitWaves?.length).toBeGreaterThan(0);
+
+    // Tick through transit duration — colonists arrive after TRANSIT_DURATION ticks
+    let current = result;
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      current = processMigrationTick(current.order, current.system);
+    }
+    targetPop = current.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
     expect(targetPop).toBeGreaterThan(0);
-    // arrived = departed - floor(departed * 0.1)
-    expect(updatedOrder.arrivedPopulation).toBeGreaterThan(0);
+    expect(current.order.arrivedPopulation).toBeGreaterThan(0);
   });
 
   it('applies a 10% transit loss (rounded down)', () => {
-    // Use a small source population to get a deterministic wave size.
     const smallSourcePop = 100;
     const system: StarSystem = {
       ...makeSystem(EMPIRE_ID),
@@ -404,17 +426,24 @@ describe('processMigrationTick', () => {
       ),
     };
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { order: updated, system: updatedSystem } = processMigrationTick(order, system);
 
-    const targetPop = updatedSystem.planets.find(p => p.id === 'planet-target')!.currentPopulation;
-    const sourcePop = updatedSystem.planets.find(p => p.id === 'planet-source')!.currentPopulation;
+    // Dispatch wave
+    let result = processMigrationTick(order, system);
+    const sourcePop = result.system.planets.find(p => p.id === 'planet-source')!.currentPopulation;
     const departed = smallSourcePop - sourcePop;
-
-    // Transit loss = floor(departed * 0.1)
     const expectedLost = Math.floor(departed * 0.1);
     const expectedArrived = departed - expectedLost;
+
+    // Transit wave should carry the survivors
+    expect(result.order.transitWaves?.[0]?.population).toBe(expectedArrived);
+
+    // Tick through transit delay so they arrive
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    const targetPop = result.system.planets.find(p => p.id === 'planet-target')!.currentPopulation;
     expect(targetPop).toBe(expectedArrived);
-    expect(updated.arrivedPopulation).toBe(expectedArrived);
+    expect(result.order.arrivedPopulation).toBe(expectedArrived);
   });
 
   it('resets ticksToNextWave to wavePeriod after a wave', () => {
@@ -424,13 +453,19 @@ describe('processMigrationTick', () => {
     expect(updated.ticksToNextWave).toBe(3);
   });
 
-  it('sets ownerId on the target planet when the first wave arrives', () => {
+  it('sets ownerId on the target planet when the first wave arrives after transit', () => {
     const system = makeSystem(EMPIRE_ID);
     const order = makeOrder({ ticksToNextWave: 0 });
-    const { system: updated } = processMigrationTick(order, system);
 
-    const target = updated.planets.find(p => p.id === 'planet-target')!;
-    expect(target.ownerId).toBe(EMPIRE_ID);
+    // Dispatch wave — target unowned during transit
+    let result = processMigrationTick(order, system);
+    expect(result.system.planets.find(p => p.id === 'planet-target')!.ownerId).toBeNull();
+
+    // Tick through transit
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    expect(result.system.planets.find(p => p.id === 'planet-target')!.ownerId).toBe(EMPIRE_ID);
   });
 
   it('does not change ownerId if it was already set by an earlier wave', () => {
@@ -448,15 +483,21 @@ describe('processMigrationTick', () => {
     expect(target.ownerId).toBe(EMPIRE_ID);
   });
 
-  it('changes status to "established" when arrivedPopulation reaches threshold', () => {
+  it('changes status to "established" when arrivedPopulation reaches threshold after transit', () => {
     const system = makeSystem(EMPIRE_ID);
-    // Pre-set arrivedPopulation just below threshold so the next wave pushes it over.
-    // With a 5M source, wave size is capped at 3 (max wave) → arrived ≈ 2–3.
-    // Set arrivedPopulation = threshold - 1 to guarantee establishment.
+    // Pre-set arrivedPopulation just below threshold. A wave of 3 (arrived ~2-3) in transit
+    // will push it over once it arrives.
     const order = makeOrder({ ticksToNextWave: 0, arrivedPopulation: 49 });
-    const { order: updated } = processMigrationTick(order, system);
 
-    expect(updated.status).toBe('established');
+    // Dispatch wave
+    let result = processMigrationTick(order, system);
+    expect(result.order.status).toBe('migrating'); // still in transit
+
+    // Tick through transit
+    for (let i = 0; i < TRANSIT_DURATION; i++) {
+      result = processMigrationTick(result.order, result.system);
+    }
+    expect(result.order.status).toBe('established');
   });
 
   it('stays "migrating" when arrivedPopulation is below threshold', () => {
@@ -514,6 +555,16 @@ describe('Integration: migration completes over multiple game ticks', () => {
     return makeSpecies({ id: INT_EMPIRE_ID });
   }
 
+  /** Helper: ensure the empire has enough minerals in the resource map. */
+  function withMinerals(tickState: import('../engine/game-loop.js').GameTickState, empireId: string, minerals: number): import('../engine/game-loop.js').GameTickState {
+    const newMap = new Map(tickState.empireResourcesMap);
+    const existing = newMap.get(empireId);
+    if (existing) {
+      newMap.set(empireId, { ...existing, minerals });
+    }
+    return { ...tickState, empireResourcesMap: newMap };
+  }
+
   function makeIntGameState(): GameState {
     const species = makeIntSpecies();
     const empire: Empire = {
@@ -521,7 +572,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       name: 'Terran Union',
       species,
       color: '#00aaff',
-      credits: 10_000,
+      credits: 100_000,
       researchPoints: 0,
       knownSystems: ['system-int'],
       diplomacy: [],
@@ -573,7 +624,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    const tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    const tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
     const { events } = processGameTick(tickState);
 
     expect(events.some(e => e.type === 'MigrationStarted')).toBe(true);
@@ -587,7 +638,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     let establishedEventSeen = false;
     // Run up to 1000 ticks to ensure we eventually reach the threshold.
@@ -612,7 +663,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     for (let i = 0; i < 1000; i++) {
       const { newState, events } = processGameTick(tickState);
@@ -636,7 +687,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     for (let i = 0; i < 1000; i++) {
       const { newState, events } = processGameTick(tickState);
@@ -659,7 +710,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     let establishedEvent: import('../types/events.js').ColonyEstablishedEvent | undefined;
     for (let i = 0; i < 1000; i++) {
@@ -687,7 +738,7 @@ describe('Integration: migration completes over multiple game ticks', () => {
       systemId: 'system-int',
       planetId: 'planet-target-int',
     };
-    let tickState = submitAction(initializeTickState(gameState), INT_EMPIRE_ID, action);
+    let tickState = submitAction(withMinerals(initializeTickState(gameState), INT_EMPIRE_ID, 10_000), INT_EMPIRE_ID, action);
 
     const waveEvents: import('../types/events.js').MigrationWaveEvent[] = [];
     for (let i = 0; i < 1000; i++) {
@@ -703,11 +754,12 @@ describe('Integration: migration completes over multiple game ticks', () => {
 
     expect(waveEvents.length).toBeGreaterThan(0);
     // Each wave event should have sensible values.
+    // Note: departed and arrived may be on different ticks due to transit delay,
+    // so departed !== arrived + lost in a single event.
     for (const wv of waveEvents) {
-      expect(wv.departed).toBeGreaterThan(0);
+      expect(wv.departed).toBeGreaterThanOrEqual(0);
       expect(wv.arrived).toBeGreaterThanOrEqual(0);
       expect(wv.lost).toBeGreaterThanOrEqual(0);
-      expect(wv.departed).toBe(wv.arrived + wv.lost);
     }
   });
 });

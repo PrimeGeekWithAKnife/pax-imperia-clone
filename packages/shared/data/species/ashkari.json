@@ -20,5 +20,7 @@
     "preferredAtmospheres": ["oxygen_nitrogen", "nitrogen", "carbon_dioxide", "methane", "sulfur_dioxide"]
   },
   "specialAbilities": ["nomadic"],
-  "isPrebuilt": true
+  "isPrebuilt": true,
+  "defaultGovernment": "oligarchy",
+  "allowedGovernments": ["oligarchy", "republic", "federation", "democracy"]
 }

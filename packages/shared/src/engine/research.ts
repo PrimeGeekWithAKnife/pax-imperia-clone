@@ -28,6 +28,8 @@ export interface ResearchState {
   completedTechs: string[];
   /** Technologies currently being researched. */
   activeResearch: ActiveResearch[];
+  /** Queued tech IDs — promoted to active when a slot opens. */
+  researchQueue?: string[];
   currentAge: TechAge;
   totalResearchGenerated: number;
 }
@@ -90,11 +92,13 @@ export function getAvailableTechs(
  * Throws if:
  * - The tech is not in the available tech list
  * - The requested allocation would push the total above 100%
+ * - The number of active projects would exceed the research lab count
  *
  * @param state       Current research state.
  * @param techId      ID of the technology to start.
  * @param allocation  Percentage of research points to allocate (0–100).
  * @param speciesId   Optional species ID for filtering species-specific techs.
+ * @param researchLabCount  Number of research labs the empire has (limits simultaneous projects). 0 = unlimited (legacy).
  */
 export function startResearch(
   state: ResearchState,
@@ -102,6 +106,7 @@ export function startResearch(
   allTechs: Technology[],
   allocation: number,
   speciesId?: string,
+  researchLabCount = 0,
 ): ResearchState {
   const available = getAvailableTechs(allTechs, state, speciesId);
   const tech = available.find(t => t.id === techId);
@@ -112,23 +117,87 @@ export function startResearch(
     );
   }
 
-  const currentTotal = state.activeResearch.reduce((sum, r) => sum + r.allocation, 0);
-  if (currentTotal + allocation > 100) {
+  // Enforce research lab limit: 1 active project per lab
+  if (researchLabCount > 0 && state.activeResearch.length >= researchLabCount) {
     throw new Error(
-      `Cannot allocate ${allocation}% to "${techId}": total allocation would be ${currentTotal + allocation}% (max 100%)`,
+      `Cannot start research on "${techId}": all ${researchLabCount} research lab(s) are occupied (${state.activeResearch.length} active projects)`,
     );
   }
 
   const newEntry: ActiveResearch = {
     techId,
     pointsInvested: 0,
-    allocation,
+    allocation: 0, // will be set by the even split below
   };
+
+  // Auto-redistribute allocation evenly across all active projects (including the new one)
+  const redistributed = redistributeAllocation([...state.activeResearch, newEntry]);
+
+  // Remove from queue if it was queued
+  const queue = state.researchQueue ?? [];
 
   return {
     ...state,
-    activeResearch: [...state.activeResearch, newEntry],
+    activeResearch: redistributed,
+    researchQueue: queue.filter(id => id !== techId),
   };
+}
+
+/**
+ * Add a technology to the research queue. Queued techs are promoted to active
+ * slots automatically when a project completes and a lab slot opens.
+ */
+export function queueResearch(
+  state: ResearchState,
+  techId: string,
+  allTechs: Technology[],
+  speciesId?: string,
+): ResearchState {
+  const available = getAvailableTechs(allTechs, state, speciesId);
+  const tech = available.find(t => t.id === techId);
+  if (!tech) {
+    throw new Error(
+      `Cannot queue research on "${techId}": tech is not available`,
+    );
+  }
+
+  const queue = state.researchQueue ?? [];
+  if (queue.includes(techId)) {
+    throw new Error(`"${techId}" is already in the research queue`);
+  }
+  if (state.activeResearch.some(r => r.techId === techId)) {
+    throw new Error(`"${techId}" is already being actively researched`);
+  }
+
+  return {
+    ...state,
+    researchQueue: [...queue, techId],
+  };
+}
+
+/**
+ * Remove a technology from the research queue.
+ */
+export function dequeueResearch(
+  state: ResearchState,
+  techId: string,
+): ResearchState {
+  const queue = state.researchQueue ?? [];
+  return {
+    ...state,
+    researchQueue: queue.filter(id => id !== techId),
+  };
+}
+
+/** Redistribute allocation evenly across active research projects. */
+export function redistributeAllocation(active: ActiveResearch[]): ActiveResearch[] {
+  if (active.length === 0) return active;
+  const evenShare = Math.floor(100 / active.length);
+  const rem = 100 - evenShare * active.length;
+  return active.map((r, i) => ({
+    ...r,
+    allocation: evenShare + (i === 0 ? rem : 0),
+  }));
 }
 
 /**
@@ -232,9 +301,28 @@ export function processResearchTick(
     }
   }
 
+  // Promote queued techs to active slots to replace completed ones
+  let queue = [...(state.researchQueue ?? [])];
+  let finalActive = [...remainingActive];
+  const maxActive = state.activeResearch.length; // maintain the same slot count
+  while (finalActive.length < maxActive && queue.length > 0) {
+    const nextTechId = queue.shift()!;
+    // Verify the queued tech is still available (prereqs may have changed)
+    const nextTech = techMap.get(nextTechId);
+    if (nextTech && !completedTechs.includes(nextTechId)) {
+      finalActive.push({ techId: nextTechId, pointsInvested: 0, allocation: 0 });
+    }
+  }
+
+  // Redistribute allocation evenly across all remaining + newly promoted projects
+  if (completedThisTick.length > 0 || finalActive.length !== remainingActive.length) {
+    finalActive = redistributeAllocation(finalActive);
+  }
+
   const newState: ResearchState = {
     completedTechs,
-    activeResearch: remainingActive,
+    activeResearch: finalActive,
+    researchQueue: queue,
     currentAge: newAge,
     totalResearchGenerated: state.totalResearchGenerated + effectivePoints,
   };

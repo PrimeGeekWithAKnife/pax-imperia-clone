@@ -277,10 +277,17 @@ export function SpeciesCreatorScreen({
   // Selected species for detail view
   const [selectedSpecies, setSelectedSpecies] = useState<Species | null>(null);
 
+  // Ref to the detail body so we can scroll to top when switching species
+  const detailBodyRef = useRef<HTMLDivElement>(null);
+
   // ── Pick Race: click a pre-built species to show detail screen ──
   const handlePickRace = useCallback((sp: Species) => {
     setSelectedSpecies(sp);
     setMode('detail');
+    // Scroll detail body to top on next render
+    requestAnimationFrame(() => {
+      detailBodyRef.current?.scrollTo(0, 0);
+    });
   }, []);
 
   // ── Confirm selection from the detail screen ──
@@ -524,7 +531,7 @@ export function SpeciesCreatorScreen({
           </div>
 
           {/* Scrollable body */}
-          <div className="race-detail__body">
+          <div className="race-detail__body" ref={detailBodyRef}>
 
             {/* Full description / codex */}
             <section className="race-detail__section">

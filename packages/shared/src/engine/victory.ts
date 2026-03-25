@@ -64,7 +64,7 @@ const CONQUEST_THRESHOLD = 0.75;
 const ECONOMIC_CREDIT_MULTIPLIER = 10;
 
 /** Number of consecutive ticks the empire must maintain the credit lead. */
-const ECONOMIC_DURATION_TICKS = 50;
+const ECONOMIC_DURATION_TICKS = 500;
 
 /** Ordered list of tech ages for scoring purposes (index = relative advancement). */
 const AGE_ORDER = [

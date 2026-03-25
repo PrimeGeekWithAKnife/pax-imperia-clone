@@ -10,6 +10,8 @@ interface BuildingSlotGridProps {
   onEmptySlotClick: (slotIndex: number) => void;
   /** Called when clicking an occupied slot (for future upgrade/info) */
   onBuildingClick: (building: Building, slotIndex: number) => void;
+  /** Called when the player clicks the demolish button on an occupied slot. */
+  onDemolish?: (building: Building) => void;
 }
 
 const BUILDING_ABBREV: Record<BuildingType, string> = {
@@ -32,61 +34,67 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   fusion_reactor: 'FR',
   medical_bay: 'MB',
   advanced_medical_centre: 'AM',
-  // ── Vaelori ─────────────────────────────────────────────────────────────
+  // -- Waste & environment ------------------------------------------------
+  waste_dump: 'WD',
+  waste_incinerator: 'WI',
+  atmosphere_cleanser: 'AC',
+  orbital_waste_ejector: 'OW',
+  energy_storage: 'ES',
+  // -- Vaelori -------------------------------------------------------------
   crystal_resonance_chamber: 'CR',
   psionic_amplifier: 'PA',
-  // ── Khazari ─────────────────────────────────────────────────────────────
+  // -- Khazari -------------------------------------------------------------
   war_forge: 'WF',
   magma_tap: 'MT',
-  // ── Sylvani ─────────────────────────────────────────────────────────────
+  // -- Sylvani -------------------------------------------------------------
   living_archive: 'LA',
   growth_vat: 'GV',
-  // ── Nexari ──────────────────────────────────────────────────────────────
+  // -- Nexari --------------------------------------------------------------
   neural_network_hub: 'NN',
   assimilation_node: 'AN',
-  // ── Drakmari ────────────────────────────────────────────────────────────
+  // -- Drakmari ------------------------------------------------------------
   abyssal_processor: 'AP',
   predator_arena: 'PR',
-  // ── Teranos ─────────────────────────────────────────────────────────────
+  // -- Teranos -------------------------------------------------------------
   diplomatic_quarter: 'DQ',
   innovation_lab: 'IL',
-  // ── Zorvathi ────────────────────────────────────────────────────────────
+  // -- Zorvathi ------------------------------------------------------------
   deep_hive: 'DH',
   tunnel_network: 'TN',
-  // ── Ashkari ─────────────────────────────────────────────────────────────
+  // -- Ashkari -------------------------------------------------------------
   salvage_yard: 'SV',
   black_market: 'BM',
-  // ── Luminari ───────────────────────────────────────────────────────────
+  // -- Luminari ------------------------------------------------------------
   plasma_conduit: 'PL',
   dimensional_resonator: 'DR',
-  // ── Vethara ────────────────────────────────────────────────────────────
+  // -- Vethara -------------------------------------------------------------
   bonding_chamber: 'BC',
   neural_integration_centre: 'NI',
-  // ── Kaelenth ───────────────────────────────────────────────────────────
+  // -- Kaelenth ------------------------------------------------------------
   data_archive: 'DA',
   replication_forge: 'RF',
-  // ── Thyriaq ────────────────────────────────────────────────────────────
+  // -- Thyriaq -------------------------------------------------------------
   reconfiguration_matrix: 'RM',
   substrate_processor: 'SB',
-  // ── Aethyn ─────────────────────────────────────────────────────────────
+  // -- Aethyn --------------------------------------------------------------
   dimensional_anchor: 'DI',
   phase_laboratory: 'PH',
-  // ── Orivani ────────────────────────────────────────────────────────────
+  // -- Orivani -------------------------------------------------------------
   grand_cathedral: 'GC',
   reliquary_vault: 'RV',
-  // ── Pyrenth ────────────────────────────────────────────────────────────
+  // -- Pyrenth -------------------------------------------------------------
   elemental_forge: 'EF',
   seismic_resonator: 'SR',
 };
 
-/** Pixel size of each building slot cell — must match the CSS `.bsg-slot` dimensions. */
+/** Pixel size of each building slot cell -- must match the CSS `.bsg-slot` dimensions. */
 const CELL_SIZE = 64;
 
 function getBuildingDef(type: BuildingType) {
   return BUILDING_DEFINITIONS[type];
 }
 
-// ── Building slot icon with text fallback ─────────────────────────────────────
+// -- Building slot icon with text fallback ------------------------------------
 
 interface SlotIconProps {
   buildingType: BuildingType;
@@ -129,6 +137,7 @@ export function BuildingSlotGrid({
   buildings,
   onEmptySlotClick,
   onBuildingClick,
+  onDemolish,
 }: BuildingSlotGridProps): React.ReactElement {
   const slots: Array<Building | null> = Array.from({ length: totalSlots }, (_, i) => buildings[i] ?? null);
 
@@ -141,8 +150,8 @@ export function BuildingSlotGrid({
               key={index}
               className="bsg-slot bsg-slot--empty"
               onClick={() => onEmptySlotClick(index)}
-              aria-label={`Empty slot ${index + 1} — click to build`}
-              title="Empty slot — click to build"
+              aria-label={`Empty slot ${index + 1} -- click to build`}
+              title="Empty slot -- click to build"
             >
               <span className="bsg-slot__plus">+</span>
             </button>
@@ -152,16 +161,46 @@ export function BuildingSlotGrid({
         const def = getBuildingDef(building.type);
 
         return (
-          <button
+          <div
             key={index}
             className="bsg-slot bsg-slot--occupied"
-            onClick={() => onBuildingClick(building, index)}
-            aria-label={`${def?.name ?? building.type} level ${building.level}`}
-            title={`${def?.name ?? building.type} (Lv.${building.level})`}
+            style={{ position: 'relative' }}
           >
-            <SlotIcon buildingType={building.type} level={building.level} />
-            <span className="bsg-slot__level">Lv.{building.level}</span>
-          </button>
+            <button
+              className="bsg-slot__main"
+              onClick={() => onBuildingClick(building, index)}
+              aria-label={`${def?.name ?? building.type} level ${building.level}`}
+              title={`${def?.name ?? building.type} (Lv.${building.level})`}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+              }}
+            >
+              <SlotIcon buildingType={building.type} level={building.level} />
+              <span className="bsg-slot__level">Lv.{building.level}</span>
+            </button>
+            {onDemolish && (
+              <button
+                className="bsg-slot__demolish"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDemolish(building);
+                }}
+                aria-label={`Demolish ${def?.name ?? building.type}`}
+                title={`Demolish ${def?.name ?? building.type}`}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         );
       })}
     </div>

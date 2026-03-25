@@ -19,6 +19,7 @@ import type { EmpireResources } from '../types/resources.js';
 import type { ShipDesign, ShipComponent } from '../types/ships.js';
 import type { GameState } from '../types/game-state.js';
 import type { Governor } from '../types/governor.js';
+import type { PlanetWasteState, PlanetEnergyState } from '../types/waste.js';
 
 export const SAVE_FORMAT_VERSION = '0.1.0';
 
@@ -46,6 +47,9 @@ export interface SerializedTickState {
   shipDesigns: Array<[string, ShipDesign]>;
   shipComponents: ShipComponent[];
   governors: Governor[];
+  wasteMap: Array<[string, PlanetWasteState]>;
+  energyStateMap: Array<[string, PlanetEnergyState]>;
+  disabledBuildingsMap: Array<[string, string[]]>;
 }
 
 export interface SaveGame {
@@ -84,6 +88,9 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     shipDesigns: Array.from((state.shipDesigns ?? new Map()).entries()),
     shipComponents: state.shipComponents ?? [],
     governors: state.governors ?? [],
+    wasteMap: Array.from(state.wasteMap.entries()),
+    energyStateMap: Array.from(state.energyStateMap.entries()),
+    disabledBuildingsMap: Array.from(state.disabledBuildingsMap.entries()),
   };
 }
 
@@ -108,6 +115,9 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     shipDesigns: new Map(data.shipDesigns),
     shipComponents: data.shipComponents,
     governors: data.governors ?? [],
+    wasteMap: new Map(data.wasteMap ?? []),
+    energyStateMap: new Map(data.energyStateMap ?? []),
+    disabledBuildingsMap: new Map(data.disabledBuildingsMap ?? []),
   };
 }
 

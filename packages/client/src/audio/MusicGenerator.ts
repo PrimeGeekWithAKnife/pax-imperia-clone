@@ -18,7 +18,7 @@ import type { AudioEngine } from './AudioEngine';
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type MusicScene = 'menu' | 'galaxy' | 'system';
-export type MusicTrack = 'deep_space' | 'exploration' | 'tension' | 'serenity';
+export type MusicTrack = 'deep_space' | 'exploration' | 'tension' | 'serenity' | 'stellar_drift' | 'void_pulse' | 'nebula_flow';
 
 interface ActiveLayer {
   nodes: AudioNode[];
@@ -30,6 +30,11 @@ interface ActiveLayer {
 
 const FADE_OUT_TIME = 2.0;   // seconds
 const FADE_IN_TIME  = 3.0;   // seconds
+
+/** Auto-rotate to a different track every 5–10 minutes */
+const TRACK_ROTATE_MIN_MS = 5 * 60 * 1000;
+const TRACK_ROTATE_MAX_MS = 10 * 60 * 1000;
+const ALL_TRACKS: MusicTrack[] = ['deep_space', 'exploration', 'tension', 'serenity', 'stellar_drift', 'void_pulse', 'nebula_flow'];
 
 // Pentatonic C-major scale (MIDI note numbers for the motif)
 const PENTATONIC = [48, 50, 52, 55, 57]; // C3 D3 E3 G3 A3
@@ -58,6 +63,7 @@ export class MusicGenerator {
   private currentTrack: MusicTrack = 'deep_space';
   private activeLayers: ActiveLayer[] = [];
   private masterFade: GainNode;
+  private rotationTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(engine: AudioEngine) {
     this.engine = engine;
@@ -77,10 +83,12 @@ export class MusicGenerator {
     this.currentScene = scene;
     this._startLayers(scene, this.currentTrack);
     this._fadeMasterIn();
+    this._scheduleRotation();
   }
 
   stopMusic(): void {
     this.currentScene = null;
+    this._clearRotation();
     this._fadeMasterOut(() => this._stopAllLayers());
   }
 
@@ -92,6 +100,7 @@ export class MusicGenerator {
       this.currentScene = scene;
       this._startLayers(scene, this.currentTrack);
       this._fadeMasterIn();
+      this._scheduleRotation();
     });
   }
 
@@ -117,6 +126,32 @@ export class MusicGenerator {
 
   get track(): MusicTrack {
     return this.currentTrack;
+  }
+
+  // ── Auto-rotation ─────────────────────────────────────────────────────────
+
+  private _scheduleRotation(): void {
+    this._clearRotation();
+    const delay = TRACK_ROTATE_MIN_MS + Math.random() * (TRACK_ROTATE_MAX_MS - TRACK_ROTATE_MIN_MS);
+    this.rotationTimer = setTimeout(() => this._rotateTrack(), delay);
+  }
+
+  private _clearRotation(): void {
+    if (this.rotationTimer !== null) {
+      clearTimeout(this.rotationTimer);
+      this.rotationTimer = null;
+    }
+  }
+
+  private _rotateTrack(): void {
+    if (!this.currentScene) return;
+    // Pick a different track at random
+    const others = ALL_TRACKS.filter(t => t !== this.currentTrack);
+    const next = others[Math.floor(Math.random() * others.length)]!;
+    this.setTrack(next);
+    // Persist so scene transitions keep the new track
+    (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ = next;
+    this._scheduleRotation();
   }
 
   // ── Layer management ────────────────────────────────────────────────────────
@@ -149,6 +184,24 @@ export class MusicGenerator {
       case 'serenity':
         layers.push(this._createSerenityChimes());
         layers.push(this._createSerenityDrone());
+        break;
+
+      case 'stellar_drift':
+        layers.push(this._createStellarDriftKick());
+        layers.push(this._createStellarDriftArpeggio());
+        layers.push(this._createStellarDriftPad());
+        break;
+
+      case 'void_pulse':
+        layers.push(this._createVoidPulseKick());
+        layers.push(this._createVoidPulseBassLine());
+        layers.push(this._createVoidPulseSynth());
+        break;
+
+      case 'nebula_flow':
+        layers.push(this._createNebulaFlowKick());
+        layers.push(this._createNebulaFlowSequence());
+        layers.push(this._createNebulaFlowPad());
         break;
     }
 
@@ -869,6 +922,298 @@ export class MusicGenerator {
       gain,
       stop: () => { osc1.stop(); osc2.stop(); },
     };
+  }
+
+  // ── Stellar Drift — dreamy upbeat trance with slow arpeggiated synth ──────
+
+  private _createStellarDriftKick(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.06;
+    gain.connect(this.masterFade);
+
+    // Soft four-on-the-floor kick at ~120 BPM (500ms interval)
+    let stopped = false;
+    const scheduleKick = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.5, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.3);
+      setTimeout(scheduleKick, 500);
+    };
+    scheduleKick();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createStellarDriftArpeggio(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.035;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(6, 4);
+    reverb.connect(gain);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2500;
+    lp.Q.value = 2;
+    lp.connect(reverb);
+
+    // Am7 arpeggio: A3 C4 E4 G4 — one note per 250ms (16th notes at 120BPM)
+    const notes = [57, 60, 64, 67, 72, 67, 64, 60]; // A3 C4 E4 G4 C5 G4 E4 C4
+    let noteIdx = 0;
+    let stopped = false;
+
+    const scheduleNote = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = midiToHz(notes[noteIdx % notes.length]!);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.4, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(env);
+      env.connect(lp);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      noteIdx++;
+      setTimeout(scheduleNote, 250);
+    };
+    scheduleNote();
+
+    return { nodes: [lp, reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createStellarDriftPad(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.025;
+    gain.connect(this.masterFade);
+
+    // Slow Am chord pad
+    const freqs = [midiToHz(57), midiToHz(60), midiToHz(64)]; // A3 C4 E4
+    const oscs: OscillatorNode[] = [];
+    for (const f of freqs) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      osc.detune.value = (Math.random() - 0.5) * 8;
+      osc.connect(gain);
+      osc.start();
+      oscs.push(osc);
+    }
+
+    return { nodes: [...oscs, gain], gain, stop: () => oscs.forEach(o => o.stop()) };
+  }
+
+  // ── Void Pulse — darker minimal trance with pulsing bass ────────────────
+
+  private _createVoidPulseKick(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.065;
+    gain.connect(this.masterFade);
+
+    // Harder kick at ~130 BPM (461ms)
+    let stopped = false;
+    const scheduleKick = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(100, now);
+      osc.frequency.exponentialRampToValueAtTime(25, now + 0.15);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.6, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.35);
+      setTimeout(scheduleKick, 461);
+    };
+    scheduleKick();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createVoidPulseBassLine(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.04;
+    gain.connect(this.masterFade);
+
+    // Pulsing E minor bass: E2 → B1 → C2 → D2, one note per 2 beats
+    const bassNotes = [40, 35, 36, 38]; // E2 B1 C2 D2
+    let noteIdx = 0;
+    let stopped = false;
+
+    const scheduleNote = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = midiToHz(bassNotes[noteIdx % bassNotes.length]!);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(400, now);
+      lp.frequency.linearRampToValueAtTime(120, now + 0.8);
+      lp.Q.value = 5;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.6, now);
+      env.gain.exponentialRampToValueAtTime(0.01, now + 0.85);
+      osc.connect(lp);
+      lp.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.9);
+      noteIdx++;
+      setTimeout(scheduleNote, 922); // 2 beats at 130BPM
+    };
+    scheduleNote();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createVoidPulseSynth(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.02;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(8, 5);
+    reverb.connect(gain);
+
+    // Sparse high stabs — E minor pentatonic
+    const stabs = [64, 67, 71, 72, 76]; // E4 G4 B4 C5 E5
+    let stopped = false;
+
+    const scheduleStab = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const note = stabs[Math.floor(Math.random() * stabs.length)]!;
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = midiToHz(note);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.3, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.connect(env);
+      env.connect(reverb);
+      osc.start(now);
+      osc.stop(now + 0.5);
+      // Random interval: every 2-6 beats
+      setTimeout(scheduleStab, 922 + Math.random() * 1844);
+    };
+    setTimeout(scheduleStab, 1500);
+
+    return { nodes: [reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  // ── Nebula Flow — warm progressive trance with flowing melody ───────────
+
+  private _createNebulaFlowKick(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.055;
+    gain.connect(this.masterFade);
+
+    // Gentle kick at ~125 BPM (480ms)
+    let stopped = false;
+    const scheduleKick = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(70, now);
+      osc.frequency.exponentialRampToValueAtTime(28, now + 0.1);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.4, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      setTimeout(scheduleKick, 480);
+    };
+    scheduleKick();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createNebulaFlowSequence(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.03;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(5, 3);
+    reverb.connect(gain);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 3000;
+    lp.Q.value = 1.5;
+    lp.connect(reverb);
+
+    // Flowing D minor melody: D4 F4 A4 C5 D5 — 8th notes
+    const melody = [62, 65, 69, 72, 74, 72, 69, 65, 62, 60, 62, 65];
+    let noteIdx = 0;
+    let stopped = false;
+
+    const scheduleNote = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = midiToHz(melody[noteIdx % melody.length]!);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.35, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(env);
+      env.connect(lp);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      noteIdx++;
+      setTimeout(scheduleNote, 240); // 8th notes at 125BPM
+    };
+    scheduleNote();
+
+    return { nodes: [lp, reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  private _createNebulaFlowPad(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.02;
+    gain.connect(this.masterFade);
+
+    // Dm7 chord: D3 F3 A3 C4
+    const freqs = [midiToHz(50), midiToHz(53), midiToHz(57), midiToHz(60)];
+    const oscs: OscillatorNode[] = [];
+    for (const f of freqs) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      osc.detune.value = (Math.random() - 0.5) * 6;
+      osc.connect(gain);
+      osc.start();
+      oscs.push(osc);
+    }
+
+    return { nodes: [...oscs, gain], gain, stop: () => oscs.forEach(o => o.stop()) };
   }
 
   // ── Reverb helper ───────────────────────────────────────────────────────────

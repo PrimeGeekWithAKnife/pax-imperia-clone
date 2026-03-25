@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { Planet, Building, BuildingType, ShipDesign, HullClass } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID } from '@nova-imperia/shared';
+import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
+import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -109,6 +110,14 @@ function getHabitabilityColor(score: number): string {
   return '#cc4422';
 }
 
+/** Estimate construction turns from construction point cost using planet's factories. */
+function estimateBuildTurns(planet: Planet, constructionCost: number): number {
+  // Use a default species construction factor of 1.0 (no species data in this scope)
+  const defaultSpecies = { traits: { construction: 5 } } as Parameters<typeof getPlanetConstructionRate>[1];
+  const rate = getPlanetConstructionRate(planet, defaultSpecies);
+  return rate > 0 ? Math.ceil(constructionCost / rate) : Infinity;
+}
+
 /** Rough per-turn production estimate based purely on buildings (no species data in UI layer) */
 function estimatePlanetProduction(planet: Planet): Record<string, number> {
   const totals: Record<string, number> = {
@@ -164,7 +173,7 @@ function estimateMaintenance(planet: Planet): Record<string, number> {
 
 // ── Building category definitions ─────────────────────────────────────────────
 
-type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure';
+type BuildingCategory = 'all' | 'production' | 'population' | 'military' | 'commerce' | 'infrastructure' | 'environment' | 'blueprints';
 
 const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   all: 'All',
@@ -173,14 +182,17 @@ const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   military: 'Military',
   commerce: 'Commerce',
   infrastructure: 'Infrastructure',
+  environment: 'Environment',
+  blueprints: 'Blueprints',
 };
 
-const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all'>, BuildingType[]> = {
+const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all' | 'blueprints'>, BuildingType[]> = {
   production: ['factory', 'mining_facility', 'power_plant', 'fusion_reactor', 'recycling_plant'] as BuildingType[],
   population: ['population_center', 'hydroponics_bay', 'medical_bay', 'advanced_medical_centre', 'entertainment_complex'] as BuildingType[],
   military: ['shipyard', 'defense_grid', 'military_academy'] as BuildingType[],
   commerce: ['trade_hub', 'spaceport', 'communications_hub'] as BuildingType[],
-  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station'] as BuildingType[],
+  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station', 'energy_storage'] as BuildingType[],
+  environment: ['waste_dump', 'waste_incinerator', 'atmosphere_cleanser', 'orbital_waste_ejector'] as BuildingType[],
 };
 
 interface BuildingPickerProps {
@@ -203,23 +215,35 @@ function BuildingPicker({
 }: BuildingPickerProps): React.ReactElement {
   const [activeCategory, setActiveCategory] = useState<BuildingCategory>('all');
 
-  // Filter buildings: hide unresearched and hide racial buildings for other species
+  // Determine which buildings are locked by unresearched tech
+  const isBuildingLockedByTech = (type: BuildingType): boolean => {
+    const def = BUILDING_DEFINITIONS[type];
+    return !!(def.requiredTech && empireTechs !== undefined && !empireTechs.includes(def.requiredTech));
+  };
+
+  // Blueprints tab: show ONLY buildings locked behind tech requirements
+  // Normal tabs: show ONLY buildings the player CAN build (hide unresearched)
   const visibleBuildings = ALL_BUILDING_TYPES.filter((type) => {
     const def = BUILDING_DEFINITIONS[type];
 
-    // Hide buildings that require tech the player hasn't researched
-    if (def.requiredTech && empireTechs !== undefined && !empireTechs.includes(def.requiredTech)) {
-      return false;
-    }
-
-    // Hide racial buildings that don't match the player's species
+    // Hide racial buildings that belong to a different species
     if (def.racialSpeciesId && playerSpeciesId && def.racialSpeciesId !== playerSpeciesId) {
       return false;
     }
 
+    const lockedByTech = isBuildingLockedByTech(type);
+
+    if (activeCategory === 'blueprints') {
+      // Blueprints tab: only show buildings locked behind tech
+      return lockedByTech;
+    }
+
+    // Normal tabs: hide buildings locked behind tech
+    if (lockedByTech) return false;
+
     // Apply category filter
     if (activeCategory !== 'all') {
-      const members = BUILDING_CATEGORY_MEMBERS[activeCategory];
+      const members = BUILDING_CATEGORY_MEMBERS[activeCategory as Exclude<BuildingCategory, 'all' | 'blueprints'>];
       if (!members.includes(type)) return false;
     }
 
@@ -243,37 +267,105 @@ function BuildingPicker({
 
         {/* Category tabs */}
         <div className="bpicker__tabs" style={{ display: 'flex', gap: '4px', padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          {(Object.keys(BUILDING_CATEGORY_LABELS) as BuildingCategory[]).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              className="bpicker__tab"
-              style={{
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                background: activeCategory === cat ? 'rgba(0, 180, 220, 0.3)' : 'rgba(255,255,255,0.05)',
-                color: activeCategory === cat ? '#00d4ff' : '#8899aa',
-                fontWeight: activeCategory === cat ? 'bold' : 'normal',
-              }}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {BUILDING_CATEGORY_LABELS[cat]}
-            </button>
-          ))}
+          {(Object.keys(BUILDING_CATEGORY_LABELS) as BuildingCategory[]).map((cat) => {
+            const isBlueprints = cat === 'blueprints';
+            const isActive = activeCategory === cat;
+            const activeBg = isBlueprints ? 'rgba(220, 160, 0, 0.3)' : 'rgba(0, 180, 220, 0.3)';
+            const activeColor = isBlueprints ? '#f0b020' : '#00d4ff';
+            return (
+              <button
+                key={cat}
+                type="button"
+                className="bpicker__tab"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  border: isBlueprints ? '1px solid rgba(220, 160, 0, 0.3)' : 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  background: isActive ? activeBg : 'rgba(255,255,255,0.05)',
+                  color: isActive ? activeColor : (isBlueprints ? '#aa8833' : '#8899aa'),
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  marginLeft: isBlueprints ? 'auto' : undefined,
+                }}
+                onClick={() => setActiveCategory(cat)}
+              >
+                {BUILDING_CATEGORY_LABELS[cat]}
+              </button>
+            );
+          })}
         </div>
 
         <div className="bpicker__list">
           {visibleBuildings.length === 0 ? (
             <div className="bpicker__empty" style={{ padding: '16px', textAlign: 'center', color: '#6688aa', fontFamily: 'monospace', fontSize: '12px' }}>
-              No buildings available in this category
+              {activeCategory === 'blueprints'
+                ? 'All buildings researched — nothing left to unlock!'
+                : 'No buildings available in this category'}
             </div>
-          ) : (
+          ) : activeCategory === 'blueprints' ? (
+            /* ── Blueprints tab: informational-only, non-clickable ── */
             visibleBuildings.map((type) => {
               const def = BUILDING_DEFINITIONS[type];
+              const requiredTechName = def.requiredTech
+                ? (UNIVERSAL_TECH_BY_ID[def.requiredTech]?.name ?? def.requiredTech)
+                : 'Unknown';
+              const iconSrc = renderBuildingIcon(type, 48);
+
+              return (
+                <div
+                  key={type}
+                  className="bpicker-item bpicker-item--blueprint"
+                  style={{ opacity: 0.6, cursor: 'default', pointerEvents: 'none' }}
+                >
+                  <div className="bpicker-item__header">
+                    {iconSrc && (
+                      <img
+                        src={iconSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="bpicker-item__icon"
+                        width={48}
+                        height={48}
+                        style={{ filter: 'grayscale(100%) brightness(0.7)' }}
+                      />
+                    )}
+                    <span className="bpicker-item__name" style={{ color: '#667788' }}>{getBuildingDisplayName(type)}</span>
+                    <span className="bpicker-item__turns" style={{ color: '#556677' }}>~{estimateBuildTurns(planet, def.buildTime)} turns</span>
+                  </div>
+                  <div style={{ color: '#00cccc', fontSize: '11px', fontFamily: 'monospace', padding: '2px 0 4px 0' }}>
+                    Requires: {requiredTechName}
+                  </div>
+                  <div className="bpicker-item__desc" style={{ color: '#556677' }}>{def.description}</div>
+                  <div className="bpicker-item__costs" style={{ opacity: 0.7 }}>
+                    {Object.entries(def.baseCost).map(([res, val]) => (
+                      <span key={res} className="bpicker-item__cost" style={{ color: '#667788' }}>
+                        {RESOURCE_ICONS[res] ?? res}: {val}
+                      </span>
+                    ))}
+                    <span className="bpicker-item__cost" style={{ color: '#667788' }}>
+                      EN: {def.energyConsumption}
+                    </span>
+                    {def.wasteOutput > 0 && (
+                      <span className="bpicker-item__cost" style={{ color: '#667788' }}>
+                        Waste: {def.wasteOutput}
+                      </span>
+                    )}
+                    {def.happinessImpact !== 0 && (
+                      <span className="bpicker-item__cost" style={{ color: def.happinessImpact > 0 ? '#55aa55' : '#aa5555' }}>
+                        Happiness: {def.happinessImpact > 0 ? '+' : ''}{def.happinessImpact}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            /* ── Normal tabs: clickable building entries ── */
+            visibleBuildings.map((type) => {
+              const def = BUILDING_DEFINITIONS[type];
+
               const check = canBuildOnPlanet(planet, type, undefined, empireTechs);
               const canAffordBuilding = Object.entries(def.baseCost).every(
                 ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
@@ -291,15 +383,17 @@ function BuildingPicker({
               const reason = !check.allowed
                 ? check.reason
                 : !canAffordBuilding
-                  ? `Cannot afford — ${missingResources}`
+                  ? `Cannot afford -- ${missingResources}`
                   : undefined;
 
               const iconSrc = renderBuildingIcon(type, 48);
 
+              const itemClass = `bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`;
+
               return (
                 <button
                   key={type}
-                  className={`bpicker-item${disabled ? ' bpicker-item--disabled' : ''}`}
+                  className={itemClass}
                   onClick={() => !disabled && onSelect(type)}
                   disabled={disabled}
                   title={reason}
@@ -316,7 +410,7 @@ function BuildingPicker({
                       />
                     )}
                     <span className="bpicker-item__name">{getBuildingDisplayName(type)}</span>
-                    <span className="bpicker-item__turns">{def.buildTime} turns</span>
+                    <span className="bpicker-item__turns">~{estimateBuildTurns(planet, def.buildTime)} turns</span>
                   </div>
                   <div className="bpicker-item__desc">{def.description}</div>
                   <div className="bpicker-item__costs">
@@ -499,6 +593,12 @@ interface PlanetManagementScreenProps {
   onBuild: (planetId: string, buildingType: BuildingType) => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
   onProduceShip: (planetId: string, design: ShipDesign) => void;
+  /** Called when the player confirms demolition of a building. */
+  onDemolish?: (planetId: string, buildingId: string) => void;
+  /** Called when the player upgrades a building. */
+  onUpgrade?: (planetId: string, buildingId: string) => void;
+  /** The player empire's current technology age — gates upgrade levels. */
+  currentAge?: TechAge;
 }
 
 export function PlanetManagementScreen({
@@ -517,12 +617,16 @@ export function PlanetManagementScreen({
   onBuild,
   onCancelQueue,
   onProduceShip,
+  onDemolish,
+  onUpgrade,
+  currentAge = 'nano_atomic',
 }: PlanetManagementScreenProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [shipPickerOpen, setShipPickerOpen] = useState(false);
   const [governorModalOpen, setGovernorModalOpen] = useState(false);
   const [candidates, setCandidates] = useState<Governor[]>([]);
   const [candidatesGeneration, setCandidatesGeneration] = useState(0);
+  const [demolishTarget, setDemolishTarget] = useState<Building | null>(null);
 
   // ── Ambient sound management ─────────────────────────────────────────────────
   const ambientRef = useRef<AmbientSounds | null>(null);
@@ -602,9 +706,17 @@ export function PlanetManagementScreen({
     setPickerOpen(true);
   }, []);
 
-  const handleBuildingClick = useCallback((_building: Building, _index: number) => {
-    // Future: show building details / upgrade options
+  const [upgradeTarget, setUpgradeTarget] = useState<Building | null>(null);
+
+  const handleBuildingClick = useCallback((building: Building, _index: number) => {
+    setUpgradeTarget(prev => (prev?.id === building.id ? null : building));
   }, []);
+
+  const handleConfirmUpgrade = useCallback(() => {
+    if (!upgradeTarget || !onUpgrade) return;
+    onUpgrade(planet.id, upgradeTarget.id);
+    setUpgradeTarget(null);
+  }, [upgradeTarget, onUpgrade, planet.id]);
 
   const handleSelectBuilding = useCallback(
     (type: BuildingType) => {
@@ -651,6 +763,22 @@ export function PlanetManagementScreen({
     },
     [planet.id, planet.ownerId, onAppointGovernor],
   );
+
+  // ── Demolish handlers ──────────────────────────────────────────────────────
+  const handleDemolishRequest = useCallback((building: Building) => {
+    setDemolishTarget(building);
+  }, []);
+
+  const handleDemolishConfirm = useCallback(() => {
+    if (demolishTarget && onDemolish) {
+      onDemolish(planet.id, demolishTarget.id);
+    }
+    setDemolishTarget(null);
+  }, [demolishTarget, onDemolish, planet.id]);
+
+  const handleDemolishCancel = useCallback(() => {
+    setDemolishTarget(null);
+  }, []);
 
   // Ship production queue entries (type === 'ship')
   const shipQueue = planet.productionQueue.filter(item => item.type === 'ship');
@@ -874,9 +1002,9 @@ export function PlanetManagementScreen({
               </div>
               <div className="pm-stat-row">
                 <span className="pm-stat-label">Capacity</span>
-                <span className="pm-stat-value">{formatPopulation(planet.maxPopulation)}</span>
+                <span className="pm-stat-value">{formatPopulation(getEffectiveMaxPopulation(planet))}</span>
               </div>
-              {planet.currentPopulation > 0 && planet.currentPopulation < planet.maxPopulation && (
+              {planet.currentPopulation > 0 && planet.currentPopulation < getEffectiveMaxPopulation(planet) && (
                 <div className="pm-stat-row">
                   <span className="pm-stat-label">Growth</span>
                   <span className="pm-stat-value pm-stat-value--positive">Growing</span>
@@ -918,6 +1046,56 @@ export function PlanetManagementScreen({
                 })()}
               </div>
             )}
+
+            {/* ── Energy / Waste / Happiness indicators ── */}
+            {planet.currentPopulation > 0 && (() => {
+              const energyProd = calculateEnergyProduction(planet.buildings);
+              const energyDem = calculateEnergyDemand(planet.buildings);
+              const energySurplus = energyProd >= energyDem;
+              const energyColor = energySurplus ? '#4a9e5c' : '#cc4422';
+
+              const wasteCapacity = calculateWasteCapacity(planet.type);
+              const grossWaste = calculateWasteProduction(planet.buildings, planet.currentPopulation);
+              const wasteReduction = calculateWasteReduction(planet.buildings, grossWaste);
+              const netWaste = Math.max(0, grossWaste - wasteReduction);
+              // Estimate current waste as net waste (per-tick approximation)
+              const wasteRatio = wasteCapacity > 0 ? netWaste / wasteCapacity : 0;
+              const wasteColor = wasteRatio < 0.5 ? '#4a9e5c' : wasteRatio < 0.8 ? '#c9852a' : '#cc4422';
+
+              const energyRatio = energyDem > 0 ? energyProd / energyDem : (energyProd > 0 ? 10 : 1);
+              const happinessMod = getEnergyHappinessModifier(energyRatio);
+              // Waste overflow penalty — roughly -1 per 10% over capacity
+              const wasteOverflowPenalty = wasteRatio > 1 ? -Math.floor((wasteRatio - 1) * 10) : 0;
+              const happinessScore = 50 + happinessMod + wasteOverflowPenalty;
+              const happinessLabel = happinessScore >= 60 ? 'Content' : happinessScore >= 40 ? 'Discontent' : 'Unrest';
+              const happinessColor = happinessScore >= 60 ? '#4a9e5c' : happinessScore >= 40 ? '#c9852a' : '#cc4422';
+
+              return (
+                <div className="pm-stat-group">
+                  <div className="panel-section-label">STATUS INDICATORS</div>
+                  <div className="pm-indicators">
+                    <div className="pm-indicator-row">
+                      <span className="pm-indicator-label">Energy</span>
+                      <span className="pm-indicator-value" style={{ color: energyColor }}>
+                        {Math.round(energyProd)}/{Math.round(energyDem)}
+                      </span>
+                    </div>
+                    <div className="pm-indicator-row">
+                      <span className="pm-indicator-label">Waste</span>
+                      <span className="pm-indicator-value" style={{ color: wasteColor }}>
+                        {Math.round(netWaste * 10) / 10}/{wasteCapacity > 0 ? wasteCapacity.toLocaleString() : '--'}
+                      </span>
+                    </div>
+                    <div className="pm-indicator-row">
+                      <span className="pm-indicator-label">Morale</span>
+                      <span className="pm-indicator-value" style={{ color: happinessColor }}>
+                        {happinessLabel} ({happinessScore})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="pm-stat-group">
               <div className="panel-section-label">NATURAL RESOURCES</div>
@@ -1048,13 +1226,90 @@ export function PlanetManagementScreen({
               buildings={planet.buildings}
               onEmptySlotClick={handleEmptySlotClick}
               onBuildingClick={handleBuildingClick}
+              onDemolish={onDemolish ? handleDemolishRequest : undefined}
             />
+
+            {upgradeTarget && (() => {
+              const def = BUILDING_DEFINITIONS[upgradeTarget.type];
+              const check = canUpgradeBuilding(planet, upgradeTarget.id, currentAge);
+              const cost = getUpgradeCost(upgradeTarget.type, upgradeTarget.level);
+              const buildTime = getUpgradeBuildTime(upgradeTarget.type, upgradeTarget.level);
+              const isMaxLevel = upgradeTarget.level >= def.maxLevel;
+              const ageCap = getMaxLevelForAge(upgradeTarget.type, currentAge);
+              const isAgeCapped = upgradeTarget.level >= ageCap && !isMaxLevel;
+              const canAfford = Object.entries(cost).every(([key, amount]) =>
+                (empireResources[key as keyof EmpireResources] ?? 0) >= (amount ?? 0),
+              );
+
+              return (
+                <div className="upgrade-popover">
+                  <div className="upgrade-popover__header">
+                    <span className="upgrade-popover__name">{def.name}</span>
+                    <span className="upgrade-popover__level">
+                      Lv.{upgradeTarget.level}
+                      {isMaxLevel ? ' (MAX)' : isAgeCapped ? ` / ${ageCap} (age limit)` : ` → ${upgradeTarget.level + 1}`}
+                    </span>
+                    <button
+                      type="button"
+                      className="upgrade-popover__close panel-close-btn"
+                      onClick={() => setUpgradeTarget(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <p className="upgrade-popover__desc">{def.description}</p>
+
+                  {!isMaxLevel && !isAgeCapped && (
+                    <>
+                      <div className="upgrade-popover__costs">
+                        <span className="upgrade-popover__label">Upgrade cost:</span>
+                        {Object.entries(cost).map(([key, amount]) => (
+                          <span
+                            key={key}
+                            className={`upgrade-popover__cost ${
+                              (empireResources[key as keyof EmpireResources] ?? 0) < (amount ?? 0)
+                                ? 'upgrade-popover__cost--unaffordable'
+                                : ''
+                            }`}
+                          >
+                            {RESOURCE_ICONS[key] ?? key}: {amount}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="upgrade-popover__time">
+                        Build time: {buildTime} construction points
+                      </div>
+                    </>
+                  )}
+
+                  {isAgeCapped && (
+                    <div className="upgrade-popover__reason">
+                      Advance to the next technology age to unlock further upgrades.
+                    </div>
+                  )}
+
+                  {!isMaxLevel && !isAgeCapped && (
+                    <button
+                      type="button"
+                      className="sc-btn sc-btn--primary upgrade-popover__btn"
+                      disabled={!check.allowed || !canAfford}
+                      onClick={handleConfirmUpgrade}
+                      title={!check.allowed ? check.reason : !canAfford ? 'Insufficient resources' : `Upgrade to Lv.${upgradeTarget.level + 1}`}
+                    >
+                      Upgrade to Lv.{upgradeTarget.level + 1}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="pm-divider" />
             <div className="pm-section-label">CONSTRUCTION QUEUE</div>
             <ConstructionQueue
               queue={planet.productionQueue}
               onCancel={handleCancelQueue}
+              buildings={planet.buildings}
             />
           </div>
 
@@ -1226,6 +1481,37 @@ export function PlanetManagementScreen({
               </button>
               {/* Key is used to suppress the unused variable warning from the generation counter */}
               <span key={candidatesGeneration} style={{ display: 'none' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demolish confirmation dialog */}
+      {demolishTarget && (
+        <div className="bpicker-overlay" onClick={handleDemolishCancel}>
+          <div
+            className="pm-demolish-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Confirm demolition"
+          >
+            <div className="pm-demolish-dialog__title">Demolish Building</div>
+            <div className="pm-demolish-dialog__message">
+              Demolish {getBuildingDisplayName(demolishTarget.type)}? This frees the building slot but the building is lost.
+            </div>
+            <div className="pm-demolish-dialog__actions">
+              <button
+                className="pm-demolish-dialog__btn pm-demolish-dialog__btn--cancel"
+                onClick={handleDemolishCancel}
+              >
+                Cancel
+              </button>
+              <button
+                className="pm-demolish-dialog__btn pm-demolish-dialog__btn--confirm"
+                onClick={handleDemolishConfirm}
+              >
+                Demolish
+              </button>
             </div>
           </div>
         </div>
