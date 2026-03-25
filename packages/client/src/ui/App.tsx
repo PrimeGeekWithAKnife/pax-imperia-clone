@@ -10,7 +10,7 @@ import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen'
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
 import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
-import type { Empire } from '@nova-imperia/shared';
+import type { Empire, Governor } from '@nova-imperia/shared';
 import type { GameNotification, NotificationPreferences, NotificationType } from '@nova-imperia/shared';
 import { shouldShowNotification } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
@@ -1140,6 +1140,21 @@ export function App(): React.ReactElement {
     [managedSystemId],
   );
 
+  const handleAppointGovernor = useCallback(
+    (planetId: string, governor: Governor) => {
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleAppointGovernor] GameEngine not available');
+        return;
+      }
+      const state = engine.getState();
+      // Remove any existing governor for this planet, then add the new one
+      const filtered = state.governors.filter(g => g.planetId !== planetId);
+      engine.setGovernors([...filtered, governor]);
+    },
+    [],
+  );
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType) => {
       if (!managedSystemId) {
@@ -1686,6 +1701,11 @@ export function App(): React.ReactElement {
           onDemolish={handleDemolish}
           onUpgrade={handleUpgrade}
           currentAge={playerEmpire.currentAge}
+          governor={(() => {
+            const eng = getGameEngine();
+            return eng?.getState().governors.find(g => g.planetId === managedPlanet.id) ?? null;
+          })()}
+          onAppointGovernor={handleAppointGovernor}
         />
       )}
 

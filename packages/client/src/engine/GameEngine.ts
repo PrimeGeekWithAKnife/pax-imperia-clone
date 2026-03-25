@@ -64,7 +64,7 @@ import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
-import type { ResearchState } from '@nova-imperia/shared';
+import type { ResearchState, Governor } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -1289,6 +1289,11 @@ export class GameEngine {
    * Emits 'engine:state_loaded' with the new GameState so Phaser scenes and
    * React components can refresh their caches.
    */
+  /** Replace the governors array in the tick state. */
+  setGovernors(governors: Governor[]): void {
+    this.tickState = { ...this.tickState, governors };
+  }
+
   loadState(newState: GameTickState): void {
     this._clearInterval();
     this.running = false;
