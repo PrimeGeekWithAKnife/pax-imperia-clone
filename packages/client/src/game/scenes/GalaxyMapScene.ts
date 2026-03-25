@@ -279,6 +279,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     const engineAfterCleanup = data?.setupData ? undefined : getGameEngine();
     if (engineAfterCleanup) {
       // Returning from SystemViewScene — reuse existing game state
+      console.log('[GalaxyMapScene] Reusing existing engine at tick', engineAfterCleanup.getState().gameState.currentTick);
       this.galaxy = engineAfterCleanup.getState().gameState.galaxy;
       const playerEmpire = engineAfterCleanup.getState().gameState.empires.find(e => !e.isAI);
       if (playerEmpire) {
@@ -290,6 +291,11 @@ export class GalaxyMapScene extends Phaser.Scene {
       }
     } else {
       // ── Build game from setup data or defaults ─────────────────────────────
+      console.error('[GalaxyMapScene] ENGINE NOT FOUND — creating new game!', {
+        hasSetupData: !!data?.setupData,
+        engineOnWindow: !!(window as unknown as Record<string, unknown>).__GAME_ENGINE__,
+        dataKeys: data ? Object.keys(data) : 'no data',
+      });
       const setup = data?.setupData;
       const playerSpecies: Species = setup?.species ?? {
         id: 'human', name: 'Human', description: 'Adaptable and resourceful.', portrait: 'human',
