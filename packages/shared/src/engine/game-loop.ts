@@ -19,7 +19,7 @@
  *  6.  Ship Production
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
- *  9.  AI Decisions         (stub)
+ *  9.  AI Decisions
  *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
  *  9c. Building Condition   (maintenance-based decay, functionality checks)
  *  10. Victory Check        (conquest / economic / technological / diplomatic)
@@ -87,11 +87,14 @@ import {
 import {
   processResearchTick,
   applyTechEffects,
+  startResearch,
   type ResearchState,
 } from './research.js';
 import {
   processFleetMovement,
   processShipProduction,
+  issueMovementOrder,
+  startShipProduction,
   type FleetMovementOrder,
   type ShipProductionOrder,
 } from './fleet.js';
@@ -134,6 +137,12 @@ import {
   isBuildingFunctional,
 } from './building-condition.js';
 import { BUILDING_DEFINITIONS, type BuildingDefinition } from '../constants/buildings.js';
+import {
+  evaluateEmpireState,
+  generateAIDecisions,
+  selectTopDecisions,
+  type AIDecision,
+} from './ai.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -1848,19 +1857,295 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
-// Step 9: AI Decisions (stub)
+// Step 9: AI Decisions
 // ---------------------------------------------------------------------------
 
-function stepAIDecisions(state: GameTickState): GameTickState {
-  // TODO: When the AI decision engine module is implemented, call it here.
-  // For each empire where empire.isAI === true, generate and apply AI orders:
-  //  - Economic: build priority buildings, queue ships
-  //  - Military: move fleets towards targets, declare wars
-  //  - Research: allocate research points
-  //  - Diplomatic: propose treaties, respond to proposals
-  // AI decisions run after all simulation steps so they can react to this
-  // tick's changes before orders take effect next tick.
+/**
+ * Maximum number of AI decisions to execute per empire per tick.
+ * Keeps per-tick processing bounded and prevents the AI from executing
+ * an overwhelming burst of actions in a single frame.
+ */
+const AI_DECISIONS_PER_TICK = 3;
+
+function stepAIDecisions(
+  state: GameTickState,
+  allTechs: import('../types/technology.js').Technology[] = [],
+): GameTickState {
+  for (const empire of state.gameState.empires) {
+    if (!empire.isAI) continue;
+
+    const personality = empire.aiPersonality ?? 'defensive';
+
+    // 1. Evaluate the strategic situation
+    const evaluation = evaluateEmpireState(
+      empire,
+      state.gameState.galaxy,
+      state.gameState.fleets,
+      state.gameState.ships,
+    );
+
+    // 2. Generate and rank all possible decisions
+    const allDecisions = generateAIDecisions(
+      empire,
+      state.gameState,
+      personality,
+      evaluation,
+      allTechs,
+    );
+
+    // 3. Pick the top N, deduplicated
+    const topDecisions = selectTopDecisions(allDecisions, AI_DECISIONS_PER_TICK);
+
+    // 4. Execute each decision
+    for (const decision of topDecisions) {
+      state = executeAIDecision(state, empire.id, decision, allTechs);
+    }
+  }
+
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// AI decision executor — converts an AIDecision into state mutations
+// ---------------------------------------------------------------------------
+
+function executeAIDecision(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+  allTechs: import('../types/technology.js').Technology[],
+): GameTickState {
+  switch (decision.type) {
+    case 'build':
+      return executeAIBuild(state, empireId, decision);
+
+    case 'research':
+      return executeAIResearch(state, empireId, decision, allTechs);
+
+    case 'build_ship':
+      return executeAIBuildShip(state, empireId, decision);
+
+    case 'move_fleet':
+      return executeAIMoveFleet(state, empireId, decision);
+
+    // colonize, diplomacy, and war are not yet wired — skip silently
+    default:
+      return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Build: construct a building on an AI-owned planet
+// ---------------------------------------------------------------------------
+
+function executeAIBuild(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { planetId, buildingType } = decision.params as {
+    planetId: string;
+    buildingType: string;
+  };
+
+  // Find the planet and its parent system
+  let systems = state.gameState.galaxy.systems;
+  let targetPlanet: Planet | undefined;
+  for (const system of systems) {
+    const p = system.planets.find(pl => pl.id === planetId);
+    if (p) { targetPlanet = p; break; }
+  }
+  if (!targetPlanet) return state;
+
+  // Ownership check — the AI must own this planet
+  if (targetPlanet.ownerId !== empireId) return state;
+
+  // Validate the build is allowed
+  const empireResearchState = state.researchStates.get(empireId);
+  const empireTechs = empireResearchState?.completedTechs ?? [];
+  const buildCheck = canBuildOnPlanet(targetPlanet, buildingType as BuildingType, undefined, empireTechs);
+  if (!buildCheck.allowed) return state;
+
+  // Check affordability
+  const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
+  if (!buildDef) return state;
+  const res = getEmpireResources(state, empireId);
+  for (const [key, amount] of Object.entries(buildDef.baseCost)) {
+    if (amount && amount > 0) {
+      if ((res[key as keyof EmpireResources] ?? 0) < amount) return state;
+    }
+  }
+
+  // Deduct costs
+  for (const [key, amount] of Object.entries(buildDef.baseCost)) {
+    if (amount && amount > 0) {
+      res[key as keyof EmpireResources] -= amount;
+    }
+  }
+  state = applyResources(state, empireId, res);
+  systems = state.gameState.galaxy.systems;
+
+  // Re-fetch the planet after resource update
+  for (const system of systems) {
+    const p = system.planets.find(pl => pl.id === planetId);
+    if (p) { targetPlanet = p; break; }
+  }
+  if (!targetPlanet) return state;
+
+  // Queue the building
+  const updatedPlanet = addBuildingToQueue(targetPlanet, buildingType as BuildingType, undefined, empireTechs);
+  systems = replacePlanet(systems, updatedPlanet);
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Research: start researching a technology for the AI empire
+// ---------------------------------------------------------------------------
+
+function executeAIResearch(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+  allTechs: import('../types/technology.js').Technology[],
+): GameTickState {
+  const { techId } = decision.params as { techId: string };
+  const researchState = state.researchStates.get(empireId);
+  if (!researchState) return state;
+
+  // Skip if already completed or actively researching
+  if (researchState.completedTechs.includes(techId)) return state;
+  if (researchState.activeResearch.some(a => a.techId === techId)) return state;
+
+  // Count the empire's research labs (1 active project per lab)
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  if (!empire) return state;
+  const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empireId);
+  const labCount = ownedPlanets.reduce(
+    (sum, p) => sum + p.buildings.filter(b => b.type === 'research_lab').length,
+    0,
+  );
+
+  // If all slots are full, skip
+  if (labCount > 0 && researchState.activeResearch.length >= labCount) return state;
+
+  try {
+    const updatedResearchState = startResearch(
+      researchState,
+      techId,
+      allTechs,
+      100, // allocation — auto-redistributed by startResearch
+      empire.species.id,
+      labCount,
+    );
+
+    const newResearchStates = new Map(state.researchStates);
+    newResearchStates.set(empireId, updatedResearchState);
+
+    return { ...state, researchStates: newResearchStates };
+  } catch {
+    // startResearch throws on invalid states — just skip
+    return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Build Ship: queue ship production on a planet with a shipyard
+// ---------------------------------------------------------------------------
+
+function executeAIBuildShip(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { planetId } = decision.params as { planetId: string };
+
+  // Verify the planet exists and has a shipyard owned by this empire
+  let systems = state.gameState.galaxy.systems;
+  let targetPlanet: Planet | undefined;
+  let parentSystemId: string | undefined;
+  for (const system of systems) {
+    const p = system.planets.find(pl => pl.id === planetId);
+    if (p) { targetPlanet = p; parentSystemId = system.id; break; }
+  }
+  if (!targetPlanet || !parentSystemId) return state;
+  if (targetPlanet.ownerId !== empireId) return state;
+
+  const hasShipyard = targetPlanet.buildings.some(b => b.type === 'shipyard');
+  if (!hasShipyard) return state;
+
+  // Find an available design for this empire
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  if (!empire) return state;
+  const designsMap = state.shipDesigns ?? new Map<string, ShipDesign>();
+  const empireDesigns = Array.from(designsMap.values()).filter(d => d.empireId === empireId);
+
+  // Prefer a combat-capable design (destroyer or larger); fall back to anything
+  const combatDesign = empireDesigns.find(d => d.hull === 'destroyer')
+    ?? empireDesigns.find(d => d.hull === 'cruiser')
+    ?? empireDesigns.find(d => d.hull === 'scout')
+    ?? empireDesigns[0];
+  if (!combatDesign) return state;
+
+  // Check if we can afford a ship
+  const shipCost = combatDesign.totalCost > 0 ? combatDesign.totalCost : 50;
+  const res = getEmpireResources(state, empireId);
+  if (res.credits < shipCost) return state;
+
+  // Deduct cost
+  res.credits -= shipCost;
+  state = applyResources(state, empireId, res);
+
+  // Queue the production order (build time scales with cost, minimum 3 ticks)
+  const buildTime = Math.max(3, Math.ceil(shipCost / 15));
+  const order = startShipProduction(combatDesign.id, planetId, buildTime);
+
+  return {
+    ...state,
+    productionOrders: [...state.productionOrders, order],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Move Fleet: issue a movement order for an AI fleet
+// ---------------------------------------------------------------------------
+
+function executeAIMoveFleet(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { fleetId, destinationSystemId } = decision.params as {
+    fleetId: string;
+    destinationSystemId: string;
+  };
+
+  const fleet = state.gameState.fleets.find(f => f.id === fleetId && f.empireId === empireId);
+  if (!fleet) return state;
+
+  // Don't issue a new order if this fleet already has one
+  if (state.movementOrders.some(o => o.fleetId === fleetId)) return state;
+
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  const order = issueMovementOrder(
+    fleet,
+    state.gameState.galaxy,
+    destinationSystemId,
+    undefined,
+    empire?.technologies,
+  );
+  if (!order) return state;
+
+  return {
+    ...state,
+    movementOrders: [...state.movementOrders, order],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2062,8 +2347,8 @@ export function processGameTick(
   // 8. Diplomacy Tick (stub)
   s = stepDiplomacyTick(s);
 
-  // 9. AI Decisions (stub)
-  s = stepAIDecisions(s);
+  // 9. AI Decisions
+  s = stepAIDecisions(s, allTechs);
 
   // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
   s = stepWaste(s);
