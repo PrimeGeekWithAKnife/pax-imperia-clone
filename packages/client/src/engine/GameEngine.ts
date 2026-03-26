@@ -59,6 +59,7 @@ import {
   calculateEmpireProduction,
   UNIVERSAL_TECHNOLOGIES,
   createNotification,
+  ZONE_COST_MULTIPLIER,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -364,7 +365,7 @@ export class GameEngine {
    *
    * @returns true if the build was queued, false otherwise.
    */
-  buildOnPlanet(systemId: string, planetId: string, buildingType: BuildingType): boolean {
+  buildOnPlanet(systemId: string, planetId: string, buildingType: BuildingType, targetZone: 'surface' | 'orbital' | 'underground' = 'surface'): boolean {
     const galaxy = this.tickState.gameState.galaxy;
 
     // Locate the system
@@ -393,32 +394,34 @@ export class GameEngine {
     const empireTechs = empireResearchState?.completedTechs ?? [];
 
     // Validate build is allowed
-    const buildCheck = canBuildOnPlanet(planet, buildingType, undefined, empireTechs);
+    const buildCheck = canBuildOnPlanet(planet, buildingType, undefined, empireTechs, targetZone);
     if (!buildCheck.allowed) {
       console.warn(`[GameEngine.buildOnPlanet] Build not allowed: ${buildCheck.reason}`);
       return false;
     }
 
-    // Check affordability against full resource stockpile
+    // Check affordability against full resource stockpile (with zone cost multiplier)
     const def = BUILDING_DEFINITIONS[buildingType];
+    const costMultiplier = ZONE_COST_MULTIPLIER[targetZone] ?? 1;
     const currentResources = this.tickState.empireResourcesMap.get(empire.id);
     if (!currentResources) {
       console.warn(`[GameEngine.buildOnPlanet] No resource stockpile for empire "${empire.id}"`);
       return false;
     }
     for (const [resource, required] of Object.entries(def.baseCost)) {
+      const scaledCost = (required ?? 0) * costMultiplier;
       const available = currentResources[resource as keyof typeof currentResources] ?? 0;
-      if (available < (required ?? 0)) {
-        console.warn(`[GameEngine.buildOnPlanet] Cannot afford ${buildingType}: need ${required} ${resource}, have ${available}`);
+      if (available < scaledCost) {
+        console.warn(`[GameEngine.buildOnPlanet] Cannot afford ${buildingType}: need ${scaledCost} ${resource}, have ${available}`);
         return false;
       }
     }
 
-    // Deduct costs from resource stockpile
+    // Deduct costs from resource stockpile (with zone cost multiplier)
     const updatedResources = { ...currentResources };
     for (const [resource, required] of Object.entries(def.baseCost)) {
       const key = resource as keyof typeof updatedResources;
-      updatedResources[key] = (updatedResources[key] ?? 0) - (required ?? 0);
+      updatedResources[key] = (updatedResources[key] ?? 0) - (required ?? 0) * costMultiplier;
     }
     const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
     updatedResourcesMap.set(empire.id, updatedResources);
@@ -431,7 +434,7 @@ export class GameEngine {
     };
 
     // Add building to the planet's production queue (pure — returns new Planet)
-    const updatedPlanet = addBuildingToQueue(planet, buildingType, undefined, empireTechs);
+    const updatedPlanet = addBuildingToQueue(planet, buildingType, undefined, empireTechs, targetZone);
 
     // Splice the updated planet back into the galaxy
     const updatedSystems = galaxy.systems.map(s => {

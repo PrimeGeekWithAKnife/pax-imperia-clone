@@ -40,6 +40,20 @@ import { generateId } from '../utils/id.js';
 /** Ticks a wave of colonists spends in transit before arriving at the target. */
 export const TRANSIT_DURATION = 5;
 
+/** Build cost multiplier per zone. */
+export const ZONE_COST_MULTIPLIER: Record<string, number> = {
+  surface: 1,
+  orbital: 2,
+  underground: 3,
+};
+
+/** Maintenance cost multiplier per zone. */
+export const ZONE_MAINTENANCE_MULTIPLIER: Record<string, number> = {
+  surface: 1,
+  orbital: 3,
+  underground: 1,
+};
+
 /** A wave of colonists currently in transit between source and target. */
 export interface TransitWave {
   /** Population in this wave (after transit losses already deducted). */

@@ -31,6 +31,7 @@ import {
 } from '../constants/resources.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
 import { GOVERNMENTS } from '../types/government.js';
+import { ZONE_MAINTENANCE_MULTIPLIER } from './colony.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -221,14 +222,19 @@ export function calculateEmpireProduction(
  * Ships consume credits and energy. Buildings consume credits (flat maintenance).
  * Returned values are negative, representing resource drain.
  *
+ * When `planets` are provided, building maintenance is zone-aware: orbital
+ * buildings pay 3x and underground buildings pay 1x (surface = 1x baseline).
+ *
  * @param _empire      - Empire (reserved for future trait-based upkeep modifiers).
  * @param fleetCount   - Total number of individual ships (not fleets).
  * @param buildingCount - Total number of buildings across all planets.
+ * @param planets      - Optional list of empire-owned planets for zone-aware maintenance.
  */
 export function calculateUpkeep(
   _empire: Empire,
   fleetCount: number,
   buildingCount: number,
+  planets?: Planet[],
 ): ResourceProduction {
   const upkeep = zeroProduction();
 
@@ -238,9 +244,21 @@ export function calculateUpkeep(
   upkeep.credits -= shipUpkeepCredits;
   upkeep.energy -= shipUpkeepEnergy;
 
-  // Building maintenance (flat per building, regardless of type or level)
-  const buildingMaintenanceCredits = (BUILDING_MAINTENANCE_BASE.credits ?? 0) * buildingCount;
-  upkeep.credits -= buildingMaintenanceCredits;
+  // Building maintenance — zone-aware when planets are provided
+  if (planets) {
+    const baseCredits = BUILDING_MAINTENANCE_BASE.credits ?? 0;
+    for (const planet of planets) {
+      for (const building of planet.buildings) {
+        const zone = building.slotZone ?? 'surface';
+        const zoneMult = ZONE_MAINTENANCE_MULTIPLIER[zone] ?? 1;
+        upkeep.credits -= baseCredits * zoneMult;
+      }
+    }
+  } else {
+    // Fallback: flat per building (no zone data available)
+    const buildingMaintenanceCredits = (BUILDING_MAINTENANCE_BASE.credits ?? 0) * buildingCount;
+    upkeep.credits -= buildingMaintenanceCredits;
+  }
 
   return upkeep;
 }
