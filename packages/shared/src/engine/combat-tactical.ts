@@ -151,6 +151,14 @@ export type ShipOrder =
   | { type: 'move'; x: number; y: number }
   | { type: 'flee' };
 
+export type CrewExperience = 'green' | 'regular' | 'veteran' | 'elite';
+
+export interface Crew {
+  morale: number;        // 0-100
+  health: number;        // 0-100
+  experience: CrewExperience;
+}
+
 export interface TacticalShip {
   id: string;
   sourceShipId: string;  // links back to the canonical Ship
@@ -170,6 +178,7 @@ export interface TacticalShip {
   order: ShipOrder;
   destroyed: boolean;
   routed: boolean;
+  crew: Crew;
 }
 
 export interface Projectile {
@@ -239,6 +248,18 @@ export interface FormationPosition {
   offsetY: number;
 }
 
+export type AdmiralTrait = 'aggressive' | 'cautious' | 'tactical' | 'inspiring';
+
+export interface Admiral {
+  name: string;
+  side: 'attacker' | 'defender';
+  trait: AdmiralTrait;
+  experience: CrewExperience;
+  pausesRemaining: number;
+  rallyUsed: boolean;
+  emergencyRepairUsed: boolean;
+}
+
 export interface TacticalState {
   tick: number;
   ships: TacticalShip[];
@@ -253,6 +274,7 @@ export interface TacticalState {
   outcome: TacticalOutcome;
   attackerFormation: FormationType;
   defenderFormation: FormationType;
+  admirals: Admiral[];
 }
 
 // ---------------------------------------------------------------------------
@@ -755,6 +777,11 @@ export function initializeTacticalCombat(
         order: { type: 'idle' } as ShipOrder,
         destroyed: false,
         routed: false,
+        crew: {
+          morale: 80,
+          health: 100,
+          experience: 'regular' as CrewExperience,
+        },
       };
     });
   }
@@ -773,6 +800,7 @@ export function initializeTacticalCombat(
     outcome: null,
     attackerFormation: 'line',
     defenderFormation: 'line',
+    admirals: [],
   };
 }
 
@@ -1519,6 +1547,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
+      // Accuracy roll — experience and morale affect hit chance
+      // Fighter bays always launch (accuracy is per-fighter, handled elsewhere)
+      if (weapon.type !== 'fighter_bay') {
+        const expAccuracyMod = ship.crew.experience === 'elite' ? 1.15
+          : ship.crew.experience === 'veteran' ? 1.1
+          : ship.crew.experience === 'regular' ? 1.0
+          : 0.85; // green
+        const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
+        const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod;
+        if (Math.random() * 100 > effectiveAccuracy) {
+          // Miss — consume cooldown and ammo but no projectile/beam created
+          const missAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
+          updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax, ammo: missAmmo });
+          continue;
+        }
+      }
+
       // Fire!
       if (weapon.type === 'fighter_bay') {
         // Launch fighters — ammo is fighter count
@@ -1631,7 +1676,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return { ...ship, weapons: updatedWeapons };
   });
 
-  // 5. Create debris from newly destroyed ships
+  // 5. Create debris from newly destroyed ships + morale drop from ally loss
   const prevDestroyedIds = new Set(
     state.ships.filter((s) => s.destroyed).map((s) => s.id),
   );
@@ -1644,8 +1689,64 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         y: ship.position.y,
         radius: DEBRIS_RADIUS,
       });
+
+      // Allied ships suffer morale drop when a comrade is destroyed
+      ships = ships.map((s) => {
+        if (s.side === ship.side && s.id !== ship.id && !s.destroyed) {
+          return {
+            ...s,
+            crew: { ...s.crew, morale: Math.max(0, s.crew.morale - 5) },
+          };
+        }
+        return s;
+      });
     }
   }
+
+  // 5b. Crew morale tick — fatigue, outnumbered, low hull, experience resilience
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed) return ship;
+    let morale = ship.crew.morale;
+
+    // Prolonged combat fatigue: -0.2 per tick after tick 50
+    if (state.tick > 50) morale -= 0.2;
+
+    // Outnumbered penalty: -0.5 per tick if enemy has 2x more ships
+    const allies = ships.filter(
+      (s) => s.side === ship.side && !s.destroyed && !s.routed,
+    ).length;
+    const enemies = ships.filter(
+      (s) => s.side !== ship.side && !s.destroyed && !s.routed,
+    ).length;
+    if (enemies > allies * 2) morale -= 0.5;
+
+    // Low hull penalty
+    if (ship.hull < ship.maxHull * 0.3) morale -= 0.3;
+
+    // Experience resilience bonus (partially offsets losses)
+    const resilienceBonus =
+      ship.crew.experience === 'elite' ? 0.15
+      : ship.crew.experience === 'veteran' ? 0.1
+      : ship.crew.experience === 'regular' ? 0.05
+      : 0;
+    morale += resilienceBonus;
+
+    morale = Math.max(0, Math.min(100, morale));
+
+    // Check morale thresholds — crew may flee or surrender
+    if (morale < 15 && !ship.routed) {
+      if (Math.random() < 0.15) {
+        return {
+          ...ship,
+          routed: true,
+          order: { type: 'flee' as const },
+          crew: { ...ship.crew, morale },
+        };
+      }
+    }
+
+    return { ...ship, crew: { ...ship.crew, morale } };
+  });
 
   // 6. Combat end detection
   const attackersAlive = ships.filter(
@@ -1678,6 +1779,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     outcome,
     attackerFormation: state.attackerFormation,
     defenderFormation: state.defenderFormation,
+    admirals: state.admirals ?? [],
   };
 }
 
@@ -1744,4 +1846,144 @@ export function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip
     position: { ...ship.position },
     weapons: ship.weapons.map((w) => ({ ...w })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Admiral commands
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the number of tactical pauses an admiral gets based on experience.
+ */
+export function admiralPauseCount(experience: CrewExperience): number {
+  switch (experience) {
+    case 'green': return 1;
+    case 'regular': return 2;
+    case 'veteran': return 3;
+    case 'elite': return 4;
+  }
+}
+
+/**
+ * Create an admiral with default ability charges.
+ */
+export function createAdmiral(
+  name: string,
+  side: 'attacker' | 'defender',
+  trait: AdmiralTrait,
+  experience: CrewExperience,
+): Admiral {
+  return {
+    name,
+    side,
+    trait,
+    experience,
+    pausesRemaining: admiralPauseCount(experience),
+    rallyUsed: false,
+    emergencyRepairUsed: false,
+  };
+}
+
+/**
+ * Admiral rally command — boosts all friendly ships' morale by 20.
+ * One-time use per battle.
+ */
+export function admiralRally(
+  state: TacticalState,
+  side: 'attacker' | 'defender',
+): TacticalState {
+  const admiral = state.admirals.find((a) => a.side === side);
+  if (!admiral || admiral.rallyUsed) return state;
+
+  return {
+    ...state,
+    admirals: state.admirals.map((a) =>
+      a.side === side ? { ...a, rallyUsed: true } : a,
+    ),
+    ships: state.ships.map((s) => {
+      if (s.side !== side || s.destroyed || s.routed) return s;
+      return {
+        ...s,
+        crew: { ...s.crew, morale: Math.min(100, s.crew.morale + 20) },
+      };
+    }),
+  };
+}
+
+/**
+ * Admiral emergency repair — target ship receives 15% max hull repair.
+ * One-time use per battle.
+ */
+export function admiralEmergencyRepair(
+  state: TacticalState,
+  side: 'attacker' | 'defender',
+  shipId: string,
+): TacticalState {
+  const admiral = state.admirals.find((a) => a.side === side);
+  if (!admiral || admiral.emergencyRepairUsed) return state;
+
+  return {
+    ...state,
+    admirals: state.admirals.map((a) =>
+      a.side === side ? { ...a, emergencyRepairUsed: true } : a,
+    ),
+    ships: state.ships.map((s) => {
+      if (s.id !== shipId || s.destroyed || s.routed) return s;
+      return {
+        ...s,
+        order: { type: 'idle' as const },
+        hull: Math.min(s.maxHull, s.hull + s.maxHull * 0.15),
+      };
+    }),
+  };
+}
+
+/**
+ * Admiral pause — decrement the admiral's remaining pauses.
+ * Returns null if the admiral has no pauses remaining.
+ */
+export function admiralPause(
+  state: TacticalState,
+  side: 'attacker' | 'defender',
+): TacticalState | null {
+  const admiral = state.admirals.find((a) => a.side === side);
+  if (!admiral || admiral.pausesRemaining <= 0) return null;
+
+  return {
+    ...state,
+    admirals: state.admirals.map((a) =>
+      a.side === side ? { ...a, pausesRemaining: a.pausesRemaining - 1 } : a,
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Experience gain
+// ---------------------------------------------------------------------------
+
+const EXP_LEVELS: readonly CrewExperience[] = ['green', 'regular', 'veteran', 'elite'];
+
+/**
+ * Calculate post-combat experience promotion for a ship's crew.
+ *
+ * A crew may advance one level if they won the battle or were significantly
+ * outnumbered. Losing while equally matched or having superior numbers does
+ * not grant a promotion.
+ */
+export function calculateExperienceGain(
+  ship: TacticalShip,
+  wasVictorious: boolean,
+  enemyShipCount: number,
+  allyShipCount: number,
+): CrewExperience {
+  const currentIdx = EXP_LEVELS.indexOf(ship.crew.experience);
+
+  // Difficult battles (outnumbered) give bonus
+  const difficultyBonus = enemyShipCount > allyShipCount * 1.5 ? 1 : 0;
+  const victoryBonus = wasVictorious ? 1 : 0;
+
+  const totalGain = victoryBonus + difficultyBonus;
+  const newIdx = Math.min(3, currentIdx + (totalGain > 0 ? 1 : 0));
+
+  return EXP_LEVELS[newIdx]!;
 }

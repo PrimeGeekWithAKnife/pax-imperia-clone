@@ -970,7 +970,7 @@ export function App(): React.ReactElement {
         tick: 0, ships: [], projectiles: [], missiles: [], fighters: [],
         beamEffects: [], pointDefenceEffects: [], environment: [],
         battlefieldWidth: 0, battlefieldHeight: 0, outcome: null,
-        attackerFormation: 'line', defenderFormation: 'line',
+        attackerFormation: 'line', defenderFormation: 'line', admirals: [],
       });
       engine.start();
     }

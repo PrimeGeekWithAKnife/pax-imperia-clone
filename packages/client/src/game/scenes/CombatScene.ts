@@ -5,10 +5,13 @@ import {
   processTacticalTick,
   setShipOrder,
   setFormation,
+  admiralRally,
+  admiralEmergencyRepair,
+  admiralPause,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)
@@ -141,6 +144,9 @@ export class CombatScene extends Phaser.Scene {
   private speedButtons: Phaser.GameObjects.Text[] = [];
   private pauseButton!: Phaser.GameObjects.Text;
   private formationButtons: Phaser.GameObjects.Text[] = [];
+  private rallyButton!: Phaser.GameObjects.Text;
+  private repairButton!: Phaser.GameObjects.Text;
+  private pauseCountLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'CombatScene' });
@@ -755,6 +761,41 @@ export class CombatScene extends Phaser.Scene {
       this.formationButtons.push(btn);
       fmtBtnX += btn.width + 6;
     }
+
+    // ── Admiral commands (right side, above retreat) ─────────────────────
+    const admiralY = height - 90;
+    const admiralX = width - 16;
+
+    this.repairButton = this.add.text(admiralX, admiralY + 24, 'REPAIR', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#6688aa',
+      backgroundColor: '#1a1a2e',
+      padding: { x: 6, y: 4 },
+    });
+    this.repairButton.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this.repairButton.setInteractive({ useHandCursor: true });
+    this.repairButton.on('pointerdown', () => this._admiralRepair());
+
+    this.rallyButton = this.add.text(admiralX, admiralY, 'RALLY', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#6688aa',
+      backgroundColor: '#1a1a2e',
+      padding: { x: 6, y: 4 },
+    });
+    this.rallyButton.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this.rallyButton.setInteractive({ useHandCursor: true });
+    this.rallyButton.on('pointerdown', () => this._admiralRally());
+
+    // Pause count display (next to pause button)
+    this.pauseCountLabel = this.add.text(12, 80, '', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#88aacc',
+    });
+    this.pauseCountLabel.setScrollFactor(0).setDepth(100);
+    this._updateAdmiralHUD();
   }
 
   private _updateSelectedInfo(): void {
@@ -774,8 +815,10 @@ export class CombatScene extends Phaser.Scene {
       : ship.order.type === 'flee' ? 'FLEE'
       : ship.order.type === 'defend' ? 'DEFEND'
       : 'IDLE';
+    const morale = Math.round(ship.crew.morale);
+    const expLabel = ship.crew.experience.toUpperCase();
     this.selectedInfoLabel.setText(
-      `${ship.name}  |  Hull: ${hpPct}%  |  Shields: ${shPct}%  |  Order: ${orderStr}`,
+      `${ship.name}  |  Hull: ${hpPct}%  |  Shields: ${shPct}%  |  Morale: ${morale}  [${expLabel}]  |  Order: ${orderStr}`,
     );
   }
 
@@ -878,6 +921,17 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private _togglePause(): void {
+    if (!this.paused) {
+      // Pausing — check if admiral has pauses remaining
+      const side = this._getPlayerSide();
+      const admiral = this.tacticalState.admirals.find((a) => a.side === side);
+      if (admiral) {
+        const result = admiralPause(this.tacticalState, side);
+        if (!result) return; // no pauses remaining — cannot pause
+        this.tacticalState = result;
+        this._updateAdmiralHUD();
+      }
+    }
     this.paused = !this.paused;
     this.tickTimer.paused = this.paused;
     this.pauseButton.setColor(this.paused ? '#ff5555' : '#ffcc44');
@@ -915,6 +969,48 @@ export class CombatScene extends Phaser.Scene {
       const btnType = btn.getData('formationType') as FormationType;
       btn.setColor(btnType === formation ? '#44ffaa' : '#6688aa');
     }
+  }
+
+  // =========================================================================
+  // Admiral commands
+  // =========================================================================
+
+  private _admiralRally(): void {
+    const side = this._getPlayerSide();
+    const admiral = this.tacticalState.admirals.find((a) => a.side === side);
+    if (!admiral || admiral.rallyUsed) return;
+    this.tacticalState = admiralRally(this.tacticalState, side);
+    this.rallyButton.setColor('#333344');
+    this._updateAdmiralHUD();
+  }
+
+  private _admiralRepair(): void {
+    if (!this.selectedShipId) return;
+    const side = this._getPlayerSide();
+    const admiral = this.tacticalState.admirals.find((a) => a.side === side);
+    if (!admiral || admiral.emergencyRepairUsed) return;
+    this.tacticalState = admiralEmergencyRepair(this.tacticalState, side, this.selectedShipId);
+    this.repairButton.setColor('#333344');
+    this._updateAdmiralHUD();
+  }
+
+  private _updateAdmiralHUD(): void {
+    const side = this._getPlayerSide();
+    const admiral = this.tacticalState.admirals.find((a) => a.side === side);
+    if (!admiral) {
+      this.rallyButton.setVisible(false);
+      this.repairButton.setVisible(false);
+      this.pauseCountLabel.setText('');
+      return;
+    }
+
+    this.rallyButton.setVisible(true);
+    this.repairButton.setVisible(true);
+    this.rallyButton.setColor(admiral.rallyUsed ? '#333344' : '#44ccff');
+    this.repairButton.setColor(admiral.emergencyRepairUsed ? '#333344' : '#44ccff');
+    this.pauseCountLabel.setText(
+      `Admiral: ${admiral.name}  |  Pauses: ${admiral.pausesRemaining}  |  Trait: ${admiral.trait.toUpperCase()}`,
+    );
   }
 
   // =========================================================================
