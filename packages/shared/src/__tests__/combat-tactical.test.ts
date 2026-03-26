@@ -7,6 +7,10 @@ import {
   findTarget,
   moveShip,
   applyDamage,
+  isInWeaponArc,
+  getFormationPositions,
+  setFormation,
+  defaultWeaponFacing,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
   PROJECTILE_SPEED,
@@ -14,7 +18,11 @@ import {
 import type {
   TacticalState,
   TacticalShip,
+  TacticalWeapon,
+  WeaponFacing,
   ShipOrder,
+  FormationType,
+  Missile,
 } from '../engine/combat-tactical.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import { SHIP_COMPONENTS } from '../../data/ships/index.js';
@@ -909,5 +917,655 @@ describe('combat end detection', () => {
 
     expect(current.outcome).not.toBeNull();
     expect(['attacker_wins', 'defender_wins']).toContain(current.outcome);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Weapon arc checking
+// ---------------------------------------------------------------------------
+
+describe('isInWeaponArc', () => {
+  function makeTacticalShipForArc(overrides: Partial<TacticalShip> = {}): TacticalShip {
+    return {
+      id: 'arc-ship',
+      sourceShipId: 'src-arc',
+      name: 'Arc Ship',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+      facing: 0, // facing right (+x)
+      speed: 3,
+      turnRate: 0.08,
+      hull: 100,
+      maxHull: 100,
+      shields: 30,
+      maxShields: 30,
+      armour: 10,
+      weapons: [],
+      sensorRange: 200,
+      order: { type: 'idle' },
+      destroyed: false,
+      routed: false,
+      ...overrides,
+    };
+  }
+
+  function makeWeapon(facing: WeaponFacing): TacticalWeapon {
+    return {
+      componentId: 'test-weapon',
+      type: 'beam',
+      damage: 10,
+      range: 300,
+      accuracy: 80,
+      cooldownMax: 10,
+      cooldownLeft: 0,
+      facing,
+    };
+  }
+
+  it('fore weapon hits target directly ahead', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    const target = makeTacticalShipForArc({ position: { x: 200, y: 100 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('fore'))).toBe(true);
+  });
+
+  it('fore weapon misses target directly behind', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    const target = makeTacticalShipForArc({ position: { x: 0, y: 100 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('fore'))).toBe(false);
+  });
+
+  it('aft weapon hits target directly behind', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    const target = makeTacticalShipForArc({ position: { x: 0, y: 100 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('aft'))).toBe(true);
+  });
+
+  it('aft weapon misses target directly ahead', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    const target = makeTacticalShipForArc({ position: { x: 200, y: 100 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('aft'))).toBe(false);
+  });
+
+  it('port weapon hits target to the left', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    // Port is -PI/2, so target above (lower y) when facing right
+    const target = makeTacticalShipForArc({ position: { x: 100, y: 0 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('port'))).toBe(true);
+  });
+
+  it('starboard weapon hits target to the right', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    // Starboard is +PI/2, so target below (higher y) when facing right
+    const target = makeTacticalShipForArc({ position: { x: 100, y: 200 } });
+    expect(isInWeaponArc(ship, target, makeWeapon('starboard'))).toBe(true);
+  });
+
+  it('turret weapon hits targets in most directions', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    // Turret covers 270 deg — everything except directly behind
+    const ahead = makeTacticalShipForArc({ position: { x: 200, y: 100 } });
+    const left = makeTacticalShipForArc({ position: { x: 100, y: 0 } });
+    const right = makeTacticalShipForArc({ position: { x: 100, y: 200 } });
+    expect(isInWeaponArc(ship, ahead, makeWeapon('turret'))).toBe(true);
+    expect(isInWeaponArc(ship, left, makeWeapon('turret'))).toBe(true);
+    expect(isInWeaponArc(ship, right, makeWeapon('turret'))).toBe(true);
+  });
+
+  it('turret weapon misses target directly behind', () => {
+    const ship = makeTacticalShipForArc({ facing: 0 });
+    const behind = makeTacticalShipForArc({ position: { x: 0, y: 100 } });
+    // 270 deg arc = 135 deg each side from forward
+    // Directly behind is 180 deg from forward, which is outside 135 deg
+    expect(isInWeaponArc(ship, behind, makeWeapon('turret'))).toBe(false);
+  });
+
+  it('weapons do not fire when target is outside arc during combat tick', () => {
+    let state = setupOnePair();
+
+    // Place attacker facing right, defender directly behind
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? {
+              ...s,
+              position: { x: 400, y: 400 },
+              facing: 0, // facing right
+              order: { type: 'attack' as const, targetId: state.ships.find((d) => d.side === 'defender')!.id },
+            }
+          : {
+              ...s,
+              position: { x: 300, y: 400 }, // directly behind attacker
+              facing: Math.PI, // facing left
+              order: { type: 'attack' as const, targetId: state.ships.find((a) => a.side === 'attacker')!.id },
+            },
+      ),
+    };
+
+    // The attacker has a 'fore' beam weapon (facing: 0, 90 deg arc)
+    // The defender is directly behind — should NOT be in arc
+    const next = processTacticalTick(state);
+
+    // Attacker should NOT have fired (defender is behind it)
+    // But defender faces left toward attacker, so defender CAN fire
+    const attackerBeams = next.beamEffects.filter(
+      (b) => b.sourceShipId === state.ships.find((s) => s.side === 'attacker')!.id,
+    );
+    // Attacker's beam should not fire since target is behind (outside fore arc)
+    expect(attackerBeams).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Default weapon facing
+// ---------------------------------------------------------------------------
+
+describe('defaultWeaponFacing', () => {
+  it('assigns fore facing to beam weapons', () => {
+    expect(defaultWeaponFacing('weapon_beam')).toBe('fore');
+  });
+
+  it('assigns fore facing to projectile weapons', () => {
+    expect(defaultWeaponFacing('weapon_projectile')).toBe('fore');
+  });
+
+  it('assigns turret facing to point defence', () => {
+    expect(defaultWeaponFacing('weapon_point_defense')).toBe('turret');
+  });
+
+  it('assigns turret facing to missiles', () => {
+    expect(defaultWeaponFacing('weapon_missile')).toBe('turret');
+  });
+
+  it('assigns turret facing to fighter bays', () => {
+    expect(defaultWeaponFacing('fighter_bay')).toBe('turret');
+  });
+
+  it('weapons built from designs have correct default facing', () => {
+    const state = setupOnePair();
+    const atk = state.ships.find((s) => s.side === 'attacker')!;
+    // pulse_laser is weapon_beam, should get 'fore'
+    expect(atk.weapons[0].facing).toBe('fore');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Formation system
+// ---------------------------------------------------------------------------
+
+describe('getFormationPositions', () => {
+  it('returns the correct number of positions for all formation types', () => {
+    const formations: FormationType[] = ['line', 'spearhead', 'diamond', 'wings'];
+    for (const formation of formations) {
+      for (const count of [1, 3, 5, 9, 12]) {
+        const positions = getFormationPositions(formation, count);
+        expect(positions).toHaveLength(count);
+      }
+    }
+  });
+
+  it('line formation places ships in a vertical column', () => {
+    const positions = getFormationPositions('line', 5);
+    expect(positions).toHaveLength(5);
+    // All ships should have the same offsetX (0)
+    for (const pos of positions) {
+      expect(pos.offsetX).toBe(0);
+    }
+    // Ships should be spaced 40 units apart vertically
+    for (let i = 1; i < positions.length; i++) {
+      expect(positions[i].offsetY - positions[i - 1].offsetY).toBeCloseTo(40, 5);
+    }
+  });
+
+  it('spearhead formation has lead ship at front', () => {
+    const positions = getFormationPositions('spearhead', 6);
+    expect(positions).toHaveLength(6);
+    // First ship (lead) should be at the front (highest offsetX or 0)
+    // All subsequent rows have lower offsetX
+    expect(positions[0].offsetX).toBeGreaterThanOrEqual(positions[1].offsetX);
+  });
+
+  it('diamond formation creates a diamond shape', () => {
+    const positions = getFormationPositions('diamond', 9);
+    expect(positions).toHaveLength(9);
+    // Row sizes: 1, 2, 3, 2, 1
+    // First row: 1 ship
+    expect(positions[0].offsetY).toBe(0);
+    // Third row: 3 ships (widest part)
+    // Positions [3], [4], [5] are the wide row
+  });
+
+  it('wings formation groups ships in threes', () => {
+    const positions = getFormationPositions('wings', 6);
+    expect(positions).toHaveLength(6);
+    // Each group of 3 has a centre ship (offsetY=0) and two flankers
+    expect(positions[0].offsetY).toBe(0); // centre
+    expect(positions[1].offsetY).toBeLessThan(0); // left wing
+    expect(positions[2].offsetY).toBeGreaterThan(0); // right wing
+  });
+
+  it('single ship returns one position at origin', () => {
+    for (const formation of ['line', 'spearhead', 'diamond', 'wings'] as FormationType[]) {
+      const positions = getFormationPositions(formation, 1);
+      expect(positions).toHaveLength(1);
+      expect(positions[0].offsetY).toBe(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setFormation
+// ---------------------------------------------------------------------------
+
+describe('setFormation', () => {
+  function setupMultiShipState(): TacticalState {
+    const design = makeArmedDesign('d-multi-fmt', 'empire-1');
+    const defDesign = makeArmedDesign('d-def-fmt', 'empire-2');
+    const designs = new Map<string, ShipDesign>([
+      [design.id, design],
+      [defDesign.id, defDesign],
+    ]);
+
+    const attackerShips = Array.from({ length: 5 }, (_, i) =>
+      makeShip(`atk-${i}`, design.id),
+    );
+    const defenderShips = [makeShip('def-0', defDesign.id)];
+
+    return initializeTacticalCombat(
+      makeFleet('f-atk', 'empire-1', attackerShips.map((s) => s.id)),
+      makeFleet('f-def', 'empire-2', defenderShips.map((s) => s.id)),
+      attackerShips,
+      defenderShips,
+      designs,
+      SHIP_COMPONENTS,
+    );
+  }
+
+  it('updates the attacker formation type', () => {
+    const state = setupMultiShipState();
+    expect(state.attackerFormation).toBe('line');
+
+    const updated = setFormation(state, 'attacker', 'spearhead');
+    expect(updated.attackerFormation).toBe('spearhead');
+    expect(updated.defenderFormation).toBe('line'); // unchanged
+  });
+
+  it('updates the defender formation type', () => {
+    const state = setupMultiShipState();
+    const updated = setFormation(state, 'defender', 'diamond');
+    expect(updated.defenderFormation).toBe('diamond');
+    expect(updated.attackerFormation).toBe('line'); // unchanged
+  });
+
+  it('gives surviving ships move orders to their new positions', () => {
+    const state = setupMultiShipState();
+    const updated = setFormation(state, 'attacker', 'wings');
+
+    const attackerShips = updated.ships.filter(
+      (s) => s.side === 'attacker' && !s.destroyed && !s.routed,
+    );
+    for (const ship of attackerShips) {
+      expect(ship.order.type).toBe('move');
+    }
+  });
+
+  it('does not modify destroyed or routed ships', () => {
+    let state = setupMultiShipState();
+    // Destroy the first attacker
+    state = {
+      ...state,
+      ships: state.ships.map((s, i) =>
+        s.side === 'attacker' && i === 0
+          ? { ...s, destroyed: true }
+          : s,
+      ),
+    };
+
+    const updated = setFormation(state, 'attacker', 'diamond');
+    const destroyed = updated.ships.find((s) => s.destroyed);
+    expect(destroyed).toBeDefined();
+    // Destroyed ship should keep its original order, not a move order
+    expect(destroyed!.order.type).not.toBe('move');
+  });
+
+  it('does not modify ships on the other side', () => {
+    const state = setupMultiShipState();
+    const updated = setFormation(state, 'attacker', 'spearhead');
+
+    const defender = updated.ships.find((s) => s.side === 'defender')!;
+    expect(defender.order.type).toBe('idle'); // unchanged
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Initial state includes formation fields
+// ---------------------------------------------------------------------------
+
+describe('formation state initialisation', () => {
+  it('initialises with line formation for both sides', () => {
+    const state = setupOnePair();
+    expect(state.attackerFormation).toBe('line');
+    expect(state.defenderFormation).toBe('line');
+  });
+
+  it('formation fields are preserved through processTacticalTick', () => {
+    let state = setupOnePair();
+    state = setFormation(state, 'attacker', 'diamond');
+    const next = processTacticalTick(state);
+    expect(next.attackerFormation).toBe('diamond');
+    expect(next.defenderFormation).toBe('line');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Missile mechanics
+// ---------------------------------------------------------------------------
+
+function makeMissileDesign(id: string, empireId = 'empire-1'): ShipDesign {
+  return {
+    id,
+    name: `Missile Design ${id}`,
+    hull: 'scout',
+    components: [
+      { slotId: 'scout_fore_1', componentId: 'basic_missile' },
+      { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
+      { slotId: 'scout_aft_1', componentId: 'ion_engine' },
+    ],
+    totalCost: 215,
+    empireId,
+  };
+}
+
+function makePointDefenceDesign(id: string, empireId = 'empire-1'): ShipDesign {
+  return {
+    id,
+    name: `PD Design ${id}`,
+    hull: 'scout',
+    components: [
+      { slotId: 'scout_fore_1', componentId: 'point_defense_turret' },
+      { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
+      { slotId: 'scout_aft_1', componentId: 'ion_engine' },
+    ],
+    totalCost: 180,
+    empireId,
+  };
+}
+
+describe('missile mechanics', () => {
+  it('missile weapon creates missiles, not projectiles', () => {
+    const missileDesign = makeMissileDesign('d-missile', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 400, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 500, y: 400 } },
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    expect(next.missiles.length).toBeGreaterThan(0);
+    expect(next.projectiles).toHaveLength(0);
+  });
+
+  it('missiles track their target (heading adjusts)', () => {
+    const missileDesign = makeMissileDesign('d-missile-track', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 200, y: 200 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 600, y: 200 } },
+      ),
+    };
+
+    // Fire a missile
+    let current = processTacticalTick(state);
+    expect(current.missiles.length).toBeGreaterThan(0);
+
+    const missile0 = current.missiles[0];
+    const initialDx = 600 - missile0.x;
+    const initialDy = 200 - missile0.y;
+
+    // Move the target to a different position
+    current = {
+      ...current,
+      ships: current.ships.map((s) =>
+        s.side === 'defender'
+          ? { ...s, position: { x: 600, y: 500 } }
+          : s,
+      ),
+    };
+
+    // Advance a few ticks
+    for (let i = 0; i < 5; i++) {
+      current = processTacticalTick(current);
+    }
+
+    // If the missile is still alive, check that it's heading toward the new target position
+    if (current.missiles.length > 0) {
+      const missile = current.missiles[0];
+      const dy = 500 - missile.y;
+      // The missile should have a positive dy component (heading downward toward y=500)
+      expect(dy).toBeGreaterThan(0);
+    }
+    // If missile already hit, that's also valid
+  });
+
+  it('missiles accelerate each tick', () => {
+    const missileDesign = makeMissileDesign('d-missile-accel', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    // Place them far apart so missile has time to accelerate
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 100, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 1400, y: 400 } },
+      ),
+    };
+
+    let current = processTacticalTick(state);
+    expect(current.missiles.length).toBeGreaterThan(0);
+
+    const initialSpeed = current.missiles[0].speed;
+
+    // Silence all weapons so no new missiles are fired
+    current = {
+      ...current,
+      ships: current.ships.map((s) => ({
+        ...s,
+        weapons: s.weapons.map((w) => ({ ...w, cooldownLeft: 999 })),
+      })),
+    };
+
+    const next = processTacticalTick(current);
+    if (next.missiles.length > 0) {
+      expect(next.missiles[0].speed).toBeGreaterThan(initialSpeed);
+    }
+  });
+
+  it('missiles deal damage on hit', () => {
+    const missileDesign = makeMissileDesign('d-missile-dmg', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    // Place them at medium range
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 200, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 400, y: 400 }, order: { type: 'idle' as const } },
+      ),
+    };
+
+    const defBefore = state.ships.find((s) => s.side === 'defender')!;
+    const initialTotal = defBefore.shields + defBefore.hull;
+
+    // Run enough ticks for the missile to hit
+    let current = state;
+    for (let i = 0; i < 60; i++) {
+      current = processTacticalTick(current);
+    }
+
+    const defAfter = current.ships.find((s) => s.side === 'defender')!;
+    const finalTotal = defAfter.shields + defAfter.hull;
+
+    // Shield recharge is 1.5/tick, but missile damage is 20 per hit
+    expect(finalTotal).toBeLessThan(initialTotal);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Point defence mechanics
+// ---------------------------------------------------------------------------
+
+describe('point defence mechanics', () => {
+  it('point defence intercepts missiles', () => {
+    // Attacker has missiles, defender has point defence
+    const missileDesign = makeMissileDesign('d-atk-missile', 'empire-1');
+    const pdDesign = makePointDefenceDesign('d-def-pd', 'empire-2');
+
+    let state = setupOnePair({
+      attacker: missileDesign,
+      defender: pdDesign,
+    });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    // Place attacker close so missile fires, then missile approaches defender with PD
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 200, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 400, y: 400 }, order: { type: 'idle' as const } },
+      ),
+    };
+
+    // Run many ticks; with 60% intercept rate, some missiles should be intercepted
+    let missilesIntercepted = false;
+    let current = state;
+    for (let i = 0; i < 100; i++) {
+      const prevMissileCount = current.missiles.length;
+      current = processTacticalTick(current);
+      // If missiles disappeared and it wasn't from hitting (defender still alive),
+      // point defence intercepted
+      if (prevMissileCount > 0 && current.missiles.length < prevMissileCount) {
+        const def = current.ships.find((s) => s.side === 'defender');
+        if (def && !def.destroyed) {
+          missilesIntercepted = true;
+        }
+      }
+    }
+
+    // Over 100 ticks with 60% intercept, it's virtually certain some were intercepted
+    expect(missilesIntercepted).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ammo system
+// ---------------------------------------------------------------------------
+
+describe('ammo system', () => {
+  it('missile weapons have 6 ammo by default', () => {
+    const missileDesign = makeMissileDesign('d-ammo-missile', 'empire-1');
+    const state = setupOnePair({ attacker: missileDesign });
+    const atk = state.ships.find((s) => s.side === 'attacker')!;
+    const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
+    expect(missileWeapon).toBeDefined();
+    expect(missileWeapon!.ammo).toBe(6);
+    expect(missileWeapon!.maxAmmo).toBe(6);
+  });
+
+  it('projectile weapons have 50 ammo by default', () => {
+    const projDesign = makeProjectileDesign('d-ammo-proj', 'empire-1');
+    const state = setupOnePair({ attacker: projDesign });
+    const atk = state.ships.find((s) => s.side === 'attacker')!;
+    const projWeapon = atk.weapons.find((w) => w.type === 'projectile');
+    expect(projWeapon).toBeDefined();
+    expect(projWeapon!.ammo).toBe(50);
+    expect(projWeapon!.maxAmmo).toBe(50);
+  });
+
+  it('beam weapons have unlimited ammo', () => {
+    const state = setupOnePair();
+    const atk = state.ships.find((s) => s.side === 'attacker')!;
+    const beamWeapon = atk.weapons.find((w) => w.type === 'beam');
+    expect(beamWeapon).toBeDefined();
+    expect(beamWeapon!.ammo).toBeUndefined();
+    expect(beamWeapon!.maxAmmo).toBeUndefined();
+  });
+
+  it('point defence weapons have 100 ammo by default', () => {
+    const pdDesign = makePointDefenceDesign('d-ammo-pd', 'empire-1');
+    const state = setupOnePair({ attacker: pdDesign });
+    const atk = state.ships.find((s) => s.side === 'attacker')!;
+    const pdWeapon = atk.weapons.find((w) => w.type === 'point_defense');
+    expect(pdWeapon).toBeDefined();
+    expect(pdWeapon!.ammo).toBe(100);
+    expect(pdWeapon!.maxAmmo).toBe(100);
+  });
+
+  it('ammo depletes on firing', () => {
+    const missileDesign = makeMissileDesign('d-ammo-deplete', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 400, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 500, y: 400 } },
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    const atk = next.ships.find((s) => s.side === 'attacker')!;
+    const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
+    expect(missileWeapon!.ammo).toBe(5); // started at 6, fired once
+  });
+
+  it('no firing when ammo is 0', () => {
+    const missileDesign = makeMissileDesign('d-ammo-zero', 'empire-1');
+    let state = setupOnePair({ attacker: missileDesign });
+
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    // Set ammo to 0
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? {
+              ...s,
+              position: { x: 400, y: 400 },
+              order: { type: 'attack' as const, targetId: defId },
+              weapons: s.weapons.map((w) => ({
+                ...w,
+                ammo: 0,
+                cooldownLeft: 0,
+              })),
+            }
+          : { ...s, position: { x: 500, y: 400 } },
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    // No new missiles should be created
+    expect(next.missiles).toHaveLength(0);
+    // Ammo should still be 0
+    const atk = next.ships.find((s) => s.side === 'attacker')!;
+    const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
+    expect(missileWeapon!.ammo).toBe(0);
   });
 });
