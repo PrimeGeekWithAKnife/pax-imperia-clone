@@ -1363,13 +1363,14 @@ describe('missile mechanics', () => {
     let state = setupOnePair({ attacker: missileDesign });
 
     const defId = state.ships.find((s) => s.side === 'defender')!.id;
-    // Place them far apart so missile has time to accelerate
+    // Place within range (basic_missile range=8 -> 400 battlefield units)
+    // but far enough that missile needs time to travel
     state = {
       ...state,
       ships: state.ships.map((s) =>
         s.side === 'attacker'
-          ? { ...s, position: { x: 100, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
-          : { ...s, position: { x: 1400, y: 400 } },
+          ? { ...s, position: { x: 200, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 550, y: 400 } },
       ),
     };
 
