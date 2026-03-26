@@ -241,6 +241,16 @@ export interface BeamEffect {
 
 export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
 
+export type CombatLayout = 'open_space' | 'planetary_assault';
+
+export interface PlanetData {
+  name: string;
+  type: string;
+  defenceRating: number;  // from defense_grid buildings
+  shieldActive: boolean;  // from planetary_shield building (future)
+  orbitalGuns: number;    // from orbital weapon buildings
+}
+
 export type FormationType = 'line' | 'spearhead' | 'diamond' | 'wings';
 
 export interface FormationPosition {
@@ -275,6 +285,8 @@ export interface TacticalState {
   attackerFormation: FormationType;
   defenderFormation: FormationType;
   admirals: Admiral[];
+  layout: CombatLayout;
+  planetData?: PlanetData;
 }
 
 // ---------------------------------------------------------------------------
@@ -738,15 +750,25 @@ export function initializeTacticalCombat(
   defenderShips: Ship[],
   designs: Map<string, ShipDesign>,
   components: ShipComponent[],
+  layout: CombatLayout = 'open_space',
+  planetData?: PlanetData,
 ): TacticalState {
   const componentById = new Map(components.map((c) => [c.id, c]));
+
+  // For planetary assault, defenders are placed closer to the planet
+  const defenderBaseX = layout === 'planetary_assault'
+    ? BATTLEFIELD_WIDTH - 250
+    : BATTLEFIELD_WIDTH - 100;
+  const defenderBaseY = layout === 'planetary_assault'
+    ? BATTLEFIELD_HEIGHT - 200
+    : BATTLEFIELD_HEIGHT - 100;
 
   function buildSide(
     ships: Ship[],
     side: 'attacker' | 'defender',
   ): TacticalShip[] {
-    const baseX = side === 'attacker' ? 100 : BATTLEFIELD_WIDTH - 100;
-    const baseY = side === 'attacker' ? 100 : BATTLEFIELD_HEIGHT - 100;
+    const baseX = side === 'attacker' ? 100 : defenderBaseX;
+    const baseY = side === 'attacker' ? 100 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 
     return ships.map((ship, index) => {
@@ -786,9 +808,68 @@ export function initializeTacticalCombat(
     });
   }
 
+  const ships: TacticalShip[] = [
+    ...buildSide(attackerShips, 'attacker'),
+    ...buildSide(defenderShips, 'defender'),
+  ];
+
+  // Add orbital defence platforms for planetary assault
+  if (layout === 'planetary_assault' && planetData) {
+    const planetCX = BATTLEFIELD_WIDTH - 200;
+    const planetCY = BATTLEFIELD_HEIGHT - 150;
+    const gunCount = Math.max(1, planetData.orbitalGuns);
+
+    for (let i = 0; i < gunCount; i++) {
+      const angle = (i / gunCount) * Math.PI * 2;
+      const maxHullValue = Math.round(200 * (1 + planetData.defenceRating * 0.5));
+      const maxShieldsValue = Math.round(50 * planetData.defenceRating);
+      const armourValue = Math.round(30 * planetData.defenceRating);
+
+      ships.push({
+        id: `orbital-defense-${i}`,
+        sourceShipId: `orbital-defense-${i}`,
+        name: `Orbital Defence ${i + 1}`,
+        side: 'defender',
+        position: {
+          x: planetCX + Math.cos(angle) * 120,
+          y: planetCY + Math.sin(angle) * 120,
+        },
+        facing: angle + Math.PI, // face outward
+        speed: 0,
+        turnRate: Math.PI, // can rotate freely to aim
+        hull: maxHullValue,
+        maxHull: maxHullValue,
+        shields: maxShieldsValue,
+        maxShields: maxShieldsValue,
+        armour: armourValue,
+        weapons: [{
+          componentId: 'orbital_cannon',
+          type: 'projectile',
+          damage: 25,
+          range: 500,
+          accuracy: 80,
+          cooldownMax: 8,
+          cooldownLeft: 0,
+          facing: 'turret',
+          ammo: 200,
+          maxAmmo: 200,
+        }],
+        sensorRange: 600,
+        order: { type: 'idle' } as ShipOrder,
+        destroyed: false,
+        routed: false,
+        crew: {
+          morale: 90,
+          health: 100,
+          experience: 'veteran' as CrewExperience,
+        },
+      });
+    }
+  }
+
   return {
     tick: 0,
-    ships: [...buildSide(attackerShips, 'attacker'), ...buildSide(defenderShips, 'defender')],
+    ships,
     projectiles: [],
     missiles: [],
     fighters: [],
@@ -801,6 +882,8 @@ export function initializeTacticalCombat(
     attackerFormation: 'line',
     defenderFormation: 'line',
     admirals: [],
+    layout,
+    planetData,
   };
 }
 
@@ -1780,6 +1863,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     attackerFormation: state.attackerFormation,
     defenderFormation: state.defenderFormation,
     admirals: state.admirals ?? [],
+    layout: state.layout ?? 'open_space',
+    planetData: state.planetData,
   };
 }
 

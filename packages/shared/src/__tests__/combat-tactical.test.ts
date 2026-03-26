@@ -37,6 +37,7 @@ import type {
   Projectile,
   Admiral,
   CrewExperience,
+  PlanetData,
 } from '../engine/combat-tactical.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import { SHIP_COMPONENTS } from '../../data/ships/index.js';
@@ -2008,6 +2009,7 @@ function makeMinimalState(overrides?: Partial<TacticalState>): TacticalState {
     attackerFormation: 'line',
     defenderFormation: 'line',
     admirals: [],
+    layout: 'open_space',
     ...overrides,
   };
 }
@@ -2766,5 +2768,189 @@ describe('Crew initialisation', () => {
   it('state includes empty admirals array by default', () => {
     const state = setupOnePair();
     expect(state.admirals).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Planetary assault layout
+// ---------------------------------------------------------------------------
+
+describe('Planetary assault layout', () => {
+  const planetData: PlanetData = {
+    name: 'Terra Nova',
+    type: 'terran',
+    defenceRating: 2,
+    shieldActive: false,
+    orbitalGuns: 3,
+  };
+
+  function setupPlanetaryAssault(guns = 3, defenceRating = 2): TacticalState {
+    const attackerDesign = makeArmedDesign('d-atk-pa', 'empire-1');
+    const defenderDesign = makeArmedDesign('d-def-pa', 'empire-2');
+    const designs = new Map<string, ShipDesign>([
+      [attackerDesign.id, attackerDesign],
+      [defenderDesign.id, defenderDesign],
+    ]);
+
+    const attackerShips = [makeShip('atk-pa-1', attackerDesign.id)];
+    const defenderShips = [makeShip('def-pa-1', defenderDesign.id)];
+
+    return initializeTacticalCombat(
+      makeFleet('f-atk-pa', 'empire-1', ['atk-pa-1']),
+      makeFleet('f-def-pa', 'empire-2', ['def-pa-1']),
+      attackerShips,
+      defenderShips,
+      designs,
+      SHIP_COMPONENTS,
+      'planetary_assault',
+      { ...planetData, orbitalGuns: guns, defenceRating },
+    );
+  }
+
+  it('sets layout to planetary_assault', () => {
+    const state = setupPlanetaryAssault();
+    expect(state.layout).toBe('planetary_assault');
+  });
+
+  it('includes planet data in state', () => {
+    const state = setupPlanetaryAssault();
+    expect(state.planetData).toBeDefined();
+    expect(state.planetData!.name).toBe('Terra Nova');
+    expect(state.planetData!.type).toBe('terran');
+    expect(state.planetData!.defenceRating).toBe(2);
+    expect(state.planetData!.orbitalGuns).toBe(3);
+  });
+
+  it('places orbital defence platforms', () => {
+    const state = setupPlanetaryAssault(3);
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    expect(defences).toHaveLength(3);
+  });
+
+  it('orbital defences are immobile (speed 0)', () => {
+    const state = setupPlanetaryAssault(2);
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    for (const def of defences) {
+      expect(def.speed).toBe(0);
+    }
+  });
+
+  it('orbital defences are on the defender side', () => {
+    const state = setupPlanetaryAssault(2);
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    for (const def of defences) {
+      expect(def.side).toBe('defender');
+    }
+  });
+
+  it('orbital defences have turret-facing weapons', () => {
+    const state = setupPlanetaryAssault(1);
+    const def = state.ships.find(s => s.id === 'orbital-defense-0')!;
+    expect(def.weapons).toHaveLength(1);
+    expect(def.weapons[0].type).toBe('projectile');
+    expect(def.weapons[0].facing).toBe('turret');
+    expect(def.weapons[0].damage).toBe(25);
+    expect(def.weapons[0].range).toBe(500);
+  });
+
+  it('defence hull scales with defenceRating', () => {
+    const stateRating1 = setupPlanetaryAssault(1, 1);
+    const stateRating3 = setupPlanetaryAssault(1, 3);
+
+    const def1 = stateRating1.ships.find(s => s.id === 'orbital-defense-0')!;
+    const def3 = stateRating3.ships.find(s => s.id === 'orbital-defense-0')!;
+
+    // defenceRating=1: 200*(1+0.5)=300, defenceRating=3: 200*(1+1.5)=500
+    expect(def1.maxHull).toBe(300);
+    expect(def3.maxHull).toBe(500);
+  });
+
+  it('defence shields scale with defenceRating', () => {
+    const state = setupPlanetaryAssault(1, 2);
+    const def = state.ships.find(s => s.id === 'orbital-defense-0')!;
+    // 50 * 2 = 100
+    expect(def.maxShields).toBe(100);
+    expect(def.shields).toBe(100);
+  });
+
+  it('orbital defences are positioned near planet centre', () => {
+    const state = setupPlanetaryAssault(2);
+    const planetCX = BATTLEFIELD_WIDTH - 200;
+    const planetCY = BATTLEFIELD_HEIGHT - 150;
+
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    for (const def of defences) {
+      const dx = def.position.x - planetCX;
+      const dy = def.position.y - planetCY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Should be at radius ~120 from planet centre
+      expect(dist).toBeCloseTo(120, 0);
+    }
+  });
+
+  it('orbital defences have veteran crew', () => {
+    const state = setupPlanetaryAssault(1);
+    const def = state.ships.find(s => s.id === 'orbital-defense-0')!;
+    expect(def.crew.experience).toBe('veteran');
+    expect(def.crew.morale).toBe(90);
+  });
+
+  it('open_space layout has no orbital defences', () => {
+    const state = setupOnePair();
+    expect(state.layout).toBe('open_space');
+    expect(state.planetData).toBeUndefined();
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    expect(defences).toHaveLength(0);
+  });
+
+  it('guarantees at least 1 orbital gun even when orbitalGuns is 0', () => {
+    const state = setupPlanetaryAssault(0);
+    const defences = state.ships.filter(s => s.id.startsWith('orbital-defense-'));
+    // Math.max(1, 0) = 1
+    expect(defences).toHaveLength(1);
+  });
+
+  it('orbital defences can rotate freely (turnRate = PI)', () => {
+    const state = setupPlanetaryAssault(1);
+    const def = state.ships.find(s => s.id === 'orbital-defense-0')!;
+    expect(def.turnRate).toBeCloseTo(Math.PI, 5);
+  });
+
+  it('orbital defences fire at attackers during tick processing', () => {
+    // Seed Math.random so accuracy checks always succeed
+    const origRandom = Math.random;
+    Math.random = () => 0.01; // low value passes accuracy checks
+
+    try {
+      // Set up a planetary assault with one orbital defence and one attacker within range
+      const state = setupPlanetaryAssault(1, 2);
+      const def = state.ships.find(s => s.id === 'orbital-defense-0')!;
+      const atk = state.ships.find(s => s.side === 'attacker')!;
+
+      // Move the attacker within range of the orbital defence
+      const stateWithClose = {
+        ...state,
+        ships: state.ships.map(s => {
+          if (s.id === atk.id) {
+            return { ...s, position: { x: def.position.x - 200, y: def.position.y } };
+          }
+          return s;
+        }),
+      };
+
+      // Process enough ticks for the weapon to fire and projectile to hit
+      // cooldown is 8, projectile travel time ~200/8 = 25 ticks
+      let current = stateWithClose;
+      for (let i = 0; i < 40; i++) {
+        current = processTacticalTick(current);
+      }
+
+      // The attacker should have taken some damage from the orbital defence
+      const atkAfter = current.ships.find(s => s.id === atk.id)!;
+      const hullBefore = atk.hull;
+      expect(atkAfter.hull).toBeLessThan(hullBefore);
+    } finally {
+      Math.random = origRandom;
+    }
   });
 });

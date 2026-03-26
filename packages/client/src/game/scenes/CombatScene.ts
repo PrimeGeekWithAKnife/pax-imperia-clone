@@ -11,7 +11,7 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)
@@ -29,6 +29,8 @@ export interface CombatSceneData {
   defenderColor: string;
   attackerName: string;
   defenderName: string;
+  layout?: CombatLayout;
+  planetData?: PlanetData;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,35 @@ const SPEED_PRESETS: { label: string; msPerTick: number }[] = [
 ];
 
 const MARGIN = 80;
+
+/** Planetary assault visual constants */
+const PLANET_RADIUS = 400;
+const PLANET_ATMOSPHERE_GLOW_LAYERS = 8;
+const PLANET_ATMOSPHERE_GLOW_WIDTH = 40;
+
+/** Planet surface colour by type (fallback to grey). */
+const PLANET_SURFACE_COLOURS: Record<string, number> = {
+  terran: 0x1a3a2a,
+  ocean: 0x0a2a4a,
+  desert: 0x4a3a1a,
+  volcanic: 0x3a1a0a,
+  arctic: 0x2a3a4a,
+  barren: 0x2a2a2a,
+  gas_giant: 0x2a2a3a,
+  toxic: 0x2a3a1a,
+};
+
+/** Atmospheric glow colour by planet type. */
+const PLANET_ATMOSPHERE_COLOURS: Record<string, number> = {
+  terran: 0x4488cc,
+  ocean: 0x3388ee,
+  desert: 0xcc8844,
+  volcanic: 0xcc4422,
+  arctic: 0x88ccee,
+  barren: 0x666666,
+  gas_giant: 0xaa88cc,
+  toxic: 0x88cc44,
+};
 
 /** Available formation types for the HUD buttons. */
 const FORMATION_TYPES: { label: string; type: FormationType }[] = [
@@ -174,6 +205,8 @@ export class CombatScene extends Phaser.Scene {
       data.defenderShips,
       data.designs,
       data.components,
+      data.layout ?? 'open_space',
+      data.planetData,
     );
 
     // Track initial hull values for damage detection
@@ -184,6 +217,7 @@ export class CombatScene extends Phaser.Scene {
     // ── Background ─────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(BG_COLOR);
     this._drawStarfield();
+    this._drawPlanetEdge();
 
     // ── Camera ─────────────────────────────────────────────────────────────
     this._setupCamera();
@@ -263,6 +297,65 @@ export class CombatScene extends Phaser.Scene {
       gfx.fillStyle(0xffffff, alpha);
       gfx.fillCircle(x, y, radius);
     }
+  }
+
+  /**
+   * Draw a large curved planet edge in the bottom-right corner for
+   * planetary assault layout. The planet centre is positioned so only
+   * the curved edge is visible, with atmospheric glow layers.
+   */
+  private _drawPlanetEdge(): void {
+    if (this.tacticalState.layout !== 'planetary_assault') return;
+
+    const g = this.add.graphics();
+    const planetCX = this.tacticalState.battlefieldWidth - 200;
+    const planetCY = this.tacticalState.battlefieldHeight - 150;
+    const planetType = this.tacticalState.planetData?.type ?? 'terran';
+
+    const surfaceColour = PLANET_SURFACE_COLOURS[planetType] ?? 0x2a2a2a;
+    const atmosphereColour = PLANET_ATMOSPHERE_COLOURS[planetType] ?? 0x4488cc;
+
+    // Atmospheric glow — concentric arcs getting progressively fainter
+    for (let i = 0; i < PLANET_ATMOSPHERE_GLOW_LAYERS; i++) {
+      const r = PLANET_RADIUS + PLANET_ATMOSPHERE_GLOW_WIDTH - i * (PLANET_ATMOSPHERE_GLOW_WIDTH / PLANET_ATMOSPHERE_GLOW_LAYERS);
+      const alpha = ((PLANET_ATMOSPHERE_GLOW_LAYERS - i) / PLANET_ATMOSPHERE_GLOW_LAYERS) * 0.15;
+      g.lineStyle(3, atmosphereColour, alpha);
+      g.beginPath();
+      g.arc(planetCX, planetCY, r, Math.PI * 0.8, Math.PI * 1.8);
+      g.strokePath();
+    }
+
+    // Planet surface — solid filled circle
+    g.fillStyle(surfaceColour, 0.8);
+    g.beginPath();
+    g.arc(planetCX, planetCY, PLANET_RADIUS, 0, Math.PI * 2);
+    g.fillPath();
+
+    // Faint surface detail lines (continental/structural lines)
+    g.lineStyle(1, 0xffffff, 0.04);
+    for (let i = 0; i < 5; i++) {
+      const angle = Math.PI * 0.9 + i * 0.15;
+      const innerR = PLANET_RADIUS * 0.6;
+      const outerR = PLANET_RADIUS * 0.95;
+      g.beginPath();
+      g.arc(planetCX, planetCY, innerR + (outerR - innerR) * (i / 5), angle - 0.2, angle + 0.2);
+      g.strokePath();
+    }
+
+    // Planet name label
+    if (this.tacticalState.planetData?.name) {
+      const labelX = planetCX - PLANET_RADIUS * 0.3;
+      const labelY = planetCY - PLANET_RADIUS * 0.3;
+      const label = this.add.text(labelX, labelY, this.tacticalState.planetData.name, {
+        fontSize: '14px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+      });
+      label.setAlpha(0.25);
+      label.setDepth(1);
+    }
+
+    g.setDepth(0);
   }
 
   // =========================================================================

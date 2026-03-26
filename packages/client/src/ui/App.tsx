@@ -971,6 +971,7 @@ export function App(): React.ReactElement {
         beamEffects: [], pointDefenceEffects: [], environment: [],
         battlefieldWidth: 0, battlefieldHeight: 0, outcome: null,
         attackerFormation: 'line', defenderFormation: 'line', admirals: [],
+        layout: 'open_space',
       });
       engine.start();
     }
