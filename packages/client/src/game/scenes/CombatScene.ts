@@ -8,7 +8,7 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, EnvironmentFeature } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)

@@ -12,17 +12,10 @@ import {
   setFormation,
   defaultWeaponFacing,
   pointToSegmentDistance,
-  checkCollateralDamage,
   findNearestEnemyFighter,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
   PROJECTILE_SPEED,
-  FRIENDLY_FIRE_PROJECTILE_RADIUS,
-  FRIENDLY_FIRE_BEAM_RADIUS,
-  BEAM_COLLATERAL_CHANCE,
-  ASTEROID_DODGE_BONUS,
-  NEBULA_BEAM_DAMAGE_FACTOR,
-  DEBRIS_TICK_DAMAGE,
   DEBRIS_RADIUS,
 } from '../engine/combat-tactical.js';
 import type {
@@ -1908,5 +1901,388 @@ describe('Fighter / carrier mechanics', () => {
     expect(bay!.maxAmmo).toBe(4);
     // Per-fighter damage, not aggregate
     expect(bay!.damage).toBe(8); // light_fighter_bay: damage = 8
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Friendly fire + Environmental hazards tests
+// ---------------------------------------------------------------------------
+
+/** Build a minimal TacticalShip for unit tests. */
+function makeTacticalShip(overrides: Partial<TacticalShip> & { id: string; side: TacticalShip['side'] }): TacticalShip {
+  return {
+    sourceShipId: overrides.id,
+    name: `Ship ${overrides.id}`,
+    position: { x: 0, y: 0 },
+    facing: 0,
+    speed: 2,
+    turnRate: 0.08,
+    hull: 100,
+    maxHull: 100,
+    shields: 0,
+    maxShields: 0,
+    armour: 0,
+    weapons: [],
+    sensorRange: 200,
+    order: { type: 'idle' as const },
+    destroyed: false,
+    routed: false,
+    ...overrides,
+  };
+}
+
+/** Build a minimal TacticalState for unit tests. */
+function makeMinimalState(overrides?: Partial<TacticalState>): TacticalState {
+  return {
+    tick: 0,
+    ships: [],
+    projectiles: [],
+    missiles: [],
+    fighters: [],
+    beamEffects: [],
+    pointDefenceEffects: [],
+    environment: [],
+    battlefieldWidth: BATTLEFIELD_WIDTH,
+    battlefieldHeight: BATTLEFIELD_HEIGHT,
+    outcome: null,
+    attackerFormation: 'line',
+    defenderFormation: 'line',
+    ...overrides,
+  };
+}
+
+describe('Friendly fire', () => {
+  it('projectile hits friendly ship when target is destroyed', () => {
+    const source = makeTacticalShip({
+      id: 'atk-source',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+    });
+    const friendly = makeTacticalShip({
+      id: 'atk-bystander',
+      side: 'attacker',
+      position: { x: 500, y: 500 },
+      hull: 50,
+      maxHull: 100,
+    });
+    const deadTarget = makeTacticalShip({
+      id: 'def-target',
+      side: 'defender',
+      position: { x: 800, y: 800 },
+      destroyed: true,
+      hull: 0,
+    });
+
+    const projectile: Projectile = {
+      id: 'proj-1',
+      position: { x: 500, y: 500 },
+      speed: PROJECTILE_SPEED,
+      damage: 10,
+      sourceShipId: 'atk-source',
+      targetShipId: 'def-target',
+    };
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, friendly, deadTarget],
+        projectiles: [projectile],
+      });
+
+      const next = processTacticalTick(state);
+      expect(next.projectiles).toHaveLength(0);
+      const bystander = next.ships.find((s) => s.id === 'atk-bystander')!;
+      expect(bystander.hull).toBeLessThan(50);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('beam has chance of collateral damage on bystander ship', () => {
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+      facing: 0,
+      weapons: [{
+        componentId: 'test-beam',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100 },
+      hull: 100,
+      maxHull: 100,
+    });
+    const bystander = makeTacticalShip({
+      id: 'atk-bystander',
+      side: 'attacker',
+      position: { x: 300, y: 105 },
+      hull: 80,
+      maxHull: 100,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.01;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, bystander, target],
+      });
+
+      const next = processTacticalTick(state);
+      const hit = next.ships.find((s) => s.id === 'atk-bystander')!;
+      expect(hit.hull).toBeLessThan(80);
+      const collateralBeam = next.beamEffects.find(
+        (b) => b.targetShipId === 'atk-bystander',
+      );
+      expect(collateralBeam).toBeDefined();
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('Environmental hazards', () => {
+  it('asteroid provides cover (dodge chance) for ships inside', () => {
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 200 },
+      hull: 50,
+      maxHull: 100,
+    });
+
+    const asteroid: EnvironmentFeature = {
+      id: 'asteroid-cover',
+      type: 'asteroid',
+      x: 200,
+      y: 200,
+      radius: 40,
+    };
+
+    const projectile: Projectile = {
+      id: 'proj-1',
+      position: { x: 200, y: 200 },
+      speed: PROJECTILE_SPEED,
+      damage: 10,
+      sourceShipId: 'atk-1',
+      targetShipId: 'def-1',
+    };
+
+    const origRandom = Math.random;
+    Math.random = () => 0.1;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, target],
+        projectiles: [projectile],
+        environment: [asteroid],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      expect(def.hull).toBe(50);
+      expect(next.projectiles).toHaveLength(0);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('nebula reduces beam damage by 50%', () => {
+    const nebula: EnvironmentFeature = {
+      id: 'nebula-1',
+      type: 'nebula',
+      x: 300,
+      y: 100,
+      radius: 100,
+    };
+
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+      facing: 0,
+      weapons: [{
+        componentId: 'test-beam',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100 },
+      hull: 100,
+      maxHull: 100,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const stateNoNebula = makeMinimalState({
+        ships: [{ ...source }, { ...target }],
+        environment: [],
+      });
+      const nextNoNebula = processTacticalTick(stateNoNebula);
+      const targetNoNebula = nextNoNebula.ships.find((s) => s.id === 'def-1')!;
+
+      const stateWithNebula = makeMinimalState({
+        ships: [
+          { ...source, weapons: source.weapons.map((w) => ({ ...w, cooldownLeft: 0 })) },
+          { ...target },
+        ],
+        environment: [nebula],
+      });
+      const nextWithNebula = processTacticalTick(stateWithNebula);
+      const targetWithNebula = nextWithNebula.ships.find((s) => s.id === 'def-1')!;
+
+      expect(targetWithNebula.hull).toBeGreaterThan(targetNoNebula.hull);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('debris damages ships passing through each tick', () => {
+    const debris: EnvironmentFeature = {
+      id: 'debris-old',
+      type: 'debris',
+      x: 400,
+      y: 400,
+      radius: 30,
+    };
+
+    const shipInDebris = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 400, y: 400 },
+      hull: 50,
+      maxHull: 100,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+    });
+    const shipOutside = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 800, y: 800 },
+      hull: 50,
+      maxHull: 100,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const state = makeMinimalState({
+        ships: [shipInDebris, shipOutside],
+        environment: [debris],
+      });
+
+      const next = processTacticalTick(state);
+      const inDebris = next.ships.find((s) => s.id === 'atk-1')!;
+      const outside = next.ships.find((s) => s.id === 'def-1')!;
+
+      expect(inDebris.hull).toBeLessThan(50);
+      expect(outside.hull).toBe(50);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('debris is created when a ship is destroyed', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const source = makeTacticalShip({
+        id: 'atk-1',
+        side: 'attacker',
+        position: { x: 100, y: 100 },
+      });
+      const target = makeTacticalShip({
+        id: 'def-1',
+        side: 'defender',
+        position: { x: 200, y: 200 },
+        hull: 1,
+        maxHull: 100,
+        shields: 0,
+        maxShields: 0,
+        armour: 0,
+      });
+
+      const projectile: Projectile = {
+        id: 'proj-kill',
+        position: { x: 200, y: 200 },
+        speed: PROJECTILE_SPEED,
+        damage: 50,
+        sourceShipId: 'atk-1',
+        targetShipId: 'def-1',
+      };
+
+      const state = makeMinimalState({
+        ships: [source, target],
+        projectiles: [projectile],
+        environment: [],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      expect(def.destroyed).toBe(true);
+
+      const debris = next.environment.find((e) => e.type === 'debris');
+      expect(debris).toBeDefined();
+      expect(debris!.id).toBe('debris-def-1');
+      expect(debris!.radius).toBe(DEBRIS_RADIUS);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('initializeTacticalCombat places asteroids and possibly nebulae', () => {
+    const state = setupOnePair();
+    expect(state.environment).toBeDefined();
+    expect(state.environment.length).toBeGreaterThanOrEqual(3);
+    for (const f of state.environment) {
+      expect(['asteroid', 'nebula']).toContain(f.type);
+    }
+  });
+});
+
+describe('pointToSegmentDistance', () => {
+  it('returns 0 when point is on the segment', () => {
+    expect(pointToSegmentDistance(5, 5, 0, 0, 10, 10)).toBeCloseTo(0, 5);
+  });
+
+  it('returns correct perpendicular distance', () => {
+    expect(pointToSegmentDistance(5, 3, 0, 0, 10, 0)).toBeCloseTo(3, 5);
+  });
+
+  it('returns distance to nearest endpoint when projection falls outside', () => {
+    expect(pointToSegmentDistance(15, 0, 0, 0, 10, 0)).toBeCloseTo(5, 5);
   });
 });
