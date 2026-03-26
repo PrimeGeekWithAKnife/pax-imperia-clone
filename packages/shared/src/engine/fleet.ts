@@ -143,6 +143,7 @@ export function splitFleet(
     destination: null,
     waypoints: [],
     stance: fleet.stance,
+    orbitTarget: fleet.orbitTarget ?? 'star',
   };
 
   return { original, newFleet };

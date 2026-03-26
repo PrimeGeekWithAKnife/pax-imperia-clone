@@ -821,6 +821,15 @@ export function App(): React.ReactElement {
     setFleetShips([]);
   }, []);
 
+  const handleSetOrbitTarget = useCallback((fleetId: string, orbitTarget: string) => {
+    const engine = getGameEngine();
+    if (engine) {
+      engine.setFleetOrbitTarget(fleetId, orbitTarget);
+      // Update the local selectedFleet so the dropdown reflects the change immediately
+      setSelectedFleet(prev => prev && prev.id === fleetId ? { ...prev, orbitTarget } : prev);
+    }
+  }, []);
+
   // Engine emits 'engine:ship_produced' when a ship completes construction
   const handleShipProduced = useCallback(
     (payload: { shipName: string; systemId: string }) => {
@@ -1788,6 +1797,10 @@ export function App(): React.ReactElement {
             galaxy?.systems.find(s => s.id === selectedFleet.position.systemId)?.name
             ?? selectedFleet.position.systemId
           }
+          planets={
+            galaxy?.systems.find(s => s.id === selectedFleet.position.systemId)?.planets ?? []
+          }
+          onSetOrbitTarget={handleSetOrbitTarget}
           onClose={handleFleetDeselected}
         />
       )}

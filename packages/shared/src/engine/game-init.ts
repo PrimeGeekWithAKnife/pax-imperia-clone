@@ -218,6 +218,7 @@ export function createStartingFleet(
     destination: null,
     waypoints: [],
     stance: 'defensive',
+    orbitTarget: 'star',
   };
 
   return { fleet, ships };

@@ -1694,6 +1694,7 @@ function stepShipProduction(state: GameTickState): GameTickState {
           destination: null,
           waypoints: [],
           stance: 'defensive',
+          orbitTarget: 'star',
         };
         fleets = [...fleets, newFleet];
         ships = [...ships, { ...newShip, fleetId: newFleetId }];

@@ -292,6 +292,7 @@ export class SystemViewScene extends Phaser.Scene {
         badge.destroy();
       }
       this.fleetBadges.clear();
+      this.fleetOrbitState.clear();
       this.game.events.emit('system:exited');
     });
   }
@@ -304,6 +305,12 @@ export class SystemViewScene extends Phaser.Scene {
       const py = Math.sin(entry.angle) * entry.orbitRadius;
       entry.container.setPosition(px, py);
     }
+
+    // Animate fleet orbits
+    for (const [, state] of this.fleetOrbitState) {
+      state.angle += state.speed * delta;
+    }
+    this._updateFleetPositions();
 
     // Update colony ship animations
     this._updateMigrationAnimations(delta);
@@ -666,6 +673,9 @@ export class SystemViewScene extends Phaser.Scene {
    */
   private fleetBadges: Map<string, Phaser.GameObjects.Container> = new Map();
 
+  /** Per-fleet orbit animation state: angle, speed, and radius. */
+  private fleetOrbitState: Map<string, { angle: number; speed: number; radius: number }> = new Map();
+
   /**
    * Render ONE fleet icon per fleet currently positioned in this system.
    * Uses the largest hull class in the fleet as the representative icon,
@@ -693,6 +703,7 @@ export class SystemViewScene extends Phaser.Scene {
       if (!currentFleetIds.has(id)) {
         for (const o of objects) o.destroy();
         this.shipSprites.delete(id);
+        this.fleetOrbitState.delete(id);
       }
     }
 
@@ -723,9 +734,43 @@ export class SystemViewScene extends Phaser.Scene {
         }
       }
 
-      // World-space position: offset each fleet vertically so they don't overlap
-      const wx = 50 + fleetIdx * 40;
-      const wy = -60 - fleetIdx * 30;
+      // Orbit-based positioning — fleets orbit the star or their assigned planet
+      const maxOrbitRadius = this.orbitEntries.length > 0
+        ? Math.max(...this.orbitEntries.map(e => e.orbitRadius))
+        : 200;
+
+      // Group fleets by orbit target to spread them evenly per-group
+      const sameTargetFleets = fleetsInSystem.filter(
+        f => (f.orbitTarget ?? 'star') === (fleet.orbitTarget ?? 'star'),
+      );
+      const indexInGroup = sameTargetFleets.indexOf(fleet);
+      const groupSize = sameTargetFleets.length;
+
+      let orbitState = this.fleetOrbitState.get(fleet.id);
+      if (!orbitState) {
+        const angle = (indexInGroup / groupSize) * Math.PI * 2;
+        orbitState = {
+          angle,
+          speed: 0.0003,
+          radius: fleet.orbitTarget && fleet.orbitTarget !== 'star' ? 25 : maxOrbitRadius + 80,
+        };
+        this.fleetOrbitState.set(fleet.id, orbitState);
+      }
+
+      let wx: number, wy: number;
+      if (fleet.orbitTarget && fleet.orbitTarget !== 'star') {
+        const planetPos = this._getPlanetWorldPos(fleet.orbitTarget);
+        if (planetPos) {
+          wx = planetPos.x + Math.cos(orbitState.angle) * orbitState.radius;
+          wy = planetPos.y + Math.sin(orbitState.angle) * orbitState.radius;
+        } else {
+          wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
+          wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+        }
+      } else {
+        wx = Math.cos(orbitState.angle) * orbitState.radius;
+        wy = Math.sin(orbitState.angle) * orbitState.radius;
+      }
 
       const empireColor = empireColours.get(fleet.empireId) ?? '#4488cc';
 
@@ -860,6 +905,57 @@ export class SystemViewScene extends Phaser.Scene {
       }
     });
     container.add(hitArea);
+  }
+
+  /**
+   * Reposition existing fleet icons each frame based on their orbit state.
+   * Lighter than full `_renderShipIndicators` — only moves, no create/destroy.
+   */
+  private _updateFleetPositions(): void {
+    const engine = getGameEngine();
+    if (!engine) return;
+    const state = engine.getState();
+    const fleets = state.gameState.fleets.filter(f => f.position.systemId === this.system.id);
+
+    const maxOrbitRadius = this.orbitEntries.length > 0
+      ? Math.max(...this.orbitEntries.map(e => e.orbitRadius))
+      : 200;
+
+    for (const fleet of fleets) {
+      const objects = this.shipSprites.get(fleet.id);
+      const orbitState = this.fleetOrbitState.get(fleet.id);
+      if (!objects || !orbitState) continue;
+
+      let wx: number, wy: number;
+      if (fleet.orbitTarget && fleet.orbitTarget !== 'star') {
+        const planetPos = this._getPlanetWorldPos(fleet.orbitTarget);
+        if (planetPos) {
+          wx = planetPos.x + Math.cos(orbitState.angle) * orbitState.radius;
+          wy = planetPos.y + Math.sin(orbitState.angle) * orbitState.radius;
+        } else {
+          wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
+          wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+        }
+      } else {
+        wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
+        wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+      }
+
+      // Move all game objects that make up this fleet icon
+      for (const obj of objects) {
+        if (obj instanceof Phaser.GameObjects.Container) {
+          obj.setPosition(wx, wy);
+        } else if (obj instanceof Phaser.GameObjects.Image) {
+          obj.setPosition(wx, wy);
+        } else if (obj instanceof Phaser.GameObjects.Arc) {
+          // Hit-area circle
+          obj.setPosition(wx, wy);
+        } else if (obj instanceof Phaser.GameObjects.Text) {
+          // Label — offset from the icon centre
+          obj.setPosition(wx + 32 * 0.6, wy - 32 * 0.3);
+        }
+      }
+    }
   }
 
   // ── Game event SFX handlers ───────────────────────────────────────────────────
