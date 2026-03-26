@@ -61,12 +61,15 @@ import {
   createNotification,
   ZONE_COST_MULTIPLIER,
   generateBattleReport,
+  addAgentToState,
+  assignMission as assignMissionFn,
+  SPY_RECRUIT_COST,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
-import type { ResearchState, Governor } from '@nova-imperia/shared';
+import type { ResearchState, Governor, SpyAgent, SpyMission } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -292,6 +295,12 @@ export class GameEngine {
           break;
       }
     }
+
+    // ── Emit espionage state so the UI stays in sync ─────────────────────
+    this.game.events.emit('engine:espionage_updated', {
+      espionageState: this.tickState.espionageState,
+      espionageEventLog: this.tickState.espionageEventLog,
+    });
 
     // ── Emit ship-produced notifications for each newly spawned ship ────────
     for (const ship of this.tickState.gameState.ships) {
@@ -1519,6 +1528,86 @@ export class GameEngine {
   /** Return the current tick state snapshot. */
   getState(): GameTickState {
     return this.tickState;
+  }
+
+  // ── Espionage ────────────────────────────────────────────────────────────
+
+  /**
+   * Recruit a spy agent for the player empire.
+   * Deducts SPY_RECRUIT_COST from the empire's credit stockpile.
+   * Returns false if the empire cannot afford it.
+   */
+  recruitPlayerSpy(agent: SpyAgent): boolean {
+    const playerEmpire = this.tickState.gameState.empires.find(e => !e.isAI);
+    if (!playerEmpire) return false;
+
+    const resources = this.tickState.empireResourcesMap.get(playerEmpire.id);
+    if (!resources || resources.credits < SPY_RECRUIT_COST) return false;
+
+    // Deduct cost
+    const updatedResources = { ...resources, credits: resources.credits - SPY_RECRUIT_COST };
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(playerEmpire.id, updatedResources);
+
+    // Update empire credits for consistency
+    const updatedEmpires = this.tickState.gameState.empires.map(e =>
+      e.id === playerEmpire.id ? { ...e, credits: updatedResources.credits } : e,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      espionageState: addAgentToState(this.tickState.espionageState, agent),
+      empireResourcesMap: updatedResourcesMap,
+      gameState: {
+        ...this.tickState.gameState,
+        empires: updatedEmpires,
+      },
+    };
+
+    // Emit updated resources and espionage state
+    this.game.events.emit('engine:espionage_updated', {
+      espionageState: this.tickState.espionageState,
+      espionageEventLog: this.tickState.espionageEventLog,
+    });
+    this.game.events.emit('engine:resources_updated', this.tickState.gameState.empires.map(e => {
+      const full = this.tickState.empireResourcesMap.get(e.id);
+      return {
+        empireId: e.id,
+        credits: full?.credits ?? e.credits,
+        minerals: full?.minerals ?? 0,
+        energy: full?.energy ?? 0,
+        organics: full?.organics ?? 0,
+        rareElements: full?.rareElements ?? 0,
+        exoticMaterials: full?.exoticMaterials ?? 0,
+        faith: full?.faith ?? 0,
+        researchPoints: full?.researchPoints ?? e.researchPoints,
+      };
+    }));
+
+    return true;
+  }
+
+  /**
+   * Assign (or reassign) a mission and target to an existing spy agent.
+   */
+  assignSpyMission(agentId: string, targetEmpireId: string, mission: SpyMission): void {
+    const agent = this.tickState.espionageState.agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    const updated = assignMissionFn(agent, targetEmpireId, mission);
+    this.tickState = {
+      ...this.tickState,
+      espionageState: {
+        ...this.tickState.espionageState,
+        agents: this.tickState.espionageState.agents.map(a => a.id === agentId ? updated : a),
+        counterIntelLevel: new Map(this.tickState.espionageState.counterIntelLevel),
+      },
+    };
+
+    this.game.events.emit('engine:espionage_updated', {
+      espionageState: this.tickState.espionageState,
+      espionageEventLog: this.tickState.espionageEventLog,
+    });
   }
 
   /**

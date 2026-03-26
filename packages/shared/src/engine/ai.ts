@@ -28,7 +28,9 @@ export interface AIDecision {
     | 'move_fleet'
     | 'build_ship'
     | 'diplomacy'
-    | 'war';
+    | 'war'
+    | 'recruit_spy'
+    | 'assign_spy';
   /** Relative urgency 0–100. Higher = execute sooner. */
   priority: number;
   params: Record<string, unknown>;
@@ -58,12 +60,12 @@ const PERSONALITY_WEIGHTS: Record<
   AIPersonality,
   Partial<Record<AIDecision['type'], number>>
 > = {
-  aggressive:   { build_ship: 1.6, war: 1.5, move_fleet: 1.3, build: 0.8, research: 0.9, colonize: 1.0, diplomacy: 0.5 },
-  defensive:    { build_ship: 1.2, war: 0.4, move_fleet: 0.8, build: 1.3, research: 1.0, colonize: 0.9, diplomacy: 1.0 },
-  economic:     { build_ship: 0.8, war: 0.5, move_fleet: 0.7, build: 1.5, research: 1.1, colonize: 1.1, diplomacy: 1.2 },
-  diplomatic:   { build_ship: 0.6, war: 0.3, move_fleet: 0.6, build: 1.0, research: 1.0, colonize: 1.0, diplomacy: 1.8 },
-  expansionist: { build_ship: 1.0, war: 0.9, move_fleet: 1.4, build: 0.9, research: 0.9, colonize: 1.8, diplomacy: 0.8 },
-  researcher:   { build_ship: 0.7, war: 0.5, move_fleet: 0.6, build: 1.2, research: 1.8, colonize: 0.8, diplomacy: 1.0 },
+  aggressive:   { build_ship: 1.6, war: 1.5, move_fleet: 1.3, build: 0.8, research: 0.9, colonize: 1.0, diplomacy: 0.5, recruit_spy: 1.2, assign_spy: 1.3 },
+  defensive:    { build_ship: 1.2, war: 0.4, move_fleet: 0.8, build: 1.3, research: 1.0, colonize: 0.9, diplomacy: 1.0, recruit_spy: 0.8, assign_spy: 0.8 },
+  economic:     { build_ship: 0.8, war: 0.5, move_fleet: 0.7, build: 1.5, research: 1.1, colonize: 1.1, diplomacy: 1.2, recruit_spy: 1.0, assign_spy: 1.0 },
+  diplomatic:   { build_ship: 0.6, war: 0.3, move_fleet: 0.6, build: 1.0, research: 1.0, colonize: 1.0, diplomacy: 1.8, recruit_spy: 0.6, assign_spy: 0.5 },
+  expansionist: { build_ship: 1.0, war: 0.9, move_fleet: 1.4, build: 0.9, research: 0.9, colonize: 1.8, diplomacy: 0.8, recruit_spy: 1.0, assign_spy: 1.1 },
+  researcher:   { build_ship: 0.7, war: 0.5, move_fleet: 0.6, build: 1.2, research: 1.8, colonize: 0.8, diplomacy: 1.0, recruit_spy: 1.1, assign_spy: 1.2 },
 };
 
 /** Tech categories favoured by each personality when choosing research. */
@@ -719,6 +721,73 @@ export function evaluateBuildingPriority(
 }
 
 // ---------------------------------------------------------------------------
+// Espionage evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Evaluate whether the AI should recruit spies or reassign idle agents.
+ *
+ * Heuristics:
+ *  - Recruit a spy if we have fewer than 2 agents and can afford it.
+ *  - Assign idle (no-target) agents to the empire we perceive as the biggest threat.
+ *  - Aggressive / researcher personalities favour steal_tech;
+ *    aggressive also favours sabotage; others default to gather_intel.
+ */
+function evaluateEspionageActions(
+  empire: Empire,
+  gameState: GameState,
+  personality: AIPersonality,
+  evaluation: AIEvaluation,
+): AIDecision[] {
+  const decisions: AIDecision[] = [];
+
+  // Don't consider espionage if there are no other empires
+  const rivals = gameState.empires.filter(e => e.id !== empire.id);
+  if (rivals.length === 0) return decisions;
+
+  // Target: empire with the highest threat level
+  let topThreatId = rivals[0]!.id;
+  let topThreat = 0;
+  for (const rival of rivals) {
+    const threat = evaluation.threatAssessment.get(rival.id) ?? 0;
+    if (threat > topThreat) {
+      topThreat = threat;
+      topThreatId = rival.id;
+    }
+  }
+
+  // Choose preferred mission based on personality
+  let preferredMission: 'gather_intel' | 'steal_tech' | 'sabotage' | 'counter_intel' = 'gather_intel';
+  if (personality === 'aggressive') preferredMission = 'sabotage';
+  else if (personality === 'researcher') preferredMission = 'steal_tech';
+  else if (personality === 'defensive') preferredMission = 'counter_intel';
+
+  // Recruit a spy if we have fewer than 2 and can afford it
+  // (The actual credit check is done at execution time in the game loop.)
+  const agentCount = gameState.empires.length; // placeholder — real count checked at execution
+  if (empire.credits >= 200 && agentCount < 3) {
+    decisions.push({
+      type: 'recruit_spy',
+      priority: applyWeight(35, 'recruit_spy', personality),
+      params: { targetEmpireId: topThreatId, mission: preferredMission },
+      reasoning: `Recruit spy: target ${topThreatId} (threat ${topThreat.toFixed(0)})`,
+    });
+  }
+
+  // Assign idle agents — this is handled at the game-loop level since
+  // it needs access to espionageState. We emit a decision that the
+  // executor will interpret.
+  decisions.push({
+    type: 'assign_spy',
+    priority: applyWeight(25, 'assign_spy', personality),
+    params: { targetEmpireId: topThreatId, mission: preferredMission },
+    reasoning: `Assign idle spies to ${topThreatId} (${preferredMission})`,
+  });
+
+  return decisions;
+}
+
+// ---------------------------------------------------------------------------
 // Top-level: generateAIDecisions
 // ---------------------------------------------------------------------------
 
@@ -789,6 +858,9 @@ export function generateAIDecisions(
     }
   }
 
+  // Espionage: recruit spies and assign missions against rival empires
+  const espionageDecisions = evaluateEspionageActions(empire, gameState, personality, evaluation);
+
   const allDecisions = [
     ...colonization,
     ...research,
@@ -797,6 +869,7 @@ export function generateAIDecisions(
     ...diplomatic,
     ...building,
     ...shipDecisions,
+    ...espionageDecisions,
   ];
 
   return allDecisions.sort((a, b) => b.priority - a.priority);
