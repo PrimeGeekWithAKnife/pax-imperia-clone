@@ -27,3 +27,5 @@ export { EspionageScreen } from './EspionageScreen';
 export type { EspionageScreenProps } from './EspionageScreen';
 export { MultiplayerLobbyScreen } from './MultiplayerLobbyScreen';
 export type { MultiplayerLobbyScreenProps } from './MultiplayerLobbyScreen';
+export { CombatTriggerDialog } from './CombatTriggerDialog';
+export type { CombatTriggerDialogProps } from './CombatTriggerDialog';
