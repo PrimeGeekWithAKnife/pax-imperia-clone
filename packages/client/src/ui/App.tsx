@@ -968,7 +968,7 @@ export function App(): React.ReactElement {
       // Clear pending combats and resume — fleeing means no battle takes place
       engine.applyTacticalCombatResult({
         tick: 0, ships: [], projectiles: [], beamEffects: [],
-        battlefieldWidth: 0, battlefieldHeight: 0,
+        battlefieldWidth: 0, battlefieldHeight: 0, outcome: null,
       });
       engine.start();
     }
