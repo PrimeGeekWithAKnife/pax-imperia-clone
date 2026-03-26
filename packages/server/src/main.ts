@@ -82,25 +82,10 @@ async function bootstrap(): Promise<void> {
 
   // ── Server-side save files ────────────────────────────────────────────────
 
-  // Accept up to 50 MB save payloads
-  fastify.addContentTypeParser('application/json', { bodyLimit: 50 * 1024 * 1024 }, (
-    _request,
-    payload,
-    done,
-  ) => {
-    let data = '';
-    payload.on('data', (chunk: string) => { data += chunk; });
-    payload.on('end', () => {
-      try {
-        done(null, JSON.parse(data));
-      } catch (err) {
-        done(err as Error, undefined);
-      }
-    });
-  });
-
   /** POST /api/saves — write a save file to the server. */
-  fastify.post<{ Body: { name: string; data: unknown } }>('/api/saves', async (request, reply) => {
+  fastify.post<{ Body: { name: string; data: unknown } }>('/api/saves', {
+    bodyLimit: 50 * 1024 * 1024, // 50 MB
+  }, async (request, reply) => {
     const { name, data } = request.body as { name?: string; data?: unknown };
     if (!name || typeof name !== 'string' || !data) {
       return reply.status(400).send({ error: 'Missing "name" or "data" in request body.' });

@@ -12,6 +12,7 @@
 import type { Building, BuildingType } from '../types/galaxy.js';
 import type { PlanetEnergyState } from '../types/waste.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import { BUILDING_LEVEL_MULTIPLIER } from '../constants/resources.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,7 +65,7 @@ export function calculateEnergyProduction(buildings: Building[]): number {
     const def = BUILDING_DEFINITIONS[building.type as BuildingType];
     const baseProduction = def?.baseProduction?.energy ?? 0;
     if (baseProduction > 0) {
-      total += baseProduction;
+      total += baseProduction * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1);
     }
   }
 
@@ -97,7 +98,7 @@ export function calculateEnergyDemand(
 
     const def = BUILDING_DEFINITIONS[building.type as BuildingType];
     const consumption = def?.energyConsumption ?? 0;
-    total += consumption;
+    total += consumption * Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1);
   }
 
   return total;

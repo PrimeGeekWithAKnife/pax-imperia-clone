@@ -64,7 +64,7 @@ import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
-import type { ResearchState } from '@nova-imperia/shared';
+import type { ResearchState, Governor } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -966,6 +966,29 @@ export class GameEngine {
         this.colonisePlanet(systemId, planetId, empireId);
         break;
       }
+      case 'ColonizePlanet': {
+        // Fleet-based inter-system colonisation via colony ship.
+        // Push onto pendingActions so the shared game loop processes it next tick.
+        const fleetId = action.fleetId as string;
+        const planetId = action.planetId as string;
+        const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+        if (!fleet) {
+          console.warn(`[GameEngine.executeAction] Fleet "${fleetId}" not found for ColonizePlanet`);
+          break;
+        }
+        this.tickState = {
+          ...this.tickState,
+          pendingActions: [
+            ...this.tickState.pendingActions,
+            {
+              empireId: fleet.empireId,
+              action: { type: 'ColonizePlanet' as const, fleetId, planetId },
+              tick: this.tickState.gameState.currentTick,
+            },
+          ],
+        };
+        break;
+      }
       default:
         console.warn(`[GameEngine.executeAction] Unknown action type: ${action.type}`);
         break;
@@ -1289,6 +1312,11 @@ export class GameEngine {
    * Emits 'engine:state_loaded' with the new GameState so Phaser scenes and
    * React components can refresh their caches.
    */
+  /** Replace the governors array in the tick state. */
+  setGovernors(governors: Governor[]): void {
+    this.tickState = { ...this.tickState, governors };
+  }
+
   loadState(newState: GameTickState): void {
     this._clearInterval();
     this.running = false;

@@ -47,7 +47,9 @@ import type {
   GovernorDiedEvent,
   GovernorAppointedEvent,
 } from '../types/events.js';
-import { GAME_SPEEDS } from '../constants/game.js';
+import { GAME_SPEEDS, TECH_AGES } from '../constants/game.js';
+import { SHIP_COMPONENTS } from '../../data/ships/index.js';
+import { generateDefaultDesigns, getAvailableComponents } from './ship-design.js';
 import {
   BASE_CONSTRUCTION_RATE,
   FACTORY_CONSTRUCTION_OUTPUT,
@@ -1742,6 +1744,7 @@ function stepResearch(
 ): GameTickState {
   const tick = state.gameState.currentTick;
   const newResearchStates = new Map(state.researchStates);
+  const updatedShipDesigns = new Map(state.shipDesigns ?? new Map<string, ShipDesign>());
   let empires = state.gameState.empires;
 
   for (const empire of state.gameState.empires) {
@@ -1790,6 +1793,23 @@ function stepResearch(
 
     if (completed.length > 0) {
       empires = empires.map(e => (e.id === empire.id ? updatedEmpire : e));
+
+      // Generate default designs for any newly unlocked hull types
+      if (updatedEmpire.currentAge !== empire.currentAge) {
+        const availableComponents = getAvailableComponents(
+          SHIP_COMPONENTS,
+          updatedEmpire.technologies,
+        );
+        const newDefaults = generateDefaultDesigns(
+          updatedEmpire.currentAge,
+          updatedEmpire.id,
+          updatedShipDesigns,
+          availableComponents,
+        );
+        for (const d of newDefaults) {
+          updatedShipDesigns.set(d.id, d);
+        }
+      }
     }
   }
 
@@ -1797,6 +1817,7 @@ function stepResearch(
     ...state,
     researchStates: newResearchStates,
     gameState: { ...state.gameState, empires },
+    shipDesigns: updatedShipDesigns,
   };
 }
 
@@ -2135,6 +2156,21 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     }
   }
 
+  // Generate default ship designs for starting age hulls
+  const shipDesigns = new Map<string, ShipDesign>();
+  for (const empire of gameState.empires) {
+    const startingComponents = SHIP_COMPONENTS.filter(c => c.requiredTech === null);
+    const defaults = generateDefaultDesigns(
+      empire.currentAge,
+      empire.id,
+      shipDesigns,
+      startingComponents,
+    );
+    for (const d of defaults) {
+      shipDesigns.set(d.id, d);
+    }
+  }
+
   return {
     gameState,
     researchStates,
@@ -2152,6 +2188,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     energyStateMap: new Map<string, PlanetEnergyState>(),
     disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
+    shipDesigns,
   };
 }
 

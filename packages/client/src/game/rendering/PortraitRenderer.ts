@@ -102,6 +102,63 @@ const SPECIES_PORTRAITS: Record<string, PortraitOptions> = {
     bgColor: '#0a0a0c',        // nomad void
     features: ['glowing_amber_eyes', 'hood_suggestion', 'salvaged_tech', 'scars'],
   },
+  // ── Seven newer species ──────────────────────────────────────────────────
+  luminari: {
+    baseShape: 'amorphous',
+    primaryColor: '#FDE68A',   // radiant gold
+    secondaryColor: '#F59E0B', // bright amber
+    accentColor: '#FFFFFF',    // pure white core
+    bgColor: '#0c0800',        // warm dark nebula
+    features: ['glow_corona', 'shifting_form', 'energy_tendrils'],
+  },
+  vethara: {
+    baseShape: 'amorphous',
+    primaryColor: '#8B5CF6',   // neural purple
+    secondaryColor: '#EC4899', // symbiotic pink
+    accentColor: '#C4B5FD',    // pale lavender filaments
+    bgColor: '#0c0618',        // bio-dark purple
+    features: ['shifting_form', 'tendrils', 'glow_corona'],
+  },
+  kaelenth: {
+    baseShape: 'cybernetic',
+    primaryColor: '#D4D4D8',   // polished titanium
+    secondaryColor: '#F97316', // forge orange
+    accentColor: '#71717A',    // worn steel
+    bgColor: '#08080c',        // factory void
+    features: ['circuit_lines', 'single_eye', 'data_display', 'half_mechanical'],
+  },
+  thyriaq: {
+    baseShape: 'amorphous',
+    primaryColor: '#A3A3A3',   // nano-silver
+    secondaryColor: '#06B6D4', // process cyan
+    accentColor: '#E5E5E5',    // bright particle
+    bgColor: '#060a10',        // nano-dark
+    features: ['shifting_form', 'energy_tendrils'],
+  },
+  aethyn: {
+    baseShape: 'crystalline',
+    primaryColor: '#7C3AED',   // dimensional violet
+    secondaryColor: '#A78BFA', // phase lavender
+    accentColor: '#DDD6FE',    // rift white
+    bgColor: '#0a0418',        // void purple
+    features: ['eyes_crystal', 'psionic_aura', 'facets'],
+  },
+  orivani: {
+    baseShape: 'humanoid',
+    primaryColor: '#B45309',   // sacred gold
+    secondaryColor: '#78350F', // temple bronze
+    accentColor: '#FCD34D',    // divine light
+    bgColor: '#100800',        // cathedral dark
+    features: ['warm_eyes', 'tech_visor'],
+  },
+  pyrenth: {
+    baseShape: 'reptilian',
+    primaryColor: '#7C2D12',   // magma brown
+    secondaryColor: '#EA580C', // lava orange
+    accentColor: '#451A03',    // obsidian
+    bgColor: '#120400',        // volcanic void
+    features: ['slit_eyes', 'scales', 'brow_ridges', 'metal_plates'],
+  },
 };
 
 // ── Origin → base shape mapping (for species creator) ────────────────────────

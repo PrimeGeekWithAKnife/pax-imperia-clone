@@ -10,7 +10,7 @@ import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen'
 import type { ResearchState } from '@nova-imperia/shared';
 import type { Technology } from '@nova-imperia/shared';
 import type { Fleet, Ship, ShipDesign } from '@nova-imperia/shared';
-import type { Empire } from '@nova-imperia/shared';
+import type { Empire, Governor } from '@nova-imperia/shared';
 import type { GameNotification, NotificationPreferences, NotificationType } from '@nova-imperia/shared';
 import { shouldShowNotification } from '@nova-imperia/shared';
 import { useGameState } from './hooks/useGameState';
@@ -707,6 +707,18 @@ export function App(): React.ReactElement {
         );
         setPlayerVictoryProgress(progress);
       }
+
+      // Sync ship designs from engine
+      const designs = state.shipDesigns;
+      if (designs && playerEmp) {
+        const playerDesigns = Array.from(designs.values()).filter(
+          d => d.empireId === playerEmp.id || d.empireId === '',
+        );
+        setSavedDesigns(prev => {
+          if (prev.length === playerDesigns.length) return prev; // avoid unnecessary re-renders
+          return playerDesigns;
+        });
+      }
     }
 
     // Refresh selected planet from engine so the panel never shows stale data
@@ -1032,6 +1044,42 @@ export function App(): React.ReactElement {
     }
   }, [selectedPlanet]);
 
+  // ── Colony ship detection for inter-system colonisation ──
+  // Finds a coloniser ship belonging to the player in the active system so
+  // PlanetDetailPanel can show the "Colonise with Colony Ship" button.
+  const coloniserShipInSystem = useMemo((): Ship | null => {
+    const engine = getGameEngine();
+    const systemId = activeSystemId ?? selectedSystem?.id;
+    if (!engine || !systemId || !playerEmpire) return null;
+    const state = engine.getState();
+    const playerFleets = state.gameState.fleets.filter(
+      f => f.empireId === playerEmpire.id && f.position.systemId === systemId,
+    );
+    const designsMap = state.shipDesigns ?? new Map<string, ShipDesign>();
+    for (const fleet of playerFleets) {
+      for (const shipId of fleet.ships) {
+        const ship = state.gameState.ships.find(s => s.id === shipId);
+        if (!ship) continue;
+        const design = designsMap.get(ship.designId);
+        if (design?.hull === 'coloniser') {
+          return ship;
+        }
+      }
+    }
+    return null;
+  }, [activeSystemId, selectedSystem, playerEmpire, currentTick]);
+
+  // ── Colony ship colonisation callback ──
+  const handleColoniseWithShip = useCallback((shipId: string) => {
+    const engine = getGameEngine();
+    if (!engine || !playerEmpire) return;
+    const state = engine.getState();
+    const ship = state.gameState.ships.find(s => s.id === shipId);
+    if (!ship || !ship.fleetId) return;
+    if (!selectedPlanet) return;
+    engine.executeAction({ type: 'ColonizePlanet', fleetId: ship.fleetId, planetId: selectedPlanet.id });
+  }, [playerEmpire, selectedPlanet]);
+
   useGameEvent<StarSystem>('system:selected', handleSystemSelected);
   useGameEvent<Planet>('planet:selected', handlePlanetSelected);
   useGameEvent<void>('system:deselected', handleSystemDeselected);
@@ -1138,6 +1186,21 @@ export function App(): React.ReactElement {
       }
     },
     [managedSystemId],
+  );
+
+  const handleAppointGovernor = useCallback(
+    (planetId: string, governor: Governor) => {
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) {
+        console.warn('[App.handleAppointGovernor] GameEngine not available');
+        return;
+      }
+      const state = engine.getState();
+      // Remove any existing governor for this planet, then add the new one
+      const filtered = state.governors.filter(g => g.planetId !== planetId);
+      engine.setGovernors([...filtered, governor]);
+    },
+    [],
   );
 
   const handleBuild = useCallback(
@@ -1477,6 +1540,7 @@ export function App(): React.ReactElement {
       <div className="ui-overlay">
         <ShipDesignerScreen
           researchedTechs={researchState.completedTechs}
+          currentAge={researchState.currentAge}
           empireId="player"
           savedDesigns={savedDesigns}
           onSaveDesign={handleSaveDesign}
@@ -1650,6 +1714,8 @@ export function App(): React.ReactElement {
         sourcePlanetName={migrationSourcePlanetName}
         playerOwnsInSystem={playerOwnsInSystem}
         empireResources={empireResources}
+        coloniserShipInSystem={coloniserShipInSystem}
+        onColoniseWithShip={handleColoniseWithShip}
       />
 
       <Minimap
@@ -1686,6 +1752,11 @@ export function App(): React.ReactElement {
           onDemolish={handleDemolish}
           onUpgrade={handleUpgrade}
           currentAge={playerEmpire.currentAge}
+          governor={(() => {
+            const eng = getGameEngine();
+            return eng?.getState().governors.find(g => g.planetId === managedPlanet.id) ?? null;
+          })()}
+          onAppointGovernor={handleAppointGovernor}
         />
       )}
 
