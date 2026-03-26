@@ -1,0 +1,656 @@
+import Phaser from 'phaser';
+import type { Fleet, Ship, ShipDesign, ShipComponent } from '@nova-imperia/shared';
+import {
+  initializeTacticalCombat,
+  processTacticalTick,
+  setShipOrder,
+  BATTLEFIELD_WIDTH,
+  BATTLEFIELD_HEIGHT,
+} from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder } from '@nova-imperia/shared';
+
+// ---------------------------------------------------------------------------
+// Scene data passed via scene.start('CombatScene', data)
+// ---------------------------------------------------------------------------
+
+export interface CombatSceneData {
+  attackerFleet: Fleet;
+  defenderFleet: Fleet;
+  attackerShips: Ship[];
+  defenderShips: Ship[];
+  designs: Map<string, ShipDesign>;
+  components: ShipComponent[];
+  playerEmpireId: string;
+  attackerColor: string;
+  defenderColor: string;
+  attackerName: string;
+  defenderName: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const BG_COLOR = 0x050510;
+const STAR_COUNT = 100;
+
+/** Triangle dimensions (pixels) */
+const SHIP_BASE = 12;
+const SHIP_HEIGHT = 18;
+const SELECTION_RING_RADIUS = 14;
+const SELECTION_RING_COLOR = 0xffffff;
+const SELECTION_RING_ALPHA = 0.85;
+
+/** Projectile dot radius */
+const PROJECTILE_RADIUS = 3;
+const PROJECTILE_COLOR = 0xffaa22;
+
+/** Beam colours */
+const BEAM_COLOR_FRIENDLY = 0x44ff88;
+const BEAM_COLOR_ENEMY = 0xff4444;
+
+/** Speed multiplier presets (ms per tick) */
+const SPEED_PRESETS: { label: string; msPerTick: number }[] = [
+  { label: '1x', msPerTick: 100 },
+  { label: '2x', msPerTick: 50 },
+  { label: '4x', msPerTick: 25 },
+];
+
+const MARGIN = 80;
+
+// ---------------------------------------------------------------------------
+// CombatScene
+// ---------------------------------------------------------------------------
+
+export class CombatScene extends Phaser.Scene {
+  // ── State ──────────────────────────────────────────────────────────────────
+  private tacticalState!: TacticalState;
+  private sceneData!: CombatSceneData;
+  private battleEnded = false;
+  private paused = false;
+
+  /** Currently selected friendly TacticalShip id (or null) */
+  private selectedShipId: string | null = null;
+
+  // ── Speed control ──────────────────────────────────────────────────────────
+  private speedIndex = 0;
+  private tickTimer!: Phaser.Time.TimerEvent;
+
+  // ── Visual containers ──────────────────────────────────────────────────────
+  private shipContainers = new Map<string, Phaser.GameObjects.Container>();
+  private selectionRing!: Phaser.GameObjects.Graphics;
+  private beamGraphics!: Phaser.GameObjects.Graphics;
+  private projectileGraphics!: Phaser.GameObjects.Graphics;
+
+  // ── HUD elements ───────────────────────────────────────────────────────────
+  private tickLabel!: Phaser.GameObjects.Text;
+  private selectedInfoLabel!: Phaser.GameObjects.Text;
+  private speedButtons: Phaser.GameObjects.Text[] = [];
+  private pauseButton!: Phaser.GameObjects.Text;
+
+  constructor() {
+    super({ key: 'CombatScene' });
+  }
+
+  // =========================================================================
+  // Lifecycle
+  // =========================================================================
+
+  create(data: CombatSceneData): void {
+    this.sceneData = data;
+    this.battleEnded = false;
+    this.paused = false;
+    this.selectedShipId = null;
+    this.speedIndex = 0;
+    this.shipContainers.clear();
+
+    // ── Initialise tactical state ──────────────────────────────────────────
+    this.tacticalState = initializeTacticalCombat(
+      data.attackerFleet,
+      data.defenderFleet,
+      data.attackerShips,
+      data.defenderShips,
+      data.designs,
+      data.components,
+    );
+
+    // ── Background ─────────────────────────────────────────────────────────
+    this.cameras.main.setBackgroundColor(BG_COLOR);
+    this._drawStarfield();
+
+    // ── Camera ─────────────────────────────────────────────────────────────
+    this._setupCamera();
+
+    // ── Ship visuals ───────────────────────────────────────────────────────
+    this._createShipContainers();
+
+    // ── Selection ring (drawn above ships) ─────────────────────────────────
+    this.selectionRing = this.add.graphics();
+    this.selectionRing.setDepth(10);
+
+    // ── Beam / projectile graphics layers ──────────────────────────────────
+    this.beamGraphics = this.add.graphics();
+    this.beamGraphics.setDepth(5);
+    this.projectileGraphics = this.add.graphics();
+    this.projectileGraphics.setDepth(6);
+
+    // ── HUD (fixed to camera) ──────────────────────────────────────────────
+    this._createHUD();
+
+    // ── Input ──────────────────────────────────────────────────────────────
+    this._setupInput();
+
+    // ── Tick loop ──────────────────────────────────────────────────────────
+    this.tickTimer = this.time.addEvent({
+      delay: SPEED_PRESETS[0]!.msPerTick,
+      loop: true,
+      callback: () => this._onTick(),
+    });
+
+    // Emit scene change for React overlay awareness
+    this.game.events.emit('scene:change', 'CombatScene');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  update(_time: number, _delta: number): void {
+    this._updateShipVisuals();
+    this._drawBeams();
+    this._drawProjectiles();
+    this._drawSelectionRing();
+    this._updateSelectedInfo();
+  }
+
+  shutdown(): void {
+    this.shipContainers.clear();
+    if (this.tickTimer) this.tickTimer.remove();
+  }
+
+  // =========================================================================
+  // Background
+  // =========================================================================
+
+  private _drawStarfield(): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(0);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const x = Phaser.Math.FloatBetween(0, BATTLEFIELD_WIDTH);
+      const y = Phaser.Math.FloatBetween(0, BATTLEFIELD_HEIGHT);
+      const alpha = Phaser.Math.FloatBetween(0.1, 0.4);
+      const radius = Phaser.Math.FloatBetween(0.3, 1.0);
+      gfx.fillStyle(0xffffff, alpha);
+      gfx.fillCircle(x, y, radius);
+    }
+  }
+
+  // =========================================================================
+  // Camera
+  // =========================================================================
+
+  private _setupCamera(): void {
+    const cam = this.cameras.main;
+    cam.setBounds(
+      -MARGIN,
+      -MARGIN,
+      BATTLEFIELD_WIDTH + MARGIN * 2,
+      BATTLEFIELD_HEIGHT + MARGIN * 2,
+    );
+
+    // Fit battlefield into view
+    const { width, height } = this.scale;
+    const scaleX = width / (BATTLEFIELD_WIDTH + MARGIN * 2);
+    const scaleY = height / (BATTLEFIELD_HEIGHT + MARGIN * 2);
+    const fitZoom = Math.min(scaleX, scaleY);
+    cam.setZoom(fitZoom);
+    cam.centerOn(BATTLEFIELD_WIDTH / 2, BATTLEFIELD_HEIGHT / 2);
+
+    // Zoom with scroll wheel
+    this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
+      const newZoom = Phaser.Math.Clamp(cam.zoom + (dy > 0 ? -0.05 : 0.05), 0.3, 2.0);
+      cam.setZoom(newZoom);
+    });
+
+    // Pan by dragging middle mouse or when holding shift
+    let dragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let camStartX = 0;
+    let camStartY = 0;
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.middleButtonDown() || (pointer.leftButtonDown() && pointer.event.shiftKey)) {
+        dragging = true;
+        dragStartX = pointer.x;
+        dragStartY = pointer.y;
+        camStartX = cam.scrollX;
+        camStartY = cam.scrollY;
+      }
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!dragging) return;
+      const dx = (pointer.x - dragStartX) / cam.zoom;
+      const dy = (pointer.y - dragStartY) / cam.zoom;
+      cam.scrollX = camStartX - dx;
+      cam.scrollY = camStartY - dy;
+    });
+
+    this.input.on('pointerup', () => {
+      dragging = false;
+    });
+  }
+
+  // =========================================================================
+  // Ship containers
+  // =========================================================================
+
+  private _createShipContainers(): void {
+    for (const ship of this.tacticalState.ships) {
+      const container = this.add.container(ship.position.x, ship.position.y);
+      container.setDepth(8);
+      container.setRotation(ship.facing);
+
+      // Triangle graphic
+      const color = this._shipColor(ship);
+      const gfx = this.add.graphics();
+      gfx.fillStyle(color, 1);
+      gfx.beginPath();
+      // Triangle pointing right (+x) so rotation 0 = facing right
+      gfx.moveTo(SHIP_HEIGHT / 2, 0);           // nose
+      gfx.lineTo(-SHIP_HEIGHT / 2, -SHIP_BASE / 2); // bottom-left
+      gfx.lineTo(-SHIP_HEIGHT / 2, SHIP_BASE / 2);  // top-left
+      gfx.closePath();
+      gfx.fillPath();
+      // Outline
+      gfx.lineStyle(1, 0xffffff, 0.3);
+      gfx.beginPath();
+      gfx.moveTo(SHIP_HEIGHT / 2, 0);
+      gfx.lineTo(-SHIP_HEIGHT / 2, -SHIP_BASE / 2);
+      gfx.lineTo(-SHIP_HEIGHT / 2, SHIP_BASE / 2);
+      gfx.closePath();
+      gfx.strokePath();
+
+      container.add(gfx);
+
+      // Name label below the triangle
+      const label = this.add.text(0, SHIP_BASE / 2 + 4, ship.name, {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#aabbcc',
+        align: 'center',
+      });
+      label.setOrigin(0.5, 0);
+      container.add(label);
+
+      // Make the container interactive for click targeting
+      container.setSize(SHIP_HEIGHT + 4, SHIP_BASE + 8);
+      container.setInteractive();
+
+      // Store data on the container for click handlers
+      container.setData('shipId', ship.id);
+      container.setData('side', ship.side);
+
+      this.shipContainers.set(ship.id, container);
+    }
+  }
+
+  private _shipColor(ship: TacticalShip): number {
+    const hex = ship.side === 'attacker'
+      ? this.sceneData.attackerColor
+      : this.sceneData.defenderColor;
+    return Phaser.Display.Color.HexStringToColor(hex).color;
+  }
+
+  private _isPlayerSide(ship: TacticalShip): boolean {
+    const playerIsAttacker = this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
+    return (playerIsAttacker && ship.side === 'attacker') ||
+           (!playerIsAttacker && ship.side === 'defender');
+  }
+
+  // =========================================================================
+  // Per-frame visual updates
+  // =========================================================================
+
+  private _updateShipVisuals(): void {
+    for (const ship of this.tacticalState.ships) {
+      const container = this.shipContainers.get(ship.id);
+      if (!container) continue;
+      container.setPosition(ship.position.x, ship.position.y);
+      container.setRotation(ship.facing);
+      container.setVisible(!ship.destroyed && !ship.routed);
+    }
+  }
+
+  private _drawBeams(): void {
+    this.beamGraphics.clear();
+    for (const beam of this.tacticalState.beamEffects) {
+      const source = this.tacticalState.ships.find(s => s.id === beam.sourceShipId);
+      const target = this.tacticalState.ships.find(s => s.id === beam.targetShipId);
+      if (!source || !target) continue;
+      const alpha = beam.ticksRemaining / 3;
+      const color = this._isPlayerSide(source) ? BEAM_COLOR_FRIENDLY : BEAM_COLOR_ENEMY;
+      this.beamGraphics.lineStyle(2, color, alpha);
+      this.beamGraphics.lineBetween(
+        source.position.x, source.position.y,
+        target.position.x, target.position.y,
+      );
+    }
+  }
+
+  private _drawProjectiles(): void {
+    this.projectileGraphics.clear();
+    for (const proj of this.tacticalState.projectiles) {
+      this.projectileGraphics.fillStyle(PROJECTILE_COLOR, 0.9);
+      this.projectileGraphics.fillCircle(proj.position.x, proj.position.y, PROJECTILE_RADIUS);
+    }
+  }
+
+  private _drawSelectionRing(): void {
+    this.selectionRing.clear();
+    if (!this.selectedShipId) return;
+    const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
+    if (!ship || ship.destroyed || ship.routed) {
+      this.selectedShipId = null;
+      return;
+    }
+    this.selectionRing.lineStyle(2, SELECTION_RING_COLOR, SELECTION_RING_ALPHA);
+    this.selectionRing.strokeCircle(ship.position.x, ship.position.y, SELECTION_RING_RADIUS);
+  }
+
+  // =========================================================================
+  // HUD
+  // =========================================================================
+
+  private _createHUD(): void {
+    const { width, height } = this.scale;
+
+    // ── Top-left: title + tick counter ─────────────────────────────────────
+    const titleLabel = this.add.text(12, 10, 'TACTICAL COMBAT', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#ff8844',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    titleLabel.setScrollFactor(0).setDepth(100);
+
+    this.tickLabel = this.add.text(12, 30, 'Tick: 0', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#88aacc',
+    });
+    this.tickLabel.setScrollFactor(0).setDepth(100);
+
+    // Empire names
+    const attackerLabel = this.add.text(12, 48, this.sceneData.attackerName, {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: this.sceneData.attackerColor,
+    });
+    attackerLabel.setScrollFactor(0).setDepth(100);
+
+    const defenderLabel = this.add.text(12, 62, `vs ${this.sceneData.defenderName}`, {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: this.sceneData.defenderColor,
+    });
+    defenderLabel.setScrollFactor(0).setDepth(100);
+
+    // ── Bottom bar: selected ship info ─────────────────────────────────────
+    this.selectedInfoLabel = this.add.text(12, height - 40, '', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#ccddee',
+      wordWrap: { width: width - 200 },
+    });
+    this.selectedInfoLabel.setScrollFactor(0).setDepth(100);
+
+    // ── Top-right: speed controls ──────────────────────────────────────────
+    let btnX = width - 16;
+
+    // Pause button
+    this.pauseButton = this.add.text(btnX, 10, '| |', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#ffcc44',
+      backgroundColor: '#1a1a2e',
+      padding: { x: 6, y: 4 },
+    });
+    this.pauseButton.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this.pauseButton.setInteractive({ useHandCursor: true });
+    this.pauseButton.on('pointerdown', () => this._togglePause());
+    btnX -= this.pauseButton.width + 8;
+
+    // Speed buttons (right to left so 4x is rightmost)
+    for (let i = SPEED_PRESETS.length - 1; i >= 0; i--) {
+      const preset = SPEED_PRESETS[i]!;
+      const btn = this.add.text(btnX, 10, preset.label, {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: i === this.speedIndex ? '#44ffaa' : '#6688aa',
+        backgroundColor: '#1a1a2e',
+        padding: { x: 6, y: 4 },
+      });
+      btn.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+      btn.setInteractive({ useHandCursor: true });
+      const idx = i;
+      btn.on('pointerdown', () => this._setSpeed(idx));
+      this.speedButtons[i] = btn;
+      btnX -= btn.width + 6;
+    }
+
+    // ── Bottom-right: retreat button ───────────────────────────────────────
+    const retreatBtn = this.add.text(width - 16, height - 36, 'RETREAT ALL', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ff5555',
+      backgroundColor: '#1a1a2e',
+      padding: { x: 8, y: 6 },
+      stroke: '#ff5555',
+      strokeThickness: 1,
+    });
+    retreatBtn.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    retreatBtn.setInteractive({ useHandCursor: true });
+    retreatBtn.on('pointerdown', () => this._retreatAll());
+  }
+
+  private _updateSelectedInfo(): void {
+    if (!this.selectedShipId) {
+      this.selectedInfoLabel.setText('');
+      return;
+    }
+    const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
+    if (!ship) {
+      this.selectedInfoLabel.setText('');
+      return;
+    }
+    const hpPct = ship.maxHull > 0 ? Math.round((ship.hull / ship.maxHull) * 100) : 0;
+    const shPct = ship.maxShields > 0 ? Math.round((ship.shields / ship.maxShields) * 100) : 0;
+    const orderStr = ship.order.type === 'attack' ? 'ATTACK'
+      : ship.order.type === 'move' ? 'MOVE'
+      : ship.order.type === 'flee' ? 'FLEE'
+      : ship.order.type === 'defend' ? 'DEFEND'
+      : 'IDLE';
+    this.selectedInfoLabel.setText(
+      `${ship.name}  |  Hull: ${hpPct}%  |  Shields: ${shPct}%  |  Order: ${orderStr}`,
+    );
+  }
+
+  // =========================================================================
+  // Input
+  // =========================================================================
+
+  private _setupInput(): void {
+    // ESC to deselect
+    this.input.keyboard?.on('keydown-ESC', () => {
+      this.selectedShipId = null;
+    });
+
+    // Right-click anywhere in the scene for move/attack orders
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) {
+        this._handleRightClick(pointer);
+      }
+    });
+
+    // Left-click on ship containers
+    for (const [, container] of this.shipContainers) {
+      container.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.leftButtonDown()) {
+          this._handleShipLeftClick(container);
+        }
+      });
+    }
+  }
+
+  private _handleShipLeftClick(container: Phaser.GameObjects.Container): void {
+    const shipId = container.getData('shipId') as string;
+    const side = container.getData('side') as 'attacker' | 'defender';
+    const ship = this.tacticalState.ships.find(s => s.id === shipId);
+    if (!ship) return;
+
+    if (this._isPlayerSide(ship)) {
+      // Clicking a friendly ship — select it
+      this.selectedShipId = shipId;
+    } else if (this.selectedShipId) {
+      // Clicking an enemy ship while we have a selection — attack order
+      this._issueOrder({ type: 'attack', targetId: shipId });
+    }
+  }
+
+  private _handleRightClick(pointer: Phaser.Input.Pointer): void {
+    if (!this.selectedShipId) return;
+
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
+    // Check if right-clicked on an enemy ship
+    for (const ship of this.tacticalState.ships) {
+      if (ship.destroyed || ship.routed) continue;
+      if (this._isPlayerSide(ship)) continue;
+      const dx = worldPoint.x - ship.position.x;
+      const dy = worldPoint.y - ship.position.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        this._issueOrder({ type: 'attack', targetId: ship.id });
+        return;
+      }
+    }
+
+    // Otherwise — move order
+    this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
+  }
+
+  private _issueOrder(order: ShipOrder): void {
+    if (!this.selectedShipId) return;
+    this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, order);
+  }
+
+  // =========================================================================
+  // Speed / Pause
+  // =========================================================================
+
+  private _setSpeed(index: number): void {
+    this.speedIndex = index;
+    const preset = SPEED_PRESETS[index];
+    if (!preset) return;
+
+    // Update tick timer delay
+    this.tickTimer.reset({
+      delay: preset.msPerTick,
+      loop: true,
+      callback: () => this._onTick(),
+      callbackScope: this,
+    });
+
+    if (this.paused) {
+      this.tickTimer.paused = true;
+    }
+
+    // Update button colours
+    for (let i = 0; i < SPEED_PRESETS.length; i++) {
+      const btn = this.speedButtons[i];
+      if (btn) {
+        btn.setColor(i === index ? '#44ffaa' : '#6688aa');
+      }
+    }
+  }
+
+  private _togglePause(): void {
+    this.paused = !this.paused;
+    this.tickTimer.paused = this.paused;
+    this.pauseButton.setColor(this.paused ? '#ff5555' : '#ffcc44');
+    this.pauseButton.setText(this.paused ? '>' : '| |');
+  }
+
+  // =========================================================================
+  // Retreat
+  // =========================================================================
+
+  private _retreatAll(): void {
+    for (const ship of this.tacticalState.ships) {
+      if (this._isPlayerSide(ship) && !ship.destroyed && !ship.routed) {
+        this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
+      }
+    }
+  }
+
+  // =========================================================================
+  // Tick loop
+  // =========================================================================
+
+  private _onTick(): void {
+    if (this.battleEnded) return;
+
+    this.tacticalState = processTacticalTick(this.tacticalState);
+    this.tickLabel.setText(`Tick: ${this.tacticalState.tick}`);
+
+    // Check for battle end
+    this._checkBattleEnd();
+  }
+
+  private _checkBattleEnd(): void {
+    const attackersAlive = this.tacticalState.ships.filter(
+      s => s.side === 'attacker' && !s.destroyed && !s.routed,
+    );
+    const defendersAlive = this.tacticalState.ships.filter(
+      s => s.side === 'defender' && !s.destroyed && !s.routed,
+    );
+
+    if (attackersAlive.length > 0 && defendersAlive.length > 0) return;
+
+    // Battle is over
+    this.battleEnded = true;
+    this.tickTimer.paused = true;
+
+    const playerIsAttacker =
+      this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
+    const playerWon = playerIsAttacker
+      ? attackersAlive.length > 0
+      : defendersAlive.length > 0;
+
+    const resultText = playerWon ? 'VICTORY' : 'DEFEAT';
+    const resultColor = playerWon ? '#44ff88' : '#ff4444';
+
+    const { width, height } = this.scale;
+
+    const label = this.add.text(width / 2, height / 2, resultText, {
+      fontFamily: 'serif',
+      fontSize: '64px',
+      color: resultColor,
+      stroke: '#000000',
+      strokeThickness: 4,
+      shadow: {
+        offsetX: 0,
+        offsetY: 0,
+        color: resultColor,
+        blur: 24,
+        fill: true,
+      },
+    });
+    label.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200);
+
+    // After 2 seconds, emit completion and return to galaxy map
+    this.time.delayedCall(2000, () => {
+      this.game.events.emit('combat:tactical_complete', this.tacticalState);
+      this.scene.start('GalaxyMapScene', {});
+    });
+  }
+}
