@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getTotalSlots } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -690,8 +690,7 @@ export function PlanetManagementScreen({
     if (next && onChangePlanet) onChangePlanet(next.planet, next.systemId);
   }, [sortedPlanets, currentPlanetIdx, onChangePlanet]);
 
-  const totalSlots = PLANET_BUILDING_SLOTS[planet.type];
-  const usedSlots = planet.buildings.length;
+  const { total: totalSlots, used: usedSlots } = getTotalSlots(planet);
 
   const production = estimatePlanetProduction(planet);
   const maintenance = estimateMaintenance(planet);

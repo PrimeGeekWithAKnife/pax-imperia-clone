@@ -85,6 +85,8 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   // -- Pyrenth -------------------------------------------------------------
   elemental_forge: 'EF',
   seismic_resonator: 'SR',
+  // -- Zone infrastructure -------------------------------------------------
+  underground_complex: 'UC',
 };
 
 /** Pixel size of each building slot cell -- must match the CSS `.bsg-slot` dimensions. */

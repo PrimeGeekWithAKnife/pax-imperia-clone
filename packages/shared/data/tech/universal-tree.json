@@ -2480,6 +2480,24 @@
         }
       ],
       "icon": "tech_wormhole_generation"
+    },
+    {
+      "id": "planet_core_engineering",
+      "name": "Planet Core Engineering",
+      "description": "Advanced geological survey techniques and tunnelling technology that allow construction deep beneath a planet's surface.",
+      "category": "construction",
+      "age": "nano_atomic",
+      "cost": 2000,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "build_underground_complex"
+        }
+      ],
+      "icon": "tech_planet_core_engineering"
     }
   ],
   "ageGates": {
