@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
+import type { BattleReport, CrewExperience } from '@nova-imperia/shared';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -9,6 +10,10 @@ export interface BattleShipRecord {
   hull: string;
   /** 'survived' | 'destroyed' | 'routed' */
   status: 'survived' | 'destroyed' | 'routed';
+  /** Experience level after combat, if promoted. */
+  newExperience?: CrewExperience;
+  /** Experience level before combat. */
+  previousExperience?: CrewExperience;
 }
 
 export interface BattleSide {
@@ -27,6 +32,8 @@ export interface BattleResultsData {
   systemControlChanged: boolean;
   newOwnerName?: string;
   ticksElapsed: number;
+  /** Detailed battle report with salvage, damage, and experience data. */
+  battleReport?: BattleReport;
 }
 
 export interface BattleResultsScreenProps {
@@ -39,13 +46,13 @@ export interface BattleResultsScreenProps {
 /** Return a short Unicode symbol representing the ship's hull class. */
 function shipIcon(hull: string): string {
   switch (hull) {
-    case 'scout':      return '◇';
-    case 'destroyer':  return '▷';
-    case 'transport':  return '▭';
-    case 'cruiser':    return '▶';
-    case 'carrier':    return '◈';
-    case 'battleship': return '◆';
-    default:           return '▸';
+    case 'scout':      return '\u25C7';
+    case 'destroyer':  return '\u25B7';
+    case 'transport':  return '\u25AD';
+    case 'cruiser':    return '\u25B6';
+    case 'carrier':    return '\u25C8';
+    case 'battleship': return '\u25C6';
+    default:           return '\u25B8';
   }
 }
 
@@ -54,6 +61,15 @@ function statusLabel(status: BattleShipRecord['status']): string {
     case 'survived':  return 'Survived';
     case 'destroyed': return 'Destroyed';
     case 'routed':    return 'Routed';
+  }
+}
+
+function experienceLabel(exp: CrewExperience): string {
+  switch (exp) {
+    case 'green':   return 'Green';
+    case 'regular': return 'Regular';
+    case 'veteran': return 'Veteran';
+    case 'elite':   return 'Elite';
   }
 }
 
@@ -70,18 +86,29 @@ function ShipList({ ships, align }: ShipListProps): React.ReactElement {
       className={`brs-ship-list brs-ship-list--${align}`}
       aria-label={`${align === 'left' ? 'Attacker' : 'Defender'} ships`}
     >
-      {ships.map((ship) => (
-        <li
-          key={ship.id}
-          className={`brs-ship-row brs-ship-row--${ship.status}`}
-        >
-          <span className="brs-ship-icon" aria-hidden="true">
-            {shipIcon(ship.hull)}
-          </span>
-          <span className="brs-ship-name">{ship.name}</span>
-          <span className="brs-ship-status">{statusLabel(ship.status)}</span>
-        </li>
-      ))}
+      {ships.map((ship) => {
+        const promoted =
+          ship.newExperience &&
+          ship.previousExperience &&
+          ship.newExperience !== ship.previousExperience;
+        return (
+          <li
+            key={ship.id}
+            className={`brs-ship-row brs-ship-row--${ship.status}`}
+          >
+            <span className="brs-ship-icon" aria-hidden="true">
+              {shipIcon(ship.hull)}
+            </span>
+            <span className="brs-ship-name">{ship.name}</span>
+            {promoted && (
+              <span className="brs-ship-promotion" title={`Promoted to ${experienceLabel(ship.newExperience!)}`}>
+                {experienceLabel(ship.newExperience!)}
+              </span>
+            )}
+            <span className="brs-ship-status">{statusLabel(ship.status)}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -100,6 +127,7 @@ export function BattleResultsScreen({
     systemControlChanged,
     newOwnerName,
     ticksElapsed,
+    battleReport,
   } = data;
 
   // Allow "Enter" or Space to dismiss
@@ -127,11 +155,19 @@ export function BattleResultsScreen({
 
   let victoryText: string;
   if (winner === 'draw') {
-    victoryText = 'Draw — both sides withdrew';
+    victoryText = 'Draw \u2014 both sides withdrew';
   } else {
     const winnerName = winner === 'attacker' ? attacker.empireName : defender.empireName;
     victoryText = `Victory for ${winnerName}`;
   }
+
+  // Promotion counts
+  const attackerPromotions = attacker.ships.filter(
+    s => s.newExperience && s.previousExperience && s.newExperience !== s.previousExperience,
+  ).length;
+  const defenderPromotions = defender.ships.filter(
+    s => s.newExperience && s.previousExperience && s.newExperience !== s.previousExperience,
+  ).length;
 
   return (
     <div className="brs-overlay" role="dialog" aria-modal="true" aria-label="Battle results">
@@ -179,19 +215,77 @@ export function BattleResultsScreen({
           </p>
           <div className="brs-stats">
             <div className="brs-stat">
-              <span className="brs-stat-label">Ships lost (attacker)</span>
-              <span className="brs-stat-value">{attackerLost}</span>
+              <span className="brs-stat-label">Attacker losses</span>
+              <span className="brs-stat-value">{attackerLost} / {attacker.ships.length}</span>
             </div>
             <div className="brs-stat">
-              <span className="brs-stat-label">Ships lost (defender)</span>
-              <span className="brs-stat-value">{defenderLost}</span>
+              <span className="brs-stat-label">Defender losses</span>
+              <span className="brs-stat-value">{defenderLost} / {defender.ships.length}</span>
             </div>
             <div className="brs-stat">
-              <span className="brs-stat-label">Combat ticks</span>
+              <span className="brs-stat-label">Combat duration</span>
               <span className="brs-stat-value">{ticksElapsed}</span>
             </div>
+            {battleReport && (
+              <>
+                <div className="brs-stat">
+                  <span className="brs-stat-label">Attacker damage</span>
+                  <span className="brs-stat-value">{battleReport.attacker.totalDamageDealt}</span>
+                </div>
+                <div className="brs-stat">
+                  <span className="brs-stat-label">Defender damage</span>
+                  <span className="brs-stat-value">{battleReport.defender.totalDamageDealt}</span>
+                </div>
+              </>
+            )}
           </div>
         </section>
+
+        {/* ── Experience promotions ── */}
+        {(attackerPromotions > 0 || defenderPromotions > 0) && (
+          <section className="brs-experience">
+            <h3 className="brs-section-heading">CREW PROMOTIONS</h3>
+            <div className="brs-experience-row">
+              {attackerPromotions > 0 && (
+                <span className="brs-experience-item" style={{ color: attacker.empireColor }}>
+                  {attacker.empireName}: {attackerPromotions} crew{attackerPromotions !== 1 ? 's' : ''} promoted
+                </span>
+              )}
+              {defenderPromotions > 0 && (
+                <span className="brs-experience-item" style={{ color: defender.empireColor }}>
+                  {defender.empireName}: {defenderPromotions} crew{defenderPromotions !== 1 ? 's' : ''} promoted
+                </span>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Salvage ── */}
+        {battleReport && (battleReport.salvage.credits > 0 || battleReport.salvage.minerals > 0) && (
+          <section className="brs-salvage">
+            <h3 className="brs-section-heading">SALVAGE RECOVERED</h3>
+            <div className="brs-salvage-items">
+              {battleReport.salvage.credits > 0 && (
+                <div className="brs-salvage-item">
+                  <span className="brs-salvage-label">Credits</span>
+                  <span className="brs-salvage-value">+{battleReport.salvage.credits}</span>
+                </div>
+              )}
+              {battleReport.salvage.minerals > 0 && (
+                <div className="brs-salvage-item">
+                  <span className="brs-salvage-label">Minerals</span>
+                  <span className="brs-salvage-value">+{battleReport.salvage.minerals}</span>
+                </div>
+              )}
+              {battleReport.salvage.techFragments.length > 0 && (
+                <div className="brs-salvage-item">
+                  <span className="brs-salvage-label">Tech fragments</span>
+                  <span className="brs-salvage-value">{battleReport.salvage.techFragments.length}</span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Consequences ── */}
         {systemControlChanged && (

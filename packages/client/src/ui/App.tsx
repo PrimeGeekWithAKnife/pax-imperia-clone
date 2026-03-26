@@ -38,8 +38,10 @@ import { FleetScreen } from './screens/FleetScreen';
 import { BattleResultsScreen } from './screens/BattleResultsScreen';
 import type { BattleResultsData } from './screens/BattleResultsScreen';
 import { CombatTriggerDialog } from './screens/CombatTriggerDialog';
+import { OccupationDialog, getAllowedPolicies } from './screens/OccupationDialog';
+import type { OccupationPolicy } from './screens/OccupationDialog';
 import { EspionageScreen } from './screens/EspionageScreen';
-import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState } from '@nova-imperia/shared';
+import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState, BattleReport } from '@nova-imperia/shared';
 import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
@@ -208,6 +210,16 @@ export function App(): React.ReactElement {
     isPlayerAttacker: boolean;
     enemyInitiated: boolean;
     combatData: unknown; // full data for CombatScene
+  } | null>(null);
+
+  // ── Occupation dialog state ──
+  const [occupationData, setOccupationData] = useState<{
+    planetName: string;
+    planetPopulation: number;
+    planetId: string;
+    systemId: string;
+    playerSpeciesId: string;
+    allowedPolicies: OccupationPolicy[];
   } | null>(null);
 
   // ── Espionage state ──
@@ -932,6 +944,20 @@ export function App(): React.ReactElement {
     if (engine) engine.start();
   }, []);
 
+  // ── Occupation dialog handlers ──
+  const handleOccupationPolicy = useCallback((policy: OccupationPolicy) => {
+    // Store the chosen policy — mechanics will be applied in a future update.
+    // For now, log and dismiss.
+    console.log(`[Occupation] Policy selected: ${policy} for planet ${occupationData?.planetName}`);
+    setOccupationData(null);
+  }, [occupationData]);
+
+  const handleOccupationClose = useCallback(() => {
+    // Default to peaceful occupation when closing without selecting
+    console.log(`[Occupation] Dialog closed, defaulting to peaceful occupation for ${occupationData?.planetName}`);
+    setOccupationData(null);
+  }, [occupationData]);
+
   // ── Tactical combat trigger handlers ──
   const handleCombatPending = useCallback((data: unknown) => {
     const d = data as {
@@ -981,7 +1007,51 @@ export function App(): React.ReactElement {
   const handleTacticalComplete = useCallback((data: unknown) => {
     const engine = getGameEngine();
     if (engine && data) {
-      engine.applyTacticalCombatResult(data as TacticalState);
+      const tacticalState = data as TacticalState;
+      const report = engine.applyTacticalCombatResult(tacticalState);
+
+      // If this was a planetary assault and the player won, show occupation dialog
+      if (
+        report &&
+        report.winner !== 'draw' &&
+        tacticalState.layout === 'planetary_assault' &&
+        tacticalState.planetData
+      ) {
+        const state = engine.getState();
+        const playerEmpireObj = state.gameState.empires.find(e => !e.isAI);
+        if (playerEmpireObj) {
+          // Check if the player was the attacker (conqueror)
+          const playerFleetIds = new Set(
+            state.gameState.fleets
+              .filter(f => f.empireId === playerEmpireObj.id)
+              .map(f => f.id),
+          );
+          const playerShipIds = new Set(
+            state.gameState.ships
+              .filter(s => s.fleetId && playerFleetIds.has(s.fleetId))
+              .map(s => s.id),
+          );
+          const playerWasAttacker = tacticalState.ships.some(
+            ts => ts.side === 'attacker' && playerShipIds.has(ts.sourceShipId),
+          );
+          const playerWon =
+            (playerWasAttacker && report.winner === 'attacker') ||
+            (!playerWasAttacker && report.winner === 'defender');
+
+          if (playerWon) {
+            const combatTrait = playerEmpireObj.species.traits.combat;
+            setOccupationData({
+              planetName: tacticalState.planetData.name,
+              planetPopulation: 1000, // placeholder until population is tracked
+              planetId: '', // will be populated from system data in future
+              systemId: '',
+              playerSpeciesId: playerEmpireObj.species.id,
+              allowedPolicies: getAllowedPolicies(combatTrait),
+            });
+          }
+        }
+      }
+
       engine.start();
     }
   }, []);
@@ -1932,6 +2002,18 @@ export function App(): React.ReactElement {
         <BattleResultsScreen
           data={battleResults}
           onContinue={handleBattleContinue}
+        />
+      )}
+
+      {/* Occupation dialog — shown after winning a planetary assault */}
+      {occupationData !== null && (
+        <OccupationDialog
+          planetName={occupationData.planetName}
+          planetPopulation={occupationData.planetPopulation}
+          playerSpeciesId={occupationData.playerSpeciesId}
+          allowedPolicies={occupationData.allowedPolicies}
+          onSelectPolicy={handleOccupationPolicy}
+          onClose={handleOccupationClose}
         />
       )}
 
