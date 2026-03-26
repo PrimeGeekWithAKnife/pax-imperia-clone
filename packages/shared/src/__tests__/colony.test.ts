@@ -5,6 +5,7 @@ import {
   canColonize,
   establishColony,
   getBuildingSlots,
+  getTotalSlots,
   canBuildOnPlanet,
   addBuildingToQueue,
   processConstructionQueue,
@@ -528,14 +529,16 @@ describe('establishColony', () => {
 // ── getBuildingSlots ───────────────────────────────────────────────────────────
 
 describe('getBuildingSlots', () => {
-  it('returns zero used slots for an empty planet', () => {
+  it('returns zero used surface slots for an empty planet', () => {
     const planet = makePlanet();
     const slots = getBuildingSlots(planet);
-    expect(slots.used).toBe(0);
-    expect(slots.total).toBe(PLANET_BUILDING_SLOTS.terran);
+    expect(slots.surface.used).toBe(0);
+    expect(slots.surface.total).toBe(PLANET_BUILDING_SLOTS.terran);
+    expect(slots.orbital.total).toBe(0);
+    expect(slots.underground.total).toBe(0);
   });
 
-  it('counts existing buildings as used slots', () => {
+  it('counts existing buildings as used surface slots by default', () => {
     const planet = makePlanet({
       buildings: [
         { id: 'b1', type: 'population_center', level: 1 },
@@ -543,10 +546,10 @@ describe('getBuildingSlots', () => {
       ],
     });
     const slots = getBuildingSlots(planet);
-    expect(slots.used).toBe(2);
+    expect(slots.surface.used).toBe(2);
   });
 
-  it('returns correct total for each planet type', () => {
+  it('returns correct surface total for each planet type', () => {
     const types: Array<[Planet['type'], number]> = [
       ['terran', 20],
       ['ocean', 15],
@@ -561,8 +564,66 @@ describe('getBuildingSlots', () => {
     for (const [type, expectedTotal] of types) {
       const planet = makePlanet({ type });
       const slots = getBuildingSlots(planet);
-      expect(slots.total, `planet type ${type}`).toBe(expectedTotal);
+      expect(slots.surface.total, `planet type ${type}`).toBe(expectedTotal);
     }
+  });
+
+  it('orbital_platform provides orbital slots (3 + level)', () => {
+    const planet = makePlanet({
+      buildings: [
+        { id: 'op1', type: 'orbital_platform', level: 1 },
+      ],
+    });
+    const slots = getBuildingSlots(planet);
+    expect(slots.orbital.total).toBe(4); // 3 + 1
+    expect(slots.orbital.used).toBe(0);
+    // The platform itself sits on the surface
+    expect(slots.surface.used).toBe(1);
+  });
+
+  it('underground_complex provides underground slots (3 + level)', () => {
+    const planet = makePlanet({
+      buildings: [
+        { id: 'uc1', type: 'underground_complex', level: 2 },
+      ],
+    });
+    const slots = getBuildingSlots(planet);
+    expect(slots.underground.total).toBe(5); // 3 + 2
+    expect(slots.underground.used).toBe(0);
+    expect(slots.surface.used).toBe(1);
+  });
+
+  it('counts buildings in the correct zone based on slotZone', () => {
+    const planet = makePlanet({
+      buildings: [
+        { id: 'op1', type: 'orbital_platform', level: 1 },
+        { id: 'f1', type: 'factory', level: 1, slotZone: 'orbital' },
+        { id: 'uc1', type: 'underground_complex', level: 1 },
+        { id: 'f2', type: 'factory', level: 1, slotZone: 'underground' },
+        { id: 'f3', type: 'factory', level: 1 }, // defaults to surface
+      ],
+    });
+    const slots = getBuildingSlots(planet);
+    expect(slots.surface.used).toBe(3); // op1, uc1, f3
+    expect(slots.orbital.used).toBe(1); // f1
+    expect(slots.underground.used).toBe(1); // f2
+  });
+});
+
+describe('getTotalSlots', () => {
+  it('returns flat totals across all zones', () => {
+    const planet = makePlanet({
+      buildings: [
+        { id: 'op1', type: 'orbital_platform', level: 1 },
+        { id: 'uc1', type: 'underground_complex', level: 1 },
+        { id: 'f1', type: 'factory', level: 1 },
+      ],
+    });
+    const flat = getTotalSlots(planet);
+    // surface: 20 total, orbital: 4 (3+1), underground: 4 (3+1) = 28 total
+    expect(flat.total).toBe(28);
+    // 3 buildings total used
+    expect(flat.used).toBe(3);
   });
 });
 
@@ -575,7 +636,7 @@ describe('canBuildOnPlanet', () => {
     expect(result.allowed).toBe(true);
   });
 
-  it('rejects building when all slots are used', () => {
+  it('rejects building when all surface slots are used', () => {
     const slots = PLANET_BUILDING_SLOTS.terran;
     const buildings = Array.from({ length: slots }, (_, i) => ({
       id: `b${i}`,
@@ -822,10 +883,10 @@ describe('Gas giant special cases', () => {
     expect(result.reason).toMatch(/gas giant/i);
   });
 
-  it('getBuildingSlots returns 8 total slots for gas giant', () => {
+  it('getBuildingSlots returns 8 surface total slots for gas giant', () => {
     const planet = makePlanet({ type: 'gas_giant' });
     const slots = getBuildingSlots(planet);
-    expect(slots.total).toBe(8);
+    expect(slots.surface.total).toBe(8);
   });
 
   it('canBuildOnPlanet only allows spaceport on gas giant', () => {

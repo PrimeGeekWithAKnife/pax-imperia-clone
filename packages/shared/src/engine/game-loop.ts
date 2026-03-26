@@ -75,6 +75,7 @@ import {
   processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  ZONE_COST_MULTIPLIER,
   canColoniseWithShip,
   coloniseWithShip,
   canUpgradeBuilding,
@@ -560,6 +561,7 @@ function processPlayerActions(
       // ── ConstructBuilding ────────────────────────────────────────────────
       } else if (action.type === 'ConstructBuilding') {
         const { systemId, planetId, buildingType } = action;
+        const targetZone = action.targetZone ?? 'surface';
 
         const systemData = systems.find(s => s.id === systemId);
         if (!systemData) {
@@ -582,19 +584,20 @@ function processPlayerActions(
         const empireResearchState = state.researchStates.get(empireId);
         const empireTechs = empireResearchState?.completedTechs ?? [];
 
-        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, undefined, empireTechs);
+        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, undefined, empireTechs, targetZone);
         if (!buildCheck.allowed) {
           console.warn(`[game-loop] ConstructBuilding rejected for planet "${planetId}": ${buildCheck.reason}`);
           continue;
         }
 
-        // Deduct building cost from the empire's resource stockpile
+        // Deduct building cost from the empire's resource stockpile (with zone cost multiplier)
         const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
         if (buildDef) {
+          const costMultiplier = ZONE_COST_MULTIPLIER[targetZone] ?? 1;
           const res = getEmpireResources(state, empireId);
           for (const [key, amount] of Object.entries(buildDef.baseCost)) {
             if (amount && amount > 0) {
-              res[key as keyof EmpireResources] -= amount;
+              res[key as keyof EmpireResources] -= amount * costMultiplier;
             }
           }
           state = applyResources(state, empireId, res);
@@ -602,7 +605,7 @@ function processPlayerActions(
           systems = state.gameState.galaxy.systems;
         }
 
-        const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs);
+        const updatedPlanet = addBuildingToQueue(planet, buildingType as BuildingType, undefined, empireTechs, targetZone);
         systems = replacePlanet(systems, updatedPlanet);
 
       // ── UpgradeBuilding ───────────────────────────────────────────────────
@@ -1356,7 +1359,7 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       empire.id,
     );
     const buildingCount = countBuildings(ownedPlanets);
-    const upkeep = calculateUpkeep(empire, shipCount, buildingCount);
+    const upkeep = calculateUpkeep(empire, shipCount, buildingCount, ownedPlanets);
 
     let newResources = applyResourceTick(currentResources, production, upkeep);
 

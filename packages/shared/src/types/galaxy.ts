@@ -74,6 +74,8 @@ export interface Building {
   level: number;
   /** Building condition 0–100%. Defaults to 100 when constructed. */
   condition?: number;
+  /** Where this building is located. Defaults to 'surface' if omitted. */
+  slotZone?: 'surface' | 'orbital' | 'underground';
 }
 
 export type BuildingType =
@@ -145,7 +147,9 @@ export type BuildingType =
   | 'reliquary_vault'
   // ── Pyrenth unique buildings ──────────────────────────────────────────────
   | 'elemental_forge'
-  | 'seismic_resonator';
+  | 'seismic_resonator'
+  // ── Zone infrastructure ─────────────────────────────────────────────────
+  | 'underground_complex';
 
 export interface ProductionItem {
   type: 'ship' | 'building' | 'defense' | 'building_upgrade';
@@ -155,6 +159,8 @@ export interface ProductionItem {
   targetBuildingId?: string;
   /** Total construction points when queued — used by the UI for progress display. */
   totalTurns?: number;
+  /** The zone this building will be placed in when complete. */
+  targetZone?: 'surface' | 'orbital' | 'underground';
 }
 
 // ── Galaxy shape metadata (rendering hints from generation) ─────────────────

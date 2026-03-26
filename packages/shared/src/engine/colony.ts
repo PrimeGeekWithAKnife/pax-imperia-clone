@@ -40,6 +40,20 @@ import { generateId } from '../utils/id.js';
 /** Ticks a wave of colonists spends in transit before arriving at the target. */
 export const TRANSIT_DURATION = 5;
 
+/** Build cost multiplier per zone. */
+export const ZONE_COST_MULTIPLIER: Record<string, number> = {
+  surface: 1,
+  orbital: 2,
+  underground: 3,
+};
+
+/** Maintenance cost multiplier per zone. */
+export const ZONE_MAINTENANCE_MULTIPLIER: Record<string, number> = {
+  surface: 1,
+  orbital: 3,
+  underground: 1,
+};
+
 /** A wave of colonists currently in transit between source and target. */
 export interface TransitWave {
   /** Population in this wave (after transit losses already deducted). */
@@ -1107,13 +1121,55 @@ export function coloniseWithShip(
 
 // ── Building slot management ────────────────────────────────────────────────
 
+// ── Zone-aware building slots ──────────────────────────────────────────────
+
+export interface SlotInfo { used: number; total: number; }
+export interface ZonedSlots { surface: SlotInfo; orbital: SlotInfo; underground: SlotInfo; }
+
+const ORBITAL_BASE_SLOTS = 3;
+const UNDERGROUND_BASE_SLOTS = 3;
+
 /**
- * Returns the number of used and total building slots for a planet.
+ * Returns per-zone building slot counts for a planet.
+ *
+ * Surface slots come from the planet type constant.
+ * Orbital slots come from orbital_platform buildings (3 + level each).
+ * Underground slots come from underground_complex buildings (3 + level each).
  */
-export function getBuildingSlots(planet: Planet): { used: number; total: number } {
-  const total = PLANET_BUILDING_SLOTS[planet.type];
-  const used = planet.buildings.length;
-  return { used, total };
+export function getBuildingSlots(planet: Planet): ZonedSlots {
+  const surfaceTotal = PLANET_BUILDING_SLOTS[planet.type];
+
+  let orbitalTotal = 0;
+  let undergroundTotal = 0;
+  for (const b of planet.buildings) {
+    if (b.type === 'orbital_platform') orbitalTotal += ORBITAL_BASE_SLOTS + b.level;
+    if (b.type === 'underground_complex') undergroundTotal += UNDERGROUND_BASE_SLOTS + b.level;
+  }
+
+  let surfaceUsed = 0, orbitalUsed = 0, undergroundUsed = 0;
+  for (const b of planet.buildings) {
+    const zone = b.slotZone ?? 'surface';
+    if (zone === 'orbital') orbitalUsed++;
+    else if (zone === 'underground') undergroundUsed++;
+    else surfaceUsed++;
+  }
+
+  return {
+    surface: { used: surfaceUsed, total: surfaceTotal },
+    orbital: { used: orbitalUsed, total: orbitalTotal },
+    underground: { used: undergroundUsed, total: undergroundTotal },
+  };
+}
+
+/**
+ * Backward-compatible helper that returns flat used/total across all zones.
+ */
+export function getTotalSlots(planet: Planet): { used: number; total: number } {
+  const z = getBuildingSlots(planet);
+  return {
+    used: z.surface.used + z.orbital.used + z.underground.used,
+    total: z.surface.total + z.orbital.total + z.underground.total,
+  };
 }
 
 /** Buildings that require another building to exist first (prerequisite → set of unlocked buildings). */
@@ -1144,6 +1200,7 @@ export function canBuildOnPlanet(
   buildingType: BuildingType,
   species?: Species,
   empireTechs?: string[],
+  targetZone: 'surface' | 'orbital' | 'underground' = 'surface',
 ): { allowed: boolean; reason?: string } {
   // Gas giant restriction
   if (planet.type === 'gas_giant' && buildingType !== 'spaceport') {
@@ -1153,12 +1210,15 @@ export function canBuildOnPlanet(
     };
   }
 
-  // Slot check
+  // Slot check — zone-aware
   const slots = getBuildingSlots(planet);
-  if (slots.used >= slots.total) {
+  const zoneSlots = slots[targetZone];
+  if (zoneSlots.used >= zoneSlots.total) {
     return {
       allowed: false,
-      reason: `No building slots available (${slots.used}/${slots.total} used)`,
+      reason: targetZone === 'surface'
+        ? `No surface slots available (${zoneSlots.used}/${zoneSlots.total})`
+        : `No ${targetZone} slots available (${zoneSlots.used}/${zoneSlots.total})`,
     };
   }
 
@@ -1214,8 +1274,9 @@ export function addBuildingToQueue(
   buildingType: BuildingType,
   species?: Species,
   empireTechs?: string[],
+  targetZone: 'surface' | 'orbital' | 'underground' = 'surface',
 ): Planet {
-  const check = canBuildOnPlanet(planet, buildingType, species, empireTechs);
+  const check = canBuildOnPlanet(planet, buildingType, species, empireTechs, targetZone);
   if (!check.allowed) {
     throw new Error(`Cannot queue building: ${check.reason}`);
   }
@@ -1232,6 +1293,7 @@ export function addBuildingToQueue(
         type: 'building',
         templateId: buildingType,
         turnsRemaining,
+        targetZone,
       },
     ],
   };
@@ -1380,6 +1442,7 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
         id: generateId(),
         type: target.templateId as BuildingType,
         level: 1,
+        slotZone: target.targetZone ?? 'surface',
       };
       return {
         ...planet,
@@ -1437,6 +1500,7 @@ export function processConstructionQueue(planet: Planet, constructionRate: numbe
       id: generateId(),
       type: item.templateId as BuildingType,
       level: 1,
+      slotZone: item.targetZone ?? 'surface',
     };
     return {
       ...planet,
@@ -1480,7 +1544,7 @@ export function getPlanetConstructionRate(
 export function getColonyStats(planet: Planet, species: Species): ColonyStats {
   const habitability = calculateHabitability(planet, species);
   const populationGrowth = calculatePopulationGrowth(planet, species, habitability.score);
-  const buildingSlots = getBuildingSlots(planet);
+  const buildingSlots = getTotalSlots(planet);
 
   const firstQueueItem = planet.productionQueue.find(item => item.type === 'building');
   const turnsToNextBuilding = firstQueueItem ? firstQueueItem.turnsRemaining : null;

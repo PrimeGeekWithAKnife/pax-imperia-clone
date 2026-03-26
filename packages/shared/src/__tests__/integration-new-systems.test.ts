@@ -299,8 +299,8 @@ describe('2. Tech tree – prerequisite validation', () => {
   const techs = (techTree as { technologies: TechEntry[] }).technologies;
   const techIds = new Set(techs.map(t => t.id));
 
-  it(`contains 108 technologies`, () => {
-    expect(techs.length).toBe(108);
+  it(`contains 109 technologies`, () => {
+    expect(techs.length).toBe(109);
   });
 
   it('all prerequisite IDs reference existing techs', () => {

@@ -37,6 +37,7 @@ export interface ConstructBuildingAction {
   systemId: string;
   planetId: string;
   buildingType: string;
+  targetZone?: 'surface' | 'orbital' | 'underground';
 }
 
 export interface UpgradeBuildingAction {

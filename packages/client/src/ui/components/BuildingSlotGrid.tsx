@@ -4,10 +4,12 @@ import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
 import { renderBuildingSlotIcon } from '../../assets/graphics';
 
 interface BuildingSlotGridProps {
-  totalSlots: number;
+  surfaceSlots: { used: number; total: number };
+  orbitalSlots: { used: number; total: number };
+  undergroundSlots: { used: number; total: number };
   buildings: Building[];
-  /** Called when clicking an empty slot */
-  onEmptySlotClick: (slotIndex: number) => void;
+  /** Called when clicking an empty slot in a given zone */
+  onEmptySlotClick: (zone: 'surface' | 'orbital' | 'underground') => void;
   /** Called when clicking an occupied slot (for future upgrade/info) */
   onBuildingClick: (building: Building, slotIndex: number) => void;
   /** Called when the player clicks the demolish button on an occupied slot. */
@@ -85,6 +87,8 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   // -- Pyrenth -------------------------------------------------------------
   elemental_forge: 'EF',
   seismic_resonator: 'SR',
+  // -- Zone infrastructure -------------------------------------------------
+  underground_complex: 'UC',
 };
 
 /** Pixel size of each building slot cell -- must match the CSS `.bsg-slot` dimensions. */
@@ -127,31 +131,45 @@ function SlotIcon({ buildingType, level }: SlotIconProps): React.ReactElement {
   );
 }
 
-/**
- * Renders a visual grid of building slots.
- * Filled slots show the building icon, name, and level.
- * Empty slots show a "+" and accept click to open a picker.
- */
-export function BuildingSlotGrid({
-  totalSlots,
+// -- SlotSection helper -------------------------------------------------------
+
+interface SlotSectionProps {
+  zone: 'surface' | 'orbital' | 'underground';
+  slots: { used: number; total: number };
+  buildings: Building[];
+  onEmptySlotClick: () => void;
+  onBuildingClick: (building: Building, slotIndex: number) => void;
+  onDemolish?: (building: Building) => void;
+}
+
+function SlotSection({
+  zone,
+  slots,
   buildings,
   onEmptySlotClick,
   onBuildingClick,
   onDemolish,
-}: BuildingSlotGridProps): React.ReactElement {
-  const slots: Array<Building | null> = Array.from({ length: totalSlots }, (_, i) => buildings[i] ?? null);
+}: SlotSectionProps): React.ReactElement {
+  const slotArray: Array<Building | null> = Array.from(
+    { length: slots.total },
+    (_, i) => buildings[i] ?? null,
+  );
 
   return (
-    <div className="bsg" style={{ '--bsg-cols': Math.min(5, totalSlots) } as React.CSSProperties}>
-      {slots.map((building, index) => {
+    <div
+      className="bsg"
+      style={{ '--bsg-cols': Math.min(5, slots.total) } as React.CSSProperties}
+      data-zone={zone}
+    >
+      {slotArray.map((building, index) => {
         if (building === null) {
           return (
             <button
               key={index}
               className="bsg-slot bsg-slot--empty"
-              onClick={() => onEmptySlotClick(index)}
-              aria-label={`Empty slot ${index + 1} -- click to build`}
-              title="Empty slot -- click to build"
+              onClick={onEmptySlotClick}
+              aria-label={`Empty ${zone} slot ${index + 1} -- click to build`}
+              title={`Empty ${zone} slot -- click to build`}
             >
               <span className="bsg-slot__plus">+</span>
             </button>
@@ -203,6 +221,69 @@ export function BuildingSlotGrid({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Renders a visual grid of building slots, split into surface, orbital, and
+ * underground zone sections. Orbital and underground sections are only shown
+ * when the planet has slots in those zones.
+ */
+export function BuildingSlotGrid({
+  surfaceSlots,
+  orbitalSlots,
+  undergroundSlots,
+  buildings,
+  onEmptySlotClick,
+  onBuildingClick,
+  onDemolish,
+}: BuildingSlotGridProps): React.ReactElement {
+  const surfaceBuildings = buildings.filter(b => (b.slotZone ?? 'surface') === 'surface');
+  const orbitalBuildings = buildings.filter(b => b.slotZone === 'orbital');
+  const undergroundBuildings = buildings.filter(b => b.slotZone === 'underground');
+
+  return (
+    <div className="bsg-zones">
+      {/* Surface */}
+      <SlotSection
+        zone="surface"
+        slots={surfaceSlots}
+        buildings={surfaceBuildings}
+        onEmptySlotClick={() => onEmptySlotClick('surface')}
+        onBuildingClick={onBuildingClick}
+        onDemolish={onDemolish}
+      />
+
+      {/* Orbital */}
+      {orbitalSlots.total > 0 && (
+        <div className="bsg-section bsg-section--orbital">
+          <div className="bsg-section__label">ORBITAL ({orbitalSlots.used}/{orbitalSlots.total})</div>
+          <SlotSection
+            zone="orbital"
+            slots={orbitalSlots}
+            buildings={orbitalBuildings}
+            onEmptySlotClick={() => onEmptySlotClick('orbital')}
+            onBuildingClick={onBuildingClick}
+            onDemolish={onDemolish}
+          />
+        </div>
+      )}
+
+      {/* Underground */}
+      {undergroundSlots.total > 0 && (
+        <div className="bsg-section bsg-section--underground">
+          <div className="bsg-section__label">UNDERGROUND ({undergroundSlots.used}/{undergroundSlots.total})</div>
+          <SlotSection
+            zone="underground"
+            slots={undergroundSlots}
+            buildings={undergroundBuildings}
+            onEmptySlotClick={() => onEmptySlotClick('underground')}
+            onBuildingClick={onBuildingClick}
+            onDemolish={onDemolish}
+          />
+        </div>
+      )}
     </div>
   );
 }

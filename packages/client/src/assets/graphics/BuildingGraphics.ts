@@ -101,6 +101,8 @@ const ACCENT: Record<BuildingType, string> = {
   // ── Pyrenth ────────────────────────────────────────────────────────────
   elemental_forge:           '#ff6622',
   seismic_resonator:         '#dd8844',
+  // ── Zone infrastructure ───────────────────────────────────────────────
+  underground_complex:       '#886644',
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -4265,6 +4267,50 @@ const drawEnergyStorage: DrawFn = (ctx, s, accent) => {
   drawGlow(ctx, sc(28, s), sc(32, s), sc(12, s), accent, 0.3);
 };
 
+// ── Zone infrastructure ───────────────────────────────────────────────────────
+
+const drawUndergroundComplex: DrawFn = (ctx, s, accent) => {
+  const cx = sc(32, s);
+  const baseY = sc(54, s);
+
+  drawGroundPlatform(ctx, s, sc(8, s), baseY, sc(48, s), accent);
+
+  // Underground shaft — dark vertical box descending beneath the platform
+  ctx.save();
+  ctx.fillStyle = '#0e0a08';
+  ctx.fillRect(cx - sc(16, s), sc(28, s), sc(32, s), baseY - sc(28, s));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.strokeRect(cx - sc(16, s), sc(28, s), sc(32, s), baseY - sc(28, s));
+  ctx.restore();
+
+  // Reinforcement bulkhead rings
+  for (const y of [34, 42, 50]) {
+    ctx.save();
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = sc(1, s);
+    ctx.beginPath();
+    ctx.moveTo(cx - sc(16, s), sc(y, s));
+    ctx.lineTo(cx + sc(16, s), sc(y, s));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Surface entry dome
+  ctx.save();
+  ctx.fillStyle = '#181410';
+  ctx.beginPath();
+  ctx.ellipse(cx, sc(28, s), sc(10, s), sc(6, s), 0, Math.PI, 0);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = sc(1, s);
+  ctx.stroke();
+  ctx.restore();
+
+  drawGlow(ctx, cx, sc(38, s), sc(16, s), accent, 0.2);
+};
+
 // ── Dispatch table ────────────────────────────────────────────────────────────
 
 const DRAW_FNS: Record<BuildingType, DrawFn> = {
@@ -4331,6 +4377,8 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   // ── Pyrenth ────────────────────────────────────────────────────────────────
   elemental_forge:           drawElementalForge,
   seismic_resonator:         drawSeismicResonator,
+  // ── Zone infrastructure ───────────────────────────────────────────────────
+  underground_complex:       drawUndergroundComplex,
 };
 
 // ── Roman numeral level badge ─────────────────────────────────────────────────

@@ -1875,6 +1875,47 @@
   color: #ff6666;
 }
 
+/* Zone sections (surface / orbital / underground) */
+.bsg-zones {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.bsg-section--orbital {
+  border: 1px solid rgba(100, 200, 255, 0.25);
+  border-radius: 4px;
+  padding: 4px;
+  margin-top: 8px;
+  background: rgba(100, 200, 255, 0.03);
+}
+
+.bsg-section--underground {
+  border: 1px solid rgba(200, 150, 80, 0.25);
+  border-radius: 4px;
+  padding: 4px;
+  margin-top: 8px;
+  background: rgba(200, 150, 80, 0.03);
+}
+
+.bsg-section__label {
+  font-family: monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6688aa;
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.bsg-section--orbital .bsg-section__label {
+  color: #66ccff;
+}
+
+.bsg-section--underground .bsg-section__label {
+  color: #cc9944;
+}
+
 /* ================================================================
    CONSTRUCTION QUEUE
 ================================================================ */

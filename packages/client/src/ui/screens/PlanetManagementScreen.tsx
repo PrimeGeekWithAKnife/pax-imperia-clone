@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, PLANET_BUILDING_SLOTS, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -152,7 +152,7 @@ function estimatePlanetProduction(planet: Planet): Record<string, number> {
   return totals;
 }
 
-/** Rough per-turn maintenance from buildings */
+/** Rough per-turn maintenance from buildings (zone-aware). */
 function estimateMaintenance(planet: Planet): Record<string, number> {
   const totals: Record<string, number> = {
     credits: 0,
@@ -163,9 +163,10 @@ function estimateMaintenance(planet: Planet): Record<string, number> {
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];
     if (!def) continue;
+    const zoneMult = ZONE_MAINTENANCE_MULTIPLIER[building.slotZone ?? 'surface'] ?? 1;
     for (const [key, val] of Object.entries(def.maintenanceCost)) {
       if (val !== undefined && key in totals) {
-        totals[key] = (totals[key] ?? 0) + val;
+        totals[key] = (totals[key] ?? 0) + val * zoneMult;
       }
     }
   }
@@ -594,7 +595,7 @@ interface PlanetManagementScreenProps {
   /** The player's species ID — used to filter racial buildings in the picker. */
   playerSpeciesId?: string;
   onClose: () => void;
-  onBuild: (planetId: string, buildingType: BuildingType) => void;
+  onBuild: (planetId: string, buildingType: BuildingType, targetZone?: 'surface' | 'orbital' | 'underground') => void;
   onCancelQueue: (planetId: string, queueIndex: number) => void;
   onProduceShip: (planetId: string, design: ShipDesign) => void;
   /** Called when the player confirms demolition of a building. */
@@ -626,6 +627,7 @@ export function PlanetManagementScreen({
   currentAge = 'nano_atomic',
 }: PlanetManagementScreenProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [buildZone, setBuildZone] = useState<'surface' | 'orbital' | 'underground'>('surface');
   const [shipPickerOpen, setShipPickerOpen] = useState(false);
   const [governorModalOpen, setGovernorModalOpen] = useState(false);
   const [candidates, setCandidates] = useState<Governor[]>([]);
@@ -690,8 +692,7 @@ export function PlanetManagementScreen({
     if (next && onChangePlanet) onChangePlanet(next.planet, next.systemId);
   }, [sortedPlanets, currentPlanetIdx, onChangePlanet]);
 
-  const totalSlots = PLANET_BUILDING_SLOTS[planet.type];
-  const usedSlots = planet.buildings.length;
+  const zonedSlots = getBuildingSlots(planet);
 
   const production = estimatePlanetProduction(planet);
   const maintenance = estimateMaintenance(planet);
@@ -706,7 +707,8 @@ export function PlanetManagementScreen({
     ? estimateTicksRemaining(activeTerraforming, stationLevel)
     : null;
 
-  const handleEmptySlotClick = useCallback(() => {
+  const handleEmptySlotClick = useCallback((zone: 'surface' | 'orbital' | 'underground') => {
+    setBuildZone(zone);
     setPickerOpen(true);
   }, []);
 
@@ -726,9 +728,9 @@ export function PlanetManagementScreen({
   const handleSelectBuilding = useCallback(
     (type: BuildingType) => {
       setPickerOpen(false);
-      onBuild(planet.id, type);
+      onBuild(planet.id, type, buildZone);
     },
-    [planet.id, onBuild],
+    [planet.id, onBuild, buildZone],
   );
 
   const handleCancelQueue = useCallback(
@@ -1223,11 +1225,16 @@ export function PlanetManagementScreen({
 
             <div className="pm-section-label">
               BUILDING SLOTS
-              <span className="pm-section-label__count">{usedSlots}/{totalSlots}</span>
+              <span className="pm-section-label__count">
+                {zonedSlots.surface.used + zonedSlots.orbital.used + zonedSlots.underground.used}/
+                {zonedSlots.surface.total + zonedSlots.orbital.total + zonedSlots.underground.total}
+              </span>
             </div>
 
             <BuildingSlotGrid
-              totalSlots={totalSlots}
+              surfaceSlots={zonedSlots.surface}
+              orbitalSlots={zonedSlots.orbital}
+              undergroundSlots={zonedSlots.underground}
               buildings={planet.buildings}
               onEmptySlotClick={handleEmptySlotClick}
               onBuildingClick={handleBuildingClick}
@@ -1289,9 +1296,11 @@ export function PlanetManagementScreen({
                         entries.push({ label: 'Waste', value: `+${scaled}`, positive: false });
                       }
 
+                      const bldgZoneMult = ZONE_MAINTENANCE_MULTIPLIER[upgradeTarget.slotZone ?? 'surface'] ?? 1;
                       for (const [key, base] of Object.entries(def.maintenanceCost)) {
                         if (base && base > 0) {
-                          entries.push({ label: `${RESOURCE_LABELS[key] ?? key} maint.`, value: `-${base}`, positive: false });
+                          const maintCost = Math.round(base * bldgZoneMult * 10) / 10;
+                          entries.push({ label: `${RESOURCE_LABELS[key] ?? key} maint.`, value: `-${maintCost}`, positive: false });
                         }
                       }
 

@@ -1204,7 +1204,7 @@ export function App(): React.ReactElement {
   );
 
   const handleBuild = useCallback(
-    (planetId: string, buildingType: BuildingType) => {
+    (planetId: string, buildingType: BuildingType, targetZone?: 'surface' | 'orbital' | 'underground') => {
       if (!managedSystemId) {
         console.warn('[App.handleBuild] No system ID for managed planet');
         return;
@@ -1214,7 +1214,7 @@ export function App(): React.ReactElement {
         console.warn('[App.handleBuild] GameEngine not available');
         return;
       }
-      const success = engine.buildOnPlanet(managedSystemId, planetId, buildingType);
+      const success = engine.buildOnPlanet(managedSystemId, planetId, buildingType, targetZone);
       if (!success) {
         console.warn(`[App.handleBuild] buildOnPlanet returned false for ${buildingType}`);
       }

@@ -855,4 +855,21 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     description:
       'A network of crystalline transducers embedded deep in the planetary crust, converting tectonic vibrations into usable energy and providing the Pyrenth with a detailed real-time map of every geological process occurring beneath the surface. The resonator dramatically improves construction speed on this planet by allowing Pyrenth builders to work in harmony with natural geological forces. Also provides a substantial ground defence bonus — Pyrenth defenders using seismic data can predict and counter landing operations with geological precision. Pyrenth only.',
   },
+
+  // ── Zone infrastructure ──────────────────────────────────────────────────
+
+  underground_complex: {
+    name: 'Underground Complex',
+    baseCost: { credits: 250, minerals: 150 },
+    baseProduction: {},
+    buildTime: 300,
+    maintenanceCost: { credits: 3 },
+    energyConsumption: 4,
+    wasteOutput: 0.5,
+    happinessImpact: 0,
+    maxLevel: 3,
+    description:
+      'A vast excavation into the planet\'s crust, reinforced with composite bulkheads and pressurised against the surrounding rock. Provides underground building slots where structures are shielded from orbital bombardment. When the surface is full, the only way to grow is down.',
+    requiredTech: 'planet_core_engineering',
+  },
 };
