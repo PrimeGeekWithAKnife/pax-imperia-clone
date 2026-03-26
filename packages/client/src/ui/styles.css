@@ -8131,6 +8131,242 @@
   letter-spacing: 0.08em;
 }
 
+/* ── Experience promotions ── */
+
+.brs-experience {
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brs-section-heading {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--color-text-muted);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.brs-experience-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.brs-experience-item {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.brs-ship-promotion {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #88ccff;
+  background: rgba(100, 180, 255, 0.12);
+  padding: 1px 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* ── Salvage ── */
+
+.brs-salvage {
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 80, 40, 0.06);
+}
+
+.brs-salvage-items {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.brs-salvage-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.brs-salvage-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.brs-salvage-value {
+  font-size: 18px;
+  color: #55dd88;
+}
+
+/* ===========================================================================
+   Occupation Dialog
+   =========================================================================== */
+
+.occ-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 2, 10, 0.85);
+  z-index: 610;
+  font-family: var(--font-mono);
+  pointer-events: auto;
+}
+
+.occ-modal {
+  width: min(560px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 4px;
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.18), 0 8px 32px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+}
+
+.occ-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.occ-title {
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.55);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.occ-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+  letter-spacing: 0.08em;
+}
+
+.occ-policies {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.occ-policy-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(0, 20, 40, 0.5);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-mono);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.occ-policy-btn:hover {
+  background: rgba(0, 40, 80, 0.4);
+  border-color: var(--color-border-bright);
+}
+
+.occ-policy-btn--selected {
+  background: rgba(0, 60, 100, 0.4);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+
+.occ-policy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.occ-policy-label {
+  font-size: 13px;
+  color: var(--color-text);
+  letter-spacing: 0.06em;
+}
+
+.occ-policy-severity {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.occ-policy-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.occ-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.occ-genocide-warning {
+  font-size: 12px;
+  color: #ee4444;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.occ-footer-buttons {
+  display: flex;
+  gap: 16px;
+}
+
+.occ-cancel-btn,
+.occ-confirm-btn {
+  background: transparent;
+  border: 1px solid var(--color-border-bright);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 8px 28px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.occ-cancel-btn:hover {
+  background: rgba(200, 50, 50, 0.1);
+}
+
+.occ-confirm-btn {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.occ-confirm-btn:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+}
+
+.occ-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ===========================================================================
    Economy Screen
    =========================================================================== */

@@ -2072,3 +2072,157 @@ export function calculateExperienceGain(
 
   return EXP_LEVELS[newIdx]!;
 }
+
+// ---------------------------------------------------------------------------
+// Battle report generation
+// ---------------------------------------------------------------------------
+
+export interface BattleReport {
+  winner: 'attacker' | 'defender' | 'draw';
+  ticksElapsed: number;
+  attacker: BattleSideReport;
+  defender: BattleSideReport;
+  salvage: SalvageResult;
+}
+
+export interface BattleSideReport {
+  shipsEngaged: number;
+  shipsDestroyed: number;
+  shipsRouted: number;
+  shipsSurvived: number;
+  totalDamageDealt: number;
+  experienceGained: Array<{ shipId: string; newExperience: CrewExperience }>;
+}
+
+export interface SalvageResult {
+  credits: number;
+  minerals: number;
+  /** Tech IDs that might be discovered from enemy wreckage. */
+  techFragments: string[];
+}
+
+/** Base salvage credits per destroyed ship. */
+const SALVAGE_CREDITS_PER_SHIP = 50;
+/** Base salvage minerals per destroyed ship. */
+const SALVAGE_MINERALS_PER_SHIP = 20;
+
+/**
+ * Generate a detailed post-combat battle report from the final TacticalState.
+ *
+ * The report contains per-side statistics (ships engaged/destroyed/routed/survived),
+ * experience promotions for surviving crews, and salvage quantities derived from
+ * the number of destroyed ships.
+ */
+export function generateBattleReport(state: TacticalState): BattleReport {
+  const attackerShips = state.ships.filter(s => s.side === 'attacker');
+  const defenderShips = state.ships.filter(s => s.side === 'defender');
+
+  const winner: BattleReport['winner'] =
+    state.outcome === 'attacker_wins' ? 'attacker'
+    : state.outcome === 'defender_wins' ? 'defender'
+    : 'draw';
+
+  const buildSideReport = (
+    ships: TacticalShip[],
+    enemyShips: TacticalShip[],
+    isWinningSide: boolean,
+  ): BattleSideReport => {
+    const survived = ships.filter(s => !s.destroyed && !s.routed);
+    const destroyed = ships.filter(s => s.destroyed);
+    const routed = ships.filter(s => s.routed);
+
+    // Estimate total damage dealt: sum of (maxHull - hull) for enemy ships
+    const totalDamageDealt = enemyShips.reduce((sum, es) => {
+      const hullDmg = es.maxHull - Math.max(0, es.hull);
+      const shieldDmg = es.maxShields - Math.max(0, es.shields);
+      return sum + hullDmg + shieldDmg;
+    }, 0);
+
+    return {
+      shipsEngaged: ships.length,
+      shipsDestroyed: destroyed.length,
+      shipsRouted: routed.length,
+      shipsSurvived: survived.length,
+      totalDamageDealt: Math.round(totalDamageDealt),
+      experienceGained: survived.map(s => ({
+        shipId: s.sourceShipId,
+        newExperience: calculateExperienceGain(
+          s,
+          isWinningSide,
+          enemyShips.length,
+          ships.length,
+        ),
+      })),
+    };
+  };
+
+  // Salvage: based on destroyed ships from both sides
+  const allDestroyed = [...attackerShips, ...defenderShips].filter(s => s.destroyed);
+  const salvageCredits = allDestroyed.length * SALVAGE_CREDITS_PER_SHIP;
+  const salvageMinerals = allDestroyed.length * SALVAGE_MINERALS_PER_SHIP;
+
+  return {
+    winner,
+    ticksElapsed: state.tick,
+    attacker: buildSideReport(
+      attackerShips,
+      defenderShips,
+      winner === 'attacker',
+    ),
+    defender: buildSideReport(
+      defenderShips,
+      attackerShips,
+      winner === 'defender',
+    ),
+    salvage: {
+      credits: salvageCredits,
+      minerals: salvageMinerals,
+      techFragments: [],
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Occupation policies
+// ---------------------------------------------------------------------------
+
+export type OccupationPolicy =
+  | 'peaceful_occupation'
+  | 'forced_labour'
+  | 're_education'
+  | 'decapitate_leadership'
+  | 'raze_and_loot'
+  | 'enslavement'
+  | 'mass_genocide';
+
+/**
+ * Determine which occupation policies are available based on the species'
+ * combat trait value (1-10).
+ *
+ * Peaceful species (combat <= 3) cannot commit genocide or enslave;
+ * moderate species (4-6) unlock forced labour;
+ * aggressive species (7-8) unlock enslavement;
+ * only the most violent (9-10) may commit genocide.
+ */
+export function getAllowedPolicies(combatTrait: number): OccupationPolicy[] {
+  const policies: OccupationPolicy[] = [
+    'peaceful_occupation',
+    're_education',
+    'decapitate_leadership',
+    'raze_and_loot',
+  ];
+
+  if (combatTrait >= 4) {
+    policies.push('forced_labour');
+  }
+
+  if (combatTrait >= 7) {
+    policies.push('enslavement');
+  }
+
+  if (combatTrait >= 9) {
+    policies.push('mass_genocide');
+  }
+
+  return policies;
+}

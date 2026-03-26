@@ -74,6 +74,8 @@ export interface ShipDesign {
   empireId: string;
 }
 
+export type CrewExperienceLevel = 'green' | 'regular' | 'veteran' | 'elite';
+
 export interface Ship {
   id: string;
   designId: string;
@@ -83,6 +85,8 @@ export interface Ship {
   systemDamage: SystemDamage;
   position: { systemId: string; orbitIndex?: number };
   fleetId: string | null;
+  /** Crew experience level, gained through combat. Defaults to 'green' when absent. */
+  crewExperience?: CrewExperienceLevel;
 }
 
 export interface SystemDamage {

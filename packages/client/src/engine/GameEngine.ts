@@ -60,6 +60,7 @@ import {
   UNIVERSAL_TECHNOLOGIES,
   createNotification,
   ZONE_COST_MULTIPLIER,
+  generateBattleReport,
 } from '@nova-imperia/shared';
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
@@ -72,6 +73,8 @@ import type {
   TechResearchedEvent,
   GameEvent,
   TacticalState,
+  BattleReport,
+  EmpireResources,
 } from '@nova-imperia/shared';
 import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
 import {
@@ -1444,21 +1447,45 @@ export class GameEngine {
 
   /**
    * Apply the results of a tactical combat to the game state.
-   * Updates ship HP, removes destroyed ships and empty fleets, and clears
-   * pending combats so the game loop can resume.
+   * Updates ship HP, removes destroyed ships and empty fleets, applies
+   * crew experience to surviving ships, awards salvage resources to the
+   * winner, and clears pending combats so the game loop can resume.
+   *
+   * Returns the generated BattleReport (or null if no ships were involved).
    */
-  applyTacticalCombatResult(tacticalState: TacticalState): void {
+  applyTacticalCombatResult(tacticalState: TacticalState): BattleReport | null {
     let ships = [...this.tickState.gameState.ships];
     let fleets = [...this.tickState.gameState.fleets];
 
+    // Generate the battle report before modifying state
+    const hasShips = tacticalState.ships.length > 0;
+    const report = hasShips ? generateBattleReport(tacticalState) : null;
+
     const destroyedIds = new Set<string>();
+
+    // Build a map of experience promotions from the report
+    const expMap = new Map<string, string>();
+    if (report) {
+      for (const entry of report.attacker.experienceGained) {
+        expMap.set(entry.shipId, entry.newExperience);
+      }
+      for (const entry of report.defender.experienceGained) {
+        expMap.set(entry.shipId, entry.newExperience);
+      }
+    }
+
     for (const tShip of tacticalState.ships) {
       if (tShip.destroyed) {
         destroyedIds.add(tShip.sourceShipId);
       } else {
-        // Update hull points from tactical combat result
+        // Update hull points and crew experience from tactical combat result
+        const newExp = expMap.get(tShip.sourceShipId);
         ships = ships.map(s => s.id === tShip.sourceShipId
-          ? { ...s, hullPoints: tShip.hull }
+          ? {
+              ...s,
+              hullPoints: tShip.hull,
+              ...(newExp ? { crewExperience: newExp as Ship['crewExperience'] } : {}),
+            }
           : s
         );
       }
@@ -1471,16 +1498,49 @@ export class GameEngine {
       ships: f.ships.filter(id => !destroyedIds.has(id)),
     })).filter(f => f.ships.length > 0);
 
+    // Award salvage resources to the winning empire
+    let updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    if (report && report.winner !== 'draw') {
+      // Determine the winner's empire ID from their surviving fleet
+      const winningSide = report.winner;
+      const winnerTacticalShip = tacticalState.ships.find(
+        s => s.side === winningSide && !s.destroyed,
+      );
+      if (winnerTacticalShip) {
+        const winnerShip = ships.find(s => s.id === winnerTacticalShip.sourceShipId);
+        const winnerFleet = winnerShip?.fleetId
+          ? fleets.find(f => f.id === winnerShip.fleetId)
+          : null;
+        const winnerEmpireId = winnerFleet?.empireId;
+
+        if (winnerEmpireId) {
+          const currentRes = updatedResourcesMap.get(winnerEmpireId);
+          if (currentRes) {
+            const updatedRes: EmpireResources = {
+              ...currentRes,
+              credits: currentRes.credits + report.salvage.credits,
+              minerals: currentRes.minerals + report.salvage.minerals,
+            };
+            updatedResourcesMap = new Map(updatedResourcesMap);
+            updatedResourcesMap.set(winnerEmpireId, updatedRes);
+          }
+        }
+      }
+    }
+
     // Clear pending combats
     this.tickState = {
       ...this.tickState,
       pendingCombats: [],
+      empireResourcesMap: updatedResourcesMap,
       gameState: {
         ...this.tickState.gameState,
         ships,
         fleets,
       },
     };
+
+    return report;
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
