@@ -5,6 +5,7 @@ import {
   totalStrength,
   averageMorale,
   calculateTransportCapacity,
+  GROUND_UNIT_DEFINITIONS,
 } from '@nova-imperia/shared';
 import type { GroundCombatState, GroundForce } from '@nova-imperia/shared';
 import type { HullClass } from '@nova-imperia/shared';
@@ -456,7 +457,10 @@ export class GroundCombatScene extends Phaser.Scene {
     const lines: string[] = [];
     for (const f of forces) {
       if (f.strength <= 0) continue;
-      lines.push(`${f.type.charAt(0).toUpperCase() + f.type.slice(1)}: ${Math.round(f.strength)} (${f.experience})`);
+      const def = GROUND_UNIT_DEFINITIONS[f.type];
+      const warCrimeTag = def?.warCrime ? ' [!WMD]' : '';
+      const displayName = def?.name ?? (f.type.charAt(0).toUpperCase() + f.type.slice(1));
+      lines.push(`${displayName}: ${Math.round(f.strength)} (${f.experience})${warCrimeTag}`);
     }
     return lines.join('\n');
   }
@@ -518,6 +522,7 @@ export class GroundCombatScene extends Phaser.Scene {
         attackerStrengthRemaining: totalStrength(this.gcState.attackerForces),
         defenderStrengthRemaining: totalStrength(this.gcState.defenderForces),
         ticks: this.gcState.tick,
+        warCrimesCommitted: this.gcState.warCrimesCommitted,
       });
       this.scene.start('GalaxyMapScene', {});
     });
@@ -565,6 +570,7 @@ export class GroundCombatScene extends Phaser.Scene {
         defenderStrengthRemaining: totalStrength(this.gcState.defenderForces),
         ticks: this.gcState.tick,
         retreated: true,
+        warCrimesCommitted: this.gcState.warCrimesCommitted,
       });
       this.scene.start('GalaxyMapScene', {});
     });

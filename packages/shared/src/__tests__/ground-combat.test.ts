@@ -11,8 +11,9 @@ import {
   EXPERIENCE_MULTIPLIER,
   TRANSPORT_CAPACITY,
   MILITIA_PER_POPULATION,
+  GROUND_UNIT_DEFINITIONS,
 } from '../engine/ground-combat.js';
-import type { GroundCombatState, GroundForce } from '../engine/ground-combat.js';
+import type { GroundCombatState, GroundForce, GroundUnitType } from '../engine/ground-combat.js';
 import type { Building } from '../types/galaxy.js';
 import type { HullClass } from '../types/ships.js';
 
@@ -58,13 +59,13 @@ describe('Ground combat engine', () => {
       expect(defStr).toBe(1130);
     });
 
-    it('creates three force types: infantry, armour, artillery', () => {
+    it('creates core force types: infantry, tanks, artillery', () => {
       const state = initializeGroundCombat(
         'Test Planet', 'terran', 1000, 50000, [], 'regular', 'green',
       );
       const types = new Set(state.attackerForces.map(f => f.type));
       expect(types.has('infantry')).toBe(true);
-      expect(types.has('armour')).toBe(true);
+      expect(types.has('tanks')).toBe(true);
       expect(types.has('artillery')).toBe(true);
     });
 
@@ -115,6 +116,114 @@ describe('Ground combat engine', () => {
       );
       expect(state.attackerEmpireId).toBe('emp-a');
       expect(state.defenderEmpireId).toBe('emp-d');
+    });
+
+    it('initialises warCrimesCommitted to false without WMD techs', () => {
+      const state = initializeGroundCombat(
+        'Clean Battle', 'terran', 1000, 50000, [], 'regular', 'green',
+      );
+      expect(state.warCrimesCommitted).toBe(false);
+    });
+
+    it('initialises persistentDamageEffects as empty array', () => {
+      const state = initializeGroundCombat(
+        'Test', 'terran', 1000, 50000, [], 'regular', 'green',
+      );
+      expect(state.persistentDamageEffects).toEqual([]);
+    });
+  });
+
+  describe('tech-based force composition', () => {
+    it('adds mechanised infantry when modular_architecture is researched', () => {
+      const techs = new Set(['modular_architecture']);
+      const state = initializeGroundCombat(
+        'Tech World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('mechanised_infantry')).toBe(true);
+    });
+
+    it('adds robots when robotic_workforce is researched', () => {
+      const techs = new Set(['robotic_workforce']);
+      const state = initializeGroundCombat(
+        'Robot World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('robots')).toBe(true);
+    });
+
+    it('adds drones when nano_fabrication is researched', () => {
+      const techs = new Set(['nano_fabrication']);
+      const state = initializeGroundCombat(
+        'Drone World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('drones')).toBe(true);
+    });
+
+    it('adds mechs when gravity_generators is researched', () => {
+      const techs = new Set(['gravity_generators']);
+      const state = initializeGroundCombat(
+        'Mech World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('mechs')).toBe(true);
+    });
+
+    it('adds enhanced soldiers when cybernetic_enhancement is researched', () => {
+      const techs = new Set(['cybernetic_enhancement']);
+      const state = initializeGroundCombat(
+        'Cyber World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('enhanced_soldiers')).toBe(true);
+    });
+
+    it('adds EW units when electronic_warfare_suite is researched', () => {
+      const techs = new Set(['electronic_warfare_suite']);
+      const state = initializeGroundCombat(
+        'EW World', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('electronic_warfare')).toBe(true);
+    });
+
+    it('adds multiple advanced unit types with multiple techs', () => {
+      const techs = new Set([
+        'modular_architecture', 'robotic_workforce', 'nano_fabrication',
+        'gravity_generators', 'cybernetic_enhancement', 'electronic_warfare_suite',
+      ]);
+      const state = initializeGroundCombat(
+        'Full Tech', 'terran', 10000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      const types = new Set(state.attackerForces.map(f => f.type));
+      expect(types.has('infantry')).toBe(true);
+      expect(types.has('tanks')).toBe(true);
+      expect(types.has('artillery')).toBe(true);
+      expect(types.has('mechanised_infantry')).toBe(true);
+      expect(types.has('robots')).toBe(true);
+      expect(types.has('drones')).toBe(true);
+      expect(types.has('mechs')).toBe(true);
+      expect(types.has('enhanced_soldiers')).toBe(true);
+      expect(types.has('electronic_warfare')).toBe(true);
+      // Total strength should still match
+      expect(totalStrength(state.attackerForces)).toBe(10000);
+    });
+
+    it('preserves total troop strength regardless of tech composition', () => {
+      const techs = new Set(['modular_architecture', 'robotic_workforce', 'nano_fabrication']);
+      const state = initializeGroundCombat(
+        'Troop Check', 'terran', 5000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      expect(totalStrength(state.attackerForces)).toBe(5000);
     });
   });
 
@@ -291,7 +400,7 @@ describe('Ground combat engine', () => {
     it('totalStrength sums force strength', () => {
       const forces: GroundForce[] = [
         { id: '1', side: 'attacker', empireId: 'e1', type: 'infantry', name: 'Inf', strength: 100, maxStrength: 100, morale: 80, experience: 'regular' },
-        { id: '2', side: 'attacker', empireId: 'e1', type: 'armour', name: 'Arm', strength: 50, maxStrength: 50, morale: 80, experience: 'regular' },
+        { id: '2', side: 'attacker', empireId: 'e1', type: 'tanks', name: 'Tnk', strength: 50, maxStrength: 50, morale: 80, experience: 'regular' },
       ];
       expect(totalStrength(forces)).toBe(150);
     });
@@ -299,7 +408,7 @@ describe('Ground combat engine', () => {
     it('averageMorale computes weighted average', () => {
       const forces: GroundForce[] = [
         { id: '1', side: 'attacker', empireId: 'e1', type: 'infantry', name: 'Inf', strength: 100, maxStrength: 100, morale: 80, experience: 'regular' },
-        { id: '2', side: 'attacker', empireId: 'e1', type: 'armour', name: 'Arm', strength: 100, maxStrength: 100, morale: 60, experience: 'regular' },
+        { id: '2', side: 'attacker', empireId: 'e1', type: 'tanks', name: 'Tnk', strength: 100, maxStrength: 100, morale: 60, experience: 'regular' },
       ];
       expect(averageMorale(forces)).toBe(70);
     });
@@ -324,6 +433,186 @@ describe('Ground combat engine', () => {
 
     it('morale collapse threshold is reasonable', () => {
       expect(MORALE_COLLAPSE_THRESHOLD).toBe(10);
+    });
+  });
+
+  describe('GROUND_UNIT_DEFINITIONS', () => {
+    it('defines all 19 unit types', () => {
+      const expectedTypes: GroundUnitType[] = [
+        'infantry', 'mechanised_infantry', 'tanks', 'artillery', 'air_support',
+        'mechs', 'robots', 'drones', 'enhanced_soldiers', 'orbital_support',
+        'electronic_warfare', 'saboteurs', 'burrowing_machines', 'unconventional_warfare',
+        'chemical_weapons', 'radiation_weapons', 'engineered_virus', 'nanite_swarm', 'psionic_units',
+      ];
+      for (const t of expectedTypes) {
+        expect(GROUND_UNIT_DEFINITIONS[t]).toBeDefined();
+        expect(GROUND_UNIT_DEFINITIONS[t].name).toBeTruthy();
+      }
+      expect(Object.keys(GROUND_UNIT_DEFINITIONS)).toHaveLength(19);
+    });
+
+    it('all units have non-negative attack and defence power', () => {
+      for (const [, def] of Object.entries(GROUND_UNIT_DEFINITIONS)) {
+        expect(def.attackPower).toBeGreaterThanOrEqual(0);
+        expect(def.defensePower).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('robots and drones have zero morale factor', () => {
+      expect(GROUND_UNIT_DEFINITIONS.robots.moraleFactor).toBe(0);
+      expect(GROUND_UNIT_DEFINITIONS.drones.moraleFactor).toBe(0);
+    });
+
+    it('war crime units are flagged correctly', () => {
+      expect(GROUND_UNIT_DEFINITIONS.chemical_weapons.warCrime).toBe(true);
+      expect(GROUND_UNIT_DEFINITIONS.radiation_weapons.warCrime).toBe(true);
+      expect(GROUND_UNIT_DEFINITIONS.engineered_virus.warCrime).toBe(true);
+      expect(GROUND_UNIT_DEFINITIONS.infantry.warCrime).toBeUndefined();
+      expect(GROUND_UNIT_DEFINITIONS.tanks.warCrime).toBeUndefined();
+    });
+
+    it('orbital support has the highest attack power', () => {
+      const maxAttack = Math.max(...Object.values(GROUND_UNIT_DEFINITIONS)
+        .filter(d => !d.warCrime)
+        .map(d => d.attackPower));
+      expect(GROUND_UNIT_DEFINITIONS.orbital_support.attackPower).toBe(maxAttack);
+    });
+
+    it('each unit with a required tech has it defined', () => {
+      for (const [, def] of Object.entries(GROUND_UNIT_DEFINITIONS)) {
+        if (def.requiredTech) {
+          expect(typeof def.requiredTech).toBe('string');
+          expect(def.requiredTech.length).toBeGreaterThan(0);
+        }
+      }
+    });
+  });
+
+  describe('special effects', () => {
+    it('robots maintain morale at 100 throughout combat', () => {
+      const techs = new Set(['robotic_workforce']);
+      let state = initializeGroundCombat(
+        'Robot Test', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      // Run several ticks
+      for (let i = 0; i < 20; i++) {
+        if (state.outcome === null) state = processGroundTick(state);
+      }
+      // Robot forces should still have 100 morale
+      const robotForce = state.attackerForces.find(f => f.type === 'robots');
+      if (robotForce && robotForce.strength > 0) {
+        expect(robotForce.morale).toBe(100);
+      }
+    });
+
+    it('EW units reduce enemy accuracy (enemy deals less damage)', () => {
+      const noEW = initializeGroundCombat(
+        'No EW', 'barren', 1000, 100000, [], 'regular', 'regular',
+      );
+      const withEW = initializeGroundCombat(
+        'With EW', 'barren', 1000, 100000, [], 'regular', 'regular',
+        'atk', 'def', new Set(['electronic_warfare_suite']),
+      );
+
+      let s1 = noEW;
+      let s2 = withEW;
+      for (let i = 0; i < 15; i++) {
+        if (s1.outcome === null) s1 = processGroundTick(s1);
+        if (s2.outcome === null) s2 = processGroundTick(s2);
+      }
+
+      // With EW, attacker should retain more strength (enemy deals less damage)
+      const noEWAtkStr = totalStrength(s1.attackerForces);
+      const withEWAtkStr = totalStrength(s2.attackerForces);
+      expect(withEWAtkStr).toBeGreaterThan(noEWAtkStr);
+    });
+
+    it('combat with tech-enhanced forces still terminates', () => {
+      const techs = new Set([
+        'modular_architecture', 'robotic_workforce', 'nano_fabrication',
+        'gravity_generators', 'cybernetic_enhancement', 'electronic_warfare_suite',
+      ]);
+      const state = initializeGroundCombat(
+        'Full Tech Battle', 'terran', 2000, 100000, [], 'regular', 'regular',
+        'atk', 'def', techs, techs,
+      );
+      const result = runUntilDone(state, 500);
+      expect(result.outcome).not.toBeNull();
+    });
+  });
+
+  describe('war crimes tracking', () => {
+    it('warCrimesCommitted is false for conventional forces', () => {
+      const state = initializeGroundCombat(
+        'Clean', 'terran', 1000, 50000, [], 'regular', 'green',
+      );
+      const result = runUntilDone(state);
+      expect(result.warCrimesCommitted).toBe(false);
+    });
+
+    it('warCrimesCommitted defaults to false with basic techs', () => {
+      const techs = new Set(['modular_architecture', 'robotic_workforce']);
+      const state = initializeGroundCombat(
+        'Tech Battle', 'terran', 1000, 50000, [], 'regular', 'green',
+        'atk', 'def', techs,
+      );
+      expect(state.warCrimesCommitted).toBe(false);
+    });
+  });
+
+  describe('fortification reduction by saboteurs', () => {
+    it('saboteurs reduce fortification over time', () => {
+      // We cannot directly inject saboteurs via the tech-based composition
+      // (saboteurs are not auto-included in buildForceComposition), but we
+      // can verify the fortification field changes by simulating a state
+      // that includes saboteurs.
+      const buildings: Building[] = [
+        { id: 'dg1', type: 'defense_grid', level: 5 },
+        { id: 'dg2', type: 'defense_grid', level: 5 },
+      ];
+      const state = initializeGroundCombat(
+        'Saboteur Test', 'terran', 1000, 50000, buildings, 'regular', 'green',
+      );
+
+      // Manually inject a saboteur unit into attacker forces
+      const modifiedState: GroundCombatState = {
+        ...state,
+        attackerForces: [
+          ...state.attackerForces,
+          {
+            id: 'sab-1',
+            side: 'attacker' as const,
+            empireId: 'atk',
+            type: 'saboteurs' as const,
+            name: 'Saboteurs',
+            strength: 100,
+            maxStrength: 100,
+            morale: 80,
+            experience: 'regular' as const,
+          },
+        ],
+      };
+
+      const initialFort = modifiedState.defenderFortification;
+      let s = modifiedState;
+      for (let i = 0; i < 5; i++) {
+        if (s.outcome === null) s = processGroundTick(s);
+      }
+
+      // Fortification should have been reduced
+      expect(s.defenderFortification).toBeLessThan(initialFort);
+      // Should reduce by 5 per tick for 5 ticks = 25 reduction
+      expect(s.defenderFortification).toBe(Math.max(0, initialFort - 25));
+    });
+  });
+
+  describe('persistent damage effects', () => {
+    it('persistent damage effects array starts empty', () => {
+      const state = initializeGroundCombat(
+        'Test', 'terran', 1000, 50000, [], 'regular', 'green',
+      );
+      expect(state.persistentDamageEffects).toEqual([]);
     });
   });
 });
