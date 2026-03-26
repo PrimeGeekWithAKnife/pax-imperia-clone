@@ -46,6 +46,25 @@ const ARMOUR_DEGRADATION_FACTOR = 0.5;
 /** Maximum catastrophic failure probability (at 0% hull). */
 const CATASTROPHIC_FAILURE_MAX = 0.1;
 
+/** Missile initial speed (pixels per tick). */
+const MISSILE_INITIAL_SPEED = 2;
+/** Missile maximum speed (pixels per tick). */
+const MISSILE_MAX_SPEED = 12;
+/** Missile acceleration (pixels per tick^2). */
+const MISSILE_ACCELERATION = 0.5;
+/** Hit radius for missile collision detection. */
+const MISSILE_HIT_RADIUS = 12;
+
+/** Default ammo for missile weapons. */
+const MISSILE_DEFAULT_AMMO = 6;
+/** Default ammo for projectile weapons. */
+const PROJECTILE_DEFAULT_AMMO = 50;
+/** Default ammo for point defence weapons. */
+const POINT_DEFENSE_DEFAULT_AMMO = 100;
+
+/** Duration in ticks that a point defence effect persists (visual only). */
+const PD_EFFECT_DURATION = 2;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -57,6 +76,8 @@ export type WeaponType =
   | 'point_defense'
   | 'fighter_bay';
 
+export type WeaponFacing = 'fore' | 'aft' | 'port' | 'starboard' | 'turret';
+
 export interface TacticalWeapon {
   componentId: string;
   type: WeaponType;
@@ -65,7 +86,9 @@ export interface TacticalWeapon {
   accuracy: number;     // 0-100
   cooldownMax: number;  // ticks between shots
   cooldownLeft: number; // ticks until next shot
-  facing: number;       // radians, relative to ship facing (0 = forward)
+  facing: WeaponFacing; // weapon mount facing direction
+  ammo?: number;        // remaining ammo (undefined = unlimited)
+  maxAmmo?: number;     // starting ammo capacity
 }
 
 export type ShipOrder =
@@ -105,6 +128,26 @@ export interface Projectile {
   targetShipId: string;
 }
 
+export interface Missile {
+  id: string;
+  sourceShipId: string;
+  targetShipId: string;
+  x: number;
+  y: number;
+  speed: number;
+  maxSpeed: number;
+  acceleration: number;
+  damage: number;
+  damageType: string;
+}
+
+export interface PointDefenceEffect {
+  shipId: string;
+  missileX: number;
+  missileY: number;
+  ticksRemaining: number;
+}
+
 export interface BeamEffect {
   sourceShipId: string;
   targetShipId: string;
@@ -114,14 +157,25 @@ export interface BeamEffect {
 
 export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
 
+export type FormationType = 'line' | 'spearhead' | 'diamond' | 'wings';
+
+export interface FormationPosition {
+  offsetX: number;
+  offsetY: number;
+}
+
 export interface TacticalState {
   tick: number;
   ships: TacticalShip[];
   projectiles: Projectile[];
+  missiles: Missile[];
   beamEffects: BeamEffect[];
+  pointDefenceEffects: PointDefenceEffect[];
   battlefieldWidth: number;
   battlefieldHeight: number;
   outcome: TacticalOutcome;
+  attackerFormation: FormationType;
+  defenderFormation: FormationType;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +214,261 @@ function mapComponentType(ct: ComponentType): WeaponType | null {
     case 'fighter_bay': return 'fighter_bay';
     default: return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Weapon arc checking
+// ---------------------------------------------------------------------------
+
+/** Half-arc width in radians for each weapon facing. */
+export const WEAPON_ARC: Record<WeaponFacing, number> = {
+  fore: Math.PI / 2,        // 90 deg forward arc
+  aft: Math.PI / 2,         // 90 deg rear arc
+  port: Math.PI / 2,        // 90 deg left arc
+  starboard: Math.PI / 2,   // 90 deg right arc
+  turret: Math.PI * 1.5,    // 270 deg (everything except directly behind)
+};
+
+/**
+ * Determine the default weapon facing based on component type.
+ * Beams and projectiles mount forward; point defence and missiles are turrets.
+ */
+export function defaultWeaponFacing(compType: ComponentType): WeaponFacing {
+  switch (compType) {
+    case 'weapon_beam': return 'fore';
+    case 'weapon_projectile': return 'fore';
+    case 'weapon_point_defense': return 'turret';
+    case 'weapon_missile': return 'turret';
+    case 'fighter_bay': return 'turret';
+    default: return 'turret';
+  }
+}
+
+/**
+ * Check whether a target is within a weapon's firing arc.
+ *
+ * The weapon's reference angle is computed from the ship's facing plus an
+ * offset for the weapon mount direction. The angular difference to the
+ * target must fall within half the arc width.
+ */
+export function isInWeaponArc(
+  ship: TacticalShip,
+  target: TacticalShip,
+  weapon: TacticalWeapon,
+): boolean {
+  const dx = target.position.x - ship.position.x;
+  const dy = target.position.y - ship.position.y;
+  const angleToTarget = Math.atan2(dy, dx);
+
+  // Compute the weapon's world-space reference angle
+  let weaponAngle = ship.facing;
+  switch (weapon.facing) {
+    case 'aft': weaponAngle += Math.PI; break;
+    case 'port': weaponAngle -= Math.PI / 2; break;
+    case 'starboard': weaponAngle += Math.PI / 2; break;
+    // 'fore' and 'turret' use ship.facing directly
+  }
+
+  let diff = angleToTarget - weaponAngle;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+
+  const arc = WEAPON_ARC[weapon.facing] ?? Math.PI;
+  return Math.abs(diff) <= arc / 2;
+}
+
+// ---------------------------------------------------------------------------
+// Formation system
+// ---------------------------------------------------------------------------
+
+/** Spacing between ships in a formation (battlefield units). */
+const FORMATION_SPACING = 40;
+
+/**
+ * Calculate formation positions for N ships.
+ * Returns offsets from the formation centre point.
+ */
+export function getFormationPositions(
+  formation: FormationType,
+  count: number,
+): FormationPosition[] {
+  switch (formation) {
+    case 'line': return lineFormation(count);
+    case 'spearhead': return spearheadFormation(count);
+    case 'diamond': return diamondFormation(count);
+    case 'wings': return wingsFormation(count);
+  }
+}
+
+/**
+ * Line: ships in a single horizontal row, centred on origin.
+ *   1 2 3 4 5
+ */
+function lineFormation(count: number): FormationPosition[] {
+  const positions: FormationPosition[] = [];
+  const totalWidth = (count - 1) * FORMATION_SPACING;
+  for (let i = 0; i < count; i++) {
+    positions.push({
+      offsetX: 0,
+      offsetY: -totalWidth / 2 + i * FORMATION_SPACING,
+    });
+  }
+  return positions;
+}
+
+/**
+ * Spearhead: 1 lead, then rows of 2, then 3, then trailing singles.
+ *     1
+ *    2 3
+ *   4 5 6
+ *     7
+ *     8
+ */
+function spearheadFormation(count: number): FormationPosition[] {
+  const positions: FormationPosition[] = [];
+  let placed = 0;
+  let row = 0;
+  // Phase 1: expanding rows (1, 2, 3)
+  const rowSizes = [1, 2, 3];
+  for (const size of rowSizes) {
+    if (placed >= count) break;
+    const rowWidth = (size - 1) * FORMATION_SPACING;
+    for (let col = 0; col < size && placed < count; col++) {
+      positions.push({
+        offsetX: -row * FORMATION_SPACING,
+        offsetY: -rowWidth / 2 + col * FORMATION_SPACING,
+      });
+      placed++;
+    }
+    row++;
+  }
+  // Phase 2: trailing singles behind the formation
+  while (placed < count) {
+    positions.push({
+      offsetX: -row * FORMATION_SPACING,
+      offsetY: 0,
+    });
+    placed++;
+    row++;
+  }
+  return positions;
+}
+
+/**
+ * Diamond: 1, 2, 3, 2, 1 pattern, then overflow as trailing singles.
+ *     1
+ *    2 3
+ *   4 5 6
+ *    7 8
+ *     9
+ */
+function diamondFormation(count: number): FormationPosition[] {
+  const positions: FormationPosition[] = [];
+  const rowSizes = [1, 2, 3, 2, 1];
+  let placed = 0;
+  let row = 0;
+  for (const size of rowSizes) {
+    if (placed >= count) break;
+    const rowWidth = (size - 1) * FORMATION_SPACING;
+    for (let col = 0; col < size && placed < count; col++) {
+      positions.push({
+        offsetX: -row * FORMATION_SPACING,
+        offsetY: -rowWidth / 2 + col * FORMATION_SPACING,
+      });
+      placed++;
+    }
+    row++;
+  }
+  // Overflow: trailing singles
+  while (placed < count) {
+    positions.push({
+      offsetX: -row * FORMATION_SPACING,
+      offsetY: 0,
+    });
+    placed++;
+    row++;
+  }
+  return positions;
+}
+
+/**
+ * Wings: pairs flanking a lead, repeating in rows of 3.
+ *   2 1 3
+ *   5 4 6
+ *   8 7 9
+ */
+function wingsFormation(count: number): FormationPosition[] {
+  const positions: FormationPosition[] = [];
+  let placed = 0;
+  let row = 0;
+  while (placed < count) {
+    // Centre ship
+    positions.push({
+      offsetX: -row * FORMATION_SPACING,
+      offsetY: 0,
+    });
+    placed++;
+    // Left wing
+    if (placed < count) {
+      positions.push({
+        offsetX: -row * FORMATION_SPACING,
+        offsetY: -FORMATION_SPACING,
+      });
+      placed++;
+    }
+    // Right wing
+    if (placed < count) {
+      positions.push({
+        offsetX: -row * FORMATION_SPACING,
+        offsetY: FORMATION_SPACING,
+      });
+      placed++;
+    }
+    row++;
+  }
+  return positions;
+}
+
+// ---------------------------------------------------------------------------
+// setFormation
+// ---------------------------------------------------------------------------
+
+/**
+ * Change the formation for one side, repositioning surviving ships.
+ * Ships receive move orders toward their new formation positions.
+ */
+export function setFormation(
+  state: TacticalState,
+  side: 'attacker' | 'defender',
+  formation: FormationType,
+): TacticalState {
+  const sideShips = state.ships.filter(
+    (s) => s.side === side && !s.destroyed && !s.routed,
+  );
+  const centreX = side === 'attacker' ? 200 : state.battlefieldWidth - 200;
+  const centreY = state.battlefieldHeight / 2;
+  const positions = getFormationPositions(formation, sideShips.length);
+
+  const sideShipIds = new Set(sideShips.map((s) => s.id));
+  let sideIdx = 0;
+
+  const updatedShips = state.ships.map((s) => {
+    if (!sideShipIds.has(s.id)) return s;
+    const pos = positions[sideIdx] ?? { offsetX: 0, offsetY: 0 };
+    sideIdx++;
+    const targetX = centreX + pos.offsetX;
+    const targetY = centreY + pos.offsetY;
+    return {
+      ...s,
+      order: { type: 'move' as const, x: targetX, y: targetY },
+    };
+  });
+
+  return {
+    ...state,
+    ships: updatedShips,
+    [side === 'attacker' ? 'attackerFormation' : 'defenderFormation']: formation,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -227,10 +536,14 @@ export function initializeTacticalCombat(
     tick: 0,
     ships: [...buildSide(attackerShips, 'attacker'), ...buildSide(defenderShips, 'defender')],
     projectiles: [],
+    missiles: [],
     beamEffects: [],
+    pointDefenceEffects: [],
     battlefieldWidth: BATTLEFIELD_WIDTH,
     battlefieldHeight: BATTLEFIELD_HEIGHT,
     outcome: null,
+    attackerFormation: 'line',
+    defenderFormation: 'line',
   };
 }
 
@@ -270,6 +583,7 @@ function extractShipStats(
         const dmg = comp.type === 'fighter_bay'
           ? (comp.stats['fighterCount'] ?? 0) * (comp.stats['damage'] ?? 0)
           : (comp.stats['damage'] ?? 0);
+        const ammo = computeAmmo(weaponType);
         weapons.push({
           componentId: comp.id,
           type: weaponType,
@@ -278,7 +592,9 @@ function extractShipStats(
           accuracy: comp.stats['accuracy'] ?? 75,
           cooldownMax: computeCooldown(comp),
           cooldownLeft: 0,
-          facing: 0, // forward-facing by default
+          facing: defaultWeaponFacing(comp.type),
+          ammo,
+          maxAmmo: ammo,
         });
       }
 
@@ -323,6 +639,21 @@ function computeCooldown(comp: ShipComponent): number {
     case 'weapon_point_defense': return 8;
     case 'fighter_bay': return 30;
     default: return 15;
+  }
+}
+
+/**
+ * Compute starting ammo for a weapon type.
+ * Beams are energy-based (unlimited), everything else has finite ammo.
+ */
+function computeAmmo(weaponType: WeaponType): number | undefined {
+  switch (weaponType) {
+    case 'missile': return MISSILE_DEFAULT_AMMO;
+    case 'projectile': return PROJECTILE_DEFAULT_AMMO;
+    case 'point_defense': return POINT_DEFENSE_DEFAULT_AMMO;
+    case 'beam': return undefined; // unlimited
+    case 'fighter_bay': return undefined; // fighters, not ammo-based
+    default: return undefined;
   }
 }
 
@@ -485,6 +816,44 @@ export function setShipOrder(
 }
 
 // ---------------------------------------------------------------------------
+// findNearestMissile
+// ---------------------------------------------------------------------------
+
+/**
+ * Find the nearest missile targeting a given ship or its nearby allies.
+ */
+export function findNearestMissile(
+  ship: TacticalShip,
+  missiles: Missile[],
+  allShips: TacticalShip[],
+): Missile | null {
+  const alliedRange = 200;
+  const allies = allShips.filter(
+    (s) => s.side === ship.side && !s.destroyed && !s.routed,
+  );
+
+  let best: Missile | null = null;
+  let bestDist = Infinity;
+
+  for (const missile of missiles) {
+    const isTargetingSelf = missile.targetShipId === ship.id;
+    const isTargetingNearbyAlly = !isTargetingSelf && allies.some(
+      (a) => a.id === missile.targetShipId && dist(ship.position, a.position) < alliedRange,
+    );
+
+    if (!isTargetingSelf && !isTargetingNearbyAlly) continue;
+
+    const d = dist(ship.position, { x: missile.x, y: missile.y });
+    if (d < bestDist) {
+      bestDist = d;
+      best = missile;
+    }
+  }
+
+  return best;
+}
+
+// ---------------------------------------------------------------------------
 // processTacticalTick
 // ---------------------------------------------------------------------------
 
@@ -492,10 +861,12 @@ export function setShipOrder(
  * Advance the tactical combat by one tick. Returns a new TacticalState.
  *
  * Steps:
- *  1. Decay beam effects (reduce ticksRemaining, remove expired)
+ *  1. Decay beam/point-defence effects
  *  2. Move ships toward their targets based on orders
  *  3. Move projectiles toward their targets (consume on hit)
- *  4. Fire weapons (check cooldown, range, create beams/projectiles)
+ *  3b. Move missiles (accelerate, track, hit detection)
+ *  3c. Point defence intercepts missiles
+ *  4. Fire weapons (check cooldown, range, ammo; create beams/projectiles/missiles)
  *  5. Return new state
  */
 export function processTacticalTick(state: TacticalState): TacticalState {
@@ -507,7 +878,12 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     .map((b) => ({ ...b, ticksRemaining: b.ticksRemaining - 1 }))
     .filter((b) => b.ticksRemaining > 0);
 
-  // 1b. Shield recharge for all active ships
+  // 1b. Decay point defence effects
+  const pointDefenceEffects = (state.pointDefenceEffects ?? [])
+    .map((e) => ({ ...e, ticksRemaining: e.ticksRemaining - 1 }))
+    .filter((e) => e.ticksRemaining > 0);
+
+  // 1c. Shield recharge for all active ships
   let ships = state.ships.map((ship) => {
     if (ship.destroyed || ship.routed || ship.maxShields <= 0) return ship;
     const recharged = Math.min(
@@ -527,20 +903,16 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   for (const proj of state.projectiles) {
     const target = ships.find((s) => s.id === proj.targetShipId || s.sourceShipId === proj.targetShipId);
     if (target == null || target.destroyed || target.routed) {
-      // Target gone — projectile dissipates
       continue;
     }
 
-    // Move toward target
     const d = dist(proj.position, target.position);
     if (d <= hitRadius + proj.speed) {
-      // Hit! Apply damage
       ships = ships.map((s) => {
         if (s !== target) return s;
         return applyDamage(s, proj.damage);
       });
     } else {
-      // Advance projectile
       const angle = angleTo(proj.position, target.position);
       survivingProjectiles.push({
         ...proj,
@@ -552,16 +924,88 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     }
   }
 
+  // 3b. Move missiles — accelerate, track target, check hits
+  let survivingMissiles: Missile[] = [];
+  const newPdEffects: PointDefenceEffect[] = [];
+
+  for (const missile of (state.missiles ?? [])) {
+    const target = ships.find((s) => s.id === missile.targetShipId && !s.destroyed);
+    if (target == null) continue; // missile lost target, dissipates
+
+    // Accelerate
+    const speed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
+
+    // Track target
+    const dx = target.position.x - missile.x;
+    const dy = target.position.y - missile.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+
+    if (d < MISSILE_HIT_RADIUS + speed) {
+      // Hit!
+      const targetIdx = ships.findIndex((s) => s.id === missile.targetShipId);
+      if (targetIdx >= 0) {
+        ships[targetIdx] = applyDamage(ships[targetIdx]!, missile.damage);
+      }
+      continue; // missile consumed
+    }
+
+    survivingMissiles.push({
+      ...missile,
+      speed,
+      x: missile.x + (dx / d) * speed,
+      y: missile.y + (dy / d) * speed,
+    });
+  }
+
+  // 3c. Point defence intercepts missiles
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed) return ship;
+
+    let weaponsChanged = false;
+    const updatedWeapons = ship.weapons.map((weapon) => {
+      if (weapon.type !== 'point_defense') return weapon;
+      if (weapon.cooldownLeft > 0) return weapon;
+      if (weapon.ammo !== undefined && weapon.ammo <= 0) return weapon;
+
+      const nearestMissile = findNearestMissile(ship, survivingMissiles, ships);
+      if (nearestMissile == null) return weapon;
+
+      const d = dist(ship.position, { x: nearestMissile.x, y: nearestMissile.y });
+      if (d > weapon.range) return weapon;
+
+      weaponsChanged = true;
+      const updated = {
+        ...weapon,
+        cooldownLeft: weapon.cooldownMax,
+        ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
+      };
+
+      if (Math.random() * 100 < weapon.accuracy) {
+        survivingMissiles = survivingMissiles.filter((m) => m.id !== nearestMissile.id);
+        newPdEffects.push({
+          shipId: ship.id,
+          missileX: nearestMissile.x,
+          missileY: nearestMissile.y,
+          ticksRemaining: PD_EFFECT_DURATION,
+        });
+      }
+
+      return updated;
+    });
+
+    return weaponsChanged ? { ...ship, weapons: updatedWeapons } : ship;
+  });
+
   // 4. Fire weapons
   const newProjectiles: Projectile[] = [];
   const newBeamEffects: BeamEffect[] = [];
+  const newMissiles: Missile[] = [];
 
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
 
     const target = findTarget(ship, ships);
     if (target == null) {
-      // Tick down cooldowns even without targets
       return {
         ...ship,
         weapons: ship.weapons.map((w) => ({
@@ -575,6 +1019,15 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const updatedWeapons: TacticalWeapon[] = [];
 
     for (const weapon of ship.weapons) {
+      // Point defence fires independently in step 3c — just tick cooldown here
+      if (weapon.type === 'point_defense') {
+        updatedWeapons.push({
+          ...weapon,
+          cooldownLeft: Math.max(0, weapon.cooldownLeft - 1),
+        });
+        continue;
+      }
+
       if (weapon.cooldownLeft > 0) {
         updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownLeft - 1 });
         continue;
@@ -586,9 +1039,22 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
+      // Check weapon arc
+      if (!isInWeaponArc(ship, target, weapon)) {
+        updatedWeapons.push(weapon);
+        continue;
+      }
+
+      // Check ammo
+      if (weapon.ammo !== undefined && weapon.ammo <= 0) {
+        updatedWeapons.push(weapon);
+        continue;
+      }
+
       // Fire!
-      if (weapon.type === 'beam' || weapon.type === 'point_defense') {
-        // Instant hit — apply damage now, create visual beam effect
+      const newAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
+
+      if (weapon.type === 'beam') {
         const idx = ships.indexOf(target);
         if (idx >= 0) {
           ships[idx] = applyDamage(ships[idx], weapon.damage);
@@ -599,8 +1065,21 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           damage: weapon.damage,
           ticksRemaining: BEAM_EFFECT_DURATION,
         });
+      } else if (weapon.type === 'missile') {
+        newMissiles.push({
+          id: `missile-${state.tick}-${ship.id}-${weapon.componentId}`,
+          sourceShipId: ship.id,
+          targetShipId: target.id,
+          x: ship.position.x,
+          y: ship.position.y,
+          speed: MISSILE_INITIAL_SPEED,
+          maxSpeed: MISSILE_MAX_SPEED,
+          acceleration: MISSILE_ACCELERATION,
+          damage: weapon.damage,
+          damageType: 'explosive',
+        });
       } else {
-        // Projectile/missile/fighter — create a projectile
+        // Projectile/fighter
         newProjectiles.push({
           id: generateId(),
           position: { ...ship.position },
@@ -611,8 +1090,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         });
       }
 
-      // Reset cooldown
-      updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax });
+      // Reset cooldown and decrement ammo
+      updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax, ammo: newAmmo });
     }
 
     return { ...ship, weapons: updatedWeapons };
@@ -639,10 +1118,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     tick: state.tick + 1,
     ships,
     projectiles: [...survivingProjectiles, ...newProjectiles],
+    missiles: [...survivingMissiles, ...newMissiles],
     beamEffects: [...beamEffects, ...newBeamEffects],
+    pointDefenceEffects: [...pointDefenceEffects, ...newPdEffects],
     battlefieldWidth: state.battlefieldWidth,
     battlefieldHeight: state.battlefieldHeight,
     outcome,
+    attackerFormation: state.attackerFormation,
+    defenderFormation: state.defenderFormation,
   };
 }
 

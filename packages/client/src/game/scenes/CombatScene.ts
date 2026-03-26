@@ -4,10 +4,11 @@ import {
   initializeTacticalCombat,
   processTacticalTick,
   setShipOrder,
+  setFormation,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)
@@ -45,6 +46,17 @@ const SELECTION_RING_ALPHA = 0.85;
 const PROJECTILE_RADIUS = 3;
 const PROJECTILE_COLOR = 0xffaa22;
 
+/** Missile visual constants */
+const MISSILE_SIZE = 5;
+const MISSILE_COLOR = 0xff6633;
+const MISSILE_TRAIL_COLOR = 0xff4400;
+const MISSILE_TRAIL_ALPHA = 0.3;
+const MISSILE_TRAIL_LENGTH = 12;
+
+/** Point defence visual constants */
+const PD_COLOR = 0xffffff;
+const PD_ALPHA = 0.7;
+
 /** Beam colours */
 const BEAM_COLOR_FRIENDLY = 0x44ff88;
 const BEAM_COLOR_ENEMY = 0xff4444;
@@ -66,6 +78,14 @@ const SPEED_PRESETS: { label: string; msPerTick: number }[] = [
 ];
 
 const MARGIN = 80;
+
+/** Available formation types for the HUD buttons. */
+const FORMATION_TYPES: { label: string; type: FormationType }[] = [
+  { label: 'LINE', type: 'line' },
+  { label: 'SPEAR', type: 'spearhead' },
+  { label: 'DIAMOND', type: 'diamond' },
+  { label: 'WINGS', type: 'wings' },
+];
 
 // ---------------------------------------------------------------------------
 // CombatScene
@@ -94,12 +114,15 @@ export class CombatScene extends Phaser.Scene {
   private selectionRing!: Phaser.GameObjects.Graphics;
   private beamGraphics!: Phaser.GameObjects.Graphics;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
+  private missileGraphics!: Phaser.GameObjects.Graphics;
+  private pdGraphics!: Phaser.GameObjects.Graphics;
 
   // ── HUD elements ───────────────────────────────────────────────────────────
   private tickLabel!: Phaser.GameObjects.Text;
   private selectedInfoLabel!: Phaser.GameObjects.Text;
   private speedButtons: Phaser.GameObjects.Text[] = [];
   private pauseButton!: Phaser.GameObjects.Text;
+  private formationButtons: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super({ key: 'CombatScene' });
@@ -153,6 +176,10 @@ export class CombatScene extends Phaser.Scene {
     this.beamGraphics.setDepth(5);
     this.projectileGraphics = this.add.graphics();
     this.projectileGraphics.setDepth(6);
+    this.missileGraphics = this.add.graphics();
+    this.missileGraphics.setDepth(7);
+    this.pdGraphics = this.add.graphics();
+    this.pdGraphics.setDepth(7);
 
     // ── HUD (fixed to camera) ──────────────────────────────────────────────
     this._createHUD();
@@ -176,6 +203,8 @@ export class CombatScene extends Phaser.Scene {
     this._updateShipVisuals();
     this._drawBeams();
     this._drawProjectiles();
+    this._drawMissiles();
+    this._drawPointDefence();
     this._drawSelectionRing();
     this._updateSelectedInfo();
   }
@@ -431,6 +460,61 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
+  /** Draw missiles as small red/orange triangles with a faint trail. */
+  private _drawMissiles(): void {
+    this.missileGraphics.clear();
+    for (const missile of (this.tacticalState.missiles ?? [])) {
+      // Find the target to compute heading
+      const target = this.tacticalState.ships.find(s => s.id === missile.targetShipId);
+      let heading = 0;
+      if (target) {
+        heading = Math.atan2(
+          target.position.y - missile.y,
+          target.position.x - missile.x,
+        );
+      }
+
+      // Faint trail behind the missile
+      const trailX = missile.x - Math.cos(heading) * MISSILE_TRAIL_LENGTH;
+      const trailY = missile.y - Math.sin(heading) * MISSILE_TRAIL_LENGTH;
+      this.missileGraphics.lineStyle(1.5, MISSILE_TRAIL_COLOR, MISSILE_TRAIL_ALPHA);
+      this.missileGraphics.lineBetween(trailX, trailY, missile.x, missile.y);
+
+      // Triangle pointing in heading direction
+      const cos = Math.cos(heading);
+      const sin = Math.sin(heading);
+      const noseX = missile.x + cos * MISSILE_SIZE;
+      const noseY = missile.y + sin * MISSILE_SIZE;
+      const leftX = missile.x + (-cos * MISSILE_SIZE * 0.5 - sin * MISSILE_SIZE * 0.4);
+      const leftY = missile.y + (-sin * MISSILE_SIZE * 0.5 + cos * MISSILE_SIZE * 0.4);
+      const rightX = missile.x + (-cos * MISSILE_SIZE * 0.5 + sin * MISSILE_SIZE * 0.4);
+      const rightY = missile.y + (-sin * MISSILE_SIZE * 0.5 - cos * MISSILE_SIZE * 0.4);
+
+      this.missileGraphics.fillStyle(MISSILE_COLOR, 0.95);
+      this.missileGraphics.beginPath();
+      this.missileGraphics.moveTo(noseX, noseY);
+      this.missileGraphics.lineTo(leftX, leftY);
+      this.missileGraphics.lineTo(rightX, rightY);
+      this.missileGraphics.closePath();
+      this.missileGraphics.fillPath();
+    }
+  }
+
+  /** Draw point defence intercept lines as brief thin white lines. */
+  private _drawPointDefence(): void {
+    this.pdGraphics.clear();
+    for (const pd of (this.tacticalState.pointDefenceEffects ?? [])) {
+      const ship = this.tacticalState.ships.find(s => s.id === pd.shipId);
+      if (!ship) continue;
+      const alpha = (pd.ticksRemaining / 2) * PD_ALPHA;
+      this.pdGraphics.lineStyle(1, PD_COLOR, alpha);
+      this.pdGraphics.lineBetween(
+        ship.position.x, ship.position.y,
+        pd.missileX, pd.missileY,
+      );
+    }
+  }
+
   private _drawSelectionRing(): void {
     this.selectionRing.clear();
     if (!this.selectedShipId) return;
@@ -538,6 +622,33 @@ export class CombatScene extends Phaser.Scene {
     retreatBtn.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     retreatBtn.setInteractive({ useHandCursor: true });
     retreatBtn.on('pointerdown', () => this._retreatAll());
+
+    // ── Bottom-left: formation buttons ──────────────────────────────────
+    const formationLabel = this.add.text(12, height - 70, 'FORMATION:', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#88aacc',
+    });
+    formationLabel.setScrollFactor(0).setDepth(100);
+
+    let fmtBtnX = 12;
+    this.formationButtons = [];
+    for (const fm of FORMATION_TYPES) {
+      const isActive = fm.type === 'line'; // default formation
+      const btn = this.add.text(fmtBtnX, height - 56, fm.label, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: isActive ? '#44ffaa' : '#6688aa',
+        backgroundColor: '#1a1a2e',
+        padding: { x: 6, y: 4 },
+      });
+      btn.setScrollFactor(0).setDepth(100);
+      btn.setInteractive({ useHandCursor: true });
+      btn.setData('formationType', fm.type);
+      btn.on('pointerdown', () => this._setPlayerFormation(fm.type));
+      this.formationButtons.push(btn);
+      fmtBtnX += btn.width + 6;
+    }
   }
 
   private _updateSelectedInfo(): void {
@@ -676,6 +787,27 @@ export class CombatScene extends Phaser.Scene {
       if (this._isPlayerSide(ship) && !ship.destroyed && !ship.routed) {
         this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
       }
+    }
+  }
+
+  // =========================================================================
+  // Formations
+  // =========================================================================
+
+  private _getPlayerSide(): 'attacker' | 'defender' {
+    return this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId
+      ? 'attacker'
+      : 'defender';
+  }
+
+  private _setPlayerFormation(formation: FormationType): void {
+    const side = this._getPlayerSide();
+    this.tacticalState = setFormation(this.tacticalState, side, formation);
+
+    // Update button highlight colours
+    for (const btn of this.formationButtons) {
+      const btnType = btn.getData('formationType') as FormationType;
+      btn.setColor(btnType === formation ? '#44ffaa' : '#6688aa');
     }
   }
 
