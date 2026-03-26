@@ -2498,6 +2498,1499 @@
         }
       ],
       "icon": "tech_planet_core_engineering"
+    },
+    {
+      "id": "tracking_missiles",
+      "name": "Tracking Missiles",
+      "description": "Ordnance fitted with multi-spectral homing sensors that adjust trajectory mid-flight, compensating for evasive manoeuvres. Even the nimblest corvette finds these difficult to shake.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "proximity_rockets"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "tracking_missile_rack"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "missile_damage",
+          "value": 10
+        }
+      ],
+      "icon": "tech_tracking_missiles"
+    },
+    {
+      "id": "guided_munitions_suite",
+      "name": "Guided Munitions Suite",
+      "description": "A fire-control architecture that links projectile weapons to predictive targeting algorithms, allowing shells to follow a computed intercept course rather than a straight line.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "kinetic_accelerators",
+        "tracking_missiles"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "projectile_damage",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": -5
+        }
+      ],
+      "icon": "tech_guided_munitions_suite"
+    },
+    {
+      "id": "gravity_well_projector",
+      "name": "Gravity Well Projector",
+      "description": "A device that generates localised gravitational anomalies, warping space around enemy vessels and hampering their ability to manoeuvre or escape to warp.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "gravity_generators",
+        "unified_field_theory"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "gravity_well_projector"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 15
+        }
+      ],
+      "icon": "tech_gravity_well_projector"
+    },
+    {
+      "id": "singularity_warheads",
+      "name": "Singularity Warheads",
+      "description": "Munitions containing miniaturised black-hole seeds that expand briefly on detonation, crushing everything within the event radius before evaporating in a wash of Hawking radiation.",
+      "category": "weapons",
+      "age": "singularity",
+      "cost": 20000,
+      "prerequisites": [
+        "singularity_mathematics",
+        "quantum_warheads"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "singularity_warhead"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "missile_damage",
+          "value": 50
+        }
+      ],
+      "icon": "tech_singularity_warheads"
+    },
+    {
+      "id": "psionic_disruption",
+      "name": "Psionic Disruption",
+      "description": "Weaponised psionic emissions broadcast on frequencies that overwhelm sentient neural tissue, inducing confusion, terror, and loss of motor control across enemy bridge crews.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "psionic_sensitivity"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "psionic_disruptor"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 10
+        }
+      ],
+      "icon": "tech_psionic_disruption"
+    },
+    {
+      "id": "psychic_lance",
+      "name": "Psychic Lance",
+      "description": "A focused psionic strike capable of incapacitating an entire ship's crew at range. The target vessel drifts, engines still burning, its occupants rendered catatonic.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "psionic_amplifiers",
+        "psionic_disruption"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "psychic_lance"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 30
+        }
+      ],
+      "icon": "tech_psychic_lance"
+    },
+    {
+      "id": "electronic_warfare_suite",
+      "name": "Electronic Warfare Suite",
+      "description": "Integrated jamming and spoofing systems that corrupt enemy targeting data, rendering their fire-control solutions unreliable and buying precious seconds under bombardment.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "quantum_computing",
+        "pulse_lasers"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "ecm_suite"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 10
+        }
+      ],
+      "icon": "tech_electronic_warfare_suite"
+    },
+    {
+      "id": "signal_jamming_array",
+      "name": "Signal Jamming Array",
+      "description": "High-powered broadband emitters that saturate local space with electromagnetic noise, blinding enemy sensors and disrupting fleet coordination across the engagement zone.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "electronic_warfare_suite",
+        "artificial_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 10
+        }
+      ],
+      "icon": "tech_signal_jamming_array"
+    },
+    {
+      "id": "eccm_protocols",
+      "name": "ECCM Protocols",
+      "description": "Counter-countermeasure algorithms that filter hostile jamming from sensor feeds in real time, restoring targeting accuracy even in the densest electronic fog.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "signal_jamming_array"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 3
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 10
+        }
+      ],
+      "icon": "tech_eccm_protocols"
+    },
+    {
+      "id": "disintegrator_beam",
+      "name": "Disintegrator Beam",
+      "description": "A weapon that tears apart the molecular bonds of its target, reducing armour plate to a cloud of constituent atoms. What was solid becomes dust in the blink of an eye.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "disruptor_beams",
+        "anti_matter_weapons"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "disintegrator_beam"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 35
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "armor_penetration",
+          "value": 25
+        }
+      ],
+      "icon": "tech_disintegrator_beam"
+    },
+    {
+      "id": "plasma_cutter_array",
+      "name": "Plasma Cutter Array",
+      "description": "Banks of precision plasma torches re-engineered for ship-to-ship combat, carving through hull plating with surgical accuracy at ranges that would make a welder weep.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 3800,
+      "prerequisites": [
+        "plasma_physics",
+        "pulse_lasers"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "plasma_cutter"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 15
+        }
+      ],
+      "icon": "tech_plasma_cutter_array"
+    },
+    {
+      "id": "neutron_beam_emitter",
+      "name": "Neutron Beam Emitter",
+      "description": "A directed-energy weapon that fires a concentrated stream of neutrons, passing through shields to irradiate crew and electronics alike. The hull survives; the occupants do not.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 7000,
+      "prerequisites": [
+        "plasma_cutter_array",
+        "quantum_field_theory"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "neutron_beam"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "shield_penetration",
+          "value": 20
+        }
+      ],
+      "icon": "tech_neutron_beam_emitter"
+    },
+    {
+      "id": "mass_driver_cannons",
+      "name": "Mass Driver Cannons",
+      "description": "Colossal electromagnetic accelerators that launch building-sized slugs of ultra-dense alloy at relativistic speeds. Inelegant, but nothing else hits quite so hard.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "kinetic_accelerators",
+        "advanced_materials"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "mass_driver_cannon"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "projectile_damage",
+          "value": 30
+        }
+      ],
+      "icon": "tech_mass_driver_cannons"
+    },
+    {
+      "id": "swarm_missiles",
+      "name": "Swarm Missiles",
+      "description": "Volleys of small, networked munitions that coordinate mid-flight, selecting optimal approach vectors and timing their detonations to overwhelm point-defence systems.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 6000,
+      "prerequisites": [
+        "tracking_missiles",
+        "artificial_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "swarm_missile_pod"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "missile_damage",
+          "value": 25
+        }
+      ],
+      "icon": "tech_swarm_missiles"
+    },
+    {
+      "id": "basic_stealth_plating",
+      "name": "Basic Stealth Plating",
+      "description": "Radar-absorbent hull coatings and thermal signature suppression systems that reduce a vessel's visibility on passive scans. Not invisible, but far harder to detect at range.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "cloaking_theory"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "stealth_plating_mk1"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 15
+        }
+      ],
+      "icon": "tech_basic_stealth_plating"
+    },
+    {
+      "id": "advanced_cloaking",
+      "name": "Advanced Cloaking",
+      "description": "Full-spectrum light-bending fields that render a vessel virtually undetectable to all known sensor technologies. The cloaked ship exists as a ghost, present but imperceptible.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "cloaking_device",
+        "phase_shields"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 30
+        },
+        {
+          "type": "enable_ability",
+          "ability": "advanced_cloak"
+        }
+      ],
+      "icon": "tech_advanced_cloaking"
+    },
+    {
+      "id": "phase_cloak",
+      "name": "Phase Cloak",
+      "description": "Technology that shifts a vessel partially out of normal space-time, rendering it not merely invisible but intangible. Weapons pass through it as though it were never there.",
+      "category": "defense",
+      "age": "singularity",
+      "cost": 18000,
+      "prerequisites": [
+        "advanced_cloaking",
+        "phase_shift"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "phase_cloak_device"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 40
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 20
+        }
+      ],
+      "icon": "tech_phase_cloak"
+    },
+    {
+      "id": "planetary_shield_generator",
+      "name": "Planetary Shield Generator",
+      "description": "Enormous ground-based emitters that project a protective energy dome across an entire colony. Orbital bombardment splashes harmlessly against the barrier — for a time.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 7000,
+      "prerequisites": [
+        "shield_harmonics",
+        "planetary_foundries"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "planetary_shield"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 30
+        }
+      ],
+      "icon": "tech_planetary_shield_generator"
+    },
+    {
+      "id": "reinforced_shield_lattice",
+      "name": "Reinforced Shield Lattice",
+      "description": "Redundant emitter arrays and hardened power conduits that allow shields to absorb far greater punishment before collapsing. The fleet becomes a wall of shimmering light.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "adaptive_shielding",
+        "planetary_shield_generator"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_capacity",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "shield_recharge_rate",
+          "value": 15
+        }
+      ],
+      "icon": "tech_reinforced_shield_lattice"
+    },
+    {
+      "id": "flak_screen",
+      "name": "Flak Screen",
+      "description": "Rapid-fire batteries loaded with timed-fuse fragmentation rounds, designed to fill approach corridors with clouds of shrapnel. Incoming missiles and strike craft face a curtain of death.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "kinetic_accelerators"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "flak_battery"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        }
+      ],
+      "icon": "tech_flak_screen"
+    },
+    {
+      "id": "ciws_turrets",
+      "name": "CIWS Turrets",
+      "description": "Close-In Weapon Systems — automated gatling arrays slaved to predictive tracking computers that shred inbound ordnance at point-blank range with terrifying accuracy.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "flak_screen",
+        "artificial_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "ciws_turret"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 20
+        }
+      ],
+      "icon": "tech_ciws_turrets"
+    },
+    {
+      "id": "ablative_armour",
+      "name": "Ablative Armour",
+      "description": "Layered sacrificial plating engineered to vaporise on impact, absorbing colossal amounts of kinetic and thermal energy in the process. The ship sheds skin rather than takes wounds.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "composite_armour",
+        "plasma_physics"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "ablative_armor_plating"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 5
+        }
+      ],
+      "icon": "tech_ablative_armour"
+    },
+    {
+      "id": "reactive_armour_systems",
+      "name": "Reactive Armour Systems",
+      "description": "Hull plating embedded with shaped charges that detonate outward on impact, neutralising incoming projectiles before they can penetrate. Every hit triggers a precisely calculated counter-explosion.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 6000,
+      "prerequisites": [
+        "ablative_armour",
+        "reactive_plating"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "reactive_armor_mk2"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 10
+        }
+      ],
+      "icon": "tech_reactive_armour_systems"
+    },
+    {
+      "id": "crystalline_lattice_armour",
+      "name": "Crystalline Lattice Armour",
+      "description": "Hull plating grown from synthetic crystalline matrices that distribute impact energy across their entire molecular structure. The harder you hit it, the more it resists.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "reactive_armour_systems",
+        "advanced_materials"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "crystalline_armor"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 15
+        }
+      ],
+      "icon": "tech_crystalline_lattice_armour"
+    },
+    {
+      "id": "marine_combat_training",
+      "name": "Marine Combat Training",
+      "description": "Intensive boarding-action drill programmes and zero-gravity combat techniques that transform ordinary soldiers into shipboard assault specialists. Every vessel becomes a fortress.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "composite_armour"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "boarding_action"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        }
+      ],
+      "icon": "tech_marine_combat_training"
+    },
+    {
+      "id": "shipboard_security_systems",
+      "name": "Shipboard Security Systems",
+      "description": "Automated bulkhead locks, internal defence turrets, and atmospheric control overrides that turn a vessel's corridors into a death trap for hostile boarders.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "marine_combat_training",
+        "automated_defence"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        }
+      ],
+      "icon": "tech_shipboard_security_systems"
+    },
+    {
+      "id": "basic_manoeuvring_thrusters",
+      "name": "Basic Manoeuvring Thrusters",
+      "description": "Arrays of small attitude-control jets distributed across the hull, granting vessels the agility to dodge incoming fire and reposition during engagements.",
+      "category": "propulsion",
+      "age": "nano_atomic",
+      "cost": 1500,
+      "prerequisites": [
+        "ion_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "manoeuvring_thruster_mk1"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 5
+        }
+      ],
+      "icon": "tech_basic_manoeuvring_thrusters"
+    },
+    {
+      "id": "advanced_manoeuvring_thrusters",
+      "name": "Advanced Manoeuvring Thrusters",
+      "description": "High-thrust vectoring nozzles coupled with inertial compensators that allow even cruiser-mass vessels to execute fighter-like evasive manoeuvres without crushing their crews.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "basic_manoeuvring_thrusters",
+        "fusion_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "manoeuvring_thruster_mk2"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 10
+        }
+      ],
+      "icon": "tech_advanced_manoeuvring_thrusters"
+    },
+    {
+      "id": "neural_linked_thrusters",
+      "name": "Neural-Linked Thrusters",
+      "description": "Thruster arrays wired directly into the helmsman's neural interface, translating thought into motion with zero latency. The ship moves as an extension of the pilot's body.",
+      "category": "propulsion",
+      "age": "nano_fusion",
+      "cost": 6500,
+      "prerequisites": [
+        "advanced_manoeuvring_thrusters",
+        "neural_enhancement"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "neural_thruster_array"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 1
+        }
+      ],
+      "icon": "tech_neural_linked_thrusters"
+    },
+    {
+      "id": "wormhole_cartography",
+      "name": "Wormhole Cartography",
+      "description": "Detailed mapping and classification of natural wormhole networks, enabling safer transit and revealing hidden connections between distant star systems.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "wormhole_stabilisation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 2
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 2
+        }
+      ],
+      "icon": "tech_wormhole_cartography"
+    },
+    {
+      "id": "wormhole_anchoring",
+      "name": "Wormhole Anchoring",
+      "description": "Massive stabilisation pylons that pin a wormhole's endpoints in place, transforming a fleeting natural phenomenon into a permanent transit corridor between systems.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "wormhole_cartography",
+        "artificial_wormholes"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "anchor_wormhole"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 3
+        }
+      ],
+      "icon": "tech_wormhole_anchoring"
+    },
+    {
+      "id": "fusion_torch_drives",
+      "name": "Fusion Torch Drives",
+      "description": "Sustained-burn fusion engines that maintain continuous thrust over interstellar distances, compressing travel times dramatically. The galaxy shrinks with every improvement.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "fusion_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "fusion_torch_mk1"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 2
+        }
+      ],
+      "icon": "tech_fusion_torch_drives"
+    },
+    {
+      "id": "antimatter_torch_drives",
+      "name": "Antimatter Torch Drives",
+      "description": "Matter-antimatter annihilation reaction engines that produce thrust densities orders of magnitude beyond fusion. Fleets cross entire sectors in what was once an impossible timeframe.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "fusion_torch_drives",
+        "anti_matter_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "antimatter_torch_mk1"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 3
+        }
+      ],
+      "icon": "tech_antimatter_torch_drives"
+    },
+    {
+      "id": "singularity_propulsion",
+      "name": "Singularity Propulsion",
+      "description": "Engines that harness the rotational energy of captive micro-singularities, achieving thrust levels that defy conventional physics. Distance becomes an abstraction.",
+      "category": "propulsion",
+      "age": "singularity",
+      "cost": 18000,
+      "prerequisites": [
+        "singularity_drives",
+        "antimatter_torch_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "singularity_engine_mk2"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 4
+        }
+      ],
+      "icon": "tech_singularity_propulsion"
+    },
+    {
+      "id": "tactical_jump_drive",
+      "name": "Tactical Jump Drive",
+      "description": "A compact spatial displacement system that folds space for short-range jumps within a star system. Fleets blink from one engagement to another, denying the enemy time to regroup.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "hyperspace_conduits",
+        "antimatter_drives"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "tactical_jump_drive"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "tactical_jump"
+        }
+      ],
+      "icon": "tech_tactical_jump_drive"
+    },
+    {
+      "id": "strategic_jump_network",
+      "name": "Strategic Jump Network",
+      "description": "A fleet-wide jump coordination system that synchronises multiple tactical drives, allowing an entire armada to make simultaneous short-range spatial displacements.",
+      "category": "propulsion",
+      "age": "singularity",
+      "cost": 15000,
+      "prerequisites": [
+        "tactical_jump_drive",
+        "singularity_drives"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "fleet_jump"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 3
+        }
+      ],
+      "icon": "tech_strategic_jump_network"
+    },
+    {
+      "id": "inertial_dampening",
+      "name": "Inertial Dampening",
+      "description": "Graviton-based systems that counteract the crushing forces of rapid acceleration, allowing ships to perform manoeuvres that would otherwise reduce crews to a thin paste.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "graviton_theory",
+        "ion_drives"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 1
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 5
+        }
+      ],
+      "icon": "tech_inertial_dampening"
+    },
+    {
+      "id": "subspace_drives",
+      "name": "Subspace Drives",
+      "description": "Engines that partially displace a vessel into subspace, reducing its effective mass and allowing velocities unattainable in normal space. The stars grow ever closer.",
+      "category": "propulsion",
+      "age": "nano_fusion",
+      "cost": 7500,
+      "prerequisites": [
+        "antimatter_drives",
+        "dimensional_scanning"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "subspace_drive"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 2
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 2
+        }
+      ],
+      "icon": "tech_subspace_drives"
+    },
+    {
+      "id": "emergency_warp",
+      "name": "Emergency Warp",
+      "description": "Overclocked warp coils designed for a single desperate burst of speed, tearing a ship away from a losing engagement at the cost of severe engine strain.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "fusion_drives"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "emergency_warp"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 5
+        }
+      ],
+      "icon": "tech_emergency_warp"
+    },
+    {
+      "id": "fertility_enhancement",
+      "name": "Fertility Enhancement",
+      "description": "Genetic screening and hormonal optimisation programmes that dramatically increase viable birth rates without sacrificing genetic diversity. Colonies swell within a generation.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "growth_stimulants",
+        "molecular_biology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 20
+        }
+      ],
+      "icon": "tech_fertility_enhancement"
+    },
+    {
+      "id": "industrial_cloning",
+      "name": "Industrial Cloning",
+      "description": "Mass-production cloning vats capable of growing a fully mature worker in months rather than decades. Ethically contentious, but the population graphs speak for themselves.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 6000,
+      "prerequisites": [
+        "fertility_enhancement",
+        "genetic_optimisation"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "cloning_facility"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 30
+        }
+      ],
+      "icon": "tech_industrial_cloning"
+    },
+    {
+      "id": "advanced_cloning",
+      "name": "Advanced Cloning",
+      "description": "Second-generation cloning technology that imprints skills and memories directly into clonal tissue during gestation. Each clone emerges educated, skilled, and ready to serve.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "industrial_cloning",
+        "neural_enhancement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        }
+      ],
+      "icon": "tech_advanced_cloning"
+    },
+    {
+      "id": "atmosphere_processing",
+      "name": "Atmosphere Processing",
+      "description": "Industrial-scale atmospheric conversion plants that transform toxic or thin alien atmospheres into breathable air. Marginal worlds become merely uncomfortable rather than lethal.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "disease_control",
+        "molecular_biology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 15
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "atmosphere_processor"
+        }
+      ],
+      "icon": "tech_atmosphere_processing"
+    },
+    {
+      "id": "gravity_adaptation",
+      "name": "Gravity Adaptation",
+      "description": "Bioengineered skeletal and cardiovascular modifications that allow colonists to thrive in gravitational fields far outside their species' evolutionary comfort zone.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "atmosphere_processing",
+        "gravity_generators"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 10
+        }
+      ],
+      "icon": "tech_gravity_adaptation"
+    },
+    {
+      "id": "extreme_environment_suits",
+      "name": "Extreme Environment Suits",
+      "description": "Fully sealed exoskeletal suits that maintain a habitable microenvironment for the wearer regardless of external conditions. Colonists walk through acid rain and volcanic ash unharmed.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "gravity_adaptation",
+        "advanced_materials"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 25
+        }
+      ],
+      "icon": "tech_extreme_environment_suits"
+    },
+    {
+      "id": "hydroponics_ii",
+      "name": "Hydroponics II",
+      "description": "Second-generation hydroponic systems utilising genetically optimised crop strains and AI-managed nutrient cycles, producing yields several times greater than soil-based agriculture.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "growth_stimulants"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 5
+        }
+      ],
+      "icon": "tech_hydroponics_ii"
+    },
+    {
+      "id": "synthetic_food_production",
+      "name": "Synthetic Food Production",
+      "description": "Molecular assemblers that construct nutritionally complete foodstuffs from raw chemical feedstock. Taste remains a work in progress, but starvation becomes a relic of history.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "hydroponics_ii",
+        "nano_fabrication"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "food_synthesiser"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 10
+        }
+      ],
+      "icon": "tech_synthetic_food_production"
+    },
+    {
+      "id": "plague_resistance",
+      "name": "Plague Resistance",
+      "description": "Broad-spectrum genetic inoculations and nanoscale immune boosters that render populations virtually immune to epidemic disease, even from alien pathogens.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "disease_control"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 5
+        }
+      ],
+      "icon": "tech_plague_resistance"
+    },
+    {
+      "id": "life_extension_therapy",
+      "name": "Life Extension Therapy",
+      "description": "Telomere restoration, cellular regeneration, and organ replacement protocols that push natural lifespans well beyond their biological limits. Death becomes a choice, not an inevitability.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 7000,
+      "prerequisites": [
+        "plague_resistance",
+        "genetic_optimisation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "leader_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        }
+      ],
+      "icon": "tech_life_extension_therapy"
+    },
+    {
+      "id": "cybernetic_enhancement",
+      "name": "Cybernetic Enhancement",
+      "description": "Mechanical augmentation of biological systems — prosthetic limbs stronger than bone, neural co-processors faster than grey matter, and sensory arrays that perceive beyond the visible spectrum.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 6500,
+      "prerequisites": [
+        "neural_enhancement",
+        "robot_workers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        }
+      ],
+      "icon": "tech_cybernetic_enhancement"
+    },
+    {
+      "id": "bio_regeneration_field",
+      "name": "Bio-Regeneration Field",
+      "description": "Area-effect healing technology that accelerates cellular repair in all organic life within range. Wounds close in minutes, bones knit in hours, and colonies recover from disaster with astonishing speed.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "life_extension_therapy",
+        "cybernetic_enhancement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_repair_rate",
+          "value": 15
+        }
+      ],
+      "icon": "tech_bio_regeneration_field"
+    },
+    {
+      "id": "pandemic_bioweapon_defence",
+      "name": "Pandemic Bioweapon Defence",
+      "description": "Rapid-response quarantine systems and universal antiviral nano-agents that neutralise engineered pathogens before they can spread. A civilisation-ending plague becomes merely a bad week.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 8000,
+      "prerequisites": [
+        "plague_resistance",
+        "advanced_medical_bay"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 10
+        }
+      ],
+      "icon": "tech_pandemic_bioweapon_defence"
+    },
+    {
+      "id": "graviton_pulse_cannon",
+      "name": "Graviton Pulse Cannon",
+      "description": "A weapon that fires concentrated bursts of gravitational force, crushing internal structures and crew alike without visibly damaging the hull. The wreckage looks pristine from the outside.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "gravity_well_projector",
+        "mass_driver_cannons"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "graviton_pulse_cannon"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "projectile_damage",
+          "value": 35
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "armor_penetration",
+          "value": 20
+        }
+      ],
+      "icon": "tech_graviton_pulse_cannon"
+    },
+    {
+      "id": "hardened_bulkheads",
+      "name": "Hardened Bulkheads",
+      "description": "Reinforced internal compartmentalisation that limits damage propagation through the hull. A direct hit destroys one section rather than gutting the entire vessel.",
+      "category": "defense",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "composite_armour"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 3
+        }
+      ],
+      "icon": "tech_hardened_bulkheads"
+    },
+    {
+      "id": "shield_overcharge",
+      "name": "Shield Overcharge",
+      "description": "Emergency protocols that dump reserve power into shield emitters, briefly boosting capacity well beyond rated tolerances. The generators protest, but the ship survives.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "deflector_fields",
+        "shield_harmonics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_capacity",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "shield_overcharge"
+        }
+      ],
+      "icon": "tech_shield_overcharge"
+    },
+    {
+      "id": "fortress_station_armour",
+      "name": "Fortress Station Armour",
+      "description": "Specialised armour plating designed for orbital stations and starbases, many times thicker than anything a mobile vessel could carry. Fixed installations become nigh-impregnable.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "crystalline_lattice_armour",
+        "orbital_megastructures"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_points",
+          "value": 15
+        }
+      ],
+      "icon": "tech_fortress_station_armour"
+    },
+    {
+      "id": "navigational_computers",
+      "name": "Navigational Computers",
+      "description": "Quantum-accelerated astrogation processors that calculate optimal routes through complex gravitational terrain in real time, shaving days off interstellar journeys.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "quantum_computing",
+        "ion_drives"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 1
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 1
+        }
+      ],
+      "icon": "tech_navigational_computers"
+    },
+    {
+      "id": "gravimetric_sensors",
+      "name": "Gravimetric Sensors",
+      "description": "Passive detection arrays that map the gravitational fingerprint of every mass in sensor range, revealing cloaked vessels, hidden fleets, and unsurveyed stellar bodies alike.",
+      "category": "propulsion",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "graviton_theory",
+        "advanced_sensors"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 4
+        },
+        {
+          "type": "enable_ability",
+          "ability": "detect_cloaked"
+        }
+      ],
+      "icon": "tech_gravimetric_sensors"
+    },
+    {
+      "id": "xeno_epidemiology",
+      "name": "Xeno-Epidemiology",
+      "description": "The study of alien disease vectors and cross-species pathogen transmission. Understanding how extraterrestrial plagues spread is the first step to ensuring they never do.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "xenobiology",
+        "disease_control"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 5
+        }
+      ],
+      "icon": "tech_xeno_epidemiology"
+    },
+    {
+      "id": "genome_resequencing",
+      "name": "Genome Resequencing",
+      "description": "The ability to rewrite a species' genetic code wholesale, removing hereditary weaknesses and inserting beneficial traits drawn from across the galactic gene pool.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "genetic_optimisation",
+        "species_ascension"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 10
+        }
+      ],
+      "icon": "tech_genome_resequencing"
     }
   ],
   "ageGates": {
