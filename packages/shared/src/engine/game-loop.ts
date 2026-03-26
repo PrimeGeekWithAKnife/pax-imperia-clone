@@ -813,6 +813,7 @@ function stepFleetMovement(
 function stepCombatResolution(
   state: GameTickState,
   events: GameEvent[],
+  playerEmpireId?: string,
 ): GameTickState {
   if (state.pendingCombats.length === 0) return state;
 
@@ -821,6 +822,7 @@ function stepCombatResolution(
   let fleets = [...state.gameState.fleets];
   const designs = state.shipDesigns ?? new Map<string, ShipDesign>();
   const components = state.shipComponents ?? [];
+  const deferredCombats: typeof state.pendingCombats = [];
 
   for (const combat of state.pendingCombats) {
     const attackerFleet = fleets.find(f => f.id === combat.attackerFleetId);
@@ -830,6 +832,12 @@ function stepCombatResolution(
       console.warn(
         `[game-loop] Combat references missing fleet(s) in system "${combat.systemId}" — skipping`,
       );
+      continue;
+    }
+
+    // Defer player combats to the tactical scene
+    if (playerEmpireId && (attackerFleet.empireId === playerEmpireId || defenderFleet.empireId === playerEmpireId)) {
+      deferredCombats.push(combat);
       continue;
     }
 
@@ -955,7 +963,7 @@ function stepCombatResolution(
 
   return {
     ...state,
-    pendingCombats: [],
+    pendingCombats: deferredCombats,
     gameState: {
       ...state.gameState,
       fleets,
@@ -1998,6 +2006,7 @@ export function isGameOver(
 export function processGameTick(
   state: GameTickState,
   allTechs: import('../types/technology.js').Technology[] = [],
+  playerEmpireId?: string,
 ): TickResult {
   const events: GameEvent[] = [];
 
@@ -2018,7 +2027,7 @@ export function processGameTick(
   s = stepFleetMovement(s, events);
 
   // 2. Combat Resolution
-  s = stepCombatResolution(s, events);
+  s = stepCombatResolution(s, events, playerEmpireId);
 
   // 3. Population Growth
   s = stepPopulationGrowth(s);
