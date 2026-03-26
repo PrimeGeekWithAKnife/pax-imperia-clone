@@ -1428,6 +1428,7 @@ function stepFoodConsumption(state: GameTickState): GameTickState {
     const { resources: updatedResources, isStarving } = applyFoodConsumption(
       currentResources,
       totalPopulation,
+      empire.species.traits.reproduction,
     );
 
     state = applyResources(state, empire.id, updatedResources);

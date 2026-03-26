@@ -1035,11 +1035,12 @@ export function PlanetManagementScreen({
                 <div className="pm-stat-row">
                   <span className="pm-stat-label">Consumption</span>
                   <span className="pm-stat-value" style={{ color: '#ff8844' }}>
-                    -{Math.round(planet.currentPopulation / 50_000 * 10) / 10}
+                    -{Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION))}
                   </span>
                 </div>
                 {(() => {
-                  const foodNet = (production.organics ?? 0) - planet.currentPopulation / 50_000;
+                  const consumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
+                  const foodNet = (production.organics ?? 0) - consumption;
                   const isDeficit = foodNet < 0;
                   return (
                     <div className="pm-stat-row">
@@ -1212,7 +1213,7 @@ export function PlanetManagementScreen({
                               />
                             </div>
                             <span className="pm-shipyard__turns-left">
-                              {item.turnsRemaining} turn{item.turnsRemaining !== 1 ? 's' : ''} remaining
+                              {Math.ceil(item.turnsRemaining)} turn{Math.ceil(item.turnsRemaining) !== 1 ? 's' : ''} remaining
                             </span>
                           </div>
                         );
@@ -1454,6 +1455,43 @@ export function PlanetManagementScreen({
                       <div className="pm-prod-empty">No output — build something</div>
                     )}
                   </div>
+
+                  {planet.currentPopulation > 0 && (() => {
+                    const foodProd = production.organics ?? 0;
+                    const foodConsumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
+                    const foodBalance = foodProd - foodConsumption;
+                    const isDeficit = foodBalance < 0;
+                    return (
+                      <>
+                        <div className="pm-divider" />
+                        <div className="pm-section-label">FOOD (ORGANICS)</div>
+                        <div className="pm-prod-group">
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Production</span>
+                            <span className="pm-stat-value pm-stat-value--positive">
+                              +{Math.round(foodProd * 10) / 10}
+                            </span>
+                          </div>
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Consumption</span>
+                            <span className="pm-stat-value" style={{ color: '#ff8844' }}>
+                              -{foodConsumption}
+                            </span>
+                          </div>
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Net</span>
+                            <span
+                              className="pm-stat-value"
+                              style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                            >
+                              {foodBalance >= 0 ? '+' : ''}{Math.round(foodBalance * 10) / 10}
+                              {isDeficit && ' (STARVATION)'}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               )}
 

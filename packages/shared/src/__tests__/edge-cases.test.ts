@@ -192,33 +192,32 @@ describe('Species — Zod validation and racial buildings', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('Food balance — hydroponics sustains population', () => {
-  it('1 hydroponics bay (8 organics) sustains up to 400,000 population without starvation', () => {
+  it('1 hydroponics bay (8 organics) sustains up to 80,000 population without starvation', () => {
     // 1 hydroponics bay produces 8 organics per tick
     const organicsProduced = BUILDING_DEFINITIONS.hydroponics_bay.baseProduction.organics ?? 0;
     expect(organicsProduced).toBe(8);
 
-    // Population consumes floor(pop / 50,000) organics per tick
-    // At 400,000: floor(400000/50000) = 8 organics consumed
-    const consumed = calculateOrganicsConsumption(400_000);
+    // Population consumes ceil(pop / 10,000) organics per tick
+    // At 80,000: ceil(80000/10000) = 8 organics consumed
+    const consumed = calculateOrganicsConsumption(80_000);
     expect(consumed).toBe(8);
 
     // 8 produced >= 8 consumed — no starvation
     expect(organicsProduced).toBeGreaterThanOrEqual(consumed);
   });
 
-  it('400,001 population would begin starvation with only 1 hydroponics bay', () => {
-    // At 400,001: floor(400001/50000) = 8 — still 8, but exactly at the edge
-    const consumed = calculateOrganicsConsumption(400_001);
-    expect(consumed).toBe(8);
-    // Still exactly sustainable at 400,001 because floor rounds down
-  });
-
-  it('450,000 population would begin starvation with only 1 hydroponics bay', () => {
-    // At 450,000: floor(450000/50000) = 9 > 8
-    const consumed = calculateOrganicsConsumption(450_000);
+  it('80,001 population begins starvation with only 1 hydroponics bay', () => {
+    // At 80,001: ceil(80001/10000) = 9 > 8
+    const consumed = calculateOrganicsConsumption(80_001);
     expect(consumed).toBe(9);
     const organicsProduced = 8;
     expect(organicsProduced).toBeLessThan(consumed);
+  });
+
+  it('tiny population still consumes at least 1 organic', () => {
+    // Even 1 person eats
+    expect(calculateOrganicsConsumption(1)).toBe(1);
+    expect(calculateOrganicsConsumption(2_000)).toBe(1);
   });
 
   it('zero population consumes zero organics', () => {
@@ -229,8 +228,8 @@ describe('Food balance — hydroponics sustains population', () => {
     expect(calculateOrganicsConsumption(-500)).toBe(0);
   });
 
-  it('ORGANICS_PER_POPULATION is 50,000', () => {
-    expect(ORGANICS_PER_POPULATION).toBe(50_000);
+  it('ORGANICS_PER_POPULATION is 10,000', () => {
+    expect(ORGANICS_PER_POPULATION).toBe(10_000);
   });
 });
 

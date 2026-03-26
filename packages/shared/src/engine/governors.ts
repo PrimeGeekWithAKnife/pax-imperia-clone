@@ -119,8 +119,8 @@ export function generateGovernor(
     name = `${randPick(callRng, NAME_PREFIXES)}${randPick(callRng, NAME_SUFFIXES)}`;
   }
 
-  // Lifespan: 100–300 turns
-  const lifespan = randInt(callRng, 100, 300);
+  // Lifespan: 1000–3000 turns
+  const lifespan = randInt(callRng, 1000, 3000);
 
   // Trait
   const trait = randPick(callRng, TRAIT_POOL);

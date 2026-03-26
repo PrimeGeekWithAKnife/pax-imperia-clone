@@ -308,47 +308,65 @@ describe('calculateOrganicsConsumption', () => {
     expect(calculateOrganicsConsumption(0)).toBe(0);
   });
 
-  it('returns 1 for exactly 50 000 population', () => {
-    expect(calculateOrganicsConsumption(50_000)).toBe(1);
+  it('returns 1 for exactly 10 000 population', () => {
+    expect(calculateOrganicsConsumption(10_000)).toBe(1);
   });
 
-  it('returns 0 for population below 50 000', () => {
-    expect(calculateOrganicsConsumption(1_000)).toBe(0);
-    expect(calculateOrganicsConsumption(49_999)).toBe(0);
+  it('returns 1 (minimum) for any non-zero population below 10 000', () => {
+    expect(calculateOrganicsConsumption(1)).toBe(1);
+    expect(calculateOrganicsConsumption(1_000)).toBe(1);
+    expect(calculateOrganicsConsumption(9_999)).toBe(1);
   });
 
-  it('floors fractional consumption', () => {
-    expect(calculateOrganicsConsumption(75_000)).toBe(1);
-    expect(calculateOrganicsConsumption(149_999)).toBe(2);
+  it('ceils fractional consumption', () => {
+    expect(calculateOrganicsConsumption(15_000)).toBe(2);
+    expect(calculateOrganicsConsumption(10_001)).toBe(2);
+  });
+
+  it('applies racial reproduction modifier (trait 10 = double)', () => {
+    // 50_000 pop -> base = ceil(50000/10000) = 5
+    // trait 10 -> mod = 10/5 = 2 -> 5 * 2 = 10
+    expect(calculateOrganicsConsumption(50_000, 10)).toBe(10);
+  });
+
+  it('applies racial reproduction modifier (trait 1 = one fifth)', () => {
+    // 50_000 pop -> base = 5, trait 1 -> mod = 1/5 = 0.2 -> ceil(5 * 0.2) = 1
+    expect(calculateOrganicsConsumption(50_000, 1)).toBe(1);
+  });
+
+  it('defaults to normal rate when no trait provided', () => {
+    // 50_000 pop -> base = 5, no trait -> mod = 1 -> 5
+    expect(calculateOrganicsConsumption(50_000)).toBe(5);
+    expect(calculateOrganicsConsumption(50_000, 5)).toBe(5);
   });
 });
 
 describe('applyFoodConsumption — starvation causes population loss', () => {
   it('deducts organics from the stockpile when population consumes food', () => {
-    const resources = makeResources({ organics: 20 });
-    const totalPop = 250_000; // consumes 5 organics (250_000 / 50_000)
+    const resources = makeResources({ organics: 50 });
+    const totalPop = 250_000; // consumes ceil(250000/10000) = 25 organics
 
     const { resources: updated, isStarving, consumed } = applyFoodConsumption(resources, totalPop);
 
-    expect(consumed).toBe(5);
-    expect(updated.organics).toBe(15);
+    expect(consumed).toBe(25);
+    expect(updated.organics).toBe(25);
     expect(isStarving).toBe(false);
   });
 
   it('reports starvation when organics are insufficient', () => {
     const resources = makeResources({ organics: 2 });
-    const totalPop = 500_000; // consumes 10 organics (500_000 / 50_000), only 2 available
+    const totalPop = 500_000; // consumes ceil(500000/10000) = 50
 
     const { resources: updated, isStarving, consumed } = applyFoodConsumption(resources, totalPop);
 
-    expect(consumed).toBe(10);
+    expect(consumed).toBe(50);
     expect(updated.organics).toBe(0);
     expect(isStarving).toBe(true);
   });
 
   it('no organics in stockpile (starvation from tick one) causes isStarving=true', () => {
     const resources = makeResources({ organics: 0 });
-    const totalPop = 50_000; // consumes 1 organic (50_000 / 50_000)
+    const totalPop = 10_000; // consumes 1 organic (10_000 / 10_000)
 
     const { isStarving } = applyFoodConsumption(resources, totalPop);
 
@@ -371,5 +389,14 @@ describe('applyFoodConsumption — starvation causes population loss', () => {
     const { resources: updated } = applyFoodConsumption(resources, totalPop);
 
     expect(updated.organics).toBeGreaterThanOrEqual(0);
+  });
+
+  it('passes reproduction trait through to consumption', () => {
+    const resources = makeResources({ organics: 100 });
+    const totalPop = 50_000; // base = 5, trait 10 = mod 2 -> consumed = 10
+
+    const { consumed } = applyFoodConsumption(resources, totalPop, 10);
+
+    expect(consumed).toBe(10);
   });
 });

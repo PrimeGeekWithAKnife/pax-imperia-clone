@@ -7,7 +7,7 @@ export interface Governor {
   empireId: string;
   /** Turns this governor has served */
   turnsServed: number;
-  /** Total lifespan in turns (100-300) */
+  /** Total lifespan in turns (1000-3000) */
   lifespan: number;
   /** Stat modifiers — each is a percentage bonus/penalty (-20 to +20) */
   modifiers: GovernorModifiers;

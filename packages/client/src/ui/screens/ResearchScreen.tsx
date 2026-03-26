@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { Technology } from '@nova-imperia/shared';
 import type { TechCategory } from '@nova-imperia/shared';
 import type { TechAge } from '@nova-imperia/shared';
@@ -320,6 +320,10 @@ function ActiveResearchList({
   );
 }
 
+// ── Scroll position persistence (survives unmount/remount) ───────────────────
+let savedScrollTop = 0;
+let savedScrollLeft = 0;
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ResearchScreen({
@@ -338,6 +342,23 @@ export function ResearchScreen({
 }: ResearchScreenProps): React.ReactElement {
   const maxActive = maxActiveResearchProp ?? MAX_ACTIVE_RESEARCH;
   const [selectedTech, setSelectedTech] = useState<Technology | null>(null);
+
+  // ── Scroll position restoration ────────────────────────────────────────────
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = savedScrollTop;
+      el.scrollLeft = savedScrollLeft;
+    }
+    return () => {
+      if (el) {
+        savedScrollTop = el.scrollTop;
+        savedScrollLeft = el.scrollLeft;
+      }
+    };
+  }, []);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -476,7 +497,7 @@ export function ResearchScreen({
       <div className="research-screen__main">
 
         {/* ── Tech Tree Area (Categories as COLUMNS, Ages as ROWS) ── */}
-        <div className="research-screen__tree-area">
+        <div className="research-screen__tree-area" ref={scrollRef}>
 
           {/* Category column headers */}
           <div className="tech-tree__category-headers">

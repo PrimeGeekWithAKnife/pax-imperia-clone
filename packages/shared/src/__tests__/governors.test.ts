@@ -60,11 +60,11 @@ describe('generateGovernor', () => {
     expect(gov.turnsServed).toBe(0);
   });
 
-  it('has a lifespan between 100 and 300', () => {
+  it('has a lifespan between 1000 and 3000', () => {
     for (let seed = 0; seed < 50; seed++) {
       const gov = generateGovernor('e', 'p', seed);
-      expect(gov.lifespan).toBeGreaterThanOrEqual(100);
-      expect(gov.lifespan).toBeLessThanOrEqual(300);
+      expect(gov.lifespan).toBeGreaterThanOrEqual(1000);
+      expect(gov.lifespan).toBeLessThanOrEqual(3000);
     }
   });
 
