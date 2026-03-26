@@ -108,6 +108,10 @@ export interface Fleet {
   stance: FleetStance;
   /** What this fleet orbits in its current system. 'star' = system patrol, planet ID = defending that planet. */
   orbitTarget?: 'star' | string;
+  /** When true, fleet cycles through waypoints repeatedly. */
+  patrolling?: boolean;
+  /** Original patrol route waypoints — restored when patrol cycle completes. */
+  patrolRoute?: string[];
 }
 
 export type FleetStance =

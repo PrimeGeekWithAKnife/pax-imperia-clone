@@ -45,6 +45,17 @@ const MAX_DRIP_PARTICLES    = 20;
 const DRIP_COUNT_PER_FLEET  = 5;
 /** Time in ms for one full pass along the lane (direction cue). */
 const DRIP_PATH_DURATION_MS = 3000;
+// ── Waypoint route line styles ────────────────────────────────────────────
+/** Normal waypoint route: cyan dashed line */
+const WAYPOINT_COLOR         = 0x00d4ff;
+const WAYPOINT_ALPHA         = 0.35;
+const WAYPOINT_WIDTH         = 1.5;
+const WAYPOINT_DASH_LEN      = 6;
+const WAYPOINT_GAP_LEN       = 8;
+/** Patrol route: green-cyan dashed line */
+const PATROL_COLOR           = 0x22d46e;
+const PATROL_ALPHA           = 0.40;
+
 const SELECTION_RING_COLOR = 0xffffff;
 const SELECTION_RING_ALPHA = 0.9;
 const FOG_COLOR = 0x334455;
@@ -231,6 +242,9 @@ export class GalaxyMapScene extends Phaser.Scene {
    */
   private moveModeFleetId: string | null = null;
 
+  /** Graphics overlay for drawing fleet waypoint route lines. */
+  private waypointLayer!: Phaser.GameObjects.Graphics;
+
   /**
    * Phase accumulator (radians) used to oscillate wormhole line alpha.
    * Advanced at ~0.8 rad/s so a full pulse takes about 7–8 seconds.
@@ -374,7 +388,8 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.dustLayer = this.add.graphics();
     this.wormholeLayer = this.add.graphics();
     this.starLayer = this.add.container(0, 0);
-    this.worldContainer.add([this.armNebulaLayer, this.cosmicFeaturesLayer, this.cometLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer]);
+    this.waypointLayer = this.add.graphics();
+    this.worldContainer.add([this.armNebulaLayer, this.cosmicFeaturesLayer, this.cometLayer, this.blackHoleLayer, this.dustLayer, this.wormholeLayer, this.starLayer, this.waypointLayer]);
 
     // UI (screen-space, on top of everything)
     this.uiLayer = this.add.container(0, 0);
@@ -409,6 +424,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Render fleet indicators for ships already in existence
     this._renderFleetBadges();
+    this._drawWaypointRoutes();
 
     // Pick up pending move mode from system view transition ("Relocate Fleet")
     const pendingMoveMode = (window as unknown as Record<string, unknown>).__EX_NIHILO_PENDING_MOVE_MODE__ as string | undefined;
@@ -1586,7 +1602,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         return;
       }
       if (pointer.leftButtonDown()) {
-        this.selectSystem(sys.id);
+        this.selectSystem(sys.id, pointer.event.shiftKey);
       }
     });
   }
@@ -1657,7 +1673,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.starLayer.add(this.pingGraphics);
   }
 
-  private selectSystem(id: string): void {
+  private selectSystem(id: string, shiftKey = false): void {
     this.selectedSystemId = id;
     this.drawSelectionRing(id);
     this.drawWormholes(id);
@@ -1670,6 +1686,17 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // If move mode is active, emit a destination-selected event instead
     if (this.moveModeFleetId && sys) {
+      // Shift-click in move mode => add as waypoint directly
+      if (shiftKey) {
+        const engine = getGameEngine();
+        if (engine) {
+          engine.addWaypoint(this.moveModeFleetId, id);
+        }
+        // Stay in move mode so the player can keep adding waypoints
+        this.sfx?.playSelectSystem();
+        return;
+      }
+
       this.game.events.emit('fleet:destination_selected', {
         fleetId: this.moveModeFleetId,
         systemId: id,
@@ -2155,6 +2182,121 @@ export class GalaxyMapScene extends Phaser.Scene {
   }
 
   /**
+   * Draw dashed lines from each player fleet's current position through its
+   * waypoint queue.  Patrol routes use a distinct colour.  Only drawn for
+   * the local player's fleets.
+   */
+  private _drawWaypointRoutes(): void {
+    this.waypointLayer.clear();
+
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const state = engine.getState();
+    const fleets = state.gameState.fleets;
+    const playerEmpire = state.gameState.empires.find(e => !e.isAI);
+    const playerEmpireId = playerEmpire?.id ?? null;
+
+    for (const fleet of fleets) {
+      if (fleet.empireId !== playerEmpireId) continue;
+      if (fleet.waypoints.length === 0) continue;
+
+      const isPatrol = fleet.patrolling === true;
+      const color = isPatrol ? PATROL_COLOR : WAYPOINT_COLOR;
+      const alpha = isPatrol ? PATROL_ALPHA : WAYPOINT_ALPHA;
+      const lineWidth = WAYPOINT_WIDTH / this.currentZoom;
+
+      // Build the chain of system positions: fleet position -> each waypoint
+      const chainIds = [fleet.position.systemId, ...fleet.waypoints];
+      // If the fleet has a destination that's not in waypoints, prepend it
+      // after current position (the fleet is currently heading there)
+      if (fleet.destination && !fleet.waypoints.includes(fleet.destination)) {
+        chainIds.splice(1, 0, fleet.destination);
+      }
+
+      for (let i = 0; i < chainIds.length - 1; i++) {
+        const fromSys = this.galaxy.systems.find(s => s.id === chainIds[i]);
+        const toSys = this.galaxy.systems.find(s => s.id === chainIds[i + 1]);
+        if (!fromSys || !toSys) continue;
+
+        const ax = fromSys.position.x;
+        const ay = fromSys.position.y;
+        const bx = toSys.position.x;
+        const by = toSys.position.y;
+
+        const dx = bx - ax;
+        const dy = by - ay;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) continue;
+
+        const nx = dx / len;
+        const ny = dy / len;
+
+        // Draw dashed line
+        let d = 0;
+        while (d < len) {
+          const dashEnd = Math.min(d + WAYPOINT_DASH_LEN, len);
+          this.waypointLayer.lineStyle(lineWidth, color, alpha);
+          this.waypointLayer.beginPath();
+          this.waypointLayer.moveTo(ax + nx * d, ay + ny * d);
+          this.waypointLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
+          this.waypointLayer.strokePath();
+          d += WAYPOINT_DASH_LEN + WAYPOINT_GAP_LEN;
+        }
+
+        // Draw a small diamond at each waypoint (not the starting position)
+        if (i > 0 || fleet.destination) {
+          const wpX = toSys.position.x;
+          const wpY = toSys.position.y;
+          const sz = 3 / this.currentZoom;
+          this.waypointLayer.fillStyle(color, alpha + 0.2);
+          this.waypointLayer.fillTriangle(
+            wpX, wpY - sz,
+            wpX + sz, wpY,
+            wpX, wpY + sz,
+          );
+          this.waypointLayer.fillTriangle(
+            wpX, wpY - sz,
+            wpX - sz, wpY,
+            wpX, wpY + sz,
+          );
+        }
+      }
+
+      // If patrolling, draw a return line from last waypoint back to first
+      if (isPatrol && fleet.waypoints.length > 1) {
+        const lastId = fleet.waypoints[fleet.waypoints.length - 1]!;
+        const firstId = fleet.waypoints[0]!;
+        const lastSys = this.galaxy.systems.find(s => s.id === lastId);
+        const firstSys = this.galaxy.systems.find(s => s.id === firstId);
+        if (lastSys && firstSys) {
+          const ax = lastSys.position.x;
+          const ay = lastSys.position.y;
+          const bx = firstSys.position.x;
+          const by = firstSys.position.y;
+          const dx = bx - ax;
+          const dy = by - ay;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len > 1) {
+            const nx = dx / len;
+            const ny = dy / len;
+            let d2 = 0;
+            while (d2 < len) {
+              const dashEnd = Math.min(d2 + WAYPOINT_DASH_LEN, len);
+              this.waypointLayer.lineStyle(lineWidth, PATROL_COLOR, PATROL_ALPHA * 0.6);
+              this.waypointLayer.beginPath();
+              this.waypointLayer.moveTo(ax + nx * d2, ay + ny * d2);
+              this.waypointLayer.lineTo(ax + nx * dashEnd, ay + ny * dashEnd);
+              this.waypointLayer.strokePath();
+              d2 += WAYPOINT_DASH_LEN + WAYPOINT_GAP_LEN;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Rebuild the set of animated drip particles to match the current set of
    * active movement orders.  Called on each engine tick so the drips stay in
    * sync when orders are added or cleared.
@@ -2400,6 +2542,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
 
     this._renderFleetBadges();
+    this._drawWaypointRoutes();
     this._syncTransitDots();
   };
 

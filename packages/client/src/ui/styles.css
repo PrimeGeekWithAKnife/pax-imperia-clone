@@ -4879,6 +4879,47 @@
   flex: 1;
 }
 
+/* Waypoint list */
+.fleet-panel__waypoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.fleet-panel__waypoint-item {
+  font-family: monospace;
+  font-size: 9px;
+  color: #88bbdd;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  background: rgba(0, 212, 255, 0.04);
+  border-left: 2px solid rgba(0, 212, 255, 0.25);
+}
+
+.fleet-panel__waypoint-item--current {
+  color: #00d4ff;
+  border-left-color: rgba(0, 212, 255, 0.6);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.fleet-panel__waypoint-item--cycle {
+  color: #22d46e;
+  border-left-color: rgba(34, 212, 110, 0.5);
+  background: rgba(34, 212, 110, 0.06);
+  font-style: italic;
+}
+
+.fleet-panel__waypoint-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.fleet-panel__action-btn--small {
+  padding: 3px 8px !important;
+  font-size: 9px !important;
+}
+
 /* ================================================================
    DIPLOMACY SCREEN
 ================================================================ */

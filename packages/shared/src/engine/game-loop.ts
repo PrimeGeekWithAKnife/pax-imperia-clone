@@ -95,6 +95,7 @@ import {
   processShipProduction,
   issueMovementOrder,
   startShipProduction,
+  determineTravelMode,
   type FleetMovementOrder,
   type ShipProductionOrder,
 } from './fleet.js';
@@ -799,6 +800,52 @@ function stepFleetMovement(
 
     if (result.order !== null) {
       remainingOrders.push(result.order);
+    } else if (result.arrivedAtSystem !== null) {
+      // Movement order completed — check if fleet has queued waypoints
+      const arrivedFleet = fleets.find(f => f.id === order.fleetId);
+      if (arrivedFleet && arrivedFleet.waypoints.length > 0) {
+        const arrivedId = result.arrivedAtSystem;
+
+        // Remove the arrived system from the waypoint queue
+        const idx = arrivedFleet.waypoints.indexOf(arrivedId);
+        const remainingWaypoints = idx !== -1
+          ? [...arrivedFleet.waypoints.slice(0, idx), ...arrivedFleet.waypoints.slice(idx + 1)]
+          : [...arrivedFleet.waypoints];
+
+        const galaxy = state.gameState.galaxy;
+        const empireTechs = empires.find(e => e.id === arrivedFleet.empireId)?.technologies ?? [];
+
+        if (remainingWaypoints.length > 0) {
+          // More waypoints to visit — issue movement to the next one
+          const nextDest = remainingWaypoints[0]!;
+          const nextOrder = issueMovementOrder(arrivedFleet, galaxy, nextDest, undefined, empireTechs);
+          if (nextOrder) {
+            remainingOrders.push(nextOrder);
+          }
+          fleets = fleets.map(f =>
+            f.id === arrivedFleet.id ? { ...f, waypoints: remainingWaypoints } : f,
+          );
+        } else if (arrivedFleet.patrolling && arrivedFleet.patrolRoute && arrivedFleet.patrolRoute.length > 0) {
+          // Patrol mode: all waypoints consumed — restart the full patrol route
+          const fullRoute = [...arrivedFleet.patrolRoute];
+          // Find the first waypoint that isn't the current position
+          const nextIdx = fullRoute.findIndex(w => w !== arrivedId);
+          if (nextIdx !== -1) {
+            const nextOrder = issueMovementOrder(arrivedFleet, galaxy, fullRoute[nextIdx]!, undefined, empireTechs);
+            if (nextOrder) {
+              remainingOrders.push(nextOrder);
+            }
+          }
+          fleets = fleets.map(f =>
+            f.id === arrivedFleet.id ? { ...f, waypoints: fullRoute } : f,
+          );
+        } else {
+          // All waypoints consumed, not patrolling — clear waypoints
+          fleets = fleets.map(f =>
+            f.id === arrivedFleet.id ? { ...f, waypoints: [] } : f,
+          );
+        }
+      }
     }
   }
 
