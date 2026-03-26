@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { Fleet, Ship, FleetStance, ShipDesign } from '@nova-imperia/shared';
+import type { Fleet, Ship, FleetStance, ShipDesign, Planet } from '@nova-imperia/shared';
 import { findPath, determineTravelMode } from '@nova-imperia/shared';
 import { renderShipThumbnail } from '../../assets/graphics';
 import { getGameEngine } from '../../engine/GameEngine';
@@ -64,6 +64,10 @@ export interface FleetPanelProps {
   isSystemView?: boolean;
   /** Human-readable name of the system the fleet is in (avoids showing raw UUIDs). */
   systemName?: string;
+  /** Planets in the fleet's current system, used for orbit-target selection. */
+  planets?: Planet[];
+  /** Called when the player changes the fleet's orbit target. */
+  onSetOrbitTarget?: (fleetId: string, orbitTarget: string) => void;
   onClose: () => void;
 }
 
@@ -73,6 +77,8 @@ export function FleetPanel({
   designs = [],
   isSystemView = false,
   systemName,
+  planets = [],
+  onSetOrbitTarget,
   onClose,
 }: FleetPanelProps): React.ReactElement {
   const displaySystemName = systemName ?? fleet.position.systemId;
@@ -292,6 +298,22 @@ export function FleetPanel({
           ))}
         </div>
         <div className="fleet-panel__stance-desc">{STANCE_LABELS[stance]}</div>
+      </section>
+
+      {/* Orbit target */}
+      <section className="fleet-panel__section">
+        <div className="fleet-panel__section-label">ORBIT</div>
+        <select
+          className="sc-input sc-input--select"
+          value={fleet.orbitTarget ?? 'star'}
+          onChange={(e) => onSetOrbitTarget?.(fleet.id, e.target.value)}
+          style={{ fontSize: '10px', width: '100%' }}
+        >
+          <option value="star">Star (System Patrol)</option>
+          {planets.map(p => (
+            <option key={p.id} value={p.id}>{p.name} (Defend)</option>
+          ))}
+        </select>
       </section>
 
       {/* Fleet strength summary */}

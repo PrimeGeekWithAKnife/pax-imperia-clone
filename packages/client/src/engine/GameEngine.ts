@@ -1145,6 +1145,29 @@ export class GameEngine {
     return true;
   }
 
+  /**
+   * Set a fleet's orbit target — 'star' for system patrol or a planet ID
+   * for defending a specific planet.
+   */
+  setFleetOrbitTarget(fleetId: string, orbitTarget: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, orbitTarget } : f,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: {
+        ...this.tickState.gameState,
+        fleets: updatedFleets,
+      },
+    };
+
+    return true;
+  }
+
   // ── Research management ────────────────────────────────────────────────────
 
   /**

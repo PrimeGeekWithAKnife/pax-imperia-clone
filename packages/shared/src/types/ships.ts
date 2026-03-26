@@ -102,6 +102,8 @@ export interface Fleet {
   destination: string | null; // Target system ID
   waypoints: string[];
   stance: FleetStance;
+  /** What this fleet orbits in its current system. 'star' = system patrol, planet ID = defending that planet. */
+  orbitTarget?: 'star' | string;
 }
 
 export type FleetStance =
