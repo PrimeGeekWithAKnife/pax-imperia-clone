@@ -7,7 +7,7 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)
@@ -49,6 +49,15 @@ const PROJECTILE_COLOR = 0xffaa22;
 const BEAM_COLOR_FRIENDLY = 0x44ff88;
 const BEAM_COLOR_ENEMY = 0xff4444;
 
+/** Damage flash colour (red) overlaid briefly when a ship takes damage. */
+const DAMAGE_FLASH_COLOR = 0xff2222;
+const DAMAGE_FLASH_DURATION = 120; // ms
+
+/** Explosion circle expand + fade duration. */
+const EXPLOSION_DURATION = 400; // ms
+const EXPLOSION_RADIUS = 24;
+const EXPLOSION_COLOR = 0xff8800;
+
 /** Speed multiplier presets (ms per tick) */
 const SPEED_PRESETS: { label: string; msPerTick: number }[] = [
   { label: '1x', msPerTick: 100 },
@@ -78,6 +87,10 @@ export class CombatScene extends Phaser.Scene {
 
   // ── Visual containers ──────────────────────────────────────────────────────
   private shipContainers = new Map<string, Phaser.GameObjects.Container>();
+  /** Previous hull values per ship id — used to detect damage for flash effects. */
+  private prevHull = new Map<string, number>();
+  /** Ships that were destroyed since last visual update (for explosion effects). */
+  private prevDestroyed = new Set<string>();
   private selectionRing!: Phaser.GameObjects.Graphics;
   private beamGraphics!: Phaser.GameObjects.Graphics;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
@@ -103,6 +116,8 @@ export class CombatScene extends Phaser.Scene {
     this.selectedShipId = null;
     this.speedIndex = 0;
     this.shipContainers.clear();
+    this.prevHull.clear();
+    this.prevDestroyed.clear();
 
     // ── Initialise tactical state ──────────────────────────────────────────
     this.tacticalState = initializeTacticalCombat(
@@ -113,6 +128,11 @@ export class CombatScene extends Phaser.Scene {
       data.designs,
       data.components,
     );
+
+    // Track initial hull values for damage detection
+    for (const ship of this.tacticalState.ships) {
+      this.prevHull.set(ship.id, ship.hull);
+    }
 
     // ── Background ─────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(BG_COLOR);
@@ -314,10 +334,77 @@ export class CombatScene extends Phaser.Scene {
     for (const ship of this.tacticalState.ships) {
       const container = this.shipContainers.get(ship.id);
       if (!container) continue;
+
       container.setPosition(ship.position.x, ship.position.y);
       container.setRotation(ship.facing);
+
+      // Destroyed ships: play explosion then hide
+      if (ship.destroyed && !this.prevDestroyed.has(ship.id)) {
+        this.prevDestroyed.add(ship.id);
+        container.setVisible(false);
+        this._playExplosion(ship.position.x, ship.position.y);
+        continue;
+      }
+
       container.setVisible(!ship.destroyed && !ship.routed);
+
+      if (ship.destroyed || ship.routed) continue;
+
+      // Fade alpha based on hull percentage (1.0 at full, 0.35 at near-zero)
+      const hullFraction = ship.maxHull > 0 ? ship.hull / ship.maxHull : 1;
+      const alpha = 0.35 + hullFraction * 0.65;
+      container.setAlpha(alpha);
+
+      // Damage flash — if hull dropped since last check
+      const prev = this.prevHull.get(ship.id) ?? ship.hull;
+      if (ship.hull < prev) {
+        this._flashDamage(container);
+      }
+      this.prevHull.set(ship.id, ship.hull);
     }
+  }
+
+  /** Brief red tint flash on a ship container when it takes damage. */
+  private _flashDamage(container: Phaser.GameObjects.Container): void {
+    // Create a small circle overlay for the flash
+    const flash = this.add.graphics();
+    flash.fillStyle(DAMAGE_FLASH_COLOR, 0.6);
+    flash.fillCircle(0, 0, SHIP_BASE);
+    container.add(flash);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: DAMAGE_FLASH_DURATION,
+      onComplete: () => {
+        flash.destroy();
+      },
+    });
+  }
+
+  /** Expanding + fading circle explosion effect at a world position. */
+  private _playExplosion(x: number, y: number): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(9);
+    gfx.fillStyle(EXPLOSION_COLOR, 0.9);
+    gfx.fillCircle(x, y, 2);
+
+    // Use a proxy object for the tween since Graphics doesn't have scaleX/Y in the same way
+    const proxy = { radius: 2, alpha: 0.9 };
+    this.tweens.add({
+      targets: proxy,
+      radius: EXPLOSION_RADIUS,
+      alpha: 0,
+      duration: EXPLOSION_DURATION,
+      onUpdate: () => {
+        gfx.clear();
+        gfx.fillStyle(EXPLOSION_COLOR, proxy.alpha);
+        gfx.fillCircle(x, y, proxy.radius);
+      },
+      onComplete: () => {
+        gfx.destroy();
+      },
+    });
   }
 
   private _drawBeams(): void {
@@ -607,14 +694,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private _checkBattleEnd(): void {
-    const attackersAlive = this.tacticalState.ships.filter(
-      s => s.side === 'attacker' && !s.destroyed && !s.routed,
-    );
-    const defendersAlive = this.tacticalState.ships.filter(
-      s => s.side === 'defender' && !s.destroyed && !s.routed,
-    );
-
-    if (attackersAlive.length > 0 && defendersAlive.length > 0) return;
+    if (this.tacticalState.outcome === null) return;
 
     // Battle is over
     this.battleEnded = true;
@@ -623,8 +703,8 @@ export class CombatScene extends Phaser.Scene {
     const playerIsAttacker =
       this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
     const playerWon = playerIsAttacker
-      ? attackersAlive.length > 0
-      : defendersAlive.length > 0;
+      ? this.tacticalState.outcome === 'attacker_wins'
+      : this.tacticalState.outcome === 'defender_wins';
 
     const resultText = playerWon ? 'VICTORY' : 'DEFEAT';
     const resultColor = playerWon ? '#44ff88' : '#ff4444';

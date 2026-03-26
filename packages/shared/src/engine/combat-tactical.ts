@@ -37,6 +37,14 @@ const RANGE_TO_BATTLEFIELD = 50;
 const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
 const BEAM_EFFECT_DURATION = 3;
+/** Fraction of max shields recharged per tick. */
+const SHIELD_RECHARGE_FRACTION = 0.05;
+/** Armour absorbs up to this fraction of remaining damage per hit. */
+const ARMOUR_ABSORPTION_FRACTION = 0.25;
+/** Armour degrades by this fraction of the absorbed amount per hit. */
+const ARMOUR_DEGRADATION_FACTOR = 0.5;
+/** Maximum catastrophic failure probability (at 0% hull). */
+const CATASTROPHIC_FAILURE_MAX = 0.1;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,6 +112,8 @@ export interface BeamEffect {
   ticksRemaining: number;
 }
 
+export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
+
 export interface TacticalState {
   tick: number;
   ships: TacticalShip[];
@@ -111,6 +121,7 @@ export interface TacticalState {
   beamEffects: BeamEffect[];
   battlefieldWidth: number;
   battlefieldHeight: number;
+  outcome: TacticalOutcome;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +230,7 @@ export function initializeTacticalCombat(
     beamEffects: [],
     battlefieldWidth: BATTLEFIELD_WIDTH,
     battlefieldHeight: BATTLEFIELD_HEIGHT,
+    outcome: null,
   };
 }
 
@@ -487,13 +499,26 @@ export function setShipOrder(
  *  5. Return new state
  */
 export function processTacticalTick(state: TacticalState): TacticalState {
+  // 0. Early return if already resolved
+  if (state.outcome !== null) return state;
+
   // 1. Decay beam effects
   const beamEffects = state.beamEffects
     .map((b) => ({ ...b, ticksRemaining: b.ticksRemaining - 1 }))
     .filter((b) => b.ticksRemaining > 0);
 
+  // 1b. Shield recharge for all active ships
+  let ships = state.ships.map((ship) => {
+    if (ship.destroyed || ship.routed || ship.maxShields <= 0) return ship;
+    const recharged = Math.min(
+      ship.maxShields,
+      ship.shields + ship.maxShields * SHIELD_RECHARGE_FRACTION,
+    );
+    return recharged !== ship.shields ? { ...ship, shields: recharged } : ship;
+  });
+
   // 2. Move ships
-  let ships = state.ships.map((ship) => moveShip(ship, state));
+  ships = ships.map((ship) => moveShip(ship, state));
 
   // 3. Move projectiles and check for hits
   const hitRadius = 12;
@@ -593,6 +618,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return { ...ship, weapons: updatedWeapons };
   });
 
+  // 5. Combat end detection
+  const attackersAlive = ships.filter(
+    (s) => s.side === 'attacker' && !s.destroyed && !s.routed,
+  );
+  const defendersAlive = ships.filter(
+    (s) => s.side === 'defender' && !s.destroyed && !s.routed,
+  );
+
+  let outcome: TacticalOutcome = null;
+  if (attackersAlive.length === 0 && defendersAlive.length === 0) {
+    outcome = 'attacker_wins'; // draw goes to attacker
+  } else if (attackersAlive.length === 0) {
+    outcome = 'defender_wins';
+  } else if (defendersAlive.length === 0) {
+    outcome = 'attacker_wins';
+  }
+
   return {
     tick: state.tick + 1,
     ships,
@@ -600,6 +642,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     beamEffects: [...beamEffects, ...newBeamEffects],
     battlefieldWidth: state.battlefieldWidth,
     battlefieldHeight: state.battlefieldHeight,
+    outcome,
   };
 }
 
@@ -608,13 +651,21 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 // ---------------------------------------------------------------------------
 
 /**
- * Apply raw damage to a ship, reducing shields first, then hull.
- * Armour reduces hull damage by a flat percentage (25%).
+ * Apply raw damage to a ship through the shield -> armour -> hull pipeline.
+ *
+ * 1. Shields absorb damage first (point-for-point).
+ * 2. Armour reduces remaining damage by 25%, but degrades by half the
+ *    absorbed amount each hit.
+ * 3. Hull takes the rest (minimum 1 if any damage got past shields).
+ * 4. Ship is destroyed at 0 hull. Below 50% hull, a catastrophic failure
+ *    roll (up to 10% chance) may destroy the ship outright.
+ *
+ * Exported for testing — not part of the public API contract.
  */
-function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip {
+export function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip {
   let remaining = rawDamage;
 
-  // Shields absorb first
+  // 1. Shields absorb first
   let newShields = ship.shields;
   if (newShields > 0) {
     const absorbed = Math.min(newShields, remaining);
@@ -622,19 +673,37 @@ function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip {
     remaining -= absorbed;
   }
 
-  // Armour reduces remaining damage
-  if (remaining > 0 && ship.armour > 0) {
-    const reduction = Math.min(ship.armour * 0.25, remaining * 0.5);
-    remaining = Math.max(1, remaining - reduction);
+  // 2. Armour reduces remaining damage by 25% (but armour degrades)
+  let newArmour = ship.armour;
+  if (remaining > 0 && newArmour > 0) {
+    const armourAbsorb = Math.min(remaining * ARMOUR_ABSORPTION_FRACTION, newArmour);
+    remaining -= armourAbsorb;
+    newArmour -= armourAbsorb * ARMOUR_DEGRADATION_FACTOR; // armour degrades
   }
 
-  // Hull damage
-  const newHull = Math.max(0, ship.hull - remaining);
-  const destroyed = newHull <= 0;
+  // 3. Hull takes remaining damage (minimum 1 if any damage got past shields)
+  let newHull = ship.hull;
+  let destroyed = false;
+  if (remaining > 0) {
+    const hullDamage = Math.max(1, remaining);
+    newHull = Math.max(0, newHull - hullDamage);
+
+    if (newHull <= 0) {
+      destroyed = true;
+    } else if (newHull < ship.maxHull * 0.5) {
+      // Catastrophic failure chance scales with damage: up to 10% at 0% hull
+      const failChance = (1 - newHull / ship.maxHull) * CATASTROPHIC_FAILURE_MAX;
+      if (Math.random() < failChance) {
+        destroyed = true;
+        newHull = 0;
+      }
+    }
+  }
 
   return {
     ...ship,
     shields: newShields,
+    armour: newArmour,
     hull: newHull,
     destroyed,
     position: { ...ship.position },

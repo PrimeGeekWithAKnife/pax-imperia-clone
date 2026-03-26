@@ -6,6 +6,7 @@ import {
   setShipOrder,
   findTarget,
   moveShip,
+  applyDamage,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
   PROJECTILE_SPEED,
@@ -582,5 +583,331 @@ describe('battlefield dimensions', () => {
     const state = setupOnePair();
     expect(state.battlefieldWidth).toBe(BATTLEFIELD_WIDTH);
     expect(state.battlefieldHeight).toBe(BATTLEFIELD_HEIGHT);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyDamage unit tests
+// ---------------------------------------------------------------------------
+
+describe('applyDamage', () => {
+  function makeTacticalShip(overrides: Partial<TacticalShip> = {}): TacticalShip {
+    return {
+      id: 'test-ship',
+      sourceShipId: 'src-1',
+      name: 'Test Ship',
+      side: 'attacker',
+      position: { x: 0, y: 0 },
+      facing: 0,
+      speed: 3,
+      turnRate: 0.08,
+      hull: 100,
+      maxHull: 100,
+      shields: 30,
+      maxShields: 30,
+      armour: 10,
+      weapons: [],
+      sensorRange: 200,
+      order: { type: 'idle' },
+      destroyed: false,
+      routed: false,
+      ...overrides,
+    };
+  }
+
+  it('shields absorb damage first before armour or hull', () => {
+    const ship = makeTacticalShip({ shields: 30 });
+    const result = applyDamage(ship, 10);
+
+    expect(result.shields).toBe(20);
+    expect(result.hull).toBe(100); // no hull damage
+    expect(result.armour).toBe(10); // armour untouched
+    expect(result.destroyed).toBe(false);
+  });
+
+  it('armour reduces damage after shields are depleted', () => {
+    const ship = makeTacticalShip({ shields: 5, armour: 20 });
+    // 15 damage: 5 absorbed by shields, 10 remaining
+    // armour absorbs 25% of 10 = 2.5 (capped at armour=20)
+    // remaining = 10 - 2.5 = 7.5
+    // hull damage = max(1, 7.5) = 7.5
+    const result = applyDamage(ship, 15);
+
+    expect(result.shields).toBe(0);
+    expect(result.armour).toBeLessThan(20); // armour degraded
+    expect(result.hull).toBeLessThan(100);  // hull took damage
+    expect(result.hull).toBeGreaterThan(90); // but not catastrophic
+  });
+
+  it('armour degrades by half the absorbed amount', () => {
+    const ship = makeTacticalShip({ shields: 0, armour: 20 });
+    // 40 damage, all past shields
+    // armour absorbs min(40*0.25=10, 20) = 10
+    // armour degrades by 10 * 0.5 = 5
+    const result = applyDamage(ship, 40);
+
+    expect(result.armour).toBe(15); // 20 - 5
+  });
+
+  it('destroys a ship when hull reaches 0', () => {
+    const ship = makeTacticalShip({ shields: 0, armour: 0, hull: 5 });
+    const result = applyDamage(ship, 100);
+
+    expect(result.hull).toBe(0);
+    expect(result.destroyed).toBe(true);
+  });
+
+  it('hull takes minimum 1 damage when damage gets past shields', () => {
+    // With armour absorbing most of the damage, hull should still take at least 1
+    const ship = makeTacticalShip({ shields: 0, armour: 100, hull: 50 });
+    // 2 damage: armour absorbs min(2*0.25=0.5, 100) = 0.5
+    // remaining = 1.5, hull damage = max(1, 1.5) = 1.5
+    const result = applyDamage(ship, 2);
+
+    expect(result.hull).toBeLessThan(50);
+  });
+
+  it('does not damage hull when shields fully absorb the hit', () => {
+    const ship = makeTacticalShip({ shields: 50, hull: 100 });
+    const result = applyDamage(ship, 10);
+
+    expect(result.shields).toBe(40);
+    expect(result.hull).toBe(100);
+    expect(result.armour).toBe(ship.armour); // unchanged
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shield recharge
+// ---------------------------------------------------------------------------
+
+describe('shield recharge', () => {
+  it('shields recharge by 5% of max each tick', () => {
+    let state = setupOnePair();
+
+    // Deplete defender shields partially
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'defender'
+          ? { ...s, shields: 10 } // was 30, now 10
+          : { ...s, order: { type: 'idle' as const } }, // keep attacker idle so no firing
+      ),
+    };
+
+    // Separate ships so no combat occurs
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 0, y: 0 } }
+          : { ...s, position: { x: BATTLEFIELD_WIDTH, y: BATTLEFIELD_HEIGHT } },
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    const updatedDefender = next.ships.find((s) => s.sourceShipId === defender.sourceShipId)!;
+
+    // maxShields=30, recharge = 30 * 0.05 = 1.5
+    // Should go from 10 to 11.5
+    expect(updatedDefender.shields).toBeCloseTo(11.5, 1);
+  });
+
+  it('shields do not recharge above maxShields', () => {
+    let state = setupOnePair();
+
+    // Shields already at max — separate ships
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 0, y: 0 } }
+          : { ...s, position: { x: BATTLEFIELD_WIDTH, y: BATTLEFIELD_HEIGHT } },
+      ),
+    };
+
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    const next = processTacticalTick(state);
+    const updatedDefender = next.ships.find((s) => s.sourceShipId === defender.sourceShipId)!;
+
+    expect(updatedDefender.shields).toBe(defender.maxShields);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Projectile hit damage
+// ---------------------------------------------------------------------------
+
+describe('projectile hit damage', () => {
+  it('projectile applies damage to target on arrival', () => {
+    const projDesign = makeProjectileDesign('d-proj-dmg', 'empire-1');
+    let state = setupOnePair({
+      attacker: projDesign,
+    });
+
+    // Place ships apart so projectile is created on tick 1
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 300, y: 400 }, order: { type: 'attack' as const, targetId: defender.id } }
+          : { ...s, position: { x: 400, y: 400 }, order: { type: 'idle' as const } },
+      ),
+    };
+
+    // Tick 1: projectile created
+    const tick1 = processTacticalTick(state);
+    expect(tick1.projectiles.length).toBeGreaterThan(0);
+
+    // Record defender shields after tick 1 (may have recharged but no damage yet)
+    const defAfterTick1 = tick1.ships.find((s) => s.sourceShipId === defender.sourceShipId)!;
+    const shieldsBeforeHit = defAfterTick1.shields;
+
+    // Run more ticks until projectile hits (distance 100, speed 8 => ~12 ticks)
+    let current = tick1;
+    for (let i = 0; i < 20; i++) {
+      current = processTacticalTick(current);
+    }
+
+    const hitDefender = current.ships.find((s) => s.sourceShipId === defender.sourceShipId)!;
+
+    // After multiple hits, hull or shields should have taken damage
+    // Shields recharge 1.5/tick but damage is 15+ per hit (kinetic_cannon)
+    // So overall shields should be lower OR hull should have taken damage
+    const totalHealth = hitDefender.shields + hitDefender.hull;
+    const initialTotal = shieldsBeforeHit + defAfterTick1.hull;
+    expect(totalHealth).toBeLessThan(initialTotal);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Combat end detection
+// ---------------------------------------------------------------------------
+
+describe('combat end detection', () => {
+  it('initial state has no outcome', () => {
+    const state = setupOnePair();
+    expect(state.outcome).toBeNull();
+  });
+
+  it('outcome is attacker_wins when all defenders are destroyed', () => {
+    let state = setupOnePair();
+
+    // Destroy defender
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'defender'
+          ? { ...s, hull: 0, destroyed: true }
+          : s,
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    expect(next.outcome).toBe('attacker_wins');
+  });
+
+  it('outcome is defender_wins when all attackers are destroyed', () => {
+    let state = setupOnePair();
+
+    // Destroy attacker
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, hull: 0, destroyed: true }
+          : s,
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    expect(next.outcome).toBe('defender_wins');
+  });
+
+  it('outcome is attacker_wins when both sides eliminated (draw)', () => {
+    let state = setupOnePair();
+
+    // Destroy everyone
+    state = {
+      ...state,
+      ships: state.ships.map((s) => ({ ...s, hull: 0, destroyed: true })),
+    };
+
+    const next = processTacticalTick(state);
+    expect(next.outcome).toBe('attacker_wins');
+  });
+
+  it('routed ships count as eliminated for outcome purposes', () => {
+    let state = setupOnePair();
+
+    // Route all defenders
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'defender'
+          ? { ...s, routed: true }
+          : s,
+      ),
+    };
+
+    const next = processTacticalTick(state);
+    expect(next.outcome).toBe('attacker_wins');
+  });
+
+  it('does not advance ticks once outcome is set', () => {
+    let state = setupOnePair();
+
+    // Destroy defender to trigger outcome
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'defender'
+          ? { ...s, hull: 0, destroyed: true }
+          : s,
+      ),
+    };
+
+    const resolved = processTacticalTick(state);
+    expect(resolved.outcome).toBe('attacker_wins');
+
+    // Ticking again should return same state (early return)
+    const same = processTacticalTick(resolved);
+    expect(same.tick).toBe(resolved.tick);
+    expect(same).toBe(resolved);
+  });
+
+  it('battle ends when one side eliminated through repeated combat', () => {
+    let state = setupOnePair();
+
+    // Give both sides attack orders and place them close together
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    state = setShipOrder(state, attacker.id, { type: 'attack', targetId: defender.id });
+    state = setShipOrder(state, defender.id, { type: 'attack', targetId: attacker.id });
+
+    // Place ships close together and lower shields so combat resolves faster
+    state = {
+      ...state,
+      ships: state.ships.map((s) => ({
+        ...s,
+        shields: 0,
+        maxShields: 0,
+        position: s.side === 'attacker'
+          ? { x: 400, y: 400 }
+          : { x: 450, y: 400 },
+      })),
+    };
+
+    // Run up to 500 ticks
+    let current = state;
+    for (let i = 0; i < 500; i++) {
+      current = processTacticalTick(current);
+      if (current.outcome !== null) break;
+    }
+
+    expect(current.outcome).not.toBeNull();
+    expect(['attacker_wins', 'defender_wins']).toContain(current.outcome);
   });
 });
