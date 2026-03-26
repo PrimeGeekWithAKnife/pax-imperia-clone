@@ -12,7 +12,14 @@ export type BaseShape =
   | 'botanical'
   | 'reptilian'
   | 'cybernetic'
-  | 'amorphous';
+  | 'amorphous'
+  | 'energy_form'
+  | 'symbiotic'
+  | 'synthetic'
+  | 'nano_swarm'
+  | 'dimensional'
+  | 'devout'
+  | 'volcanic';
 
 export interface PortraitOptions {
   baseShape: BaseShape;
@@ -104,7 +111,7 @@ const SPECIES_PORTRAITS: Record<string, PortraitOptions> = {
   },
   // ── Seven newer species ──────────────────────────────────────────────────
   luminari: {
-    baseShape: 'amorphous',
+    baseShape: 'energy_form',
     primaryColor: '#FDE68A',   // radiant gold
     secondaryColor: '#F59E0B', // bright amber
     accentColor: '#FFFFFF',    // pure white core
@@ -112,7 +119,7 @@ const SPECIES_PORTRAITS: Record<string, PortraitOptions> = {
     features: ['glow_corona', 'shifting_form', 'energy_tendrils'],
   },
   vethara: {
-    baseShape: 'amorphous',
+    baseShape: 'symbiotic',
     primaryColor: '#8B5CF6',   // neural purple
     secondaryColor: '#EC4899', // symbiotic pink
     accentColor: '#C4B5FD',    // pale lavender filaments
@@ -120,44 +127,44 @@ const SPECIES_PORTRAITS: Record<string, PortraitOptions> = {
     features: ['shifting_form', 'tendrils', 'glow_corona'],
   },
   kaelenth: {
-    baseShape: 'cybernetic',
+    baseShape: 'synthetic',
     primaryColor: '#D4D4D8',   // polished titanium
     secondaryColor: '#F97316', // forge orange
     accentColor: '#71717A',    // worn steel
     bgColor: '#08080c',        // factory void
-    features: ['circuit_lines', 'single_eye', 'data_display', 'half_mechanical'],
+    features: ['panel_seams', 'visor_eye', 'rivets', 'circuit_etch'],
   },
   thyriaq: {
-    baseShape: 'amorphous',
+    baseShape: 'nano_swarm',
     primaryColor: '#A3A3A3',   // nano-silver
     secondaryColor: '#06B6D4', // process cyan
     accentColor: '#E5E5E5',    // bright particle
     bgColor: '#060a10',        // nano-dark
-    features: ['shifting_form', 'energy_tendrils'],
+    features: ['swarm_cloud', 'eye_clusters', 'drift_particles'],
   },
   aethyn: {
-    baseShape: 'crystalline',
+    baseShape: 'dimensional',
     primaryColor: '#7C3AED',   // dimensional violet
     secondaryColor: '#A78BFA', // phase lavender
     accentColor: '#DDD6FE',    // rift white
     bgColor: '#0a0418',        // void purple
-    features: ['eyes_crystal', 'psionic_aura', 'facets'],
+    features: ['impossible_geometry', 'vortex_eye', 'rift_lines'],
   },
   orivani: {
-    baseShape: 'humanoid',
+    baseShape: 'devout',
     primaryColor: '#B45309',   // sacred gold
     secondaryColor: '#78350F', // temple bronze
     accentColor: '#FCD34D',    // divine light
     bgColor: '#100800',        // cathedral dark
-    features: ['warm_eyes', 'tech_visor'],
+    features: ['headdress', 'halo', 'gorget', 'holy_symbol'],
   },
   pyrenth: {
-    baseShape: 'reptilian',
+    baseShape: 'volcanic',
     primaryColor: '#7C2D12',   // magma brown
     secondaryColor: '#EA580C', // lava orange
     accentColor: '#451A03',    // obsidian
     bgColor: '#120400',        // volcanic void
-    features: ['slit_eyes', 'scales', 'brow_ridges', 'metal_plates'],
+    features: ['magma_veins', 'ember_eyes', 'cracked_surface', 'brow_ridge'],
   },
 };
 
@@ -267,6 +274,27 @@ export class PortraitRenderer {
         break;
       case 'amorphous':
         this.drawAmorphous(ctx, size, options);
+        break;
+      case 'energy_form':
+        this.drawEnergyForm(ctx, size, options);
+        break;
+      case 'symbiotic':
+        this.drawSymbiotic(ctx, size, options);
+        break;
+      case 'synthetic':
+        this.drawSynthetic(ctx, size, options);
+        break;
+      case 'nano_swarm':
+        this.drawNanoSwarm(ctx, size, options);
+        break;
+      case 'dimensional':
+        this.drawDimensional(ctx, size, options);
+        break;
+      case 'devout':
+        this.drawDevout(ctx, size, options);
+        break;
+      case 'volcanic':
+        this.drawVolcanic(ctx, size, options);
         break;
     }
 
@@ -1733,6 +1761,1238 @@ export class PortraitRenderer {
       ctx.arc(e.x, e.y, e.r * 0.45, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  // ── Energy Form (Luminari) ────────────────────────────────────────────────
+  //
+  // Radiant aurora/plasma being. No face — just a sentient light source
+  // with flowing energy tendrils and a bright white/gold core.
+
+  private drawEnergyForm(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.50;
+    const s  = size / 128;
+
+    // Warm nebula glow behind the being
+    const nebulaGlow = ctx.createRadialGradient(cx, cy, 4 * s, cx, cy, 60 * s);
+    nebulaGlow.addColorStop(0,   rgba(opts.accentColor, 0.25));
+    nebulaGlow.addColorStop(0.3, rgba(opts.primaryColor, 0.18));
+    nebulaGlow.addColorStop(0.6, rgba(opts.secondaryColor, 0.08));
+    nebulaGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = nebulaGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Outer corona — large diffuse glow
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    const corona = ctx.createRadialGradient(cx, cy - 4 * s, 8 * s, cx, cy, 52 * s);
+    corona.addColorStop(0,   opts.primaryColor);
+    corona.addColorStop(0.4, rgba(opts.secondaryColor, 0.5));
+    corona.addColorStop(0.8, rgba(opts.secondaryColor, 0.15));
+    corona.addColorStop(1,   'transparent');
+    ctx.fillStyle = corona;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 52 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Concentric irregular aurora ellipses — the body
+    const ellipses: { rx: number; ry: number; offX: number; offY: number; rot: number; alpha: number }[] = [
+      { rx: 38, ry: 44, offX: -2, offY:  0, rot: -0.05, alpha: 0.20 },
+      { rx: 32, ry: 38, offX:  1, offY: -2, rot:  0.08, alpha: 0.28 },
+      { rx: 26, ry: 30, offX: -1, offY: -3, rot: -0.12, alpha: 0.35 },
+      { rx: 18, ry: 22, offX:  0, offY: -4, rot:  0.06, alpha: 0.45 },
+      { rx: 11, ry: 14, offX:  1, offY: -5, rot: -0.03, alpha: 0.55 },
+    ];
+    for (const el of ellipses) {
+      const grad = ctx.createRadialGradient(
+        cx + el.offX * s, cy + el.offY * s, 0,
+        cx + el.offX * s, cy + el.offY * s, el.rx * s,
+      );
+      grad.addColorStop(0,   rgba(opts.accentColor, el.alpha));
+      grad.addColorStop(0.5, rgba(opts.primaryColor, el.alpha * 0.7));
+      grad.addColorStop(1,   rgba(opts.secondaryColor, el.alpha * 0.3));
+      ctx.save();
+      ctx.fillStyle = grad;
+      ctx.translate(cx + el.offX * s, cy + el.offY * s);
+      ctx.rotate(el.rot);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, el.rx * s, el.ry * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Bright white/gold core at centre
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 20 * s;
+    const coreGrad = ctx.createRadialGradient(cx, cy - 5 * s, 0, cx, cy - 5 * s, 10 * s);
+    coreGrad.addColorStop(0,   '#FFFFFF');
+    coreGrad.addColorStop(0.3, rgba(opts.accentColor, 0.95));
+    coreGrad.addColorStop(0.6, rgba(opts.primaryColor, 0.6));
+    coreGrad.addColorStop(1,   'transparent');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 5 * s, 10 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Energy tendrils curving outward (4-6 flowing wisps)
+    const tendrils: { startAngle: number; curve: number; length: number; width: number }[] = [
+      { startAngle: -0.9,  curve:  0.4,  length: 48, width: 2.5 },
+      { startAngle: -0.3,  curve: -0.3,  length: 52, width: 2.0 },
+      { startAngle:  0.5,  curve:  0.5,  length: 46, width: 2.2 },
+      { startAngle:  1.2,  curve: -0.4,  length: 44, width: 1.8 },
+      { startAngle:  2.2,  curve:  0.3,  length: 50, width: 2.0 },
+      { startAngle:  3.0,  curve: -0.5,  length: 42, width: 1.6 },
+    ];
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const t of tendrils) {
+      const sx = cx + Math.cos(t.startAngle) * 14 * s;
+      const sy = cy - 5 * s + Math.sin(t.startAngle) * 14 * s;
+      const ex = cx + Math.cos(t.startAngle + t.curve) * t.length * s;
+      const ey = cy - 5 * s + Math.sin(t.startAngle + t.curve) * t.length * s;
+      const cpx = cx + Math.cos(t.startAngle + t.curve * 0.5) * t.length * 0.65 * s;
+      const cpy = cy - 5 * s + Math.sin(t.startAngle + t.curve * 0.5) * t.length * 0.65 * s;
+
+      // Outer glow stroke
+      ctx.strokeStyle = rgba(opts.secondaryColor, 0.20);
+      ctx.lineWidth   = t.width * 3 * s;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      ctx.stroke();
+
+      // Inner bright stroke
+      ctx.strokeStyle = rgba(opts.primaryColor, 0.55);
+      ctx.lineWidth   = t.width * s;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      ctx.stroke();
+
+      // Core white highlight
+      ctx.strokeStyle = rgba(opts.accentColor, 0.35);
+      ctx.lineWidth   = t.width * 0.4 * s;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Tiny sparkle motes scattered through the form
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 4 * s;
+    const motes: [number, number, number][] = [
+      [0.38, 0.32, 1.2], [0.62, 0.35, 1.0], [0.35, 0.60, 0.8],
+      [0.58, 0.65, 1.1], [0.45, 0.28, 0.7], [0.55, 0.72, 0.9],
+      [0.30, 0.48, 0.6], [0.68, 0.50, 0.8],
+    ];
+    for (const [mx, my, mr] of motes) {
+      ctx.fillStyle = rgba(opts.accentColor, 0.65);
+      ctx.beginPath();
+      ctx.arc(mx * size, my * size, mr * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── Symbiotic (Vethara) ──────────────────────────────────────────────────
+  //
+  // Translucent organic mass with visible neural filaments inside.
+  // Branching neuron-like lines in pink/purple with bright junction nodes.
+  // Faint translucent membrane shell, two subtle eye-spots.
+
+  private drawSymbiotic(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.50;
+    const s  = size / 128;
+
+    // Bio-purple ambient glow
+    const bioGlow = ctx.createRadialGradient(cx, cy, 6 * s, cx, cy, 56 * s);
+    bioGlow.addColorStop(0,   rgba(opts.primaryColor, 0.14));
+    bioGlow.addColorStop(0.5, rgba(opts.secondaryColor, 0.06));
+    bioGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = bioGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Outer translucent membrane — faint blob shell
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    const memGrad = ctx.createRadialGradient(cx - 6 * s, cy - 10 * s, 4 * s, cx, cy, 48 * s);
+    memGrad.addColorStop(0,   lighten(opts.accentColor, 30));
+    memGrad.addColorStop(0.5, opts.primaryColor);
+    memGrad.addColorStop(1,   rgba(opts.primaryColor, 0.1));
+    ctx.fillStyle = memGrad;
+    ctx.beginPath();
+    ctx.moveTo(cx,           cy - 46 * s);
+    ctx.bezierCurveTo(cx + 30 * s, cy - 44 * s, cx + 46 * s, cy - 10 * s, cx + 40 * s, cy + 16 * s);
+    ctx.bezierCurveTo(cx + 34 * s, cy + 42 * s, cx + 12 * s, cy + 48 * s, cx - 4 * s,  cy + 44 * s);
+    ctx.bezierCurveTo(cx - 24 * s, cy + 38 * s, cx - 46 * s, cy + 22 * s, cx - 42 * s, cy - 6 * s);
+    ctx.bezierCurveTo(cx - 38 * s, cy - 38 * s, cx - 28 * s, cy - 46 * s, cx,          cy - 46 * s);
+    ctx.fill();
+    ctx.restore();
+
+    // Membrane edge highlight
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.accentColor, 0.22);
+    ctx.lineWidth   = 1.5 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx,           cy - 46 * s);
+    ctx.bezierCurveTo(cx + 30 * s, cy - 44 * s, cx + 46 * s, cy - 10 * s, cx + 40 * s, cy + 16 * s);
+    ctx.bezierCurveTo(cx + 34 * s, cy + 42 * s, cx + 12 * s, cy + 48 * s, cx - 4 * s,  cy + 44 * s);
+    ctx.bezierCurveTo(cx - 24 * s, cy + 38 * s, cx - 46 * s, cy + 22 * s, cx - 42 * s, cy - 6 * s);
+    ctx.bezierCurveTo(cx - 38 * s, cy - 38 * s, cx - 28 * s, cy - 46 * s, cx,          cy - 46 * s);
+    ctx.stroke();
+    ctx.restore();
+
+    // Internal translucent body mass — slightly denser fill
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    const innerGrad = ctx.createRadialGradient(cx, cy - 4 * s, 2 * s, cx, cy, 36 * s);
+    innerGrad.addColorStop(0,   opts.secondaryColor);
+    innerGrad.addColorStop(0.6, opts.primaryColor);
+    innerGrad.addColorStop(1,   'transparent');
+    ctx.fillStyle = innerGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 36 * s, 40 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Neural filaments — branching neuron-like network
+    interface FilamentNode { x: number; y: number; }
+    interface Filament { from: FilamentNode; via: FilamentNode; to: FilamentNode; w: number; }
+    const filaments: Filament[] = [
+      // Main trunk — vertical spine
+      { from: { x: cx, y: cy - 34 * s }, via: { x: cx + 2 * s, y: cy - 10 * s }, to: { x: cx - 1 * s, y: cy + 28 * s }, w: 1.8 },
+      // Left branches
+      { from: { x: cx, y: cy - 20 * s }, via: { x: cx - 18 * s, y: cy - 24 * s }, to: { x: cx - 32 * s, y: cy - 16 * s }, w: 1.2 },
+      { from: { x: cx - 18 * s, y: cy - 24 * s }, via: { x: cx - 28 * s, y: cy - 34 * s }, to: { x: cx - 22 * s, y: cy - 42 * s }, w: 0.8 },
+      { from: { x: cx, y: cy - 4 * s }, via: { x: cx - 22 * s, y: cy + 2 * s }, to: { x: cx - 34 * s, y: cy + 10 * s }, w: 1.0 },
+      { from: { x: cx - 1 * s, y: cy + 14 * s }, via: { x: cx - 16 * s, y: cy + 20 * s }, to: { x: cx - 28 * s, y: cy + 30 * s }, w: 0.9 },
+      // Right branches
+      { from: { x: cx, y: cy - 14 * s }, via: { x: cx + 20 * s, y: cy - 18 * s }, to: { x: cx + 34 * s, y: cy - 8 * s }, w: 1.2 },
+      { from: { x: cx + 20 * s, y: cy - 18 * s }, via: { x: cx + 30 * s, y: cy - 30 * s }, to: { x: cx + 24 * s, y: cy - 40 * s }, w: 0.8 },
+      { from: { x: cx, y: cy + 6 * s }, via: { x: cx + 18 * s, y: cy + 14 * s }, to: { x: cx + 30 * s, y: cy + 24 * s }, w: 1.0 },
+      { from: { x: cx - 1 * s, y: cy + 20 * s }, via: { x: cx + 14 * s, y: cy + 30 * s }, to: { x: cx + 20 * s, y: cy + 38 * s }, w: 0.7 },
+    ];
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 6 * s;
+    for (const f of filaments) {
+      // Outer glow
+      ctx.strokeStyle = rgba(opts.secondaryColor, 0.25);
+      ctx.lineWidth   = (f.w + 2) * s;
+      ctx.beginPath();
+      ctx.moveTo(f.from.x, f.from.y);
+      ctx.quadraticCurveTo(f.via.x, f.via.y, f.to.x, f.to.y);
+      ctx.stroke();
+      // Inner bright line
+      ctx.strokeStyle = rgba(opts.secondaryColor, 0.70);
+      ctx.lineWidth   = f.w * s;
+      ctx.beginPath();
+      ctx.moveTo(f.from.x, f.from.y);
+      ctx.quadraticCurveTo(f.via.x, f.via.y, f.to.x, f.to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Junction nodes — bright spots at branch points
+    const nodes: { x: number; y: number; r: number }[] = [
+      { x: cx,            y: cy - 34 * s, r: 2.5 },
+      { x: cx,            y: cy - 20 * s, r: 3.0 },
+      { x: cx - 18 * s,  y: cy - 24 * s, r: 2.5 },
+      { x: cx,            y: cy - 4 * s,  r: 2.8 },
+      { x: cx + 20 * s,  y: cy - 18 * s, r: 2.5 },
+      { x: cx,            y: cy + 6 * s,  r: 2.2 },
+      { x: cx,            y: cy + 14 * s, r: 2.0 },
+      { x: cx - 1 * s,   y: cy + 28 * s, r: 2.5 },
+      { x: cx - 32 * s,  y: cy - 16 * s, r: 1.8 },
+      { x: cx + 34 * s,  y: cy - 8 * s,  r: 1.8 },
+      { x: cx - 34 * s,  y: cy + 10 * s, r: 1.6 },
+      { x: cx + 30 * s,  y: cy + 24 * s, r: 1.6 },
+      { x: cx - 22 * s,  y: cy - 42 * s, r: 1.4 },
+      { x: cx + 24 * s,  y: cy - 40 * s, r: 1.4 },
+    ];
+    ctx.save();
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 8 * s;
+    for (const n of nodes) {
+      // Glow halo
+      const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 3 * s);
+      glow.addColorStop(0,   rgba(opts.accentColor, 0.55));
+      glow.addColorStop(0.5, rgba(opts.secondaryColor, 0.20));
+      glow.addColorStop(1,   'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Core
+      ctx.fillStyle = opts.accentColor;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Two faint eye-spots — awareness glow
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 12 * s;
+    for (const ex of [cx - 12 * s, cx + 14 * s]) {
+      const eyeGlow = ctx.createRadialGradient(ex, cy - 12 * s, 0, ex, cy - 12 * s, 8 * s);
+      eyeGlow.addColorStop(0,   rgba(opts.accentColor, 0.50));
+      eyeGlow.addColorStop(0.4, rgba(opts.secondaryColor, 0.25));
+      eyeGlow.addColorStop(1,   'transparent');
+      ctx.fillStyle = eyeGlow;
+      ctx.beginPath();
+      ctx.arc(ex, cy - 12 * s, 8 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright centre pupil
+      ctx.fillStyle = rgba(opts.accentColor, 0.75);
+      ctx.beginPath();
+      ctx.arc(ex, cy - 12 * s, 2.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── Synthetic (Kaelenth) ─────────────────────────────────────────────────
+  //
+  // Fully machine — angular geometric head (hexagonal/octagonal), polished
+  // metal surface with panel seams, rivets, circuit etching. Single narrow
+  // horizontal light bar visor. No organic parts.
+
+  private drawSynthetic(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.52;
+    const s  = size / 128;
+
+    // Faint forge-glow ambience
+    const ambient = ctx.createRadialGradient(cx, cy - 10 * s, 4 * s, cx, cy, 52 * s);
+    ambient.addColorStop(0,   rgba(opts.secondaryColor, 0.08));
+    ambient.addColorStop(0.6, rgba(opts.secondaryColor, 0.03));
+    ambient.addColorStop(1,   'transparent');
+    ctx.fillStyle = ambient;
+    ctx.fillRect(0, 0, size, size);
+
+    // Main head shape — angular octagonal form
+    const headGrad = ctx.createLinearGradient(cx - 30 * s, cy - 44 * s, cx + 30 * s, cy + 36 * s);
+    headGrad.addColorStop(0,    lighten(opts.primaryColor, 30));
+    headGrad.addColorStop(0.3,  opts.primaryColor);
+    headGrad.addColorStop(0.7,  darken(opts.primaryColor, 15));
+    headGrad.addColorStop(1,    darken(opts.primaryColor, 35));
+    ctx.fillStyle = headGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * s, cy - 44 * s);  // top-left flat
+    ctx.lineTo(cx + 14 * s, cy - 44 * s);  // top-right flat
+    ctx.lineTo(cx + 30 * s, cy - 30 * s);  // upper-right bevel
+    ctx.lineTo(cx + 32 * s, cy - 4 * s);   // mid-right
+    ctx.lineTo(cx + 28 * s, cy + 20 * s);  // lower-right
+    ctx.lineTo(cx + 16 * s, cy + 36 * s);  // chin-right
+    ctx.lineTo(cx - 16 * s, cy + 36 * s);  // chin-left
+    ctx.lineTo(cx - 28 * s, cy + 20 * s);  // lower-left
+    ctx.lineTo(cx - 32 * s, cy - 4 * s);   // mid-left
+    ctx.lineTo(cx - 30 * s, cy - 30 * s);  // upper-left bevel
+    ctx.closePath();
+    ctx.fill();
+
+    // Specular highlight — upper-left metal reflection
+    const specHL = ctx.createLinearGradient(cx - 30 * s, cy - 44 * s, cx + 10 * s, cy - 10 * s);
+    specHL.addColorStop(0,   rgba('#FFFFFF', 0.12));
+    specHL.addColorStop(0.5, rgba('#FFFFFF', 0.04));
+    specHL.addColorStop(1,   'transparent');
+    ctx.fillStyle = specHL;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * s, cy - 44 * s);
+    ctx.lineTo(cx + 14 * s, cy - 44 * s);
+    ctx.lineTo(cx + 30 * s, cy - 30 * s);
+    ctx.lineTo(cx + 32 * s, cy - 4 * s);
+    ctx.lineTo(cx - 32 * s, cy - 4 * s);
+    ctx.lineTo(cx - 30 * s, cy - 30 * s);
+    ctx.closePath();
+    ctx.fill();
+
+    // Panel seam lines
+    ctx.save();
+    ctx.strokeStyle = rgba('#000000', 0.40);
+    ctx.lineWidth   = 0.8 * s;
+    // Horizontal seams
+    const seamYs = [cy - 30 * s, cy - 4 * s, cy + 20 * s];
+    for (const sy of seamYs) {
+      const halfW = sy < cy ? 30 : 28;
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW * s, sy);
+      ctx.lineTo(cx + halfW * s, sy);
+      ctx.stroke();
+    }
+    // Centre vertical seam
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 44 * s);
+    ctx.lineTo(cx, cy + 36 * s);
+    ctx.stroke();
+    // Diagonal panel lines from top corners
+    ctx.lineWidth = 0.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * s, cy - 44 * s);
+    ctx.lineTo(cx - 22 * s, cy - 30 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx + 14 * s, cy - 44 * s);
+    ctx.lineTo(cx + 22 * s, cy - 30 * s);
+    ctx.stroke();
+    ctx.restore();
+
+    // Highlight line below each seam (metallic sheen)
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.primaryColor, 0.25);
+    ctx.lineWidth   = 0.5 * s;
+    for (const sy of seamYs) {
+      const halfW = sy < cy ? 29 : 27;
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW * s, sy + 1 * s);
+      ctx.lineTo(cx + halfW * s, sy + 1 * s);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Rivets / bolts at panel corners
+    const rivets: [number, number][] = [
+      [cx - 14 * s, cy - 43 * s], [cx + 14 * s, cy - 43 * s],
+      [cx - 29 * s, cy - 29 * s], [cx + 29 * s, cy - 29 * s],
+      [cx - 31 * s, cy - 3 * s],  [cx + 31 * s, cy - 3 * s],
+      [cx - 27 * s, cy + 19 * s], [cx + 27 * s, cy + 19 * s],
+      [cx - 15 * s, cy + 35 * s], [cx + 15 * s, cy + 35 * s],
+    ];
+    ctx.save();
+    for (const [rx, ry] of rivets) {
+      // Dark outer ring
+      ctx.fillStyle = darken(opts.accentColor, 20);
+      ctx.beginPath();
+      ctx.arc(rx, ry, 2.0 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright centre
+      ctx.fillStyle = lighten(opts.primaryColor, 40);
+      ctx.beginPath();
+      ctx.arc(rx, ry, 1.0 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Circuit etching — faint technical lines in panel areas
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.secondaryColor, 0.12);
+    ctx.lineWidth   = 0.4 * s;
+    // Left panel circuit
+    const circuits: [number, number, number, number][] = [
+      [cx - 24 * s, cy - 22 * s, cx - 10 * s, cy - 22 * s],
+      [cx - 10 * s, cy - 22 * s, cx - 10 * s, cy - 14 * s],
+      [cx - 10 * s, cy - 14 * s, cx - 20 * s, cy - 14 * s],
+      [cx - 20 * s, cy - 14 * s, cx - 20 * s, cy - 8 * s],
+      // Right panel circuit
+      [cx + 8 * s,  cy + 4 * s,  cx + 22 * s, cy + 4 * s],
+      [cx + 22 * s, cy + 4 * s,  cx + 22 * s, cy + 12 * s],
+      [cx + 22 * s, cy + 12 * s, cx + 12 * s, cy + 12 * s],
+    ];
+    for (const [x1, y1, x2, y2] of circuits) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Visor eye — single narrow horizontal light bar
+    ctx.save();
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 14 * s;
+    // Visor recess (dark)
+    ctx.fillStyle = darken(opts.accentColor, 40);
+    ctx.beginPath();
+    ctx.moveTo(cx - 26 * s, cy - 16 * s);
+    ctx.lineTo(cx + 26 * s, cy - 16 * s);
+    ctx.lineTo(cx + 24 * s, cy - 8 * s);
+    ctx.lineTo(cx - 24 * s, cy - 8 * s);
+    ctx.closePath();
+    ctx.fill();
+    // Glowing visor bar
+    const visorGrad = ctx.createLinearGradient(cx - 24 * s, cy - 14 * s, cx + 24 * s, cy - 10 * s);
+    visorGrad.addColorStop(0,   rgba(opts.secondaryColor, 0.4));
+    visorGrad.addColorStop(0.3, opts.secondaryColor);
+    visorGrad.addColorStop(0.5, lighten(opts.secondaryColor, 40));
+    visorGrad.addColorStop(0.7, opts.secondaryColor);
+    visorGrad.addColorStop(1,   rgba(opts.secondaryColor, 0.4));
+    ctx.fillStyle = visorGrad;
+    ctx.fillRect(cx - 22 * s, cy - 14 * s, 44 * s, 5 * s);
+    // Bright centre point in visor
+    ctx.fillStyle = lighten(opts.secondaryColor, 60);
+    ctx.beginPath();
+    ctx.arc(cx, cy - 11.5 * s, 2 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Wear marks / scratches
+    ctx.save();
+    ctx.strokeStyle = rgba('#000000', 0.15);
+    ctx.lineWidth   = 0.5 * s;
+    ctx.lineCap     = 'round';
+    ctx.beginPath(); ctx.moveTo(cx + 8 * s, cy - 36 * s); ctx.lineTo(cx + 18 * s, cy - 28 * s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 16 * s, cy + 8 * s); ctx.lineTo(cx - 8 * s, cy + 14 * s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 4 * s, cy + 24 * s); ctx.lineTo(cx + 12 * s, cy + 28 * s); ctx.stroke();
+    ctx.restore();
+
+    // Neck / chassis connector
+    const neckGrad = ctx.createLinearGradient(cx, cy + 36 * s, cx, cy + 58 * s);
+    neckGrad.addColorStop(0, rgba(opts.accentColor, 0.80));
+    neckGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = neckGrad;
+    ctx.beginPath();
+    ctx.moveTo(cx - 12 * s, cy + 36 * s);
+    ctx.lineTo(cx + 12 * s, cy + 36 * s);
+    ctx.lineTo(cx + 8 * s,  cy + 58 * s);
+    ctx.lineTo(cx - 8 * s,  cy + 58 * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // ── Nano Swarm (Thyriaq) ─────────────────────────────────────────────────
+  //
+  // Cloud of hundreds of tiny particles forming a roughly humanoid silhouette.
+  // Denser at centre, sparser at edges. Two brighter clusters for "eyes".
+  // Occasional particle drifting away from the main mass.
+
+  private drawNanoSwarm(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.50;
+    const s  = size / 128;
+
+    // Faint cyan processing glow behind swarm
+    const procGlow = ctx.createRadialGradient(cx, cy, 6 * s, cx, cy, 50 * s);
+    procGlow.addColorStop(0,   rgba(opts.secondaryColor, 0.10));
+    procGlow.addColorStop(0.6, rgba(opts.secondaryColor, 0.03));
+    procGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = procGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Deterministic pseudo-random number generator (seeded)
+    let seed = 42;
+    const rand = (): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+
+    // Define the humanoid silhouette as an implicit density field.
+    // Points inside the silhouette ellipses get higher density.
+    const inSilhouette = (px: number, py: number): number => {
+      // Head ellipse
+      const hdx = (px - cx) / (22 * s);
+      const hdy = (py - (cy - 18 * s)) / (28 * s);
+      const headDist = hdx * hdx + hdy * hdy;
+      // Torso ellipse
+      const tdx = (px - cx) / (18 * s);
+      const tdy = (py - (cy + 20 * s)) / (24 * s);
+      const torsoDist = tdx * tdx + tdy * tdy;
+      // Return best (smallest) distance — lower = more dense
+      return Math.min(headDist, torsoDist);
+    };
+
+    // Draw hundreds of particles
+    const particleCount = 420;
+    ctx.save();
+    for (let i = 0; i < particleCount; i++) {
+      // Generate candidate position biased toward centre
+      const angle = rand() * Math.PI * 2;
+      const radius = rand() * rand() * 50 * s;  // squared for centre bias
+      const px = cx + Math.cos(angle) * radius;
+      const py = cy + Math.sin(angle) * radius;
+
+      const density = inSilhouette(px, py);
+
+      // Skip particles too far outside the silhouette (keep some for sparser edges)
+      if (density > 2.5) continue;
+
+      // Size: larger near centre, smaller at edges
+      const baseSize = density < 0.5 ? 1.8 : density < 1.0 ? 1.4 : density < 1.5 ? 1.0 : 0.7;
+      const pSize = baseSize * s;
+
+      // Alpha: denser near centre, fainter at edges
+      const alpha = density < 0.3 ? 0.80 : density < 0.7 ? 0.60 : density < 1.2 ? 0.40 : 0.22;
+
+      // Colour: mix between primary (silver) and secondary (cyan)
+      const colour = density < 0.6 ? opts.accentColor : density < 1.2 ? opts.primaryColor : darken(opts.primaryColor, 20);
+      ctx.fillStyle = rgba(colour, alpha);
+      ctx.beginPath();
+      ctx.arc(px, py, pSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Eye clusters — two denser bright regions
+    ctx.save();
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 8 * s;
+    const eyePositions: [number, number][] = [
+      [cx - 10 * s, cy - 20 * s],
+      [cx + 10 * s, cy - 20 * s],
+    ];
+    for (const [ex, ey] of eyePositions) {
+      // Bright cluster of particles forming an "eye"
+      for (let j = 0; j < 16; j++) {
+        const ox = (rand() - 0.5) * 8 * s;
+        const oy = (rand() - 0.5) * 5 * s;
+        ctx.fillStyle = rgba(opts.secondaryColor, 0.65 + rand() * 0.25);
+        ctx.beginPath();
+        ctx.arc(ex + ox, ey + oy, (0.8 + rand() * 1.2) * s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Central bright dot
+      ctx.fillStyle = opts.accentColor;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 2 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Glow halo around eye
+      const eyeGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, 8 * s);
+      eyeGlow.addColorStop(0,   rgba(opts.secondaryColor, 0.35));
+      eyeGlow.addColorStop(1,   'transparent');
+      ctx.fillStyle = eyeGlow;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 8 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Drifting particles — a few strays beyond the main mass
+    ctx.save();
+    const strays: [number, number, number][] = [
+      [0.22, 0.28, 0.8], [0.78, 0.32, 0.9], [0.18, 0.62, 0.7],
+      [0.82, 0.58, 0.8], [0.25, 0.78, 0.6], [0.75, 0.74, 0.7],
+      [0.15, 0.42, 0.5], [0.85, 0.48, 0.6], [0.30, 0.14, 0.5],
+      [0.70, 0.12, 0.4], [0.12, 0.80, 0.4], [0.88, 0.82, 0.5],
+    ];
+    for (const [sx, sy, sr] of strays) {
+      ctx.fillStyle = rgba(opts.primaryColor, 0.25);
+      ctx.beginPath();
+      ctx.arc(sx * size, sy * size, sr * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── Dimensional (Aethyn) ─────────────────────────────────────────────────
+  //
+  // Impossible geometry — overlapping transparent polygons that seem to shift.
+  // Colours phase between violet and white. Central spiral/vortex "eye".
+  // Geometric lines extending beyond the body. Unsettling and alien.
+
+  private drawDimensional(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.50;
+    const s  = size / 128;
+
+    // Void purple ambient glow
+    const voidGlow = ctx.createRadialGradient(cx, cy, 4 * s, cx, cy, 60 * s);
+    voidGlow.addColorStop(0,   rgba(opts.primaryColor, 0.12));
+    voidGlow.addColorStop(0.5, rgba(opts.secondaryColor, 0.05));
+    voidGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = voidGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Extra-dimensional projection lines extending outward from body
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.secondaryColor, 0.12);
+    ctx.lineWidth   = 0.6 * s;
+    const projections: [number, number, number, number][] = [
+      [cx - 8 * s, cy - 30 * s, cx - 40 * s, cy - 58 * s],
+      [cx + 12 * s, cy - 28 * s, cx + 50 * s, cy - 52 * s],
+      [cx - 28 * s, cy + 4 * s, cx - 56 * s, cy - 8 * s],
+      [cx + 30 * s, cy + 8 * s, cx + 58 * s, cy + 2 * s],
+      [cx - 16 * s, cy + 28 * s, cx - 44 * s, cy + 52 * s],
+      [cx + 18 * s, cy + 30 * s, cx + 48 * s, cy + 56 * s],
+      [cx, cy - 36 * s, cx + 8 * s, cy - 62 * s],
+      [cx - 4 * s, cy + 36 * s, cx - 12 * s, cy + 62 * s],
+    ];
+    for (const [x1, y1, x2, y2] of projections) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Overlapping impossible triangles — transparent, layered
+    interface TriDef { pts: [number, number][]; color: string; alpha: number; }
+    const triangles: TriDef[] = [
+      { pts: [[cx, cy - 38 * s], [cx - 32 * s, cy + 18 * s], [cx + 32 * s, cy + 18 * s]], color: opts.primaryColor, alpha: 0.22 },
+      { pts: [[cx, cy + 32 * s], [cx - 30 * s, cy - 20 * s], [cx + 30 * s, cy - 20 * s]], color: opts.secondaryColor, alpha: 0.18 },
+      { pts: [[cx - 28 * s, cy - 24 * s], [cx + 28 * s, cy - 24 * s], [cx, cy + 28 * s]], color: opts.accentColor, alpha: 0.14 },
+      // Rotated / offset impossible shapes
+      { pts: [[cx - 6 * s, cy - 34 * s], [cx - 36 * s, cy + 8 * s], [cx + 24 * s, cy + 14 * s]], color: opts.primaryColor, alpha: 0.16 },
+      { pts: [[cx + 8 * s, cy - 32 * s], [cx + 38 * s, cy + 12 * s], [cx - 22 * s, cy + 16 * s]], color: opts.secondaryColor, alpha: 0.14 },
+    ];
+
+    for (const tri of triangles) {
+      // Filled triangle
+      ctx.save();
+      ctx.fillStyle = rgba(tri.color, tri.alpha);
+      ctx.beginPath();
+      ctx.moveTo(tri.pts[0]![0]!, tri.pts[0]![1]!);
+      ctx.lineTo(tri.pts[1]![0]!, tri.pts[1]![1]!);
+      ctx.lineTo(tri.pts[2]![0]!, tri.pts[2]![1]!);
+      ctx.closePath();
+      ctx.fill();
+      // Edge lines
+      ctx.strokeStyle = rgba(tri.color, tri.alpha + 0.15);
+      ctx.lineWidth   = 1.0 * s;
+      ctx.beginPath();
+      ctx.moveTo(tri.pts[0]![0]!, tri.pts[0]![1]!);
+      ctx.lineTo(tri.pts[1]![0]!, tri.pts[1]![1]!);
+      ctx.lineTo(tri.pts[2]![0]!, tri.pts[2]![1]!);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Additional overlapping rectangles / quadrilaterals for impossible feel
+    ctx.save();
+    ctx.fillStyle   = rgba(opts.accentColor, 0.08);
+    ctx.strokeStyle = rgba(opts.accentColor, 0.18);
+    ctx.lineWidth   = 0.7 * s;
+    // Tilted rectangle
+    ctx.beginPath();
+    ctx.moveTo(cx - 18 * s, cy - 28 * s);
+    ctx.lineTo(cx + 22 * s, cy - 32 * s);
+    ctx.lineTo(cx + 20 * s, cy + 8 * s);
+    ctx.lineTo(cx - 24 * s, cy + 12 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Another offset parallelogram
+    ctx.fillStyle = rgba(opts.primaryColor, 0.06);
+    ctx.strokeStyle = rgba(opts.primaryColor, 0.14);
+    ctx.beginPath();
+    ctx.moveTo(cx - 10 * s, cy - 16 * s);
+    ctx.lineTo(cx + 26 * s, cy - 10 * s);
+    ctx.lineTo(cx + 16 * s, cy + 26 * s);
+    ctx.lineTo(cx - 20 * s, cy + 20 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Central vortex / spiral eye
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 12 * s;
+    // Spiral rings
+    for (let ring = 0; ring < 6; ring++) {
+      const radius = (4 + ring * 3.5) * s;
+      const alpha = 0.6 - ring * 0.08;
+      const colour = ring % 2 === 0 ? opts.accentColor : opts.secondaryColor;
+      ctx.strokeStyle = rgba(colour, alpha);
+      ctx.lineWidth   = (1.6 - ring * 0.15) * s;
+      ctx.beginPath();
+      // Draw partial arc for spiral effect — each ring starts at a different angle
+      const startAngle = ring * 0.9;
+      ctx.arc(cx, cy - 2 * s, radius, startAngle, startAngle + Math.PI * 1.5);
+      ctx.stroke();
+    }
+    // Bright vortex centre
+    const vortexCore = ctx.createRadialGradient(cx, cy - 2 * s, 0, cx, cy - 2 * s, 6 * s);
+    vortexCore.addColorStop(0,   '#FFFFFF');
+    vortexCore.addColorStop(0.3, rgba(opts.accentColor, 0.85));
+    vortexCore.addColorStop(0.7, rgba(opts.primaryColor, 0.4));
+    vortexCore.addColorStop(1,   'transparent');
+    ctx.fillStyle = vortexCore;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 2 * s, 6 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Corner intersection dots — where geometry meets
+    ctx.save();
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 4 * s;
+    const intersections: [number, number][] = [
+      [cx, cy - 38 * s], [cx - 32 * s, cy + 18 * s], [cx + 32 * s, cy + 18 * s],
+      [cx, cy + 32 * s], [cx - 30 * s, cy - 20 * s], [cx + 30 * s, cy - 20 * s],
+    ];
+    for (const [ix, iy] of intersections) {
+      ctx.fillStyle = rgba(opts.accentColor, 0.50);
+      ctx.beginPath();
+      ctx.arc(ix, iy, 2 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── Devout (Orivani) ─────────────────────────────────────────────────────
+  //
+  // Humanoid with elaborate headdress/crown, warm-toned skin, ornate
+  // gorget/collar, subtle halo, and a religious symbol on the forehead.
+  // Stern but serene expression. Temple/crusader aesthetic.
+
+  private drawDevout(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.52;
+    const s  = size / 128;
+
+    // Warm cathedral ambient glow
+    const warmGlow = ctx.createRadialGradient(cx, cy - 20 * s, 6 * s, cx, cy, 58 * s);
+    warmGlow.addColorStop(0,   rgba(opts.accentColor, 0.10));
+    warmGlow.addColorStop(0.5, rgba(opts.primaryColor, 0.05));
+    warmGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = warmGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Divine halo behind the head — soft golden ring
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 16 * s;
+    const haloGrad = ctx.createRadialGradient(cx, cy - 18 * s, 28 * s, cx, cy - 18 * s, 42 * s);
+    haloGrad.addColorStop(0,   'transparent');
+    haloGrad.addColorStop(0.4, rgba(opts.accentColor, 0.15));
+    haloGrad.addColorStop(0.7, rgba(opts.accentColor, 0.25));
+    haloGrad.addColorStop(0.85, rgba(opts.accentColor, 0.10));
+    haloGrad.addColorStop(1,   'transparent');
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 18 * s, 42 * s, 0, Math.PI * 2);
+    ctx.fill();
+    // Halo ring line
+    ctx.strokeStyle = rgba(opts.accentColor, 0.30);
+    ctx.lineWidth   = 1.5 * s;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 18 * s, 36 * s, 36 * s, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Elaborate headdress / crown — three pointed spires with ornamentation
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 6 * s;
+    // Headdress base band
+    const bandGrad = ctx.createLinearGradient(cx - 28 * s, cy - 38 * s, cx + 28 * s, cy - 38 * s);
+    bandGrad.addColorStop(0,   darken(opts.secondaryColor, 10));
+    bandGrad.addColorStop(0.5, lighten(opts.primaryColor, 20));
+    bandGrad.addColorStop(1,   darken(opts.secondaryColor, 10));
+    ctx.fillStyle = bandGrad;
+    ctx.fillRect(cx - 28 * s, cy - 42 * s, 56 * s, 8 * s);
+    // Ornamental line on band
+    ctx.strokeStyle = rgba(opts.accentColor, 0.55);
+    ctx.lineWidth   = 0.8 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 26 * s, cy - 38 * s);
+    ctx.lineTo(cx + 26 * s, cy - 38 * s);
+    ctx.stroke();
+    // Crown spires
+    const spires: { x: number; h: number; w: number }[] = [
+      { x: cx - 18 * s, h: 20 * s, w: 7 * s },
+      { x: cx,          h: 28 * s, w: 8 * s },
+      { x: cx + 18 * s, h: 20 * s, w: 7 * s },
+    ];
+    for (const sp of spires) {
+      const spGrad = ctx.createLinearGradient(sp.x, cy - 42 * s, sp.x, cy - 42 * s - sp.h);
+      spGrad.addColorStop(0,   opts.primaryColor);
+      spGrad.addColorStop(0.6, lighten(opts.primaryColor, 25));
+      spGrad.addColorStop(1,   opts.accentColor);
+      ctx.fillStyle = spGrad;
+      ctx.beginPath();
+      ctx.moveTo(sp.x - sp.w, cy - 42 * s);
+      ctx.lineTo(sp.x,        cy - 42 * s - sp.h);
+      ctx.lineTo(sp.x + sp.w, cy - 42 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Jewel on centre spire tip
+    ctx.fillStyle   = opts.accentColor;
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 8 * s;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 68 * s, 3 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Head shape — humanoid, slightly broader for authoritative look
+    const headGrad = ctx.createRadialGradient(cx - 8 * s, cy - 16 * s, 2 * s, cx + 4 * s, cy + 6 * s, 40 * s);
+    headGrad.addColorStop(0,    lighten(opts.primaryColor, 42));
+    headGrad.addColorStop(0.3,  lighten(opts.primaryColor, 18));
+    headGrad.addColorStop(0.6,  opts.primaryColor);
+    headGrad.addColorStop(1,    darken(opts.primaryColor, 20));
+    ctx.fillStyle = headGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(cx,           cy - 38 * s);
+    ctx.bezierCurveTo(cx + 20 * s, cy - 40 * s, cx + 30 * s, cy - 20 * s, cx + 28 * s, cy + 2 * s);
+    ctx.bezierCurveTo(cx + 26 * s, cy + 26 * s, cx + 16 * s, cy + 36 * s, cx,           cy + 36 * s);
+    ctx.bezierCurveTo(cx - 16 * s, cy + 36 * s, cx - 26 * s, cy + 26 * s, cx - 28 * s, cy + 2 * s);
+    ctx.bezierCurveTo(cx - 30 * s, cy - 20 * s, cx - 20 * s, cy - 40 * s, cx,           cy - 38 * s);
+    ctx.fill();
+
+    // Cheekbone highlight
+    const cheekHL = ctx.createRadialGradient(cx + 10 * s, cy - 2 * s, 2 * s, cx + 10 * s, cy + 4 * s, 16 * s);
+    cheekHL.addColorStop(0, rgba(lighten(opts.primaryColor, 30), 0.22));
+    cheekHL.addColorStop(1, 'transparent');
+    ctx.fillStyle = cheekHL;
+    ctx.beginPath();
+    ctx.ellipse(cx + 10 * s, cy + 2 * s, 16 * s, 20 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Holy symbol on forehead — small radiant cross/star
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.accentColor, 0.70);
+    ctx.lineWidth   = 1.2 * s;
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 6 * s;
+    const symX = cx;
+    const symY = cy - 28 * s;
+    // Vertical line
+    ctx.beginPath();
+    ctx.moveTo(symX, symY - 5 * s);
+    ctx.lineTo(symX, symY + 5 * s);
+    ctx.stroke();
+    // Horizontal line
+    ctx.beginPath();
+    ctx.moveTo(symX - 4 * s, symY);
+    ctx.lineTo(symX + 4 * s, symY);
+    ctx.stroke();
+    // Diagonal lines (making it a star)
+    ctx.lineWidth = 0.8 * s;
+    ctx.beginPath();
+    ctx.moveTo(symX - 3 * s, symY - 3 * s);
+    ctx.lineTo(symX + 3 * s, symY + 3 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(symX + 3 * s, symY - 3 * s);
+    ctx.lineTo(symX - 3 * s, symY + 3 * s);
+    ctx.stroke();
+    // Centre jewel dot
+    ctx.fillStyle = opts.accentColor;
+    ctx.beginPath();
+    ctx.arc(symX, symY, 1.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Eyes — stern, warm-toned with golden irises
+    ctx.save();
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 6 * s;
+    const eyeY = cy - 9 * s;
+    for (const ex of [cx - 13 * s, cx + 13 * s]) {
+      // Socket shadow
+      ctx.fillStyle = rgba('#000000', 0.25);
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, 9 * s, 5.5 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Iris — golden
+      const irisGrad = ctx.createRadialGradient(ex, eyeY, 0, ex, eyeY, 5.5 * s);
+      irisGrad.addColorStop(0,   lighten(opts.accentColor, 30));
+      irisGrad.addColorStop(0.5, opts.accentColor);
+      irisGrad.addColorStop(1,   darken(opts.primaryColor, 10));
+      ctx.fillStyle = irisGrad;
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, 5.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Pupil
+      ctx.fillStyle = '#060404';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, 2.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+      // Glint
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath();
+      ctx.arc(ex - 2 * s, eyeY - 1.5 * s, 1.4 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Nose — subtle
+    ctx.fillStyle = rgba('#000000', 0.08);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 5 * s, 3.5 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mouth — closed, stern
+    ctx.strokeStyle = rgba('#000000', 0.22);
+    ctx.lineWidth   = 1.3 * s;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 7 * s, cy + 18 * s);
+    ctx.lineTo(cx + 7 * s, cy + 18 * s);
+    ctx.stroke();
+
+    // Ornate gorget / collar — armoured vestment below chin
+    ctx.save();
+    const gorgetGrad = ctx.createLinearGradient(cx - 30 * s, cy + 36 * s, cx + 30 * s, cy + 60 * s);
+    gorgetGrad.addColorStop(0,   lighten(opts.secondaryColor, 15));
+    gorgetGrad.addColorStop(0.5, opts.secondaryColor);
+    gorgetGrad.addColorStop(1,   darken(opts.secondaryColor, 20));
+    ctx.fillStyle = gorgetGrad;
+    // Collar shape — wider than neck, curved
+    ctx.beginPath();
+    ctx.moveTo(cx - 30 * s, cy + 36 * s);
+    ctx.lineTo(cx + 30 * s, cy + 36 * s);
+    ctx.lineTo(cx + 26 * s, cy + 56 * s);
+    ctx.bezierCurveTo(cx + 16 * s, cy + 62 * s, cx - 16 * s, cy + 62 * s, cx - 26 * s, cy + 56 * s);
+    ctx.closePath();
+    ctx.fill();
+    // Gorget ornamental lines
+    ctx.strokeStyle = rgba(opts.accentColor, 0.50);
+    ctx.lineWidth   = 0.8 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 28 * s, cy + 40 * s);
+    ctx.lineTo(cx + 28 * s, cy + 40 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 26 * s, cy + 46 * s);
+    ctx.lineTo(cx + 26 * s, cy + 46 * s);
+    ctx.stroke();
+    // Centre gorget jewel
+    ctx.fillStyle   = opts.accentColor;
+    ctx.shadowColor = opts.accentColor;
+    ctx.shadowBlur  = 6 * s;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 43 * s, 3 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ── Volcanic (Pyrenth) ───────────────────────────────────────────────────
+  //
+  // Living mountain face — rough, rocky, angular cracked obsidian. Bright
+  // orange/red magma veins running through the surface. Deep-set glowing
+  // orange eyes. Heavy brow ridge, no visible mouth (sealed rock).
+
+  private drawVolcanic(ctx: CanvasRenderingContext2D, size: number, opts: PortraitOptions): void {
+    const cx = size * 0.5;
+    const cy = size * 0.52;
+    const s  = size / 128;
+
+    // Volcanic ambient glow — warm red/orange from below
+    const lavaGlow = ctx.createRadialGradient(cx, cy + 20 * s, 8 * s, cx, cy, 56 * s);
+    lavaGlow.addColorStop(0,   rgba(opts.secondaryColor, 0.12));
+    lavaGlow.addColorStop(0.5, rgba(opts.secondaryColor, 0.04));
+    lavaGlow.addColorStop(1,   'transparent');
+    ctx.fillStyle = lavaGlow;
+    ctx.fillRect(0, 0, size, size);
+
+    // Main rocky head shape — angular, irregular, heavy
+    const rockGrad = ctx.createRadialGradient(cx - 10 * s, cy - 18 * s, 3 * s, cx + 4 * s, cy + 4 * s, 48 * s);
+    rockGrad.addColorStop(0,    lighten(opts.accentColor, 30));
+    rockGrad.addColorStop(0.25, lighten(opts.accentColor, 12));
+    rockGrad.addColorStop(0.55, opts.accentColor);
+    rockGrad.addColorStop(0.8,  darken(opts.accentColor, 15));
+    rockGrad.addColorStop(1,    darken(opts.accentColor, 30));
+    ctx.fillStyle = rockGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(cx - 16 * s, cy - 46 * s);   // crown left
+    ctx.lineTo(cx + 8 * s,  cy - 48 * s);   // crown right (asymmetric)
+    ctx.lineTo(cx + 22 * s, cy - 40 * s);   // upper brow right
+    ctx.lineTo(cx + 38 * s, cy - 22 * s);   // brow far right
+    ctx.lineTo(cx + 40 * s, cy - 4 * s);    // cheek right
+    ctx.lineTo(cx + 36 * s, cy + 18 * s);   // jaw right
+    ctx.lineTo(cx + 22 * s, cy + 38 * s);   // chin right
+    ctx.lineTo(cx - 4 * s,  cy + 40 * s);   // chin centre (off-centre)
+    ctx.lineTo(cx - 24 * s, cy + 34 * s);   // chin left
+    ctx.lineTo(cx - 36 * s, cy + 14 * s);   // jaw left
+    ctx.lineTo(cx - 40 * s, cy - 6 * s);    // cheek left
+    ctx.lineTo(cx - 36 * s, cy - 26 * s);   // brow far left
+    ctx.closePath();
+    ctx.fill();
+
+    // Rock surface texture — tiny crack lines creating a faceted surface
+    ctx.save();
+    ctx.strokeStyle = rgba('#000000', 0.30);
+    ctx.lineWidth   = 0.6 * s;
+    const cracks: [number, number, number, number][] = [
+      // Large structural cracks
+      [cx - 4 * s,  cy - 46 * s, cx - 8 * s,  cy + 4 * s],
+      [cx + 12 * s, cy - 44 * s, cx + 6 * s,  cy + 10 * s],
+      [cx - 30 * s, cy - 18 * s, cx + 4 * s,  cy + 4 * s],
+      [cx + 30 * s, cy - 14 * s, cx + 2 * s,  cy + 10 * s],
+      // Medium cracks
+      [cx - 20 * s, cy - 32 * s, cx - 28 * s, cy - 10 * s],
+      [cx + 24 * s, cy - 30 * s, cx + 32 * s, cy - 4 * s],
+      [cx - 18 * s, cy + 10 * s, cx - 30 * s, cy + 28 * s],
+      [cx + 16 * s, cy + 14 * s, cx + 28 * s, cy + 32 * s],
+      // Small detail cracks
+      [cx - 12 * s, cy - 14 * s, cx - 22 * s, cy - 4 * s],
+      [cx + 14 * s, cy - 10 * s, cx + 24 * s, cy + 2 * s],
+      [cx - 6 * s,  cy + 18 * s, cx - 16 * s, cy + 30 * s],
+      [cx + 8 * s,  cy + 20 * s, cx + 18 * s, cy + 34 * s],
+      [cx - 34 * s, cy + 2 * s,  cx - 20 * s, cy + 18 * s],
+      [cx + 34 * s, cy + 4 * s,  cx + 20 * s, cy + 20 * s],
+    ];
+    for (const [x1, y1, x2, y2] of cracks) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Glowing magma veins — bright orange/red lines in the cracks
+    ctx.save();
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 8 * s;
+
+    const magmaVeins: { pts: [number, number][]; w: number }[] = [
+      // Main vertical vein
+      { pts: [[cx - 4 * s, cy - 40 * s], [cx - 6 * s, cy - 14 * s], [cx - 8 * s, cy + 4 * s]], w: 1.8 },
+      // Cross veins
+      { pts: [[cx - 28 * s, cy - 14 * s], [cx - 16 * s, cy - 6 * s], [cx + 2 * s, cy + 4 * s]], w: 1.4 },
+      { pts: [[cx + 28 * s, cy - 10 * s], [cx + 16 * s, cy - 2 * s], [cx + 4 * s, cy + 8 * s]], w: 1.4 },
+      // Lower veins
+      { pts: [[cx - 16 * s, cy + 12 * s], [cx - 24 * s, cy + 22 * s], [cx - 28 * s, cy + 30 * s]], w: 1.2 },
+      { pts: [[cx + 14 * s, cy + 16 * s], [cx + 22 * s, cy + 26 * s], [cx + 26 * s, cy + 34 * s]], w: 1.2 },
+      // Small branch veins
+      { pts: [[cx - 20 * s, cy - 28 * s], [cx - 26 * s, cy - 16 * s]], w: 1.0 },
+      { pts: [[cx + 22 * s, cy - 26 * s], [cx + 30 * s, cy - 10 * s]], w: 1.0 },
+    ];
+
+    for (const vein of magmaVeins) {
+      // Outer wide glow
+      ctx.strokeStyle = rgba(opts.secondaryColor, 0.25);
+      ctx.lineWidth   = (vein.w + 3) * s;
+      ctx.beginPath();
+      ctx.moveTo(vein.pts[0]![0]!, vein.pts[0]![1]!);
+      for (let i = 1; i < vein.pts.length; i++) {
+        ctx.lineTo(vein.pts[i]![0]!, vein.pts[i]![1]!);
+      }
+      ctx.stroke();
+
+      // Inner bright vein
+      const veinGrad = ctx.createLinearGradient(
+        vein.pts[0]![0]!, vein.pts[0]![1]!,
+        vein.pts[vein.pts.length - 1]![0]!, vein.pts[vein.pts.length - 1]![1]!,
+      );
+      veinGrad.addColorStop(0,   lighten(opts.secondaryColor, 40));
+      veinGrad.addColorStop(0.5, opts.secondaryColor);
+      veinGrad.addColorStop(1,   darken(opts.secondaryColor, 20));
+      ctx.strokeStyle = veinGrad;
+      ctx.lineWidth   = vein.w * s;
+      ctx.beginPath();
+      ctx.moveTo(vein.pts[0]![0]!, vein.pts[0]![1]!);
+      for (let i = 1; i < vein.pts.length; i++) {
+        ctx.lineTo(vein.pts[i]![0]!, vein.pts[i]![1]!);
+      }
+      ctx.stroke();
+
+      // White-hot core (thin)
+      ctx.strokeStyle = rgba('#FFDD88', 0.30);
+      ctx.lineWidth   = vein.w * 0.35 * s;
+      ctx.beginPath();
+      ctx.moveTo(vein.pts[0]![0]!, vein.pts[0]![1]!);
+      for (let i = 1; i < vein.pts.length; i++) {
+        ctx.lineTo(vein.pts[i]![0]!, vein.pts[i]![1]!);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Heavy overhanging brow ridge — dark and massive
+    ctx.fillStyle = darken(opts.accentColor, 40);
+    ctx.beginPath();
+    ctx.moveTo(cx - 36 * s, cy - 26 * s);
+    ctx.lineTo(cx + 38 * s, cy - 22 * s);
+    ctx.lineTo(cx + 36 * s, cy - 14 * s);
+    ctx.lineTo(cx - 34 * s, cy - 18 * s);
+    ctx.closePath();
+    ctx.fill();
+    // Brow ridge highlight edge
+    ctx.strokeStyle = rgba(opts.secondaryColor, 0.15);
+    ctx.lineWidth   = 0.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 35 * s, cy - 25 * s);
+    ctx.lineTo(cx + 37 * s, cy - 21 * s);
+    ctx.stroke();
+
+    // Deep-set glowing eyes — recessed in darkness, orange/red from within
+    ctx.save();
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 14 * s;
+    const eyeY = cy - 8 * s;
+    for (const ex of [cx - 16 * s, cx + 16 * s]) {
+      // Deep socket recess
+      ctx.fillStyle = '#080402';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, 10 * s, 6 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Inner glow
+      const eyeGlow = ctx.createRadialGradient(ex, eyeY, 0, ex, eyeY, 8 * s);
+      eyeGlow.addColorStop(0,   lighten(opts.secondaryColor, 50));
+      eyeGlow.addColorStop(0.3, opts.secondaryColor);
+      eyeGlow.addColorStop(0.6, rgba(opts.secondaryColor, 0.5));
+      eyeGlow.addColorStop(1,   'transparent');
+      ctx.fillStyle = eyeGlow;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, 8 * s, 5 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Bright core
+      ctx.fillStyle = '#FFCC44';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, 2.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // No mouth — sealed rock. Just a dark line suggestion.
+    ctx.strokeStyle = rgba('#000000', 0.40);
+    ctx.lineWidth   = 1.5 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * s, cy + 22 * s);
+    ctx.lineTo(cx + 10 * s, cy + 24 * s);
+    ctx.stroke();
+
+    // Crystalline sparkle — tiny reflective points on the rock surface
+    ctx.save();
+    ctx.shadowColor = '#FFFFFF';
+    ctx.shadowBlur  = 2 * s;
+    ctx.fillStyle   = 'rgba(255,255,255,0.35)';
+    const sparkles: [number, number][] = [
+      [cx - 22 * s, cy - 32 * s], [cx + 18 * s, cy - 36 * s],
+      [cx - 30 * s, cy + 4 * s],  [cx + 32 * s, cy + 2 * s],
+      [cx - 8 * s,  cy + 28 * s], [cx + 12 * s, cy + 30 * s],
+      [cx + 26 * s, cy - 18 * s], [cx - 28 * s, cy - 8 * s],
+      [cx + 6 * s,  cy - 28 * s], [cx - 14 * s, cy + 16 * s],
+    ];
+    for (const [spx, spy] of sparkles) {
+      ctx.beginPath();
+      ctx.arc(spx, spy, 0.8 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Neck / rock column — rough continuation
+    const neckGrad = ctx.createLinearGradient(cx, cy + 38 * s, cx, cy + 62 * s);
+    neckGrad.addColorStop(0, rgba(opts.accentColor, 0.80));
+    neckGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = neckGrad;
+    ctx.beginPath();
+    ctx.moveTo(cx - 20 * s, cy + 38 * s);
+    ctx.lineTo(cx + 20 * s, cy + 38 * s);
+    ctx.lineTo(cx + 14 * s, cy + 62 * s);
+    ctx.lineTo(cx - 14 * s, cy + 62 * s);
+    ctx.closePath();
+    ctx.fill();
+    // Magma vein continuing into neck
+    ctx.save();
+    ctx.strokeStyle = rgba(opts.secondaryColor, 0.45);
+    ctx.lineWidth   = 1.2 * s;
+    ctx.shadowColor = opts.secondaryColor;
+    ctx.shadowBlur  = 6 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 2 * s, cy + 38 * s);
+    ctx.lineTo(cx,          cy + 60 * s);
+    ctx.stroke();
     ctx.restore();
   }
 
