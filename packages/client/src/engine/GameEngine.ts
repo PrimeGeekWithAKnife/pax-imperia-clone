@@ -210,6 +210,29 @@ export class GameEngine {
         const attackerEmpire = newState.gameState.empires.find(e => e.id === attackerFleet.empireId);
         const defenderEmpire = newState.gameState.empires.find(e => e.id === defenderFleet.empireId);
 
+        // Determine combat layout — planetary assault if defender orbits a planet
+        let layout: 'open_space' | 'planetary_assault' = 'open_space';
+        let planetData: { name: string; type: string; defenceRating: number; shieldActive: boolean; orbitalGuns: number } | undefined;
+
+        const defenderOrbitTarget = defenderFleet.orbitTarget;
+        if (defenderOrbitTarget && defenderOrbitTarget !== 'star') {
+          const system = newState.gameState.galaxy.systems.find(s => s.id === combat.systemId);
+          const planet = system?.planets.find(p => p.id === defenderOrbitTarget);
+          if (planet) {
+            layout = 'planetary_assault';
+            const defenseGrids = planet.buildings.filter(b => b.type === 'defense_grid');
+            const orbitalGuns = defenseGrids.length;
+            const defenceRating = defenseGrids.reduce((sum, b) => sum + b.level, 0);
+            planetData = {
+              name: planet.name,
+              type: planet.type,
+              defenceRating,
+              shieldActive: false,
+              orbitalGuns: Math.max(1, orbitalGuns),
+            };
+          }
+        }
+
         this.game.events.emit('engine:combat_pending', {
           systemId: combat.systemId,
           attackerFleet,
@@ -225,6 +248,8 @@ export class GameEngine {
           defenderColor: defenderEmpire?.color ?? '#0000ff',
           isPlayerAttacker: attackerFleet.empireId === playerEmpire.id,
           enemyInitiated: defenderFleet.stance === 'aggressive' || attackerFleet.stance === 'aggressive',
+          layout,
+          planetData,
         });
         return; // Don't continue normal tick processing
       }
