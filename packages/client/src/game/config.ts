@@ -4,6 +4,7 @@ import { MainMenuScene } from './scenes/MainMenuScene';
 import { GalaxyMapScene } from './scenes/GalaxyMapScene';
 import { SystemViewScene } from './scenes/SystemViewScene';
 import { CombatScene } from './scenes/CombatScene';
+import { GroundCombatScene } from './scenes/GroundCombatScene';
 
 /**
  * Creates and returns the Phaser game configuration.
@@ -19,6 +20,6 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [BootScene, MainMenuScene, GalaxyMapScene, SystemViewScene, CombatScene],
+    scene: [BootScene, MainMenuScene, GalaxyMapScene, SystemViewScene, CombatScene, GroundCombatScene],
   };
 }

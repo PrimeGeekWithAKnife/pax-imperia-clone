@@ -1059,7 +1059,22 @@ export function App(): React.ReactElement {
       const tacticalState = data as TacticalState;
       const report = engine.applyTacticalCombatResult(tacticalState);
 
-      // If this was a planetary assault and the player won, show occupation dialog
+      // If attacker won a planetary assault, ground combat scene handles the
+      // occupation dialog — skip it here. The CombatScene already transitions
+      // to GroundCombatScene in that case.
+      if (
+        report &&
+        report.winner === 'attacker' &&
+        tacticalState.layout === 'planetary_assault' &&
+        tacticalState.planetData
+      ) {
+        // Do NOT start the engine yet — ground combat scene is about to begin.
+        // The engine will be resumed when ground_combat:complete fires.
+        return;
+      }
+
+      // For defender victories in planetary assaults or any non-planetary battle,
+      // show occupation dialog if the player won a planetary defence
       if (
         report &&
         report.winner !== 'draw' &&
@@ -1069,7 +1084,6 @@ export function App(): React.ReactElement {
         const state = engine.getState();
         const playerEmpireObj = state.gameState.empires.find(e => !e.isAI);
         if (playerEmpireObj) {
-          // Check if the player was the attacker (conqueror)
           const playerFleetIds = new Set(
             state.gameState.fleets
               .filter(f => f.empireId === playerEmpireObj.id)
@@ -1103,6 +1117,43 @@ export function App(): React.ReactElement {
 
       engine.start();
     }
+  }, []);
+
+  // Ground combat completion — show occupation dialog on attacker victory
+  const handleGroundCombatComplete = useCallback((data: unknown) => {
+    const engine = getGameEngine();
+    if (!engine || !data) return;
+
+    const result = data as {
+      outcome: 'attacker_wins' | 'defender_wins';
+      planetName: string;
+      planetType: string;
+      attackerEmpireId: string;
+      defenderEmpireId: string;
+      attackerStrengthRemaining: number;
+      defenderStrengthRemaining: number;
+      ticks: number;
+      retreated?: boolean;
+    };
+
+    if (result.outcome === 'attacker_wins') {
+      // Check if the player was the attacker
+      const state = engine.getState();
+      const playerEmpireObj = state.gameState.empires.find(e => !e.isAI);
+      if (playerEmpireObj && playerEmpireObj.id === result.attackerEmpireId) {
+        const combatTrait = playerEmpireObj.species.traits.combat;
+        setOccupationData({
+          planetName: result.planetName,
+          planetPopulation: 1000, // placeholder until population is tracked
+          planetId: '', // will be populated from system data in future
+          systemId: '',
+          playerSpeciesId: playerEmpireObj.species.id,
+          allowedPolicies: getAllowedPolicies(combatTrait),
+        });
+      }
+    }
+
+    engine.start();
   }, []);
 
   // Engine emits 'engine:game_over' when the game ends (victory / defeat).
@@ -1317,6 +1368,7 @@ export function App(): React.ReactElement {
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
   useGameEvent<unknown>('engine:combat_pending', handleCombatPending);
   useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
+  useGameEvent<unknown>('ground_combat:complete', handleGroundCombatComplete);
   useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
   useGameEvent<GameNotification>('engine:notification', handleEngineNotification);
   useGameEvent<{ espionageState: EspionageState; espionageEventLog: EspionageEvent[] }>(
