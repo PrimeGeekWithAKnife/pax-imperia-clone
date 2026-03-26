@@ -6051,6 +6051,40 @@
   background: rgba(0, 180, 220, 0.04);
 }
 
+/* ── Victory condition checkboxes ── */
+
+.gs-victory-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gs-victory-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.gs-victory-check input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: #00d4ff;
+  cursor: pointer;
+}
+
+.gs-victory-check__label {
+  color: #c0d0e0;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.gs-victory-check__desc {
+  color: #6688aa;
+  font-size: 10px;
+}
+
 /* ── Seed input ── */
 
 .gs-seed-row {

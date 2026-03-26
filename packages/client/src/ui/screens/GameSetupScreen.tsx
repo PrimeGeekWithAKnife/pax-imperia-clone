@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import type { Species, GalaxyShape, GovernmentType } from '@nova-imperia/shared';
 import { GOVERNMENTS } from '@nova-imperia/shared';
 
@@ -15,6 +15,7 @@ export interface GameConfig {
   aiDifficulty: AiDifficulty;
   empireName: string;
   government: GovernmentType;
+  victoryConditions: string[];
 }
 
 export interface GameSetupScreenProps {
@@ -48,6 +49,16 @@ const DIFFICULTIES: Array<{ key: AiDifficulty; label: string; desc: string }> = 
 
 /** All government type keys, dynamically derived from the shared GOVERNMENTS record. */
 const GOVERNMENT_ORDER: GovernmentType[] = Object.keys(GOVERNMENTS) as GovernmentType[];
+
+const VICTORY_TYPES = [
+  { key: 'conquest',       label: 'Conquest',                desc: 'Control 75% of all colonised planets' },
+  { key: 'economic',       label: 'Economic Dominance',      desc: 'Hold 10\u00d7 more credits than any rival for 500 ticks' },
+  { key: 'technological',  label: 'Technological Supremacy', desc: 'Research the Ascension Project' },
+  { key: 'diplomatic',     label: 'Diplomatic Victory',      desc: 'Form alliances with every surviving empire' },
+  { key: 'score',          label: 'Score Victory',           desc: 'Highest combined score at tick limit' },
+] as const;
+
+const VICTORY_STORAGE_KEY = 'ex-nihilo:victory-defaults';
 
 // ── Galaxy shape SVG previews ──────────────────────────────────────────────────
 
@@ -221,6 +232,18 @@ export function GameSetupScreen({
   const [empireName, setEmpireName] = useState(
     () => `${species.name} Dominion`,
   );
+  const [enabledVictory, setEnabledVictory] = useState<string[]>(() => {
+    const saved = localStorage.getItem(VICTORY_STORAGE_KEY);
+    if (saved) {
+      try { return JSON.parse(saved) as string[]; } catch { /* ignore */ }
+    }
+    return VICTORY_TYPES.map(v => v.key);
+  });
+
+  // Persist victory condition defaults whenever they change
+  useEffect(() => {
+    localStorage.setItem(VICTORY_STORAGE_KEY, JSON.stringify(enabledVictory));
+  }, [enabledVictory]);
 
   const seedInputRef = useRef<HTMLInputElement>(null);
 
@@ -235,10 +258,11 @@ export function GameSetupScreen({
       aiDifficulty,
       empireName: resolvedName,
       government: selectedGov,
+      victoryConditions: enabledVictory,
     };
     emitToPhaser('game:start_with_config', { species, config });
     onStartGame(config);
-  }, [galaxySize, galaxyShape, aiOpponents, seed, aiDifficulty, species, selectedGov, empireName, onStartGame]);
+  }, [galaxySize, galaxyShape, aiOpponents, seed, aiDifficulty, species, selectedGov, empireName, enabledVictory, onStartGame]);
 
   const handleRandomSeed = useCallback(() => {
     const newSeed = String(Math.floor(Math.random() * 0xffffff));
@@ -410,6 +434,30 @@ export function GameSetupScreen({
               </div>
               <div className="gs-diff-desc">
                 {DIFFICULTIES.find((d) => d.key === aiDifficulty)?.desc}
+              </div>
+            </section>
+
+            {/* Victory Conditions */}
+            <section className="sc-section">
+              <div className="sc-section__label">VICTORY CONDITIONS</div>
+              <div className="gs-victory-checks">
+                {VICTORY_TYPES.map(vt => (
+                  <label key={vt.key} className="gs-victory-check">
+                    <input
+                      type="checkbox"
+                      checked={enabledVictory.includes(vt.key)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setEnabledVictory(prev => [...prev, vt.key]);
+                        } else {
+                          setEnabledVictory(prev => prev.filter(v => v !== vt.key));
+                        }
+                      }}
+                    />
+                    <span className="gs-victory-check__label">{vt.label}</span>
+                    <span className="gs-victory-check__desc">{vt.desc}</span>
+                  </label>
+                ))}
               </div>
             </section>
 

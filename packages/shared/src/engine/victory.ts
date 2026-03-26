@@ -333,9 +333,7 @@ export function checkVictoryConditions(
   economicLeadTicks?: Map<string, number>,
   allTechCount?: number,
 ): VictoryCheckResult | null {
-  const { empires, victoryCriteria } = gameState as GameState & {
-    victoryCriteria?: string[];
-  };
+  const { empires, victoryCriteria } = gameState;
 
   // Determine which criteria are active.  If none are configured, enable all.
   const enabledCriteria = (victoryCriteria && victoryCriteria.length > 0)

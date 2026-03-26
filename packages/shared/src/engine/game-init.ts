@@ -11,7 +11,7 @@ import type { Galaxy, StarSystem, Planet, Building, BuildingType } from '../type
 import type { Empire, Species } from '../types/species.js';
 import type { Fleet, Ship, HullClass } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
-import type { GameState } from '../types/game-state.js';
+import type { GameState, VictoryCriteria } from '../types/game-state.js';
 import type { GalaxyGenerationConfig } from '../generation/galaxy-generator.js';
 import type { AIPersonality } from '../types/species.js';
 import type { GovernmentType } from '../types/government.js';
@@ -25,6 +25,8 @@ import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js
 export interface GameSetupConfig {
   galaxyConfig: GalaxyGenerationConfig;
   players: PlayerSetup[];
+  /** Which victory conditions are active.  Omit or pass empty to enable all. */
+  victoryCriteria?: string[];
 }
 
 export interface PlayerSetup {
@@ -375,5 +377,8 @@ export function initializeGame(config: GameSetupConfig): GameState {
     currentTick: 0,
     speed: 'normal',
     status: 'playing',
+    ...(config.victoryCriteria && config.victoryCriteria.length > 0
+      ? { victoryCriteria: config.victoryCriteria as VictoryCriteria[] }
+      : {}),
   };
 }
