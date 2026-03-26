@@ -71,6 +71,7 @@ import type {
   FleetMovedEvent,
   CombatResolvedEvent,
   TechResearchedEvent,
+  ColonyEstablishedEvent,
   GameEvent,
   TacticalState,
   BattleReport,
@@ -278,6 +279,15 @@ export class GameEngine {
         case 'TechResearched':
           this.game.events.emit('engine:tech_researched', event as TechResearchedEvent);
           break;
+        case 'ColonyEstablished': {
+          const ce = event as ColonyEstablishedEvent;
+          this.game.events.emit('engine:planet_colonised', {
+            planetName: ce.planetName,
+            systemId: ce.systemId,
+            planetId: ce.planetId,
+          });
+          break;
+        }
         default:
           break;
       }
@@ -381,11 +391,51 @@ export class GameEngine {
         colonistsDispatched: dispatched,
       });
       if (mig.status === 'completed') {
-        // If target planet isn't colonised yet (first migration), establish the colony
-        const targetSys = this.tickState.gameState.galaxy.systems.find(s => s.id === mig.systemId);
+        // If target planet isn't colonised yet (first migration), establish the colony.
+        // We set ownerId and add a starter building directly rather than calling
+        // colonisePlanet(), because that method's validation rejects planets that
+        // already have population (which the migration waves have already transferred).
+        const completedSystems = this.tickState.gameState.galaxy.systems;
+        const targetSys = completedSystems.find(s => s.id === mig.systemId);
         const targetPlanet = targetSys?.planets.find(p => p.id === mig.targetPlanetId);
-        if (targetPlanet && targetPlanet.ownerId === null) {
-          this.colonisePlanet(mig.systemId, mig.targetPlanetId, mig.empireId);
+        if (targetPlanet && targetPlanet.ownerId === null && targetSys) {
+          const starterBuilding = {
+            id: `bld-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: 'population_center' as BuildingType,
+            level: 1,
+          };
+          const colonisedPlanet = {
+            ...targetPlanet,
+            ownerId: mig.empireId,
+            buildings: [...targetPlanet.buildings, starterBuilding],
+          };
+          const patchedPlanets = targetSys.planets.map(p =>
+            p.id === mig.targetPlanetId ? colonisedPlanet : p,
+          );
+          const patchedSystem = {
+            ...targetSys,
+            planets: patchedPlanets,
+            ownerId: targetSys.ownerId ?? mig.empireId,
+          };
+          const patchedSystems = completedSystems.map(s =>
+            s.id === mig.systemId ? patchedSystem : s,
+          );
+          this.tickState = {
+            ...this.tickState,
+            gameState: {
+              ...this.tickState.gameState,
+              galaxy: { ...this.tickState.gameState.galaxy, systems: patchedSystems },
+            },
+          };
+
+          // Emit colonisation events so the UI refreshes
+          this.game.events.emit('engine:planet_updated', { systemId: mig.systemId, planet: colonisedPlanet });
+          this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
+          this.game.events.emit('engine:planet_colonised', {
+            planetName: colonisedPlanet.name,
+            systemId: mig.systemId,
+            planetId: mig.targetPlanetId,
+          });
         }
         this.game.events.emit('engine:migration_completed', mig);
       }
