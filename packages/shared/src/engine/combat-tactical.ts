@@ -65,6 +65,59 @@ const POINT_DEFENSE_DEFAULT_AMMO = 100;
 /** Duration in ticks that a point defence effect persists (visual only). */
 const PD_EFFECT_DURATION = 2;
 
+/** Fighter speed in battlefield units per tick. */
+const FIGHTER_SPEED = 6;
+/** Default fighter HP. */
+const FIGHTER_DEFAULT_HEALTH = 10;
+/** Range at which fighters begin strafing runs (battlefield units). */
+const FIGHTER_STRAFE_RANGE = 30;
+/** Fraction of fighter damage dealt per tick during strafing. */
+const FIGHTER_STRAFE_DAMAGE_FRACTION = 0.3;
+/** Number of fighters launched per fire cycle. */
+const FIGHTER_LAUNCH_BATCH = 2;
+/** PD accuracy multiplier against fighters (harder to hit than missiles). */
+const PD_VS_FIGHTER_ACCURACY_MULT = 0.5;
+/** Distance at which a returning fighter docks with its carrier. */
+const FIGHTER_DOCK_RANGE = 15;
+
+// --- Friendly fire constants ------------------------------------------------
+/** Radius within which a stray projectile can hit a bystander ship. */
+export const FRIENDLY_FIRE_PROJECTILE_RADIUS = 15;
+/** Radius within which a beam can clip a bystander ship. */
+export const FRIENDLY_FIRE_BEAM_RADIUS = 10;
+/** Probability of a beam hitting a ship it passes close to. */
+export const BEAM_COLLATERAL_CHANCE = 0.15;
+
+// --- Environment hazard constants -------------------------------------------
+/** Minimum number of asteroids placed on the battlefield. */
+const ASTEROID_MIN = 3;
+/** Maximum number of asteroids placed on the battlefield. */
+const ASTEROID_MAX = 8;
+/** Minimum number of nebulae placed on the battlefield. */
+const NEBULA_MIN = 0;
+/** Maximum number of nebulae placed on the battlefield. */
+const NEBULA_MAX = 2;
+/** Asteroid radius range. */
+const ASTEROID_RADIUS_MIN = 20;
+const ASTEROID_RADIUS_MAX = 50;
+/** Nebula radius range. */
+const NEBULA_RADIUS_MIN = 80;
+const NEBULA_RADIUS_MAX = 150;
+/** Dodge bonus when inside an asteroid field. */
+export const ASTEROID_DODGE_BONUS = 0.30;
+/** Chance that a projectile/missile passing through an asteroid is absorbed. */
+export const ASTEROID_INTERCEPT_CHANCE = 0.20;
+/** Factor by which beam damage is reduced when firing through a nebula. */
+export const NEBULA_BEAM_DAMAGE_FACTOR = 0.50;
+/** Factor by which sensor range is reduced inside a nebula. */
+export const NEBULA_SENSOR_FACTOR = 0.50;
+/** Damage per tick dealt to ships inside a debris field. */
+export const DEBRIS_TICK_DAMAGE = 2;
+/** Radius of debris left when a ship is destroyed. */
+export const DEBRIS_RADIUS = 30;
+/** Safe distance from spawn areas where environment features are not placed. */
+const ENVIRONMENT_SPAWN_MARGIN = 250;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -148,6 +201,28 @@ export interface PointDefenceEffect {
   ticksRemaining: number;
 }
 
+export interface Fighter {
+  id: string;
+  carrierId: string;       // ship that launched it
+  side: 'attacker' | 'defender';
+  x: number;
+  y: number;
+  speed: number;           // fast — 6 units/tick
+  damage: number;
+  health: number;          // fighters are fragile — 5-15 HP
+  maxHealth: number;
+  targetId: string | null;  // ship they're targeting
+  order: 'attack' | 'defend' | 'return';
+}
+
+export interface EnvironmentFeature {
+  id: string;
+  type: 'asteroid' | 'nebula' | 'debris';
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface BeamEffect {
   sourceShipId: string;
   targetShipId: string;
@@ -169,8 +244,10 @@ export interface TacticalState {
   ships: TacticalShip[];
   projectiles: Projectile[];
   missiles: Missile[];
+  fighters: Fighter[];
   beamEffects: BeamEffect[];
   pointDefenceEffects: PointDefenceEffect[];
+  environment: EnvironmentFeature[];
   battlefieldWidth: number;
   battlefieldHeight: number;
   outcome: TacticalOutcome;
@@ -203,6 +280,91 @@ function normaliseAngle(a: number): number {
 /** Angle from point a to point b. */
 function angleTo(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+/**
+ * Compute the shortest distance from point (px, py) to the line segment
+ * from (ax, ay) to (bx, by).
+ */
+export function pointToSegmentDistance(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const abLenSq = abx * abx + aby * aby;
+  if (abLenSq === 0) {
+    // Degenerate segment (zero length)
+    return Math.sqrt(apx * apx + apy * apy);
+  }
+  const t = clamp((apx * abx + apy * aby) / abLenSq, 0, 1);
+  const closestX = ax + t * abx;
+  const closestY = ay + t * aby;
+  const dx = px - closestX;
+  const dy = py - closestY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Check whether any bystander ship is within `radius` of the line segment
+ * from (sourceX, sourceY) to (targetX, targetY). Ships in the `excludeIds`
+ * set (source + intended target) are skipped.
+ *
+ * Returns the first eligible ship found, or null.
+ */
+export function checkCollateralDamage(
+  sourceX: number, sourceY: number,
+  targetX: number, targetY: number,
+  allShips: TacticalShip[],
+  excludeIds: Set<string>,
+  radius: number,
+): TacticalShip | null {
+  for (const ship of allShips) {
+    if (excludeIds.has(ship.id) || ship.destroyed || ship.routed) continue;
+    const d = pointToSegmentDistance(
+      ship.position.x, ship.position.y,
+      sourceX, sourceY,
+      targetX, targetY,
+    );
+    if (d < radius) return ship;
+  }
+  return null;
+}
+
+/**
+ * Check whether the line segment from (ax, ay) to (bx, by) passes through
+ * any environment feature of the given type.
+ */
+export function segmentPassesThroughFeature(
+  ax: number, ay: number,
+  bx: number, by: number,
+  features: EnvironmentFeature[],
+  featureType: EnvironmentFeature['type'],
+): EnvironmentFeature | null {
+  for (const f of features) {
+    if (f.type !== featureType) continue;
+    const d = pointToSegmentDistance(f.x, f.y, ax, ay, bx, by);
+    if (d < f.radius) return f;
+  }
+  return null;
+}
+
+/** Check whether a point is inside any environment feature of a given type. */
+export function isInsideFeature(
+  x: number, y: number,
+  features: EnvironmentFeature[],
+  featureType: EnvironmentFeature['type'],
+): boolean {
+  for (const f of features) {
+    if (f.type !== featureType) continue;
+    const dx = x - f.x;
+    const dy = y - f.y;
+    if (dx * dx + dy * dy < f.radius * f.radius) return true;
+  }
+  return false;
 }
 
 function mapComponentType(ct: ComponentType): WeaponType | null {
@@ -472,6 +634,71 @@ export function setFormation(
 }
 
 // ---------------------------------------------------------------------------
+// Environment generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the point (x, y) is too close to either spawn area.
+ * Used to keep environment features away from ship starting positions.
+ */
+function isNearSpawn(x: number, y: number): boolean {
+  // Attacker spawn: around (100, 100)
+  const dAtk = Math.sqrt((x - 100) ** 2 + (y - 100) ** 2);
+  // Defender spawn: around (BW-100, BH-100)
+  const dDef = Math.sqrt(
+    (x - (BATTLEFIELD_WIDTH - 100)) ** 2 + (y - (BATTLEFIELD_HEIGHT - 100)) ** 2,
+  );
+  return dAtk < ENVIRONMENT_SPAWN_MARGIN || dDef < ENVIRONMENT_SPAWN_MARGIN;
+}
+
+/**
+ * Generate random environment features for the battlefield.
+ * An optional `rng` function (returning 0..1) can be supplied for testing.
+ */
+export function generateEnvironment(
+  rng: () => number = Math.random,
+): EnvironmentFeature[] {
+  const features: EnvironmentFeature[] = [];
+
+  const asteroidCount = ASTEROID_MIN + Math.floor(rng() * (ASTEROID_MAX - ASTEROID_MIN + 1));
+  for (let i = 0; i < asteroidCount; i++) {
+    // Try a few placements to avoid spawn areas
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const x = rng() * BATTLEFIELD_WIDTH;
+      const y = rng() * BATTLEFIELD_HEIGHT;
+      if (isNearSpawn(x, y)) continue;
+      features.push({
+        id: `asteroid-${i}`,
+        type: 'asteroid',
+        x,
+        y,
+        radius: ASTEROID_RADIUS_MIN + rng() * (ASTEROID_RADIUS_MAX - ASTEROID_RADIUS_MIN),
+      });
+      break;
+    }
+  }
+
+  const nebulaCount = NEBULA_MIN + Math.floor(rng() * (NEBULA_MAX - NEBULA_MIN + 1));
+  for (let i = 0; i < nebulaCount; i++) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const x = rng() * BATTLEFIELD_WIDTH;
+      const y = rng() * BATTLEFIELD_HEIGHT;
+      if (isNearSpawn(x, y)) continue;
+      features.push({
+        id: `nebula-${i}`,
+        type: 'nebula',
+        x,
+        y,
+        radius: NEBULA_RADIUS_MIN + rng() * (NEBULA_RADIUS_MAX - NEBULA_RADIUS_MIN),
+      });
+      break;
+    }
+  }
+
+  return features;
+}
+
+// ---------------------------------------------------------------------------
 // initializeTacticalCombat
 // ---------------------------------------------------------------------------
 
@@ -537,8 +764,10 @@ export function initializeTacticalCombat(
     ships: [...buildSide(attackerShips, 'attacker'), ...buildSide(defenderShips, 'defender')],
     projectiles: [],
     missiles: [],
+    fighters: [],
     beamEffects: [],
     pointDefenceEffects: [],
+    environment: generateEnvironment(),
     battlefieldWidth: BATTLEFIELD_WIDTH,
     battlefieldHeight: BATTLEFIELD_HEIGHT,
     outcome: null,
@@ -580,22 +809,38 @@ function extractShipStats(
 
       const weaponType = mapComponentType(comp.type);
       if (weaponType != null) {
-        const dmg = comp.type === 'fighter_bay'
-          ? (comp.stats['fighterCount'] ?? 0) * (comp.stats['damage'] ?? 0)
-          : (comp.stats['damage'] ?? 0);
-        const ammo = computeAmmo(weaponType);
-        weapons.push({
-          componentId: comp.id,
-          type: weaponType,
-          damage: dmg,
-          range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD,
-          accuracy: comp.stats['accuracy'] ?? 75,
-          cooldownMax: computeCooldown(comp),
-          cooldownLeft: 0,
-          facing: defaultWeaponFacing(comp.type),
-          ammo,
-          maxAmmo: ammo,
-        });
+        if (comp.type === 'fighter_bay') {
+          // Fighter bays use per-fighter damage; ammo = number of fighters
+          const fighterCount = comp.stats['fighterCount'] ?? 4;
+          const fighterDmg = comp.stats['damage'] ?? 8;
+          weapons.push({
+            componentId: comp.id,
+            type: weaponType,
+            damage: fighterDmg,
+            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD,
+            accuracy: comp.stats['accuracy'] ?? 75,
+            cooldownMax: computeCooldown(comp),
+            cooldownLeft: 0,
+            facing: defaultWeaponFacing(comp.type),
+            ammo: fighterCount,
+            maxAmmo: fighterCount,
+          });
+        } else {
+          const dmg = comp.stats['damage'] ?? 0;
+          const ammo = computeAmmo(weaponType);
+          weapons.push({
+            componentId: comp.id,
+            type: weaponType,
+            damage: dmg,
+            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD,
+            accuracy: comp.stats['accuracy'] ?? 75,
+            cooldownMax: computeCooldown(comp),
+            cooldownLeft: 0,
+            facing: defaultWeaponFacing(comp.type),
+            ammo,
+            maxAmmo: ammo,
+          });
+        }
       }
 
       switch (comp.type) {
@@ -652,7 +897,7 @@ function computeAmmo(weaponType: WeaponType): number | undefined {
     case 'projectile': return PROJECTILE_DEFAULT_AMMO;
     case 'point_defense': return POINT_DEFENSE_DEFAULT_AMMO;
     case 'beam': return undefined; // unlimited
-    case 'fighter_bay': return undefined; // fighters, not ammo-based
+    case 'fighter_bay': return undefined; // ammo set from fighterCount in extractShipStats
     default: return undefined;
   }
 }
@@ -854,6 +1099,56 @@ export function findNearestMissile(
 }
 
 // ---------------------------------------------------------------------------
+// Fighter helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Find the nearest enemy fighter within range of a ship.
+ * Used by point defence to target fighters when no missiles are nearby.
+ */
+export function findNearestEnemyFighter(
+  ship: TacticalShip,
+  fighters: Fighter[],
+): Fighter | null {
+  let best: Fighter | null = null;
+  let bestDist = Infinity;
+
+  for (const fighter of fighters) {
+    if (fighter.side === ship.side) continue;
+    if (fighter.health <= 0) continue;
+    const d = dist(ship.position, { x: fighter.x, y: fighter.y });
+    if (d < bestDist) {
+      bestDist = d;
+      best = fighter;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Find the closest enemy ship for a fighter to target.
+ */
+function findClosestEnemyForFighter(
+  fighter: Fighter,
+  ships: TacticalShip[],
+): TacticalShip | null {
+  let best: TacticalShip | null = null;
+  let bestDist = Infinity;
+
+  for (const ship of ships) {
+    if (ship.side === fighter.side || ship.destroyed || ship.routed) continue;
+    const d = dist({ x: fighter.x, y: fighter.y }, ship.position);
+    if (d < bestDist) {
+      bestDist = d;
+      best = ship;
+    }
+  }
+
+  return best;
+}
+
+// ---------------------------------------------------------------------------
 // processTacticalTick
 // ---------------------------------------------------------------------------
 
@@ -865,13 +1160,17 @@ export function findNearestMissile(
  *  2. Move ships toward their targets based on orders
  *  3. Move projectiles toward their targets (consume on hit)
  *  3b. Move missiles (accelerate, track, hit detection)
- *  3c. Point defence intercepts missiles
- *  4. Fire weapons (check cooldown, range, ammo; create beams/projectiles/missiles)
+ *  3c. Point defence intercepts missiles and fighters
+ *  3d. Move fighters, deal strafing damage
+ *  4. Fire weapons (check cooldown, range, ammo; create beams/projectiles/missiles/fighters)
  *  5. Return new state
  */
 export function processTacticalTick(state: TacticalState): TacticalState {
   // 0. Early return if already resolved
   if (state.outcome !== null) return state;
+
+  const env = state.environment ?? [];
+  const newEnvironment = [...env];
 
   // 1. Decay beam effects
   const beamEffects = state.beamEffects
@@ -893,44 +1192,100 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return recharged !== ship.shields ? { ...ship, shields: recharged } : ship;
   });
 
+  // 1d. Debris damage — ships inside debris fields take tick damage
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed) return ship;
+    if (isInsideFeature(ship.position.x, ship.position.y, newEnvironment, 'debris')) {
+      return applyDamage(ship, DEBRIS_TICK_DAMAGE);
+    }
+    return ship;
+  });
+
   // 2. Move ships
   ships = ships.map((ship) => moveShip(ship, state));
 
-  // 3. Move projectiles and check for hits
+  // 3. Move projectiles and check for hits (with friendly fire + asteroid intercept)
   const hitRadius = 12;
   const survivingProjectiles: Projectile[] = [];
 
   for (const proj of state.projectiles) {
     const target = ships.find((s) => s.id === proj.targetShipId || s.sourceShipId === proj.targetShipId);
+
+    // If target is gone, try friendly fire — find any bystander near the projectile
     if (target == null || target.destroyed || target.routed) {
+      const excludeIds = new Set([proj.sourceShipId, proj.targetShipId]);
+      const bystander = checkCollateralDamage(
+        proj.position.x, proj.position.y,
+        proj.position.x, proj.position.y,
+        ships, excludeIds,
+        FRIENDLY_FIRE_PROJECTILE_RADIUS,
+      );
+      if (bystander != null) {
+        ships = ships.map((s) => (s.id === bystander.id ? applyDamage(s, proj.damage) : s));
+      }
+      // Projectile consumed either way (hit bystander or dissipated)
       continue;
     }
 
     const d = dist(proj.position, target.position);
     if (d <= hitRadius + proj.speed) {
+      // Asteroid cover: target inside asteroid gets dodge bonus
+      const inAsteroid = isInsideFeature(
+        target.position.x, target.position.y, newEnvironment, 'asteroid',
+      );
+      if (inAsteroid && Math.random() < ASTEROID_DODGE_BONUS) {
+        continue; // dodged — projectile consumed but no damage
+      }
+
       ships = ships.map((s) => {
         if (s !== target) return s;
         return applyDamage(s, proj.damage);
       });
     } else {
       const angle = angleTo(proj.position, target.position);
+      const newPos = {
+        x: proj.position.x + Math.cos(angle) * proj.speed,
+        y: proj.position.y + Math.sin(angle) * proj.speed,
+      };
+
+      // Asteroid intercept: projectile passes through asteroid field
+      const asteroidHit = segmentPassesThroughFeature(
+        proj.position.x, proj.position.y,
+        newPos.x, newPos.y,
+        newEnvironment, 'asteroid',
+      );
+      if (asteroidHit != null && Math.random() < ASTEROID_INTERCEPT_CHANCE) {
+        continue; // absorbed by asteroid
+      }
+
       survivingProjectiles.push({
         ...proj,
-        position: {
-          x: proj.position.x + Math.cos(angle) * proj.speed,
-          y: proj.position.y + Math.sin(angle) * proj.speed,
-        },
+        position: newPos,
       });
     }
   }
 
-  // 3b. Move missiles — accelerate, track target, check hits
+  // 3b. Move missiles — accelerate, track target, check hits, friendly fire
   let survivingMissiles: Missile[] = [];
   const newPdEffects: PointDefenceEffect[] = [];
 
   for (const missile of (state.missiles ?? [])) {
     const target = ships.find((s) => s.id === missile.targetShipId && !s.destroyed);
-    if (target == null) continue; // missile lost target, dissipates
+
+    // If target destroyed mid-flight, try friendly fire
+    if (target == null) {
+      const excludeIds = new Set([missile.sourceShipId, missile.targetShipId]);
+      const bystander = checkCollateralDamage(
+        missile.x, missile.y,
+        missile.x, missile.y,
+        ships, excludeIds,
+        FRIENDLY_FIRE_PROJECTILE_RADIUS,
+      );
+      if (bystander != null) {
+        ships = ships.map((s) => (s.id === bystander.id ? applyDamage(s, missile.damage) : s));
+      }
+      continue; // missile consumed
+    }
 
     // Accelerate
     const speed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
@@ -941,6 +1296,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const d = Math.sqrt(dx * dx + dy * dy);
 
     if (d < MISSILE_HIT_RADIUS + speed) {
+      // Asteroid cover: dodge bonus
+      const inAsteroid = isInsideFeature(
+        target.position.x, target.position.y, newEnvironment, 'asteroid',
+      );
+      if (inAsteroid && Math.random() < ASTEROID_DODGE_BONUS) {
+        continue; // dodged
+      }
+
       // Hit!
       const targetIdx = ships.findIndex((s) => s.id === missile.targetShipId);
       if (targetIdx >= 0) {
@@ -949,15 +1312,30 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       continue; // missile consumed
     }
 
+    const newMX = missile.x + (dx / d) * speed;
+    const newMY = missile.y + (dy / d) * speed;
+
+    // Asteroid intercept for missiles in flight
+    const asteroidHit = segmentPassesThroughFeature(
+      missile.x, missile.y, newMX, newMY,
+      newEnvironment, 'asteroid',
+    );
+    if (asteroidHit != null && Math.random() < ASTEROID_INTERCEPT_CHANCE) {
+      continue; // absorbed by asteroid
+    }
+
     survivingMissiles.push({
       ...missile,
       speed,
-      x: missile.x + (dx / d) * speed,
-      y: missile.y + (dy / d) * speed,
+      x: newMX,
+      y: newMY,
     });
   }
 
-  // 3c. Point defence intercepts missiles
+  // 3c. Point defence intercepts missiles and fighters
+  let fighters: Fighter[] = (state.fighters ?? [])
+    .filter((f) => f.health > 0);
+
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
 
@@ -967,39 +1345,129 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       if (weapon.cooldownLeft > 0) return weapon;
       if (weapon.ammo !== undefined && weapon.ammo <= 0) return weapon;
 
+      // Prefer targeting missiles over fighters
       const nearestMissile = findNearestMissile(ship, survivingMissiles, ships);
-      if (nearestMissile == null) return weapon;
+      if (nearestMissile != null) {
+        const d = dist(ship.position, { x: nearestMissile.x, y: nearestMissile.y });
+        if (d <= weapon.range) {
+          weaponsChanged = true;
+          const updated = {
+            ...weapon,
+            cooldownLeft: weapon.cooldownMax,
+            ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
+          };
 
-      const d = dist(ship.position, { x: nearestMissile.x, y: nearestMissile.y });
-      if (d > weapon.range) return weapon;
+          if (Math.random() * 100 < weapon.accuracy) {
+            survivingMissiles = survivingMissiles.filter((m) => m.id !== nearestMissile.id);
+            newPdEffects.push({
+              shipId: ship.id,
+              missileX: nearestMissile.x,
+              missileY: nearestMissile.y,
+              ticksRemaining: PD_EFFECT_DURATION,
+            });
+          }
 
-      weaponsChanged = true;
-      const updated = {
-        ...weapon,
-        cooldownLeft: weapon.cooldownMax,
-        ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
-      };
-
-      if (Math.random() * 100 < weapon.accuracy) {
-        survivingMissiles = survivingMissiles.filter((m) => m.id !== nearestMissile.id);
-        newPdEffects.push({
-          shipId: ship.id,
-          missileX: nearestMissile.x,
-          missileY: nearestMissile.y,
-          ticksRemaining: PD_EFFECT_DURATION,
-        });
+          return updated;
+        }
       }
 
-      return updated;
+      // No missile in range — try targeting enemy fighters
+      const nearestFighter = findNearestEnemyFighter(ship, fighters);
+      if (nearestFighter != null) {
+        const d = dist(ship.position, { x: nearestFighter.x, y: nearestFighter.y });
+        if (d <= weapon.range) {
+          weaponsChanged = true;
+          const updated = {
+            ...weapon,
+            cooldownLeft: weapon.cooldownMax,
+            ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
+          };
+
+          if (Math.random() * 100 < weapon.accuracy * PD_VS_FIGHTER_ACCURACY_MULT) {
+            nearestFighter.health = 0; // destroyed
+            newPdEffects.push({
+              shipId: ship.id,
+              missileX: nearestFighter.x,
+              missileY: nearestFighter.y,
+              ticksRemaining: PD_EFFECT_DURATION,
+            });
+          }
+
+          return updated;
+        }
+      }
+
+      return weapon;
     });
 
     return weaponsChanged ? { ...ship, weapons: updatedWeapons } : ship;
   });
 
+  // Remove dead fighters after PD phase
+  fighters = fighters.filter((f) => f.health > 0);
+
+  // 3d. Move fighters, deal strafing damage
+  for (const fighter of fighters) {
+    if (fighter.order === 'return') {
+      // Move back to carrier
+      const carrier = ships.find((s) => s.id === fighter.carrierId);
+      if (!carrier || carrier.destroyed) {
+        fighter.order = 'attack'; // carrier gone, keep fighting
+      } else {
+        const dx = carrier.position.x - fighter.x;
+        const dy = carrier.position.y - fighter.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < FIGHTER_DOCK_RANGE) {
+          // Docked — heal and remove from battlefield
+          fighter.health = 0; // will be filtered out; ammo is not restored
+          continue;
+        }
+        if (d > fighter.speed) {
+          fighter.x += (dx / d) * fighter.speed;
+          fighter.y += (dy / d) * fighter.speed;
+        }
+        continue;
+      }
+    }
+
+    // Find or re-acquire target
+    const target = ships.find((s) => s.id === fighter.targetId && !s.destroyed && !s.routed);
+    if (!target) {
+      const newTarget = findClosestEnemyForFighter(fighter, ships);
+      fighter.targetId = newTarget?.id ?? null;
+      if (!newTarget) continue;
+    }
+
+    const currentTarget = ships.find((s) => s.id === fighter.targetId && !s.destroyed && !s.routed);
+    if (!currentTarget) continue;
+
+    // Move toward target
+    const dx = currentTarget.position.x - fighter.x;
+    const dy = currentTarget.position.y - fighter.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+
+    if (d < FIGHTER_STRAFE_RANGE) {
+      // Strafing run — deal damage
+      const targetIdx = ships.findIndex((s) => s.id === currentTarget.id);
+      if (targetIdx >= 0) {
+        ships[targetIdx] = applyDamage(ships[targetIdx]!, fighter.damage * FIGHTER_STRAFE_DAMAGE_FRACTION);
+      }
+    }
+
+    if (d > fighter.speed) {
+      fighter.x += (dx / d) * fighter.speed;
+      fighter.y += (dy / d) * fighter.speed;
+    }
+  }
+
+  // Remove dead fighters after strafing
+  fighters = fighters.filter((f) => f.health > 0);
+
   // 4. Fire weapons
   const newProjectiles: Projectile[] = [];
   const newBeamEffects: BeamEffect[] = [];
   const newMissiles: Missile[] = [];
+  const newFighters: Fighter[] = [];
 
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
@@ -1052,17 +1520,83 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       }
 
       // Fire!
+      if (weapon.type === 'fighter_bay') {
+        // Launch fighters — ammo is fighter count
+        const fighterCount = weapon.ammo ?? 0;
+        if (fighterCount <= 0) {
+          updatedWeapons.push(weapon);
+          continue;
+        }
+        const launchCount = Math.min(FIGHTER_LAUNCH_BATCH, fighterCount);
+        for (let i = 0; i < launchCount; i++) {
+          newFighters.push({
+            id: `fighter-${state.tick}-${ship.id}-${i}`,
+            carrierId: ship.id,
+            side: ship.side,
+            x: ship.position.x + (Math.random() - 0.5) * 20,
+            y: ship.position.y + (Math.random() - 0.5) * 20,
+            speed: FIGHTER_SPEED,
+            damage: weapon.damage,
+            health: FIGHTER_DEFAULT_HEALTH,
+            maxHealth: FIGHTER_DEFAULT_HEALTH,
+            targetId: target.id,
+            order: 'attack',
+          });
+        }
+        updatedWeapons.push({
+          ...weapon,
+          cooldownLeft: weapon.cooldownMax,
+          ammo: fighterCount - launchCount,
+        });
+        continue;
+      }
+
       const newAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
 
       if (weapon.type === 'beam') {
+        let beamDamage = weapon.damage;
+
+        // Nebula attenuation: reduce beam damage when firing through nebula
+        const nebula = segmentPassesThroughFeature(
+          ship.position.x, ship.position.y,
+          target.position.x, target.position.y,
+          newEnvironment, 'nebula',
+        );
+        if (nebula != null) {
+          beamDamage *= NEBULA_BEAM_DAMAGE_FACTOR;
+        }
+
+        // Beam collateral: check if beam clips a bystander ship
+        const excludeIds = new Set([ship.id, target.id]);
+        const collateral = checkCollateralDamage(
+          ship.position.x, ship.position.y,
+          target.position.x, target.position.y,
+          ships, excludeIds,
+          FRIENDLY_FIRE_BEAM_RADIUS,
+        );
+        if (collateral != null && Math.random() < BEAM_COLLATERAL_CHANCE) {
+          // Hit the bystander in addition to the target
+          const cIdx = ships.indexOf(collateral);
+          if (cIdx >= 0) {
+            ships[cIdx] = applyDamage(ships[cIdx], beamDamage);
+          }
+          newBeamEffects.push({
+            sourceShipId: ship.id,
+            targetShipId: collateral.id,
+            damage: beamDamage,
+            ticksRemaining: BEAM_EFFECT_DURATION,
+          });
+        }
+
+        // Apply damage to the intended target
         const idx = ships.indexOf(target);
         if (idx >= 0) {
-          ships[idx] = applyDamage(ships[idx], weapon.damage);
+          ships[idx] = applyDamage(ships[idx], beamDamage);
         }
         newBeamEffects.push({
           sourceShipId: ship.id,
           targetShipId: target.id,
-          damage: weapon.damage,
+          damage: beamDamage,
           ticksRemaining: BEAM_EFFECT_DURATION,
         });
       } else if (weapon.type === 'missile') {
@@ -1079,7 +1613,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           damageType: 'explosive',
         });
       } else {
-        // Projectile/fighter
+        // Projectile
         newProjectiles.push({
           id: generateId(),
           position: { ...ship.position },
@@ -1097,7 +1631,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return { ...ship, weapons: updatedWeapons };
   });
 
-  // 5. Combat end detection
+  // 5. Create debris from newly destroyed ships
+  const prevDestroyedIds = new Set(
+    state.ships.filter((s) => s.destroyed).map((s) => s.id),
+  );
+  for (const ship of ships) {
+    if (ship.destroyed && !prevDestroyedIds.has(ship.id)) {
+      newEnvironment.push({
+        id: `debris-${ship.id}`,
+        type: 'debris',
+        x: ship.position.x,
+        y: ship.position.y,
+        radius: DEBRIS_RADIUS,
+      });
+    }
+  }
+
+  // 6. Combat end detection
   const attackersAlive = ships.filter(
     (s) => s.side === 'attacker' && !s.destroyed && !s.routed,
   );
@@ -1119,8 +1669,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     ships,
     projectiles: [...survivingProjectiles, ...newProjectiles],
     missiles: [...survivingMissiles, ...newMissiles],
+    fighters: [...fighters, ...newFighters],
     beamEffects: [...beamEffects, ...newBeamEffects],
     pointDefenceEffects: [...pointDefenceEffects, ...newPdEffects],
+    environment: newEnvironment,
     battlefieldWidth: state.battlefieldWidth,
     battlefieldHeight: state.battlefieldHeight,
     outcome,

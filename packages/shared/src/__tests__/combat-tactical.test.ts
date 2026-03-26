@@ -11,9 +11,12 @@ import {
   getFormationPositions,
   setFormation,
   defaultWeaponFacing,
+  pointToSegmentDistance,
+  findNearestEnemyFighter,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
   PROJECTILE_SPEED,
+  DEBRIS_RADIUS,
 } from '../engine/combat-tactical.js';
 import type {
   TacticalState,
@@ -23,6 +26,9 @@ import type {
   ShipOrder,
   FormationType,
   Missile,
+  Fighter,
+  EnvironmentFeature,
+  Projectile,
 } from '../engine/combat-tactical.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import { SHIP_COMPONENTS } from '../../data/ships/index.js';
@@ -94,6 +100,21 @@ function makeProjectileDesign(id: string, empireId = 'empire-1'): ShipDesign {
       { slotId: 'scout_aft_1', componentId: 'ion_engine' },
     ],
     totalCost: 195,
+    empireId,
+  };
+}
+
+function makeCarrierDesign(id: string, empireId = 'empire-1'): ShipDesign {
+  return {
+    id,
+    name: `Carrier Design ${id}`,
+    hull: 'scout',
+    components: [
+      { slotId: 'scout_fore_1', componentId: 'light_fighter_bay' },
+      { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
+      { slotId: 'scout_aft_1', componentId: 'ion_engine' },
+    ],
+    totalCost: 235,
     empireId,
   };
 }
@@ -1568,5 +1589,700 @@ describe('ammo system', () => {
     const atk = next.ships.find((s) => s.side === 'attacker')!;
     const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
     expect(missileWeapon!.ammo).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fighter / carrier mechanics
+// ---------------------------------------------------------------------------
+
+describe('Fighter / carrier mechanics', () => {
+  /**
+   * Helper: set up a carrier (attacker) vs armed defender, position them
+   * close enough that the fighter bay is in range, and return the state
+   * with the attacker's fighter_bay weapon off cooldown.
+   */
+  function setupCarrierVsTarget(): TacticalState {
+    const carrierDesign = makeCarrierDesign('d-carrier', 'empire-1');
+    const defenderDesign = makeArmedDesign('d-def', 'empire-2');
+
+    const state = setupOnePair({
+      attacker: carrierDesign,
+      defender: defenderDesign,
+    });
+
+    // Move ships close together so fighter bay is in range
+    return {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? {
+              ...s,
+              position: { x: 400, y: 400 },
+              order: { type: 'attack' as const, targetId: state.ships.find((d) => d.side === 'defender')!.id },
+              weapons: s.weapons.map((w) => ({
+                ...w,
+                cooldownLeft: 0,
+              })),
+            }
+          : { ...s, position: { x: 500, y: 400 } },
+      ),
+    };
+  }
+
+  it('launches fighters from fighter bay when cooldown is reached', () => {
+    const state = setupCarrierVsTarget();
+
+    // Verify the attacker has a fighter_bay weapon
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+    const bayWeapon = attacker.weapons.find((w) => w.type === 'fighter_bay');
+    expect(bayWeapon).toBeDefined();
+    expect(bayWeapon!.ammo).toBe(4); // light_fighter_bay has fighterCount: 4
+
+    const next = processTacticalTick(state);
+    expect(next.fighters.length).toBeGreaterThan(0);
+    expect(next.fighters.length).toBeLessThanOrEqual(2); // FIGHTER_LAUNCH_BATCH = 2
+  });
+
+  it('fighters move toward their target', () => {
+    const state = setupCarrierVsTarget();
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+
+    // Manually place a fighter far from the target
+    const fighter: Fighter = {
+      id: 'test-fighter-1',
+      carrierId: state.ships.find((s) => s.side === 'attacker')!.id,
+      side: 'attacker',
+      x: 100,
+      y: 400,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: defender.id,
+      order: 'attack',
+    };
+
+    const stateWithFighter: TacticalState = {
+      ...state,
+      fighters: [fighter],
+    };
+
+    const next = processTacticalTick(stateWithFighter);
+    const movedFighter = next.fighters.find((f) => f.id === 'test-fighter-1');
+    expect(movedFighter).toBeDefined();
+    // Fighter should have moved closer to the target (defender is at x=500)
+    expect(movedFighter!.x).toBeGreaterThan(100);
+  });
+
+  it('fighters deal strafing damage at close range', () => {
+    const state = setupCarrierVsTarget();
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+
+    // Place fighter within strafe range (30 units) of the defender
+    const fighter: Fighter = {
+      id: 'test-fighter-strafe',
+      carrierId: attacker.id,
+      side: 'attacker',
+      x: defender.position.x + 10, // very close
+      y: defender.position.y,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: defender.id,
+      order: 'attack',
+    };
+
+    // Disable the attacker's own weapons so only the fighter does damage
+    const stateWithFighter: TacticalState = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, weapons: s.weapons.map((w) => ({ ...w, cooldownLeft: 999 })) }
+          : s,
+      ),
+      fighters: [fighter],
+    };
+
+    const defenderBefore = stateWithFighter.ships.find((s) => s.side === 'defender')!;
+    const hullBefore = defenderBefore.hull;
+
+    const next = processTacticalTick(stateWithFighter);
+    const defenderAfter = next.ships.find((s) => s.side === 'defender')!;
+
+    // Fighter deals damage * 0.3 per tick — shields may absorb some, but hull/shields should change
+    const totalHpBefore = hullBefore + defenderBefore.shields;
+    const totalHpAfter = defenderAfter.hull + defenderAfter.shields;
+    expect(totalHpAfter).toBeLessThan(totalHpBefore);
+  });
+
+  it('point defence can kill fighters', () => {
+    // Set up a defender with point defence
+    const pdDesign: ShipDesign = {
+      id: 'd-pd',
+      name: 'PD Design',
+      hull: 'scout',
+      components: [
+        { slotId: 'scout_fore_1', componentId: 'point_defense_turret' },
+        { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
+        { slotId: 'scout_aft_1', componentId: 'ion_engine' },
+      ],
+      totalCost: 150,
+      empireId: 'empire-2',
+    };
+
+    const carrierDesign = makeCarrierDesign('d-carrier', 'empire-1');
+    const state = setupOnePair({
+      attacker: carrierDesign,
+      defender: pdDesign,
+    });
+
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+
+    // Place a fighter close to the PD defender with no missiles present
+    const fighter: Fighter = {
+      id: 'test-fighter-pd',
+      carrierId: attacker.id,
+      side: 'attacker',
+      x: defender.position.x + 20,
+      y: defender.position.y,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: defender.id,
+      order: 'attack',
+    };
+
+    const stateWithFighter: TacticalState = {
+      ...state,
+      missiles: [], // no missiles, so PD should target fighters
+      fighters: [fighter],
+      ships: state.ships.map((s) =>
+        s.side === 'defender'
+          ? {
+              ...s,
+              weapons: s.weapons.map((w) => ({
+                ...w,
+                cooldownLeft: 0,
+                accuracy: 100, // guarantee hit for testing
+              })),
+            }
+          : { ...s, weapons: s.weapons.map((w) => ({ ...w, cooldownLeft: 999 })) },
+      ),
+    };
+
+    // Run many ticks — PD has cooldown 8, 50% effective accuracy against fighters.
+    // Over 100 ticks (roughly 12 shots) with 50% hit chance, probability of
+    // surviving all is (0.5)^12 = 0.02% — practically impossible.
+    let current = stateWithFighter;
+    for (let i = 0; i < 100; i++) {
+      current = processTacticalTick(current);
+    }
+
+    // The fighter should have been destroyed and filtered out
+    const survivingFighters = current.fighters.filter(
+      (f) => f.id === 'test-fighter-pd' && f.health > 0,
+    );
+    expect(survivingFighters.length).toBe(0);
+  });
+
+  it('fighters persist after carrier destruction', () => {
+    const state = setupCarrierVsTarget();
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+
+    // Place a fighter in the battlefield
+    const fighter: Fighter = {
+      id: 'test-fighter-orphan',
+      carrierId: attacker.id,
+      side: 'attacker',
+      x: 300,
+      y: 400,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: defender.id,
+      order: 'attack',
+    };
+
+    // Destroy the carrier
+    const stateWithDeadCarrier: TacticalState = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.id === attacker.id
+          ? { ...s, destroyed: true, hull: 0 }
+          : s,
+      ),
+      fighters: [fighter],
+    };
+
+    const next = processTacticalTick(stateWithDeadCarrier);
+    const orphanFighter = next.fighters.find((f) => f.id === 'test-fighter-orphan');
+    expect(orphanFighter).toBeDefined();
+    expect(orphanFighter!.health).toBeGreaterThan(0);
+    expect(orphanFighter!.order).toBe('attack'); // keeps fighting
+  });
+
+  it('fighter ammo depletes as fighters are launched', () => {
+    const state = setupCarrierVsTarget();
+
+    // Tick once — should launch fighters and reduce ammo
+    const next1 = processTacticalTick(state);
+    const atk1 = next1.ships.find((s) => s.side === 'attacker')!;
+    const bay1 = atk1.weapons.find((w) => w.type === 'fighter_bay')!;
+    expect(bay1.ammo).toBeLessThan(4); // started at 4, launched some
+
+    // Keep ticking until all fighters are launched
+    let current = next1;
+    for (let i = 0; i < 100; i++) {
+      current = processTacticalTick(current);
+    }
+    const atkFinal = current.ships.find((s) => s.side === 'attacker');
+    if (atkFinal && !atkFinal.destroyed) {
+      const bayFinal = atkFinal.weapons.find((w) => w.type === 'fighter_bay')!;
+      expect(bayFinal.ammo).toBe(0);
+    }
+  });
+
+  it('findNearestEnemyFighter returns closest enemy fighter', () => {
+    const state = setupCarrierVsTarget();
+    const defender = state.ships.find((s) => s.side === 'defender')!;
+
+    const friendlyFighter: Fighter = {
+      id: 'friendly-f',
+      carrierId: 'carrier-1',
+      side: 'defender',
+      x: defender.position.x + 5,
+      y: defender.position.y,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: null,
+      order: 'attack',
+    };
+
+    const enemyFighter: Fighter = {
+      id: 'enemy-f',
+      carrierId: 'carrier-2',
+      side: 'attacker',
+      x: defender.position.x + 30,
+      y: defender.position.y,
+      speed: 6,
+      damage: 8,
+      health: 10,
+      maxHealth: 10,
+      targetId: defender.id,
+      order: 'attack',
+    };
+
+    const nearest = findNearestEnemyFighter(defender, [friendlyFighter, enemyFighter]);
+    expect(nearest).not.toBeNull();
+    expect(nearest!.id).toBe('enemy-f');
+  });
+
+  it('initializes TacticalState with empty fighters array', () => {
+    const state = setupOnePair();
+    expect(state.fighters).toEqual([]);
+  });
+
+  it('fighter_bay weapon has ammo set from component fighterCount', () => {
+    const carrierDesign = makeCarrierDesign('d-carrier', 'empire-1');
+    const state = setupOnePair({ attacker: carrierDesign });
+    const attacker = state.ships.find((s) => s.side === 'attacker')!;
+    const bay = attacker.weapons.find((w) => w.type === 'fighter_bay');
+    expect(bay).toBeDefined();
+    expect(bay!.ammo).toBe(4); // light_fighter_bay: fighterCount = 4
+    expect(bay!.maxAmmo).toBe(4);
+    // Per-fighter damage, not aggregate
+    expect(bay!.damage).toBe(8); // light_fighter_bay: damage = 8
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Friendly fire + Environmental hazards tests
+// ---------------------------------------------------------------------------
+
+/** Build a minimal TacticalShip for unit tests. */
+function makeTacticalShip(overrides: Partial<TacticalShip> & { id: string; side: TacticalShip['side'] }): TacticalShip {
+  return {
+    sourceShipId: overrides.id,
+    name: `Ship ${overrides.id}`,
+    position: { x: 0, y: 0 },
+    facing: 0,
+    speed: 2,
+    turnRate: 0.08,
+    hull: 100,
+    maxHull: 100,
+    shields: 0,
+    maxShields: 0,
+    armour: 0,
+    weapons: [],
+    sensorRange: 200,
+    order: { type: 'idle' as const },
+    destroyed: false,
+    routed: false,
+    ...overrides,
+  };
+}
+
+/** Build a minimal TacticalState for unit tests. */
+function makeMinimalState(overrides?: Partial<TacticalState>): TacticalState {
+  return {
+    tick: 0,
+    ships: [],
+    projectiles: [],
+    missiles: [],
+    fighters: [],
+    beamEffects: [],
+    pointDefenceEffects: [],
+    environment: [],
+    battlefieldWidth: BATTLEFIELD_WIDTH,
+    battlefieldHeight: BATTLEFIELD_HEIGHT,
+    outcome: null,
+    attackerFormation: 'line',
+    defenderFormation: 'line',
+    ...overrides,
+  };
+}
+
+describe('Friendly fire', () => {
+  it('projectile hits friendly ship when target is destroyed', () => {
+    const source = makeTacticalShip({
+      id: 'atk-source',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+    });
+    const friendly = makeTacticalShip({
+      id: 'atk-bystander',
+      side: 'attacker',
+      position: { x: 500, y: 500 },
+      hull: 50,
+      maxHull: 100,
+    });
+    const deadTarget = makeTacticalShip({
+      id: 'def-target',
+      side: 'defender',
+      position: { x: 800, y: 800 },
+      destroyed: true,
+      hull: 0,
+    });
+
+    const projectile: Projectile = {
+      id: 'proj-1',
+      position: { x: 500, y: 500 },
+      speed: PROJECTILE_SPEED,
+      damage: 10,
+      sourceShipId: 'atk-source',
+      targetShipId: 'def-target',
+    };
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, friendly, deadTarget],
+        projectiles: [projectile],
+      });
+
+      const next = processTacticalTick(state);
+      expect(next.projectiles).toHaveLength(0);
+      const bystander = next.ships.find((s) => s.id === 'atk-bystander')!;
+      expect(bystander.hull).toBeLessThan(50);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('beam has chance of collateral damage on bystander ship', () => {
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+      facing: 0,
+      weapons: [{
+        componentId: 'test-beam',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100 },
+      hull: 100,
+      maxHull: 100,
+    });
+    const bystander = makeTacticalShip({
+      id: 'atk-bystander',
+      side: 'attacker',
+      position: { x: 300, y: 105 },
+      hull: 80,
+      maxHull: 100,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.01;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, bystander, target],
+      });
+
+      const next = processTacticalTick(state);
+      const hit = next.ships.find((s) => s.id === 'atk-bystander')!;
+      expect(hit.hull).toBeLessThan(80);
+      const collateralBeam = next.beamEffects.find(
+        (b) => b.targetShipId === 'atk-bystander',
+      );
+      expect(collateralBeam).toBeDefined();
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('Environmental hazards', () => {
+  it('asteroid provides cover (dodge chance) for ships inside', () => {
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 200 },
+      hull: 50,
+      maxHull: 100,
+    });
+
+    const asteroid: EnvironmentFeature = {
+      id: 'asteroid-cover',
+      type: 'asteroid',
+      x: 200,
+      y: 200,
+      radius: 40,
+    };
+
+    const projectile: Projectile = {
+      id: 'proj-1',
+      position: { x: 200, y: 200 },
+      speed: PROJECTILE_SPEED,
+      damage: 10,
+      sourceShipId: 'atk-1',
+      targetShipId: 'def-1',
+    };
+
+    const origRandom = Math.random;
+    Math.random = () => 0.1;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, target],
+        projectiles: [projectile],
+        environment: [asteroid],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      expect(def.hull).toBe(50);
+      expect(next.projectiles).toHaveLength(0);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('nebula reduces beam damage by 50%', () => {
+    const nebula: EnvironmentFeature = {
+      id: 'nebula-1',
+      type: 'nebula',
+      x: 300,
+      y: 100,
+      radius: 100,
+    };
+
+    const source = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100 },
+      facing: 0,
+      weapons: [{
+        componentId: 'test-beam',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100 },
+      hull: 100,
+      maxHull: 100,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const stateNoNebula = makeMinimalState({
+        ships: [{ ...source }, { ...target }],
+        environment: [],
+      });
+      const nextNoNebula = processTacticalTick(stateNoNebula);
+      const targetNoNebula = nextNoNebula.ships.find((s) => s.id === 'def-1')!;
+
+      const stateWithNebula = makeMinimalState({
+        ships: [
+          { ...source, weapons: source.weapons.map((w) => ({ ...w, cooldownLeft: 0 })) },
+          { ...target },
+        ],
+        environment: [nebula],
+      });
+      const nextWithNebula = processTacticalTick(stateWithNebula);
+      const targetWithNebula = nextWithNebula.ships.find((s) => s.id === 'def-1')!;
+
+      expect(targetWithNebula.hull).toBeGreaterThan(targetNoNebula.hull);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('debris damages ships passing through each tick', () => {
+    const debris: EnvironmentFeature = {
+      id: 'debris-old',
+      type: 'debris',
+      x: 400,
+      y: 400,
+      radius: 30,
+    };
+
+    const shipInDebris = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 400, y: 400 },
+      hull: 50,
+      maxHull: 100,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+    });
+    const shipOutside = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 800, y: 800 },
+      hull: 50,
+      maxHull: 100,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const state = makeMinimalState({
+        ships: [shipInDebris, shipOutside],
+        environment: [debris],
+      });
+
+      const next = processTacticalTick(state);
+      const inDebris = next.ships.find((s) => s.id === 'atk-1')!;
+      const outside = next.ships.find((s) => s.id === 'def-1')!;
+
+      expect(inDebris.hull).toBeLessThan(50);
+      expect(outside.hull).toBe(50);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('debris is created when a ship is destroyed', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      const source = makeTacticalShip({
+        id: 'atk-1',
+        side: 'attacker',
+        position: { x: 100, y: 100 },
+      });
+      const target = makeTacticalShip({
+        id: 'def-1',
+        side: 'defender',
+        position: { x: 200, y: 200 },
+        hull: 1,
+        maxHull: 100,
+        shields: 0,
+        maxShields: 0,
+        armour: 0,
+      });
+
+      const projectile: Projectile = {
+        id: 'proj-kill',
+        position: { x: 200, y: 200 },
+        speed: PROJECTILE_SPEED,
+        damage: 50,
+        sourceShipId: 'atk-1',
+        targetShipId: 'def-1',
+      };
+
+      const state = makeMinimalState({
+        ships: [source, target],
+        projectiles: [projectile],
+        environment: [],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      expect(def.destroyed).toBe(true);
+
+      const debris = next.environment.find((e) => e.type === 'debris');
+      expect(debris).toBeDefined();
+      expect(debris!.id).toBe('debris-def-1');
+      expect(debris!.radius).toBe(DEBRIS_RADIUS);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('initializeTacticalCombat places asteroids and possibly nebulae', () => {
+    const state = setupOnePair();
+    expect(state.environment).toBeDefined();
+    expect(state.environment.length).toBeGreaterThanOrEqual(3);
+    for (const f of state.environment) {
+      expect(['asteroid', 'nebula']).toContain(f.type);
+    }
+  });
+});
+
+describe('pointToSegmentDistance', () => {
+  it('returns 0 when point is on the segment', () => {
+    expect(pointToSegmentDistance(5, 5, 0, 0, 10, 10)).toBeCloseTo(0, 5);
+  });
+
+  it('returns correct perpendicular distance', () => {
+    expect(pointToSegmentDistance(5, 3, 0, 0, 10, 0)).toBeCloseTo(3, 5);
+  });
+
+  it('returns distance to nearest endpoint when projection falls outside', () => {
+    expect(pointToSegmentDistance(15, 0, 0, 0, 10, 0)).toBeCloseTo(5, 5);
   });
 });
