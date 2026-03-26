@@ -86,6 +86,7 @@ export function FleetPanel({
   const [editingName, setEditingName] = useState(false);
   const [stance, setStance] = useState<FleetStance>(fleet.stance);
   const [moveToActive, setMoveToActive] = useState(false);
+  const [addWaypointMode, setAddWaypointMode] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set());
   const [showDisband, setShowDisband] = useState(false);
@@ -101,6 +102,17 @@ export function FleetPanel({
   const handleDestinationSelected = useCallback(
     (data: { fleetId: string; systemId: string; systemName: string }) => {
       if (data.fleetId !== fleet.id) return;
+
+      // If in add-waypoint mode, directly queue the waypoint
+      if (addWaypointMode) {
+        const engine = getGameEngine();
+        if (engine) {
+          engine.addWaypoint(fleet.id, data.systemId);
+        }
+        setAddWaypointMode(false);
+        emitToPhaser('fleet:move_mode_clear', {});
+        return;
+      }
 
       // Calculate estimated travel time
       const engine = getGameEngine();
@@ -133,7 +145,7 @@ export function FleetPanel({
         estimatedTurns,
       });
     },
-    [fleet.id, fleet.position.systemId],
+    [fleet.id, fleet.position.systemId, addWaypointMode],
   );
 
   useGameEvent<{ fleetId: string; systemId: string; systemName: string }>(
@@ -161,6 +173,39 @@ export function FleetPanel({
   useEffect(() => {
     setRelocateTarget(null);
   }, [fleet.id]);
+
+  // ── Waypoint helpers ──────────────────────────────────────────────────────
+
+  /** Resolve system names for display in the waypoint list. */
+  const resolveSystemName = useCallback((systemId: string): string => {
+    const engine = getGameEngine();
+    if (!engine) return systemId;
+    const sys = engine.getState().gameState.galaxy.systems.find(
+      (s: { id: string; name: string }) => s.id === systemId,
+    );
+    return sys?.name ?? systemId;
+  }, []);
+
+  const handleAddWaypointToggle = useCallback(() => {
+    const next = !addWaypointMode;
+    setAddWaypointMode(next);
+    setMoveToActive(false);
+    emitToPhaser('fleet:move_mode', { fleetId: fleet.id, active: next });
+  }, [fleet.id, addWaypointMode]);
+
+  const handleClearWaypoints = useCallback(() => {
+    const engine = getGameEngine();
+    if (engine) {
+      engine.clearWaypoints(fleet.id);
+    }
+  }, [fleet.id]);
+
+  const handlePatrolToggle = useCallback(() => {
+    const engine = getGameEngine();
+    if (engine) {
+      engine.setPatrolling(fleet.id, !fleet.patrolling);
+    }
+  }, [fleet.id, fleet.patrolling]);
 
   // ── Name editing ────────────────────────────────────────────────────────────
 
@@ -316,6 +361,50 @@ export function FleetPanel({
         </select>
       </section>
 
+      {/* Waypoints */}
+      {(fleet.waypoints.length > 0 || fleet.destination) && (
+        <section className="fleet-panel__section">
+          <div className="fleet-panel__section-label">
+            WAYPOINTS {fleet.patrolling ? '(PATROL)' : ''}
+          </div>
+          <div className="fleet-panel__waypoint-list">
+            {fleet.destination && !fleet.waypoints.includes(fleet.destination) && (
+              <div className="fleet-panel__waypoint-item fleet-panel__waypoint-item--current">
+                &rarr; {resolveSystemName(fleet.destination)}
+              </div>
+            )}
+            {fleet.waypoints.map((wp, i) => (
+              <div key={`${wp}-${i}`} className="fleet-panel__waypoint-item">
+                {i + 1}. {resolveSystemName(wp)}
+              </div>
+            ))}
+            {fleet.patrolling && fleet.waypoints.length > 0 && (
+              <div className="fleet-panel__waypoint-item fleet-panel__waypoint-item--cycle">
+                &#x21bb; cycle to {resolveSystemName(fleet.waypoints[0]!)}
+              </div>
+            )}
+          </div>
+          <div className="fleet-panel__waypoint-actions">
+            <button
+              type="button"
+              className={`fleet-panel__action-btn fleet-panel__action-btn--small ${fleet.patrolling ? 'fleet-panel__action-btn--active' : ''}`}
+              onClick={handlePatrolToggle}
+              title={fleet.patrolling ? 'Disable patrol mode' : 'Enable patrol mode — fleet cycles through waypoints'}
+            >
+              {fleet.patrolling ? 'Patrolling' : 'Patrol'}
+            </button>
+            <button
+              type="button"
+              className="fleet-panel__action-btn fleet-panel__action-btn--small fleet-panel__action-btn--cancel"
+              onClick={handleClearWaypoints}
+              title="Clear all waypoints"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Fleet strength summary */}
       <section className="fleet-panel__section">
         <div className="fleet-panel__section-label">FLEET STRENGTH</div>
@@ -435,14 +524,24 @@ export function FleetPanel({
               Relocate Fleet
             </button>
           ) : (
-            <button
-              type="button"
-              className={`fleet-panel__action-btn ${moveToActive ? 'fleet-panel__action-btn--active' : ''}`}
-              onClick={handleMoveToToggle}
-              title="Activate move mode then click a star system on the galaxy map"
-            >
-              {moveToActive ? 'Select Target...' : 'Move To'}
-            </button>
+            <>
+              <button
+                type="button"
+                className={`fleet-panel__action-btn ${moveToActive ? 'fleet-panel__action-btn--active' : ''}`}
+                onClick={handleMoveToToggle}
+                title="Activate move mode then click a star system on the galaxy map"
+              >
+                {moveToActive ? 'Select Target...' : 'Move To'}
+              </button>
+              <button
+                type="button"
+                className={`fleet-panel__action-btn ${addWaypointMode ? 'fleet-panel__action-btn--active' : ''}`}
+                onClick={handleAddWaypointToggle}
+                title="Click a system on the galaxy map to add a waypoint"
+              >
+                {addWaypointMode ? 'Select Waypoint...' : 'Add Waypoint'}
+              </button>
+            </>
           )}
 
           {!splitMode ? (

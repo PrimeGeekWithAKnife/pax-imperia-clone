@@ -1262,6 +1262,83 @@ export class GameEngine {
   }
 
   /**
+   * Queue an additional waypoint for a fleet without replacing its current
+   * movement order.  If the fleet is idle, start moving to the new waypoint
+   * immediately.
+   *
+   * @returns true if the waypoint was accepted.
+   */
+  addWaypoint(fleetId: string, systemId: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+
+    const updatedWaypoints = [...fleet.waypoints, systemId];
+    const updatedFleet = { ...fleet, waypoints: updatedWaypoints };
+
+    // If patrol mode is on, also update the stored patrol route
+    if (fleet.patrolling) {
+      updatedFleet.patrolRoute = [...updatedWaypoints];
+    }
+
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? updatedFleet : f,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+
+    // If fleet isn't currently moving, start moving to the first waypoint
+    if (!this.tickState.movementOrders.some(o => o.fleetId === fleetId)) {
+      this.moveFleet(fleetId, systemId);
+    }
+
+    return true;
+  }
+
+  /**
+   * Clear all waypoints for a fleet and cancel any patrol route.
+   */
+  clearWaypoints(fleetId: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, waypoints: [], patrolling: false, patrolRoute: undefined } : f,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+
+    return true;
+  }
+
+  /**
+   * Toggle patrol mode for a fleet.  When enabled, the fleet will cycle
+   * through its waypoints repeatedly.  The current waypoints are stored
+   * as the patrol route so they can be restored after each full cycle.
+   */
+  setPatrolling(fleetId: string, patrolling: boolean): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+
+    const patrolRoute = patrolling ? [...fleet.waypoints] : undefined;
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, patrolling, patrolRoute } : f,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+
+    return true;
+  }
+
+  /**
    * Set a fleet's orbit target — 'star' for system patrol or a planet ID
    * for defending a specific planet.
    */
