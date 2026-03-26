@@ -20,6 +20,8 @@ import type { ShipDesign, ShipComponent } from '../types/ships.js';
 import type { GameState } from '../types/game-state.js';
 import type { Governor } from '../types/governor.js';
 import type { PlanetWasteState, PlanetEnergyState } from '../types/waste.js';
+import type { SpyAgent, EspionageEvent } from './espionage.js';
+import { initialiseEspionage } from './espionage.js';
 
 export const SAVE_FORMAT_VERSION = '0.1.0';
 
@@ -50,6 +52,9 @@ export interface SerializedTickState {
   wasteMap: Array<[string, PlanetWasteState]>;
   energyStateMap: Array<[string, PlanetEnergyState]>;
   disabledBuildingsMap: Array<[string, string[]]>;
+  espionageAgents: SpyAgent[];
+  espionageCounterIntel: Array<[string, number]>;
+  espionageEventLog: EspionageEvent[];
 }
 
 export interface SaveGame {
@@ -91,6 +96,9 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     wasteMap: Array.from(state.wasteMap.entries()),
     energyStateMap: Array.from(state.energyStateMap.entries()),
     disabledBuildingsMap: Array.from(state.disabledBuildingsMap.entries()),
+    espionageAgents: state.espionageState.agents,
+    espionageCounterIntel: Array.from(state.espionageState.counterIntelLevel.entries()),
+    espionageEventLog: state.espionageEventLog,
   };
 }
 
@@ -118,6 +126,11 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     wasteMap: new Map(data.wasteMap ?? []),
     energyStateMap: new Map(data.energyStateMap ?? []),
     disabledBuildingsMap: new Map(data.disabledBuildingsMap ?? []),
+    espionageState: {
+      agents: data.espionageAgents ?? [],
+      counterIntelLevel: new Map(data.espionageCounterIntel ?? []),
+    },
+    espionageEventLog: data.espionageEventLog ?? [],
   };
 }
 

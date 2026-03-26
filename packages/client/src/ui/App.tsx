@@ -42,7 +42,7 @@ import { OccupationDialog, getAllowedPolicies } from './screens/OccupationDialog
 import type { OccupationPolicy } from './screens/OccupationDialog';
 import { EspionageScreen } from './screens/EspionageScreen';
 import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState, BattleReport } from '@nova-imperia/shared';
-import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
+import { initialiseEspionage, recruitSpy } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
 import type { GameStatistics } from './screens/VictoryScreen';
@@ -222,12 +222,11 @@ export function App(): React.ReactElement {
     allowedPolicies: OccupationPolicy[];
   } | null>(null);
 
-  // ── Espionage state ──
+  // ── Espionage state (synced from game engine every tick) ──
   const [espionageState, setEspionageState] = useState<EspionageState>(() =>
-    initialiseEspionage(['player', 'nk_hegemony', 'veth_republic']),
+    initialiseEspionage([]),
   );
-  // setEspionageEventLog will be wired to engine events once the game loop is integrated
-  const [espionageEventLog, _setEspionageEventLog] = useState<EspionageEvent[]>([]);
+  const [espionageEventLog, setEspionageEventLog] = useState<EspionageEvent[]>([]);
 
   // ── Victory state ──
   const [victoryData, setVictoryData] = useState<{
@@ -665,21 +664,18 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleRecruitSpy = useCallback((agent: SpyAgent) => {
-    setEspionageState((prev) => addAgentToState(prev, agent));
+    const engine = getGameEngine();
+    if (engine) {
+      engine.recruitPlayerSpy(agent);
+    }
   }, []);
 
   const handleAssignMission = useCallback(
     (agentId: string, targetEmpireId: string, mission: SpyMission) => {
-      setEspionageState((prev) => {
-        const agent = prev.agents.find((a) => a.id === agentId);
-        if (!agent) return prev;
-        const updated = assignMission(agent, targetEmpireId, mission);
-        return {
-          ...prev,
-          agents: prev.agents.map((a) => (a.id === agentId ? updated : a)),
-          counterIntelLevel: new Map(prev.counterIntelLevel),
-        };
-      });
+      const engine = getGameEngine();
+      if (engine) {
+        engine.assignSpyMission(agentId, targetEmpireId, mission);
+      }
     },
     [],
   );
@@ -1323,6 +1319,13 @@ export function App(): React.ReactElement {
   useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
   useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
   useGameEvent<GameNotification>('engine:notification', handleEngineNotification);
+  useGameEvent<{ espionageState: EspionageState; espionageEventLog: EspionageEvent[] }>(
+    'engine:espionage_updated',
+    useCallback((data: { espionageState: EspionageState; espionageEventLog: EspionageEvent[] }) => {
+      setEspionageState(data.espionageState);
+      setEspionageEventLog(data.espionageEventLog);
+    }, []),
+  );
 
   const handleClosePlanet = useCallback(() => {
     setSelectedPlanet(null);

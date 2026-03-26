@@ -144,6 +144,18 @@ import {
   selectTopDecisions,
   type AIDecision,
 } from './ai.js';
+import {
+  initialiseEspionage,
+  recalculateCounterIntel,
+  processEspionageTick,
+  recruitSpy,
+  assignMission,
+  addAgentToState,
+  SPY_RECRUIT_COST,
+  type EspionageState,
+  type EspionageEvent,
+  type SpyMission,
+} from './espionage.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -260,6 +272,16 @@ export interface GameTickState {
    * At most one governor should exist per planet at any time.
    */
   governors: Governor[];
+  /**
+   * Espionage state — spy agents, counter-intel levels for all empires.
+   * Processed once per tick by stepEspionage.
+   */
+  espionageState: EspionageState;
+  /**
+   * Cumulative log of espionage events (intel results, captures, etc.).
+   * Most recent events are appended at the end.
+   */
+  espionageEventLog: EspionageEvent[];
 }
 
 /** The result returned by processGameTick. */
@@ -1905,6 +1927,107 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 8b: Espionage Tick
+// ---------------------------------------------------------------------------
+
+/**
+ * Advance all spy agents by one tick: recalculate counter-intel from buildings,
+ * then process infiltration, detection rolls and mission outcomes.
+ *
+ * Espionage events (intel, tech theft, sabotage, capture) are appended to the
+ * espionageEventLog and also pushed into the main GameEvent stream as
+ * 'EspionageResult' events so the UI can display notifications.
+ *
+ * Stolen technologies are applied directly to the owning empire's tech list.
+ * Capture events apply a diplomatic attitude penalty via the diplomacy array.
+ */
+function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState {
+  let espState = state.espionageState;
+
+  // 1. Recalculate passive counter-intel from communications_hub buildings
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    espState = recalculateCounterIntel(espState, empire.id, ownedPlanets);
+  }
+
+  // 2. Process one espionage tick (infiltration, detection, mission rolls)
+  const { state: nextEspState, events: espEvents } = processEspionageTick(
+    espState,
+    state.gameState.empires,
+  );
+
+  // 3. Apply side-effects from espionage events
+  let empires = state.gameState.empires;
+  let empireResourcesMap = state.empireResourcesMap;
+
+  for (const evt of espEvents) {
+    if (evt.type === 'steal_tech' && evt.stolenTechId) {
+      // Add the stolen tech to the spy-owner's empire
+      const agent = nextEspState.agents.find(a => a.id === evt.agentId);
+      if (agent) {
+        empires = empires.map(e => {
+          if (e.id !== agent.empireId) return e;
+          if (e.technologies.includes(evt.stolenTechId!)) return e;
+          return { ...e, technologies: [...e.technologies, evt.stolenTechId!] };
+        });
+      }
+    }
+
+    if (evt.type === 'capture') {
+      // Apply diplomatic attitude penalty:
+      // The target empire (who caught the spy) dislikes the spy's owner.
+      empires = empires.map(e => {
+        if (e.id !== evt.targetEmpireId) return e;
+        const existing = e.diplomacy.find(d => d.empireId === evt.empireId);
+        if (existing) {
+          return {
+            ...e,
+            diplomacy: e.diplomacy.map(d =>
+              d.empireId === evt.empireId
+                ? { ...d, attitude: d.attitude + evt.attitudePenalty }
+                : d,
+            ),
+          };
+        }
+        // No existing diplomacy entry — create one with the penalty
+        return {
+          ...e,
+          diplomacy: [...e.diplomacy, {
+            empireId: evt.empireId,
+            status: 'neutral' as const,
+            attitude: evt.attitudePenalty,
+            treaties: [],
+            tradeRoutes: 0,
+            communicationLevel: 'none' as const,
+          }],
+        };
+      });
+    }
+
+    // Push a generic game event so the UI event log can pick it up
+    events.push({
+      type: 'EspionageResult' as GameEvent['type'],
+      espionageEvent: evt,
+      tick: state.gameState.currentTick,
+    } as unknown as GameEvent);
+  }
+
+  // 4. Append espionage events to the cumulative log (newest last)
+  const newLog = [...state.espionageEventLog, ...espEvents];
+
+  return {
+    ...state,
+    espionageState: nextEspState,
+    espionageEventLog: newLog,
+    empireResourcesMap,
+    gameState: {
+      ...state.gameState,
+      empires,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 9: AI Decisions
 // ---------------------------------------------------------------------------
 
@@ -1975,6 +2098,12 @@ function executeAIDecision(
 
     case 'move_fleet':
       return executeAIMoveFleet(state, empireId, decision);
+
+    case 'recruit_spy':
+      return executeAIRecruitSpy(state, empireId, decision);
+
+    case 'assign_spy':
+      return executeAIAssignSpy(state, empireId, decision);
 
     // colonize, diplomacy, and war are not yet wired — skip silently
     default:
@@ -2197,6 +2326,83 @@ function executeAIMoveFleet(
 }
 
 // ---------------------------------------------------------------------------
+// Recruit Spy: AI recruits a new spy agent and assigns it to a rival
+// ---------------------------------------------------------------------------
+
+function executeAIRecruitSpy(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { targetEmpireId, mission } = decision.params as {
+    targetEmpireId: string;
+    mission: SpyMission;
+  };
+
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  if (!empire) return state;
+
+  // Check the AI can afford a spy
+  const res = getEmpireResources(state, empireId);
+  if (res.credits < SPY_RECRUIT_COST) return state;
+
+  // Limit AI to 3 active agents to prevent spam
+  const existingAgents = state.espionageState.agents.filter(
+    a => a.empireId === empireId && (a.status === 'infiltrating' || a.status === 'active'),
+  );
+  if (existingAgents.length >= 3) return state;
+
+  // Deduct cost
+  res.credits -= SPY_RECRUIT_COST;
+  let s = applyResources(state, empireId, res);
+
+  // Create and assign the agent
+  let agent = recruitSpy(empireId, empire.species);
+  if (targetEmpireId) {
+    agent = assignMission(agent, targetEmpireId, mission);
+  }
+
+  return {
+    ...s,
+    espionageState: addAgentToState(s.espionageState, agent),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Assign Spy: reassign idle AI agents to a target
+// ---------------------------------------------------------------------------
+
+function executeAIAssignSpy(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { targetEmpireId, mission } = decision.params as {
+    targetEmpireId: string;
+    mission: SpyMission;
+  };
+  if (!targetEmpireId) return state;
+
+  // Find idle agents (infiltrating/active agents with no target)
+  const idleAgent = state.espionageState.agents.find(
+    a => a.empireId === empireId
+      && (a.status === 'infiltrating' || a.status === 'active')
+      && !a.targetEmpireId,
+  );
+  if (!idleAgent) return state;
+
+  const updated = assignMission(idleAgent, targetEmpireId, mission);
+  return {
+    ...state,
+    espionageState: {
+      ...state.espionageState,
+      agents: state.espionageState.agents.map(a => a.id === idleAgent.id ? updated : a),
+      counterIntelLevel: new Map(state.espionageState.counterIntelLevel),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 9b: Waste Processing
 // ---------------------------------------------------------------------------
 
@@ -2395,6 +2601,9 @@ export function processGameTick(
   // 8. Diplomacy Tick (stub)
   s = stepDiplomacyTick(s);
 
+  // 8b. Espionage Tick (spy infiltration, mission rolls, counter-intel)
+  s = stepEspionage(s, events);
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
@@ -2535,6 +2744,8 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
     shipDesigns,
+    espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
+    espionageEventLog: [],
   };
 }
 
