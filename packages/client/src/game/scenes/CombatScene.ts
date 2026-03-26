@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Fleet, Ship, ShipDesign, ShipComponent } from '@nova-imperia/shared';
+import type { Fleet, Ship, ShipDesign, ShipComponent, HullClass } from '@nova-imperia/shared';
 import {
   initializeTacticalCombat,
   processTacticalTick,
@@ -12,6 +12,7 @@ import {
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
+import type { GroundCombatSceneData } from './GroundCombatScene';
 
 // ---------------------------------------------------------------------------
 // Scene data passed via scene.start('CombatScene', data)
@@ -1154,8 +1155,53 @@ export class CombatScene extends Phaser.Scene {
     });
     label.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200);
 
-    // After 2 seconds, emit completion and return to galaxy map
+    // After 2 seconds, check whether to transition to ground combat or end
     this.time.delayedCall(2000, () => {
+      // If attacker won a planetary assault, transition to ground combat
+      if (
+        this.tacticalState.outcome === 'attacker_wins' &&
+        this.tacticalState.layout === 'planetary_assault' &&
+        this.tacticalState.planetData
+      ) {
+        // First emit tactical complete so the engine can apply ship losses
+        this.game.events.emit('combat:tactical_complete', this.tacticalState);
+
+        // Gather hull classes from surviving attacker ships to determine transport capacity
+        const survivingAttackers = this.tacticalState.ships.filter(
+          s => s.side === 'attacker' && !s.destroyed,
+        );
+        const attackerHullClasses: HullClass[] = [];
+        for (const ts of survivingAttackers) {
+          const sourceShip = this.sceneData.attackerShips.find(s => s.id === ts.sourceShipId);
+          if (sourceShip) {
+            const design = this.sceneData.designs.get(sourceShip.designId);
+            if (design) {
+              attackerHullClasses.push(design.hull);
+            }
+          }
+        }
+
+        const groundData: GroundCombatSceneData = {
+          planetName: this.tacticalState.planetData.name,
+          planetType: this.tacticalState.planetData.type,
+          attackerHullClasses,
+          defenderPopulation: 10000, // Default — will be populated from planet data in future
+          defenderBuildings: [],
+          attackerExperience: 'regular',
+          defenderExperience: 'green',
+          attackerEmpireId: this.sceneData.attackerFleet.empireId,
+          defenderEmpireId: this.sceneData.defenderFleet.empireId,
+          playerEmpireId: this.sceneData.playerEmpireId,
+          attackerColor: this.sceneData.attackerColor,
+          defenderColor: this.sceneData.defenderColor,
+          attackerName: this.sceneData.attackerName,
+          defenderName: this.sceneData.defenderName,
+        };
+
+        this.scene.start('GroundCombatScene', groundData);
+        return;
+      }
+
       this.game.events.emit('combat:tactical_complete', this.tacticalState);
       this.scene.start('GalaxyMapScene', {});
     });
