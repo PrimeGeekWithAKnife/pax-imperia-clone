@@ -24,3 +24,4 @@ export * from './notifications.js';
 export * from './waste.js';
 export * from './energy-flow.js';
 export * from './building-condition.js';
+export * from './combat-tactical.js';

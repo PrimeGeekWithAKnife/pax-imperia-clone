@@ -37,8 +37,9 @@ import type { KnownEmpire } from './screens/DiplomacyScreen';
 import { FleetScreen } from './screens/FleetScreen';
 import { BattleResultsScreen } from './screens/BattleResultsScreen';
 import type { BattleResultsData } from './screens/BattleResultsScreen';
+import { CombatTriggerDialog } from './screens/CombatTriggerDialog';
 import { EspionageScreen } from './screens/EspionageScreen';
-import type { EspionageState, EspionageEvent, SpyAgent, SpyMission } from '@nova-imperia/shared';
+import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState } from '@nova-imperia/shared';
 import { initialiseEspionage, addAgentToState, assignMission } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
@@ -195,6 +196,19 @@ export function App(): React.ReactElement {
 
   // ── Battle results overlay (shown when a CombatResolved event fires) ──
   const [battleResults, setBattleResults] = useState<BattleResultsData | null>(null);
+
+  // ── Tactical combat trigger dialogue ──
+  const [pendingCombat, setPendingCombat] = useState<{
+    attackerName: string;
+    defenderName: string;
+    attackerShipCount: number;
+    defenderShipCount: number;
+    attackerColor: string;
+    defenderColor: string;
+    isPlayerAttacker: boolean;
+    enemyInitiated: boolean;
+    combatData: unknown; // full data for CombatScene
+  } | null>(null);
 
   // ── Espionage state ──
   const [espionageState, setEspionageState] = useState<EspionageState>(() =>
@@ -918,6 +932,57 @@ export function App(): React.ReactElement {
     if (engine) engine.start();
   }, []);
 
+  // ── Tactical combat trigger handlers ──
+  const handleCombatPending = useCallback((data: unknown) => {
+    const d = data as {
+      attackerName: string; defenderName: string;
+      attackerShips: unknown[]; defenderShips: unknown[];
+      attackerColor: string; defenderColor: string;
+      isPlayerAttacker: boolean; enemyInitiated: boolean;
+    };
+    setPendingCombat({
+      attackerName: d.attackerName,
+      defenderName: d.defenderName,
+      attackerShipCount: d.attackerShips.length,
+      defenderShipCount: d.defenderShips.length,
+      attackerColor: d.attackerColor,
+      defenderColor: d.defenderColor,
+      isPlayerAttacker: d.isPlayerAttacker,
+      enemyInitiated: d.enemyInitiated,
+      combatData: data,
+    });
+  }, []);
+
+  const handleCombatEngage = useCallback(() => {
+    if (!pendingCombat) return;
+    const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+      | { events: { emit: (e: string, d: unknown) => void } }
+      | undefined;
+    phaserGame?.events.emit('combat:start_tactical', pendingCombat.combatData);
+    setPendingCombat(null);
+  }, [pendingCombat]);
+
+  const handleCombatFlee = useCallback(() => {
+    const engine = getGameEngine();
+    if (engine) {
+      // Clear pending combats and resume — fleeing means no battle takes place
+      engine.applyTacticalCombatResult({
+        tick: 0, ships: [], projectiles: [], beamEffects: [],
+        battlefieldWidth: 0, battlefieldHeight: 0,
+      });
+      engine.start();
+    }
+    setPendingCombat(null);
+  }, []);
+
+  const handleTacticalComplete = useCallback((data: unknown) => {
+    const engine = getGameEngine();
+    if (engine && data) {
+      engine.applyTacticalCombatResult(data as TacticalState);
+      engine.start();
+    }
+  }, []);
+
   // Engine emits 'engine:game_over' when the game ends (victory / defeat).
   const handleGameOver = useCallback((_payload: { winnerId?: string; reason?: string }) => {
     const engine = getGameEngine();
@@ -1124,6 +1189,8 @@ export function App(): React.ReactElement {
   useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
+  useGameEvent<unknown>('engine:combat_pending', handleCombatPending);
+  useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
   useGameEvent<{ winnerId?: string; reason?: string }>('engine:game_over', handleGameOver);
   useGameEvent<GameNotification>('engine:notification', handleEngineNotification);
 
@@ -1836,6 +1903,24 @@ export function App(): React.ReactElement {
           queueLength={notificationQueue.length}
           onDismiss={handleNotificationDismiss}
           onChoice={handleNotificationChoice}
+        />
+      )}
+
+      {/* Tactical combat trigger dialogue */}
+      {pendingCombat && (
+        <CombatTriggerDialog
+          attackerName={pendingCombat.attackerName}
+          defenderName={pendingCombat.defenderName}
+          attackerShipCount={pendingCombat.attackerShipCount}
+          defenderShipCount={pendingCombat.defenderShipCount}
+          attackerColor={pendingCombat.attackerColor}
+          defenderColor={pendingCombat.defenderColor}
+          isPlayerAttacker={pendingCombat.isPlayerAttacker}
+          enemyInitiated={pendingCombat.enemyInitiated}
+          onEngage={handleCombatEngage}
+          onFlee={handleCombatFlee}
+          onHail={() => setPendingCombat(null)}
+          onClose={() => setPendingCombat(null)}
         />
       )}
 

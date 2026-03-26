@@ -10683,3 +10683,113 @@ button:active:not(:disabled),
   overflow-y: auto;
   padding: 8px 12px;
 }
+
+/* ── Combat trigger dialogue ────────────────────────────────────────────── */
+
+.ctd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctd-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.ctd-modal {
+  position: relative;
+  background: rgba(10, 15, 25, 0.97);
+  border: 1px solid rgba(255, 60, 60, 0.4);
+  border-radius: 8px;
+  padding: 24px 32px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 0 40px rgba(255, 60, 60, 0.15);
+}
+
+.ctd-header {
+  font-family: monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff4444;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.ctd-warning {
+  font-family: monospace;
+  font-size: 12px;
+  color: #ff8844;
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 8px;
+  background: rgba(255, 100, 50, 0.1);
+  border-radius: 4px;
+  animation: ctd-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ctd-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.ctd-fleets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.ctd-fleet {
+  text-align: center;
+}
+
+.ctd-fleet__label {
+  font-family: monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #00d4ff;
+  margin-bottom: 4px;
+}
+
+.ctd-fleet--enemy .ctd-fleet__label {
+  color: #ff6666;
+}
+
+.ctd-fleet__count {
+  font-family: monospace;
+  font-size: 14px;
+  color: #c0d0e0;
+}
+
+.ctd-vs {
+  font-family: monospace;
+  font-size: 14px;
+  color: #445566;
+  font-weight: 700;
+}
+
+.ctd-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.ctd-btn {
+  min-width: 100px;
+}
+
+.ctd-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}

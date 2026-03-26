@@ -71,6 +71,7 @@ import type {
   CombatResolvedEvent,
   TechResearchedEvent,
   GameEvent,
+  TacticalState,
 } from '@nova-imperia/shared';
 import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
 import {
@@ -170,8 +171,9 @@ export class GameEngine {
 
     let newState: GameTickState;
     let events: GameEvent[];
+    const playerEmpire = this.tickState.gameState.empires.find(e => !e.isAI);
     try {
-      const result = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES);
+      const result = processGameTick(this.tickState, UNIVERSAL_TECHNOLOGIES, playerEmpire?.id);
       newState = result.newState;
       events = result.events;
     } catch (err) {
@@ -191,6 +193,42 @@ export class GameEngine {
       return;
     }
     this.tickState = newState;
+
+    // ── Check for deferred player combats ────────────────────────────────────
+    if (newState.pendingCombats.length > 0 && playerEmpire) {
+      const combat = newState.pendingCombats[0]!;
+      const attackerFleet = newState.gameState.fleets.find(f => f.id === combat.attackerFleetId);
+      const defenderFleet = newState.gameState.fleets.find(f => f.id === combat.defenderFleetId);
+
+      if (attackerFleet && defenderFleet) {
+        this._clearInterval();
+        this.running = false;
+
+        const attackerShips = newState.gameState.ships.filter(s => attackerFleet.ships.includes(s.id));
+        const defenderShips = newState.gameState.ships.filter(s => defenderFleet.ships.includes(s.id));
+
+        const attackerEmpire = newState.gameState.empires.find(e => e.id === attackerFleet.empireId);
+        const defenderEmpire = newState.gameState.empires.find(e => e.id === defenderFleet.empireId);
+
+        this.game.events.emit('engine:combat_pending', {
+          systemId: combat.systemId,
+          attackerFleet,
+          defenderFleet,
+          attackerShips,
+          defenderShips,
+          designs: newState.shipDesigns ?? new Map(),
+          components: newState.shipComponents ?? [],
+          playerEmpireId: playerEmpire.id,
+          attackerName: attackerEmpire?.name ?? 'Unknown',
+          defenderName: defenderEmpire?.name ?? 'Unknown',
+          attackerColor: attackerEmpire?.color ?? '#ff0000',
+          defenderColor: defenderEmpire?.color ?? '#0000ff',
+          isPlayerAttacker: attackerFleet.empireId === playerEmpire.id,
+          enemyInitiated: defenderFleet.stance === 'aggressive' || attackerFleet.stance === 'aggressive',
+        });
+        return; // Don't continue normal tick processing
+      }
+    }
 
     // ── Emit per-event notifications ────────────────────────────────────────
     for (const event of events) {
@@ -1377,6 +1415,47 @@ export class GameEngine {
         this.game.events.emit('engine:research_state', playerResearchState);
       }
     }
+  }
+
+  /**
+   * Apply the results of a tactical combat to the game state.
+   * Updates ship HP, removes destroyed ships and empty fleets, and clears
+   * pending combats so the game loop can resume.
+   */
+  applyTacticalCombatResult(tacticalState: TacticalState): void {
+    let ships = [...this.tickState.gameState.ships];
+    let fleets = [...this.tickState.gameState.fleets];
+
+    const destroyedIds = new Set<string>();
+    for (const tShip of tacticalState.ships) {
+      if (tShip.destroyed) {
+        destroyedIds.add(tShip.sourceShipId);
+      } else {
+        // Update hull points from tactical combat result
+        ships = ships.map(s => s.id === tShip.sourceShipId
+          ? { ...s, hullPoints: tShip.hull }
+          : s
+        );
+      }
+    }
+
+    // Remove destroyed ships
+    ships = ships.filter(s => !destroyedIds.has(s.id));
+    fleets = fleets.map(f => ({
+      ...f,
+      ships: f.ships.filter(id => !destroyedIds.has(id)),
+    })).filter(f => f.ships.length > 0);
+
+    // Clear pending combats
+    this.tickState = {
+      ...this.tickState,
+      pendingCombats: [],
+      gameState: {
+        ...this.tickState.gameState,
+        ships,
+        fleets,
+      },
+    };
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

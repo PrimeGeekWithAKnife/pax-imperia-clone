@@ -455,6 +455,7 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.game.events.off('fleet:move_mode', this._handleFleetMoveMode);
       this.game.events.off('fleet:move_mode_clear', this._handleFleetMoveModeClear);
       this.game.events.off('ui:exit_to_menu', this._handleExitToMenu);
+      this.game.events.off('combat:start_tactical', this._handleStartTactical);
       // Destroy fleet badges
       for (const [, container] of this.fleetBadges) {
         container.destroy();
@@ -632,6 +633,9 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Exit to main menu: stop the engine, destroy the game state, restart MainMenuScene
     this.game.events.on('ui:exit_to_menu', this._handleExitToMenu);
+
+    // Tactical combat — transition to CombatScene when the player clicks Engage
+    this.game.events.on('combat:start_tactical', this._handleStartTactical);
   }
 
   private galaxyToScreen(gx: number, gy: number): { x: number; y: number } {
@@ -2430,6 +2434,11 @@ export class GalaxyMapScene extends Phaser.Scene {
     if (evt?.systemId) {
       this._playCombatFlash(evt.systemId);
     }
+  };
+
+  /** Transition to the CombatScene for tactical combat. */
+  private _handleStartTactical = (data: unknown): void => {
+    this.scene.start('CombatScene', data as object);
   };
 
   /**
