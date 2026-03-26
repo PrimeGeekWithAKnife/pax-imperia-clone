@@ -20,7 +20,7 @@
     {
       "id": "molecular_biology",
       "name": "Molecular Biology",
-      "description": "The study of life at its most fundamental level \u2014 protein folding, gene expression, and cellular machinery. Understanding how organisms function opens the door to reshaping them.",
+      "description": "The study of life at its most fundamental level — protein folding, gene expression, and cellular machinery. Understanding how organisms function opens the door to reshaping them.",
       "category": "biology",
       "age": "nano_atomic",
       "cost": 1000,
@@ -37,7 +37,7 @@
     {
       "id": "nanotechnology_basics",
       "name": "Nanotechnology Basics",
-      "description": "The principles of engineering at the nanometre scale \u2014 building machines atom by atom. Crude by later standards, but the first step toward a revolution in manufacturing and medicine.",
+      "description": "The principles of engineering at the nanometre scale — building machines atom by atom. Crude by later standards, but the first step toward a revolution in manufacturing and medicine.",
       "category": "construction",
       "age": "nano_atomic",
       "cost": 1100,
@@ -390,7 +390,7 @@
     {
       "id": "fusion_threshold",
       "name": "Fusion Threshold",
-      "description": "The convergence of early discoveries into a coherent scientific paradigm \u2014 nano-scale engineering, quantum computation, and biological mastery form the foundation for the next great leap.",
+      "description": "The convergence of early discoveries into a coherent scientific paradigm — nano-scale engineering, quantum computation, and biological mastery form the foundation for the next great leap.",
       "category": "racial",
       "age": "nano_atomic",
       "cost": 2500,
@@ -412,7 +412,7 @@
     {
       "id": "plasma_physics",
       "name": "Plasma Physics",
-      "description": "A theoretical understanding of matter in the plasma state \u2014 superheated ionised gas confined by magnetic fields. This knowledge underpins both fusion power and an entire generation of weapons technology.",
+      "description": "A theoretical understanding of matter in the plasma state — superheated ionised gas confined by magnetic fields. This knowledge underpins both fusion power and an entire generation of weapons technology.",
       "category": "weapons",
       "age": "fusion",
       "cost": 3000,
@@ -450,7 +450,7 @@
     {
       "id": "xenobiology",
       "name": "Xenobiology",
-      "description": "The systematic study of alien life \u2014 their biochemistry, evolutionary pathways, and ecological niches. Understanding how alien organisms work is the first step to coexisting with them.",
+      "description": "The systematic study of alien life — their biochemistry, evolutionary pathways, and ecological niches. Understanding how alien organisms work is the first step to coexisting with them.",
       "category": "biology",
       "age": "fusion",
       "cost": 2800,
@@ -589,7 +589,7 @@
     {
       "id": "advanced_medical_bay",
       "name": "Advanced Medical Bay",
-      "description": "Xenobiological expertise applied to healthcare \u2014 medical facilities that can treat any known species, neutralise alien pathogens, and perform cross-species organ synthesis.",
+      "description": "Xenobiological expertise applied to healthcare — medical facilities that can treat any known species, neutralise alien pathogens, and perform cross-species organ synthesis.",
       "category": "biology",
       "age": "fusion",
       "cost": 3200,
@@ -863,7 +863,7 @@
     {
       "id": "nano_fusion_threshold",
       "name": "Nano-Fusion Threshold",
-      "description": "The synthesis of mature fusion-era technology into a unified strategic doctrine \u2014 nano-engineering and fusion power merge into something greater than either could achieve alone.",
+      "description": "The synthesis of mature fusion-era technology into a unified strategic doctrine — nano-engineering and fusion power merge into something greater than either could achieve alone.",
       "category": "racial",
       "age": "fusion",
       "cost": 5000,
@@ -929,7 +929,7 @@
     {
       "id": "advanced_materials",
       "name": "Advanced Materials",
-      "description": "Engineering of exotic matter states \u2014 degenerate-matter lattices, stable metallic hydrogen, and programmable meta-materials. The building blocks of structures that previous ages could not have imagined.",
+      "description": "Engineering of exotic matter states — degenerate-matter lattices, stable metallic hydrogen, and programmable meta-materials. The building blocks of structures that previous ages could not have imagined.",
       "category": "construction",
       "age": "nano_fusion",
       "cost": 6000,
@@ -982,7 +982,7 @@
     {
       "id": "teleportation",
       "name": "Teleportation",
-      "description": "Quantum-entanglement matter transfer across short distances \u2014 demolecularise at one end, reassemble at the other. Boarding actions become instantaneous and indefensible.",
+      "description": "Quantum-entanglement matter transfer across short distances — demolecularise at one end, reassemble at the other. Boarding actions become instantaneous and indefensible.",
       "category": "propulsion",
       "age": "nano_fusion",
       "cost": 7500,
@@ -1101,7 +1101,7 @@
     {
       "id": "orbital_megastructures",
       "name": "Orbital Megastructures",
-      "description": "Structural engineering at the scale of planets and stars \u2014 load-bearing lattices of degenerate matter, graviton anchors, and self-replicating nano-assembly clouds.",
+      "description": "Structural engineering at the scale of planets and stars — load-bearing lattices of degenerate matter, graviton anchors, and self-replicating nano-assembly clouds.",
       "category": "construction",
       "age": "nano_fusion",
       "cost": 8000,
@@ -1304,7 +1304,7 @@
     {
       "id": "neural_enhancement",
       "name": "Neural Enhancement",
-      "description": "Nano-scale neural processors that augment biological cognition \u2014 sharper memory, faster pattern recognition, and the ability to interface directly with computer systems.",
+      "description": "Nano-scale neural processors that augment biological cognition — sharper memory, faster pattern recognition, and the ability to interface directly with computer systems.",
       "category": "biology",
       "age": "nano_fusion",
       "cost": 6500,
@@ -1371,7 +1371,7 @@
     {
       "id": "dimensional_scanning",
       "name": "Dimensional Scanning",
-      "description": "Sensor arrays tuned to detect quantum-state fluctuations in subspace \u2014 the ripple left by cloaked ships, hidden installations, and fold-space conduits.",
+      "description": "Sensor arrays tuned to detect quantum-state fluctuations in subspace — the ripple left by cloaked ships, hidden installations, and fold-space conduits.",
       "category": "defense",
       "age": "nano_fusion",
       "cost": 6500,
@@ -1417,7 +1417,7 @@
     {
       "id": "unified_field_theory",
       "name": "Unified Field Theory",
-      "description": "The grand unification of all fundamental forces \u2014 electromagnetic, gravitational, strong and weak nuclear \u2014 into a single elegant mathematical framework. The key that unlocks antimatter mastery.",
+      "description": "The grand unification of all fundamental forces — electromagnetic, gravitational, strong and weak nuclear — into a single elegant mathematical framework. The key that unlocks antimatter mastery.",
       "category": "propulsion",
       "age": "anti_matter",
       "cost": 11000,
@@ -1437,7 +1437,7 @@
     {
       "id": "consciousness_studies",
       "name": "Consciousness Studies",
-      "description": "A rigorous scientific framework for understanding sapient awareness \u2014 the neural correlates of consciousness, the quantum basis of thought, and the boundaries of the self.",
+      "description": "A rigorous scientific framework for understanding sapient awareness — the neural correlates of consciousness, the quantum basis of thought, and the boundaries of the self.",
       "category": "biology",
       "age": "anti_matter",
       "cost": 11000,
@@ -1462,7 +1462,7 @@
     {
       "id": "dark_matter_physics",
       "name": "Dark Matter Physics",
-      "description": "Experimental techniques for detecting, containing, and manipulating dark matter \u2014 the invisible scaffolding of the universe. What was once unobservable becomes a resource.",
+      "description": "Experimental techniques for detecting, containing, and manipulating dark matter — the invisible scaffolding of the universe. What was once unobservable becomes a resource.",
       "category": "propulsion",
       "age": "anti_matter",
       "cost": 12000,
@@ -1540,7 +1540,7 @@
     {
       "id": "psionic_amplifiers",
       "name": "Psionic Amplifiers",
-      "description": "Technology that magnifies latent psionic abilities a thousandfold \u2014 turning whispered intuitions into galaxy-spanning perception. The amplified mind sees through walls, across systems, and into the intentions of others.",
+      "description": "Technology that magnifies latent psionic abilities a thousandfold — turning whispered intuitions into galaxy-spanning perception. The amplified mind sees through walls, across systems, and into the intentions of others.",
       "category": "racial",
       "age": "anti_matter",
       "cost": 12000,
@@ -1592,7 +1592,7 @@
     {
       "id": "dark_energy_weapons",
       "name": "Dark Energy Weapons",
-      "description": "Weapons that harness the repulsive force of dark energy itself \u2014 the power that drives the expansion of the universe, concentrated into a beam that tears apart the very fabric of space around its target.",
+      "description": "Weapons that harness the repulsive force of dark energy itself — the power that drives the expansion of the universe, concentrated into a beam that tears apart the very fabric of space around its target.",
       "category": "weapons",
       "age": "anti_matter",
       "cost": 13000,
@@ -1673,7 +1673,7 @@
     {
       "id": "artificial_wormholes",
       "name": "Artificial Wormholes",
-      "description": "On-demand fold-space apertures generated by exotic-matter injectors \u2014 stable enough for a fleet, long enough to matter, and placed wherever the strategist wishes.",
+      "description": "On-demand fold-space apertures generated by exotic-matter injectors — stable enough for a fleet, long enough to matter, and placed wherever the strategist wishes.",
       "category": "propulsion",
       "age": "anti_matter",
       "cost": 14000,
@@ -1697,7 +1697,7 @@
     {
       "id": "species_ascension",
       "name": "Species Ascension",
-      "description": "Directed evolutionary uplift \u2014 genetic, cognitive, and cybernetic \u2014 that elevates an entire species beyond its biological starting point. The people who emerge bear little resemblance to those who entered.",
+      "description": "Directed evolutionary uplift — genetic, cognitive, and cybernetic — that elevates an entire species beyond its biological starting point. The people who emerge bear little resemblance to those who entered.",
       "category": "biology",
       "age": "anti_matter",
       "cost": 13500,
@@ -1751,7 +1751,7 @@
     {
       "id": "battleship_yards",
       "name": "Battleship Yards",
-      "description": "Orbital construction frames capable of assembling kilometre-long hulls \u2014 mobile citadels that carry enough weapons to level a moon and enough armour to laugh at the attempt to stop them.",
+      "description": "Orbital construction frames capable of assembling kilometre-long hulls — mobile citadels that carry enough weapons to level a moon and enough armour to laugh at the attempt to stop them.",
       "category": "construction",
       "age": "anti_matter",
       "cost": 15000,
@@ -1770,7 +1770,7 @@
     {
       "id": "dyson_collectors",
       "name": "Dyson Collectors",
-      "description": "Partial Dyson shell segments \u2014 vast arrays of solar-collection panels in tight stellar orbit that harvest a meaningful fraction of a star's total energy output.",
+      "description": "Partial Dyson shell segments — vast arrays of solar-collection panels in tight stellar orbit that harvest a meaningful fraction of a star's total energy output.",
       "category": "construction",
       "age": "anti_matter",
       "cost": 14000,
@@ -1845,7 +1845,7 @@
     {
       "id": "temporal_mechanics",
       "name": "Temporal Mechanics",
-      "description": "Exploiting micro-scale temporal variance near extreme gravitational gradients to achieve limited predictive modelling. The future is not fixed \u2014 but its probabilities can be mapped.",
+      "description": "Exploiting micro-scale temporal variance near extreme gravitational gradients to achieve limited predictive modelling. The future is not fixed — but its probabilities can be mapped.",
       "category": "defense",
       "age": "anti_matter",
       "cost": 13500,
@@ -1870,7 +1870,7 @@
     {
       "id": "singularity_threshold",
       "name": "Singularity Threshold",
-      "description": "The penultimate synthesis \u2014 an empire that has mastered matter, energy, biology, and the geometry of space itself. Only one threshold remains: the dissolution of all limits.",
+      "description": "The penultimate synthesis — an empire that has mastered matter, energy, biology, and the geometry of space itself. Only one threshold remains: the dissolution of all limits.",
       "category": "racial",
       "age": "anti_matter",
       "cost": 18000,
@@ -1892,7 +1892,7 @@
     {
       "id": "singularity_mathematics",
       "name": "Singularity Mathematics",
-      "description": "Mathematical frameworks that describe the behaviour of space-time at infinite curvature \u2014 the point where physics as known collapses and something new emerges. The equations of godhood.",
+      "description": "Mathematical frameworks that describe the behaviour of space-time at infinite curvature — the point where physics as known collapses and something new emerges. The equations of godhood.",
       "category": "propulsion",
       "age": "singularity",
       "cost": 18000,
@@ -1912,7 +1912,7 @@
     {
       "id": "transcendence_theory",
       "name": "Transcendence Theory",
-      "description": "A theoretical framework for consciousness beyond physical substrate \u2014 the mathematics of existence without matter, of awareness without neurons, of will without flesh.",
+      "description": "A theoretical framework for consciousness beyond physical substrate — the mathematics of existence without matter, of awareness without neurons, of will without flesh.",
       "category": "biology",
       "age": "singularity",
       "cost": 18000,
@@ -1965,7 +1965,7 @@
     {
       "id": "reality_manipulation",
       "name": "Reality Manipulation",
-      "description": "Devices that locally alter the physical constants of the universe \u2014 adjusting the speed of light, the strength of nuclear forces, the mass of electrons. Ships caught in the manipulation field simply cease to function.",
+      "description": "Devices that locally alter the physical constants of the universe — adjusting the speed of light, the strength of nuclear forces, the mass of electrons. Ships caught in the manipulation field simply cease to function.",
       "category": "weapons",
       "age": "singularity",
       "cost": 19000,
@@ -1988,7 +1988,7 @@
     {
       "id": "zero_point_cannons",
       "name": "Zero-Point Cannons",
-      "description": "Weapons that tap directly into the quantum vacuum \u2014 extracting unlimited energy from the fundamental fabric of space and focusing it into a beam that no known armour can survive.",
+      "description": "Weapons that tap directly into the quantum vacuum — extracting unlimited energy from the fundamental fabric of space and focusing it into a beam that no known armour can survive.",
       "category": "weapons",
       "age": "singularity",
       "cost": 18000,
@@ -2017,7 +2017,7 @@
     {
       "id": "temporal_shields",
       "name": "Temporal Shields",
-      "description": "Protective fields that place the ship slightly out of temporal phase with the present \u2014 incoming weapons age away to nothing before they reach the hull.",
+      "description": "Protective fields that place the ship slightly out of temporal phase with the present — incoming weapons age away to nothing before they reach the hull.",
       "category": "defense",
       "age": "singularity",
       "cost": 18000,
@@ -2074,7 +2074,7 @@
     {
       "id": "phase_shift",
       "name": "Phase Shift",
-      "description": "Complete dimensional-phase transition for entire fleets \u2014 rendering ships undetectable by any sensor and unreachable by any weapon until they choose to re-enter normal space directly atop the enemy.",
+      "description": "Complete dimensional-phase transition for entire fleets — rendering ships undetectable by any sensor and unreachable by any weapon until they choose to re-enter normal space directly atop the enemy.",
       "category": "propulsion",
       "age": "singularity",
       "cost": 19000,
@@ -2097,7 +2097,7 @@
     {
       "id": "genetic_apotheosis",
       "name": "Genetic Apotheosis",
-      "description": "The final refinement of the species \u2014 evolution no longer a process of chance but an act of deliberate will. Your people become what they were always meant to be.",
+      "description": "The final refinement of the species — evolution no longer a process of chance but an act of deliberate will. Your people become what they were always meant to be.",
       "category": "biology",
       "age": "singularity",
       "cost": 19000,
@@ -2131,7 +2131,7 @@
     {
       "id": "world_engines",
       "name": "World Engines",
-      "description": "Planetary-scale graviton drive systems that can move entire worlds across star systems \u2014 repositioning inhabited planets for strategic advantage, or relocating uninhabited ones to more useful orbits.",
+      "description": "Planetary-scale graviton drive systems that can move entire worlds across star systems — repositioning inhabited planets for strategic advantage, or relocating uninhabited ones to more useful orbits.",
       "category": "construction",
       "age": "singularity",
       "cost": 20000,
@@ -2178,7 +2178,7 @@
     {
       "id": "species_evolution",
       "name": "Species Evolution",
-      "description": "Controlled, directed evolution of your entire species into a new form optimised for a post-physical existence. The final biological step before transcendence \u2014 guided by transcendence theory's insights.",
+      "description": "Controlled, directed evolution of your entire species into a new form optimised for a post-physical existence. The final biological step before transcendence — guided by transcendence theory's insights.",
       "category": "biology",
       "age": "singularity",
       "cost": 20000,
@@ -2282,7 +2282,7 @@
     {
       "id": "xeno_archaeology",
       "name": "Xeno-Archaeology",
-      "description": "Systematic excavation and study of alien ruins. Every civilisation leaves traces \u2014 most leave warnings.",
+      "description": "Systematic excavation and study of alien ruins. Every civilisation leaves traces — most leave warnings.",
       "category": "construction",
       "age": "fusion",
       "cost": 2500,
@@ -2442,7 +2442,7 @@
     {
       "id": "wormhole_destabilisation",
       "name": "Wormhole Destabilisation",
-      "description": "The power to unmake what nature or the ancients created. A wormhole collapsed is a route forever denied \u2014 to you and to your enemies.",
+      "description": "The power to unmake what nature or the ancients created. A wormhole collapsed is a route forever denied — to you and to your enemies.",
       "category": "propulsion",
       "age": "anti_matter",
       "cost": 12000,
@@ -2924,7 +2924,7 @@
     {
       "id": "planetary_shield_generator",
       "name": "Planetary Shield Generator",
-      "description": "Enormous ground-based emitters that project a protective energy dome across an entire colony. Orbital bombardment splashes harmlessly against the barrier \u2014 for a time.",
+      "description": "Enormous ground-based emitters that project a protective energy dome across an entire colony. Orbital bombardment splashes harmlessly against the barrier — for a time.",
       "category": "defense",
       "age": "nano_fusion",
       "cost": 7000,
@@ -2996,7 +2996,7 @@
     {
       "id": "ciws_turrets",
       "name": "CIWS Turrets",
-      "description": "Close-In Weapon Systems \u2014 automated gatling arrays slaved to predictive tracking computers that shred inbound ordnance at point-blank range with terrifying accuracy.",
+      "description": "Close-In Weapon Systems — automated gatling arrays slaved to predictive tracking computers that shred inbound ordnance at point-blank range with terrifying accuracy.",
       "category": "defense",
       "age": "nano_fusion",
       "cost": 5500,
@@ -3714,7 +3714,7 @@
     {
       "id": "cybernetic_enhancement",
       "name": "Cybernetic Enhancement",
-      "description": "Mechanical augmentation of biological systems \u2014 prosthetic limbs stronger than bone, neural co-processors faster than grey matter, and sensory arrays that perceive beyond the visible spectrum.",
+      "description": "Mechanical augmentation of biological systems — prosthetic limbs stronger than bone, neural co-processors faster than grey matter, and sensory arrays that perceive beyond the visible spectrum.",
       "category": "biology",
       "age": "nano_fusion",
       "cost": 6500,
@@ -3995,7 +3995,7 @@
     {
       "id": "megastructure_engineering",
       "name": "Megastructure Engineering",
-      "description": "Principles governing the design and construction of structures that dwarf entire planets \u2014 ring habitats, stellar enclosures, and orbital super-platforms that redefine what civilisation means.",
+      "description": "Principles governing the design and construction of structures that dwarf entire planets — ring habitats, stellar enclosures, and orbital super-platforms that redefine what civilisation means.",
       "category": "construction",
       "age": "anti_matter",
       "cost": 10000,
@@ -4466,7 +4466,7 @@
     {
       "id": "programmable_matter",
       "name": "Programmable Matter",
-      "description": "Materials whose physical properties \u2014 shape, density, conductivity, colour \u2014 can be altered on command through embedded nanomachines. Infrastructure becomes as fluid as software.",
+      "description": "Materials whose physical properties — shape, density, conductivity, colour — can be altered on command through embedded nanomachines. Infrastructure becomes as fluid as software.",
       "category": "construction",
       "age": "singularity",
       "cost": 16000,
@@ -4539,7 +4539,7 @@
     {
       "id": "kinetic_impactors",
       "name": "Kinetic Impactors",
-      "description": "Tungsten rods accelerated to a fraction of light speed and dropped from orbit. No warhead needed \u2014 the sheer kinetic energy devastates surface targets with terrifying precision.",
+      "description": "Tungsten rods accelerated to a fraction of light speed and dropped from orbit. No warhead needed — the sheer kinetic energy devastates surface targets with terrifying precision.",
       "category": "weapons",
       "age": "anti_matter",
       "cost": 9500,
@@ -4782,7 +4782,7 @@
     {
       "id": "automated_damage_control",
       "name": "Automated Damage Control",
-      "description": "Shipboard systems that detect and respond to hull breaches, fires, and system failures without crew intervention \u2014 sealing compartments, rerouting power, and deploying repair drones.",
+      "description": "Shipboard systems that detect and respond to hull breaches, fires, and system failures without crew intervention — sealing compartments, rerouting power, and deploying repair drones.",
       "category": "defense",
       "age": "fusion",
       "cost": 2800,
@@ -4861,7 +4861,7 @@
     {
       "id": "sensor_ghost_projectors",
       "name": "Sensor Ghost Projectors",
-      "description": "Devices that flood enemy sensor arrays with phantom contacts \u2014 false readings indistinguishable from real ships. Enemies waste ammunition on ghosts while the real fleet manoeuvres freely.",
+      "description": "Devices that flood enemy sensor arrays with phantom contacts — false readings indistinguishable from real ships. Enemies waste ammunition on ghosts while the real fleet manoeuvres freely.",
       "category": "defense",
       "age": "fusion",
       "cost": 3000,
@@ -5189,7 +5189,7 @@
     {
       "id": "zero_point_energy",
       "name": "Zero-Point Energy",
-      "description": "Tapping the quantum vacuum itself for energy \u2014 extracting power from the fluctuations that permeate empty space. The ultimate clean energy source, limited only by the ingenuity of the collector.",
+      "description": "Tapping the quantum vacuum itself for energy — extracting power from the fluctuations that permeate empty space. The ultimate clean energy source, limited only by the ingenuity of the collector.",
       "category": "construction",
       "age": "singularity",
       "cost": 20000,
@@ -5318,7 +5318,7 @@
     {
       "id": "atmospheric_engineering",
       "name": "Atmospheric Engineering",
-      "description": "The ability to design planetary atmospheres from scratch \u2014 adjusting pressure, composition, and temperature to exact specifications. Worlds are no longer found; they are made.",
+      "description": "The ability to design planetary atmospheres from scratch — adjusting pressure, composition, and temperature to exact specifications. Worlds are no longer found; they are made.",
       "category": "biology",
       "age": "nano_fusion",
       "cost": 5500,
@@ -5372,7 +5372,7 @@
     {
       "id": "galactic_cartography",
       "name": "Galactic Cartography",
-      "description": "Comprehensive three-dimensional mapping of the galaxy's structure \u2014 star positions, wormhole networks, gravity lanes, and dark matter filaments. The cosmos becomes a navigable chart.",
+      "description": "Comprehensive three-dimensional mapping of the galaxy's structure — star positions, wormhole networks, gravity lanes, and dark matter filaments. The cosmos becomes a navigable chart.",
       "category": "propulsion",
       "age": "nano_fusion",
       "cost": 4000,
@@ -5507,6 +5507,1764 @@
         }
       ],
       "icon": "tech_sentient_ship_cores"
+    },
+    {
+      "id": "armoured_vehicle_production",
+      "name": "Armoured Vehicle Production",
+      "description": "Standardised assembly lines for tracked and wheeled fighting vehicles adapted to alien terrain. Colonists can now defend their worlds with mechanised battalions rather than light infantry alone.",
+      "category": "construction",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        }
+      ],
+      "icon": "tech_armoured_vehicle_production"
+    },
+    {
+      "id": "infantry_combat_doctrine",
+      "name": "Infantry Combat Doctrine",
+      "description": "A unified framework for small-unit tactics, covering urban warfare, jungle operations, and vacuum engagements. Well-drilled troops perform dramatically better under fire.",
+      "category": "defense",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 8
+        },
+        {
+          "type": "enable_ability",
+          "ability": "garrison_training"
+        }
+      ],
+      "icon": "tech_infantry_combat_doctrine"
+    },
+    {
+      "id": "drone_reconnaissance",
+      "name": "Drone Reconnaissance",
+      "description": "Autonomous micro-drones deployed in swarms to map hostile terrain, identify enemy positions, and relay targeting data in real time. Ground commanders gain a decisive informational advantage.",
+      "category": "weapons",
+      "age": "nano_atomic",
+      "cost": 1300,
+      "prerequisites": [
+        "quantum_computing"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 5
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 5
+        }
+      ],
+      "icon": "tech_drone_reconnaissance"
+    },
+    {
+      "id": "resource_refining_efficiency",
+      "name": "Resource Refining Efficiency",
+      "description": "Advanced catalytic processes and closed-loop recycling that extract more usable material from raw ore. Mines and refineries see output climb without any increase in workforce.",
+      "category": "construction",
+      "age": "nano_atomic",
+      "cost": 1500,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.1
+        }
+      ],
+      "icon": "tech_resource_refining_efficiency"
+    },
+    {
+      "id": "colonial_tax_systems",
+      "name": "Colonial Tax Systems",
+      "description": "Formalised revenue collection across interstellar colonies, balancing local autonomy with imperial needs. A fair tax code reduces unrest while funding ambitious expansion programmes.",
+      "category": "construction",
+      "age": "nano_atomic",
+      "cost": 1100,
+      "prerequisites": [
+        "trade_protocols"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 10
+        }
+      ],
+      "icon": "tech_colonial_tax_systems"
+    },
+    {
+      "id": "basic_infiltration_techniques",
+      "name": "Basic Infiltration Techniques",
+      "description": "Tradecraft fundamentals for covert operatives — dead drops, brush passes, safe houses, and counter-surveillance. Every intelligence service begins with these timeless principles.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1300,
+      "prerequisites": [
+        "quantum_ciphers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "plant_agent"
+        }
+      ],
+      "icon": "tech_basic_infiltration_techniques"
+    },
+    {
+      "id": "mech_walker_construction",
+      "name": "Mech Walker Construction",
+      "description": "Bipedal and quadrupedal combat walkers that combine heavy firepower with rough-terrain mobility. These towering machines serve as mobile strongpoints in planetary assaults.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "armoured_vehicle_production",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "deploy_mech_walkers"
+        }
+      ],
+      "icon": "tech_mech_walker_construction"
+    },
+    {
+      "id": "drone_warfare_doctrine",
+      "name": "Drone Warfare Doctrine",
+      "description": "Full integration of autonomous combat drones into military operations, from kamikaze swarms to precision strike platforms. Fewer soldiers die when machines lead the charge.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "drone_reconnaissance",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        }
+      ],
+      "icon": "tech_drone_warfare_doctrine"
+    },
+    {
+      "id": "enhanced_soldier_programme",
+      "name": "Enhanced Soldier Programme",
+      "description": "Genetic screening, targeted gene therapy, and rigorous augmentation protocols that produce elite warriors. Enhanced soldiers are faster, stronger, and more resilient than any baseline trooper.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "growth_stimulants",
+        "infantry_combat_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 12
+        }
+      ],
+      "icon": "tech_enhanced_soldier_programme"
+    },
+    {
+      "id": "chemical_weapons_research",
+      "name": "Chemical Weapons Research",
+      "description": "Synthesis of nerve agents and bioactive compounds tailored to alien physiologies. Devastatingly effective in ground warfare but diplomatically toxic — few civilisations forgive the use of such weapons.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 2600,
+      "prerequisites": [
+        "xenobiology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": -10
+        }
+      ],
+      "icon": "tech_chemical_weapons_research"
+    },
+    {
+      "id": "orbital_bombardment_precision",
+      "name": "Orbital Bombardment Precision",
+      "description": "Targeting algorithms and kinetic-rod delivery systems that allow warships to strike ground targets with surgical accuracy, minimising collateral damage to captured infrastructure.",
+      "category": "weapons",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "kinetic_accelerators",
+        "guided_torpedoes"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "precision_bombardment"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 5
+        }
+      ],
+      "icon": "tech_orbital_bombardment_precision"
+    },
+    {
+      "id": "planetary_invasion_tactics",
+      "name": "Planetary Invasion Tactics",
+      "description": "Combined-arms doctrine for seizing hostile worlds — orbital suppression, drop-pod insertion, and rapid consolidation. A well-planned invasion captures planets with minimal losses.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 3400,
+      "prerequisites": [
+        "infantry_combat_doctrine",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "planetary_invasion"
+        }
+      ],
+      "icon": "tech_planetary_invasion_tactics"
+    },
+    {
+      "id": "banking_systems",
+      "name": "Banking Systems",
+      "description": "Interstellar financial institutions that enable credit, futures markets, and investment across colony worlds. Capital flows more freely, accelerating economic growth throughout the empire.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "trade_protocols",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 15
+        }
+      ],
+      "icon": "tech_banking_systems"
+    },
+    {
+      "id": "trade_fleet_protection",
+      "name": "Trade Fleet Protection",
+      "description": "Dedicated convoy escort protocols and armed merchantmen that deter piracy along trade routes. Commerce thrives when cargo ships can travel without fear of raiders.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 2700,
+      "prerequisites": [
+        "trade_protocols",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 3
+        }
+      ],
+      "icon": "tech_trade_fleet_protection"
+    },
+    {
+      "id": "luxury_goods_production",
+      "name": "Luxury Goods Production",
+      "description": "Artisanal and industrial manufacture of high-value consumer goods — from exotic fabrics to precision timepieces. Happy colonists spend freely, and wealthy colonies attract immigrants.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2400,
+      "prerequisites": [
+        "trade_protocols"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 5
+        }
+      ],
+      "icon": "tech_luxury_goods_production"
+    },
+    {
+      "id": "deep_cover_agents",
+      "name": "Deep Cover Agents",
+      "description": "Operatives embedded for years within foreign governments, corporations, and military commands. Their intelligence is invaluable, but extraction is nearly impossible if compromised.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "basic_infiltration_techniques",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "deep_cover_mission"
+        }
+      ],
+      "icon": "tech_deep_cover_agents"
+    },
+    {
+      "id": "crypto_analysis",
+      "name": "Crypto-Analysis",
+      "description": "Mathematical and computational techniques for breaking foreign encryption. Intercepted communications yield a treasure trove of strategic intelligence when their ciphers finally crack.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 2900,
+      "prerequisites": [
+        "quantum_computing",
+        "basic_infiltration_techniques"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "counter_espionage"
+        }
+      ],
+      "icon": "tech_crypto_analysis"
+    },
+    {
+      "id": "guerrilla_warfare_training",
+      "name": "Guerrilla Warfare Training",
+      "description": "Asymmetric combat doctrine teaching sabotage, ambush, and resistance operations behind enemy lines. Occupied populations become a persistent thorn in any invader's side.",
+      "category": "defense",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": [
+        "infantry_combat_doctrine",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "guerrilla_resistance"
+        }
+      ],
+      "icon": "tech_guerrilla_warfare_training"
+    },
+    {
+      "id": "burrowing_machines",
+      "name": "Burrowing Machines",
+      "description": "Subterranean boring systems that carve tunnels through planetary crust at speed. Military engineers use them to bypass fortifications; miners use them to reach deep mineral deposits.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2600,
+      "prerequisites": [
+        "armoured_vehicle_production",
+        "fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 5
+        }
+      ],
+      "icon": "tech_burrowing_machines"
+    },
+    {
+      "id": "climate_stabilisation",
+      "name": "Climate Stabilisation",
+      "description": "Planetary-scale weather control systems that regulate temperature, precipitation, and storm patterns. Hostile worlds become merely uncomfortable rather than lethal.",
+      "category": "biology",
+      "age": "fusion",
+      "cost": 3300,
+      "prerequisites": [
+        "atmosphere_processing"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 5
+        }
+      ],
+      "icon": "tech_climate_stabilisation"
+    },
+    {
+      "id": "singularity_containment",
+      "name": "Singularity Containment",
+      "description": "Magnetic and gravitational containment fields capable of suspending micro-singularities indefinitely. The ability to bottle a black hole opens terrifying possibilities for both power generation and weaponry.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "graviton_theory",
+        "nano_fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 12
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 10
+        }
+      ],
+      "icon": "tech_singularity_containment"
+    },
+    {
+      "id": "shield_frequency_modulation",
+      "name": "Shield Frequency Modulation",
+      "description": "Rapid cycling of shield harmonics across multiple frequencies, making it impossible for enemy weapons to maintain a consistent lock. Shields become dramatically harder to penetrate.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "shield_harmonics",
+        "adaptive_shielding"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_strength",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "shield_recharge_rate",
+          "value": 10
+        }
+      ],
+      "icon": "tech_shield_frequency_modulation"
+    },
+    {
+      "id": "holographic_disguise_systems",
+      "name": "Holographic Disguise Systems",
+      "description": "Hard-light holographic projectors that overlay a convincing false identity onto agents and equipment. Operatives can impersonate enemy officers or disguise military installations as civilian structures.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5200,
+      "prerequisites": [
+        "deep_cover_agents",
+        "cloaking_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 10
+        }
+      ],
+      "icon": "tech_holographic_disguise_systems"
+    },
+    {
+      "id": "network_intrusion_protocols",
+      "name": "Network Intrusion Protocols",
+      "description": "Sophisticated cyber-warfare tools that penetrate foreign computer networks, exfiltrate data, and plant logic bombs. In the information age, a skilled hacker is worth a fleet.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "crypto_analysis",
+        "artificial_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 12
+        },
+        {
+          "type": "enable_ability",
+          "ability": "network_intrusion"
+        }
+      ],
+      "icon": "tech_network_intrusion_protocols"
+    },
+    {
+      "id": "psionic_counter_intelligence",
+      "name": "Psionic Counter-Intelligence",
+      "description": "Training programmes and technological countermeasures that detect and neutralise psionic espionage. Telepathic spies find their minds reflected back at them by disciplined defenders.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "psionic_sensitivity",
+        "deep_cover_agents"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "psionic_counter_espionage"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        }
+      ],
+      "icon": "tech_psionic_counter_intelligence"
+    },
+    {
+      "id": "asteroid_base_construction",
+      "name": "Asteroid Base Construction",
+      "description": "Engineering techniques for hollowing out asteroids and converting them into fortified outposts. These hidden bases serve as forward operating positions, fuel depots, or clandestine listening posts.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "asteroid_mining_operations",
+        "modular_architecture"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "building_slots",
+          "value": 2
+        },
+        {
+          "type": "enable_ability",
+          "ability": "build_asteroid_base"
+        }
+      ],
+      "icon": "tech_asteroid_base_construction"
+    },
+    {
+      "id": "gas_giant_mining_platforms",
+      "name": "Gas Giant Mining Platforms",
+      "description": "Atmospheric processing stations suspended in the upper layers of gas giants, harvesting helium-3, exotic gases, and rare isotopes. A single platform can supply fuel for an entire fleet.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 5500,
+      "prerequisites": [
+        "gas_giant_harvesting",
+        "nano_fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "resource_bonus",
+          "resource": "fuel",
+          "multiplier": 1.2
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 10
+        }
+      ],
+      "icon": "tech_gas_giant_mining_platforms"
+    },
+    {
+      "id": "space_habitat_construction",
+      "name": "Space Habitat Construction",
+      "description": "Rotating cylinder habitats that provide Earth-normal gravity and self-sustaining biospheres in deep space. Populations no longer need planets — they can build their own worlds.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 6000,
+      "prerequisites": [
+        "habitat_ring_construction",
+        "orbital_megastructures"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "building_slots",
+          "value": 3
+        },
+        {
+          "type": "enable_ability",
+          "ability": "build_space_habitat"
+        }
+      ],
+      "icon": "tech_space_habitat_construction"
+    },
+    {
+      "id": "biome_engineering",
+      "name": "Biome Engineering",
+      "description": "The deliberate design and construction of entire ecosystems from scratch — forests, oceans, tundra — tailored to a world's specific conditions. Terraformed planets feel truly alive.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 5800,
+      "prerequisites": [
+        "atmospheric_engineering",
+        "terraforming"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 8
+        }
+      ],
+      "icon": "tech_biome_engineering"
+    },
+    {
+      "id": "quantum_torpedo_warheads",
+      "name": "Quantum Torpedo Warheads",
+      "description": "Warheads that exploit quantum tunnelling to bypass a portion of enemy armour and shielding, detonating inside the target hull. Defensive technology struggles to counter an attack that simply ignores barriers.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "quantum_torpedoes",
+        "quantum_field_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_penetration",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "missile_damage",
+          "value": 10
+        }
+      ],
+      "icon": "tech_quantum_torpedo_warheads"
+    },
+    {
+      "id": "phase_torpedo_launchers",
+      "name": "Phase Torpedo Launchers",
+      "description": "Torpedoes that shift partially out of phase during transit, becoming virtually undetectable and immune to point-defence fire. They rematerialise an instant before impact with devastating effect.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "phase_torpedoes",
+        "phase_shields"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "missile_damage",
+          "value": 15
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "phase_torpedo_mk2"
+        }
+      ],
+      "icon": "tech_phase_torpedo_launchers"
+    },
+    {
+      "id": "minefield_deployment_systems",
+      "name": "Minefield Deployment Systems",
+      "description": "Automated minelaying platforms that sow vast fields of self-guided munitions around strategic chokepoints. Minefields deny territory and force enemies into predictable attack corridors.",
+      "category": "weapons",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "minefield_technology"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "deploy_advanced_minefields"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 10
+        }
+      ],
+      "icon": "tech_minefield_deployment_systems"
+    },
+    {
+      "id": "interstellar_commodities_exchange",
+      "name": "Interstellar Commodities Exchange",
+      "description": "A regulated marketplace for trading raw materials, manufactured goods, and financial instruments across star systems. Price discovery and arbitrage ensure resources flow where they are needed most.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 4600,
+      "prerequisites": [
+        "banking_systems",
+        "advanced_trade_protocols"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 15
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "credits",
+          "multiplier": 1.1
+        }
+      ],
+      "icon": "tech_interstellar_commodities_exchange"
+    },
+    {
+      "id": "exo_armour_suits",
+      "name": "Exo-Armour Suits",
+      "description": "Powered exoskeletons with integrated weapons systems and sealed environmental protection. A single trooper in exo-armour can hold ground against a platoon of unaugmented soldiers.",
+      "category": "defense",
+      "age": "nano_fusion",
+      "cost": 5200,
+      "prerequisites": [
+        "enhanced_soldier_programme",
+        "advanced_materials"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 5
+        }
+      ],
+      "icon": "tech_exo_armour_suits"
+    },
+    {
+      "id": "orbital_drop_pods",
+      "name": "Orbital Drop Pods",
+      "description": "Armoured reentry capsules that deliver troops directly from orbit to the surface in minutes. Defenders have no time to prepare when soldiers rain from the sky without warning.",
+      "category": "propulsion",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "planetary_invasion_tactics",
+        "nano_fusion_threshold"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "orbital_drop_assault"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 8
+        }
+      ],
+      "icon": "tech_orbital_drop_pods"
+    },
+    {
+      "id": "galactic_communications_network",
+      "name": "Galactic Communications Network",
+      "description": "A unified interstellar communications backbone using quantum-entangled relays. Orders, intelligence, and trade data reach every corner of the empire instantaneously.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 5800,
+      "prerequisites": [
+        "predictive_analytics",
+        "quantum_field_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": 5
+        }
+      ],
+      "icon": "tech_galactic_communications_network"
+    },
+    {
+      "id": "precursor_data_cores",
+      "name": "Precursor Data Cores",
+      "description": "Ancient computational devices recovered from precursor ruins, containing fragmentary records of technologies millions of years old. Deciphering even a fraction of their contents yields breakthroughs.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 6500,
+      "prerequisites": [
+        "precursor_archaeology",
+        "precursor_decryption"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "precursor_tech_recovery"
+        }
+      ],
+      "icon": "tech_precursor_data_cores"
+    },
+    {
+      "id": "autonomous_war_machines",
+      "name": "Autonomous War Machines",
+      "description": "Fully self-directed ground combat units that require no human oversight — from spider-tanks to swarm robots. Wars can be fought without risking a single citizen's life.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "robot_workers",
+        "mech_walker_construction"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 10
+        }
+      ],
+      "icon": "tech_autonomous_war_machines"
+    },
+    {
+      "id": "fortress_world_doctrine",
+      "name": "Fortress World Doctrine",
+      "description": "The conversion of entire planets into layered defensive positions — orbital minefields, planetary shields, subterranean bunker networks, and automated weapon platforms. Fortress worlds are nearly impossible to take.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "exo_armour_suits",
+        "planetary_shield_generator"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 25
+        },
+        {
+          "type": "enable_ability",
+          "ability": "fortress_world"
+        }
+      ],
+      "icon": "tech_fortress_world_doctrine"
+    },
+    {
+      "id": "dimensional_rift_technology",
+      "name": "Dimensional Rift Technology",
+      "description": "The controlled tearing of spacetime to create temporary portals between distant points. Fleets step through rifts rather than crossing the void, appearing without warning deep in enemy territory.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "dimensional_scanning",
+        "hyperspace_conduits"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "dimensional_transit"
+        }
+      ],
+      "icon": "tech_dimensional_rift_technology"
+    },
+    {
+      "id": "temporal_weaponry",
+      "name": "Temporal Weaponry",
+      "description": "Weapons that accelerate localised time around a target, ageing hull plating into brittle scrap in seconds. Alternatively, they can freeze targets in stasis, leaving them helpless.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 13000,
+      "prerequisites": [
+        "temporal_mechanics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 20
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "temporal_disruptor"
+        }
+      ],
+      "icon": "tech_temporal_weaponry"
+    },
+    {
+      "id": "hive_mind_integration",
+      "name": "Hive Mind Integration",
+      "description": "Neural linking of an entire species into a unified consciousness — billions of minds thinking as one. Individual creativity is sacrificed for perfect coordination and instantaneous decision-making.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "collective_consciousness",
+        "neural_enhancement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "hive_mind_coordination"
+        }
+      ],
+      "icon": "tech_hive_mind_integration"
+    },
+    {
+      "id": "antimatter_economy",
+      "name": "Antimatter Economy",
+      "description": "Industrial-scale antimatter production and storage infrastructure that transforms the energy sector. With effectively limitless power, economic constraints shift from energy to imagination.",
+      "category": "construction",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "anti_matter_threshold",
+        "interstellar_commodities_exchange"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 15
+        }
+      ],
+      "icon": "tech_antimatter_economy"
+    },
+    {
+      "id": "subspace_communications",
+      "name": "Subspace Communications",
+      "description": "FTL communication through subspace channels that bypass the lightspeed barrier entirely. Strategic commands reach distant fleets in real time rather than suffering hours or days of signal lag.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 9500,
+      "prerequisites": [
+        "subspace_drives",
+        "galactic_communications_network"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": 10
+        }
+      ],
+      "icon": "tech_subspace_communications"
+    },
+    {
+      "id": "gravitational_lensing_weapons",
+      "name": "Gravitational Lensing Weapons",
+      "description": "Focusing graviton beams through precisely shaped gravity wells to create devastating convergence points. Targets at the focal point experience tidal forces strong enough to tear starships apart.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "gravity_well_projector",
+        "graviton_pulse_cannon"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "beam_damage",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 10
+        }
+      ],
+      "icon": "tech_gravitational_lensing_weapons"
+    },
+    {
+      "id": "adaptive_camouflage",
+      "name": "Adaptive Camouflage",
+      "description": "Metamaterial hull coatings that dynamically match the electromagnetic background, rendering ships nearly invisible across all sensor wavelengths. Even close-range visual detection becomes unreliable.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 10500,
+      "prerequisites": [
+        "advanced_cloaking",
+        "adaptive_ecm_suite"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_stealth",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 10
+        }
+      ],
+      "icon": "tech_adaptive_camouflage"
+    },
+    {
+      "id": "advanced_boarding_tactics",
+      "name": "Advanced Boarding Tactics",
+      "description": "Teleporter-assisted boarding operations that bypass hull breaches entirely, depositing assault teams directly into enemy command centres. Ships can be captured with minimal structural damage.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 9500,
+      "prerequisites": [
+        "boarding_pod_launchers",
+        "teleportation"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "teleport_boarding"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_prediction",
+          "value": 10
+        }
+      ],
+      "icon": "tech_advanced_boarding_tactics"
+    },
+    {
+      "id": "precursor_weapon_replication",
+      "name": "Precursor Weapon Replication",
+      "description": "Reverse-engineering of precursor armaments recovered from ancient battlefields. These weapons operate on principles modern science barely comprehends, but their destructive power is undeniable.",
+      "category": "weapons",
+      "age": "anti_matter",
+      "cost": 13000,
+      "prerequisites": [
+        "precursor_data_cores",
+        "anti_matter_weapons"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 18
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "precursor_cannon"
+        }
+      ],
+      "icon": "tech_precursor_weapon_replication"
+    },
+    {
+      "id": "genetic_warfare_agents",
+      "name": "Genetic Warfare Agents",
+      "description": "Tailored biological weapons that target specific species' genetic vulnerabilities. Ethically abhorrent but militarily potent, their mere existence serves as a deterrent against aggression.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "genome_resequencing",
+        "chemical_weapons_research"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": -15
+        }
+      ],
+      "icon": "tech_genetic_warfare_agents"
+    },
+    {
+      "id": "bio_regeneration_armour",
+      "name": "Bio-Regeneration Armour",
+      "description": "Living hull plating grown from engineered organisms that repairs battle damage autonomously. Given sufficient time between engagements, ships restore themselves to full fighting condition.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 10000,
+      "prerequisites": [
+        "bio_regeneration_field",
+        "regenerative_hull"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_repair_rate",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hull_strength",
+          "value": 10
+        }
+      ],
+      "icon": "tech_bio_regeneration_armour"
+    },
+    {
+      "id": "psionic_warfare_academy",
+      "name": "Psionic Warfare Academy",
+      "description": "A dedicated institution for training psionic combatants in offensive and defensive mental techniques. Graduates can shatter enemy morale, shield allies from psionic attack, and coordinate telepathically in battle.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 11000,
+      "prerequisites": [
+        "psionic_amplifiers",
+        "psionic_counter_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "combat_prediction",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        }
+      ],
+      "icon": "tech_psionic_warfare_academy"
+    },
+    {
+      "id": "combat_cloning_vats",
+      "name": "Combat Cloning Vats",
+      "description": "Rapid-growth cloning facilities that produce combat-ready soldiers in weeks rather than years. Clone troopers lack experience but compensate with numbers and fearless obedience.",
+      "category": "biology",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "advanced_cloning",
+        "enhanced_soldier_programme"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 10
+        }
+      ],
+      "icon": "tech_combat_cloning_vats"
+    },
+    {
+      "id": "matter_transmutation",
+      "name": "Matter Transmutation",
+      "description": "The conversion of one element into another through controlled nuclear and quantum processes. Lead truly becomes gold, and rare resources can be synthesised from common stock.",
+      "category": "construction",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "matter_compression",
+        "self_replicating_factories"
+      ],
+      "effects": [
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 15
+        }
+      ],
+      "icon": "tech_matter_transmutation"
+    },
+    {
+      "id": "dark_matter_shielding",
+      "name": "Dark Matter Shielding",
+      "description": "Shield generators that weave dark matter into defensive barriers, creating fields that interact with all known weapon types. Conventional weapons, energy beams, and even gravity weapons are attenuated.",
+      "category": "defense",
+      "age": "anti_matter",
+      "cost": 12000,
+      "prerequisites": [
+        "dark_matter_physics",
+        "adaptive_shielding"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_strength",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 10
+        }
+      ],
+      "icon": "tech_dark_matter_shielding"
+    },
+    {
+      "id": "inertialess_drives",
+      "name": "Inertialess Drives",
+      "description": "Propulsion systems that eliminate the inertial mass of a vessel, allowing instantaneous acceleration and deceleration. Ships manoeuvre with impossible agility, evading fire that should have been unavoidable.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 13000,
+      "prerequisites": [
+        "inertial_dampening",
+        "antimatter_torch_drives"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_evasion",
+          "value": 15
+        }
+      ],
+      "icon": "tech_inertialess_drives"
+    },
+    {
+      "id": "stellar_cartography_centre",
+      "name": "Stellar Cartography Centre",
+      "description": "A dedicated facility for mapping the galaxy in unprecedented detail — every star, nebula, anomaly, and hidden wormhole catalogued and cross-referenced. No corner of the galaxy remains unknown.",
+      "category": "propulsion",
+      "age": "anti_matter",
+      "cost": 9500,
+      "prerequisites": [
+        "galactic_cartography",
+        "distributed_sensor_network"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 10
+        }
+      ],
+      "icon": "tech_stellar_cartography_centre"
+    },
+    {
+      "id": "ascension_path_biological",
+      "name": "Biological Ascension",
+      "description": "The ultimate mastery of biology — the ability to reshape a species at will, achieving physical perfection, disease immunity, and indefinite lifespan. Evolution is no longer left to chance.",
+      "category": "biology",
+      "age": "singularity",
+      "cost": 18000,
+      "prerequisites": [
+        "genetic_apotheosis",
+        "species_evolution"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "habitability_range",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "biological_perfection"
+        }
+      ],
+      "icon": "tech_ascension_path_biological"
+    },
+    {
+      "id": "ascension_path_synthetic",
+      "name": "Synthetic Ascension",
+      "description": "The transfer of consciousness into synthetic bodies — immortal, endlessly customisable, and free from biological frailty. The species transcends flesh entirely, becoming something new.",
+      "category": "construction",
+      "age": "singularity",
+      "cost": 20000,
+      "prerequisites": [
+        "sentient_ship_cores",
+        "species_ascension"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "synthetic_immortality"
+        }
+      ],
+      "icon": "tech_ascension_path_synthetic"
+    },
+    {
+      "id": "ascension_path_psionic",
+      "name": "Psionic Ascension",
+      "description": "The full awakening of a species' latent psychic potential, achieving communion with the underlying fabric of reality itself. Psionic ascendants perceive and manipulate spacetime through will alone.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 20000,
+      "prerequisites": [
+        "mind_control",
+        "transcendence_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_prediction",
+          "value": 25
+        },
+        {
+          "type": "enable_ability",
+          "ability": "psionic_transcendence"
+        }
+      ],
+      "icon": "tech_ascension_path_psionic"
+    },
+    {
+      "id": "stellar_manipulation",
+      "name": "Stellar Manipulation",
+      "description": "The ability to alter a star's output, lifespan, and spectral class through direct intervention in its fusion processes. Stars can be rejuvenated, dimmed, or weaponised at the flick of a switch.",
+      "category": "construction",
+      "age": "singularity",
+      "cost": 22000,
+      "prerequisites": [
+        "stellar_mining",
+        "world_engines"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 30
+        },
+        {
+          "type": "enable_ability",
+          "ability": "star_engineering"
+        }
+      ],
+      "icon": "tech_stellar_manipulation"
+    },
+    {
+      "id": "cosmic_string_manipulation",
+      "name": "Cosmic String Manipulation",
+      "description": "Harnessing the topological defects in spacetime left over from the Big Bang. Cosmic strings can be used to warp space, create impenetrable barriers, or slice through any known material.",
+      "category": "weapons",
+      "age": "singularity",
+      "cost": 24000,
+      "prerequisites": [
+        "reality_manipulation",
+        "singularity_mathematics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "shield_penetration",
+          "value": 20
+        }
+      ],
+      "icon": "tech_cosmic_string_manipulation"
+    },
+    {
+      "id": "entropy_reversal",
+      "name": "Entropy Reversal",
+      "description": "The seemingly impossible ability to locally reverse thermodynamic entropy, restoring order from chaos. Damaged systems repair themselves, spent fuel regenerates, and even destroyed ships can be reconstituted.",
+      "category": "defense",
+      "age": "singularity",
+      "cost": 23000,
+      "prerequisites": [
+        "temporal_shields",
+        "reality_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_repair_rate",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "shield_recharge_rate",
+          "value": 25
+        }
+      ],
+      "icon": "tech_entropy_reversal"
+    },
+    {
+      "id": "pocket_dimension_technology",
+      "name": "Pocket Dimension Technology",
+      "description": "The creation of stable sub-universes accessible through artificial portals. Entire fleets can be stored in pocket dimensions, manufacturing complexes hidden beyond the reach of any attacker.",
+      "category": "propulsion",
+      "age": "singularity",
+      "cost": 21000,
+      "prerequisites": [
+        "dimensional_armour",
+        "singularity_drives"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "building_slots",
+          "value": 5
+        },
+        {
+          "type": "enable_ability",
+          "ability": "pocket_dimension_storage"
+        }
+      ],
+      "icon": "tech_pocket_dimension_technology"
+    },
+    {
+      "id": "universal_constructor",
+      "name": "Universal Constructor",
+      "description": "A self-replicating machine capable of building anything from raw atoms — ships, habitats, even copies of itself. Given sufficient raw material and energy, a single constructor can build an empire.",
+      "category": "construction",
+      "age": "singularity",
+      "cost": 22000,
+      "prerequisites": [
+        "self_replicating_factories",
+        "singularity_forge"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_cost",
+          "value": -20
+        }
+      ],
+      "icon": "tech_universal_constructor"
+    },
+    {
+      "id": "vacuum_decay_weapon",
+      "name": "Vacuum Decay Weapon",
+      "description": "A weapon that triggers localised false vacuum collapse, converting a region of space into a lower energy state at the speed of light. Nothing survives — the ultimate deterrent for a species that has mastered reality.",
+      "category": "weapons",
+      "age": "singularity",
+      "cost": 25000,
+      "prerequisites": [
+        "zero_point_cannons",
+        "reality_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": -20
+        }
+      ],
+      "icon": "tech_vacuum_decay_weapon"
+    },
+    {
+      "id": "immortal_guardians",
+      "name": "Immortal Guardians",
+      "description": "Elite warriors who have undergone every enhancement known to science — genetic perfection, cybernetic augmentation, psionic awakening, and consciousness backup. They cannot truly die and fight without fear.",
+      "category": "biology",
+      "age": "singularity",
+      "cost": 20000,
+      "prerequisites": [
+        "immortality_treatments",
+        "genetic_apotheosis"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "planetary_defense",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_prediction",
+          "value": 15
+        }
+      ],
+      "icon": "tech_immortal_guardians"
+    },
+    {
+      "id": "subspace_tunnelling",
+      "name": "Subspace Tunnelling",
+      "description": "Permanent tunnels bored through subspace that connect distant star systems with instantaneous transit corridors. Entire fleets traverse the galaxy in the blink of an eye.",
+      "category": "propulsion",
+      "age": "singularity",
+      "cost": 22000,
+      "prerequisites": [
+        "subspace_drives",
+        "strategic_jump_network"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "warp_range",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "build_subspace_tunnel"
+        }
+      ],
+      "icon": "tech_subspace_tunnelling"
+    },
+    {
+      "id": "dyson_sphere_completion",
+      "name": "Dyson Sphere Completion",
+      "description": "The technology to fully enclose a star within a rigid shell, capturing every photon of its output. A completed Dyson sphere provides more energy than most civilisations could ever consume.",
+      "category": "construction",
+      "age": "singularity",
+      "cost": 24000,
+      "prerequisites": [
+        "stellar_enclosure",
+        "stellar_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 40
+        },
+        {
+          "type": "enable_ability",
+          "ability": "complete_dyson_sphere"
+        }
+      ],
+      "icon": "tech_dyson_sphere_completion"
+    },
+    {
+      "id": "temporal_stasis_field",
+      "name": "Temporal Stasis Field",
+      "description": "A defensive system that suspends time within a localised area, freezing incoming projectiles, energy beams, and boarding parties in an eternal present. Nothing penetrates a stasis field.",
+      "category": "defense",
+      "age": "singularity",
+      "cost": 21000,
+      "prerequisites": [
+        "temporal_shields",
+        "temporal_mechanics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "shield_strength",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_reduction",
+          "value": 20
+        }
+      ],
+      "icon": "tech_temporal_stasis_field"
+    },
+    {
+      "id": "neural_web_governance",
+      "name": "Neural Web Governance",
+      "description": "Direct democratic participation through neural interfaces, where every citizen's thoughts feed into policy decisions instantaneously. Governance becomes perfectly responsive to the collective will.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 19000,
+      "prerequisites": [
+        "hive_mind_integration",
+        "species_ascension"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "leader_effectiveness",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "production_output",
+          "value": 10
+        }
+      ],
+      "icon": "tech_neural_web_governance"
+    },
+    {
+      "id": "bio_synthetic_fusion",
+      "name": "Bio-Synthetic Fusion",
+      "description": "The merger of biological and synthetic substrates into a unified medium that combines the adaptability of life with the precision of machines. A new form of existence that transcends both categories.",
+      "category": "biology",
+      "age": "singularity",
+      "cost": 23000,
+      "prerequisites": [
+        "genetic_apotheosis",
+        "sentient_ship_cores"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "hull_repair_rate",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        }
+      ],
+      "icon": "tech_bio_synthetic_fusion"
     }
   ],
   "ageGates": {
