@@ -1134,6 +1134,7 @@ export function App(): React.ReactElement {
       defenderStrengthRemaining: number;
       ticks: number;
       retreated?: boolean;
+      warCrimesCommitted?: boolean;
     };
 
     if (result.outcome === 'attacker_wins') {
