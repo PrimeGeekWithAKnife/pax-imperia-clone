@@ -56,7 +56,7 @@ export function ConstructionQueue({
             <div className="cq-item__header">
               <span className="cq-item__name">{name}</span>
               <div className="cq-item__right">
-                <span className="cq-item__turns">{item.turnsRemaining}t</span>
+                <span className="cq-item__turns">{Math.ceil(item.turnsRemaining)}t</span>
                 <button
                   className="cq-item__cancel"
                   onClick={() => onCancel(index)}

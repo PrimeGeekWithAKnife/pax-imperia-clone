@@ -615,7 +615,7 @@ export function PlanetDetailPanel({
                   <span className="panel-value">
                     {planet.productionQueue[0]!.templateId}
                     <span className="panel-value--muted">
-                      {' '}({planet.productionQueue[0]!.turnsRemaining}t)
+                      {' '}({Math.ceil(planet.productionQueue[0]!.turnsRemaining)}t)
                     </span>
                   </span>
                 </div>
@@ -688,7 +688,7 @@ export function PlanetDetailPanel({
                 {planet.productionQueue.map((item, i) => (
                   <li key={i} className="building-list-item">
                     <span className="building-name">{item.templateId}</span>
-                    <span className="building-level">{item.turnsRemaining}t</span>
+                    <span className="building-level">{Math.ceil(item.turnsRemaining)}t</span>
                   </li>
                 ))}
               </ul>

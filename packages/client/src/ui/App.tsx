@@ -448,6 +448,38 @@ export function App(): React.ReactElement {
         setCurrentScreen('game');
         e.preventDefault();
       }
+
+      // Global shortcuts: M and F1–F6 work from any screen
+      if (!gameStarted) return;
+      switch (e.key.toLowerCase()) {
+        case 'm':
+          setCurrentScreen('game');
+          break;
+        case 'f1':
+          e.preventDefault();
+          setCurrentScreen('research');
+          break;
+        case 'f2':
+          e.preventDefault();
+          setCurrentScreen('ship-designer');
+          break;
+        case 'f3':
+          e.preventDefault();
+          setCurrentScreen('fleet');
+          break;
+        case 'f4':
+          e.preventDefault();
+          setCurrentScreen('economy');
+          break;
+        case 'f5':
+          e.preventDefault();
+          setCurrentScreen('espionage');
+          break;
+        case 'f6':
+          e.preventDefault();
+          setCurrentScreen('diplomacy');
+          break;
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -831,6 +863,27 @@ export function App(): React.ReactElement {
       const withoutOld = prev.filter((d) => d.id !== design.id);
       return [...withoutOld, design];
     });
+    // Also register the design in the game engine so the sync loop
+    // (which reads from engine state) doesn't overwrite our React state.
+    const eng = getGameEngine();
+    if (eng) {
+      const state = eng.getState();
+      const updatedDesigns = new Map(state.shipDesigns ?? []);
+      updatedDesigns.set(design.id, design);
+      (eng as unknown as { tickState: { shipDesigns: Map<string, ShipDesign> } }).tickState.shipDesigns = updatedDesigns;
+    }
+  }, []);
+
+  const handleDeleteDesign = useCallback((designId: string) => {
+    setSavedDesigns((prev) => prev.filter((d) => d.id !== designId));
+    // Also remove from the game engine state to keep in sync.
+    const eng = getGameEngine();
+    if (eng) {
+      const state = eng.getState();
+      const updatedDesigns = new Map(state.shipDesigns ?? []);
+      updatedDesigns.delete(designId);
+      (eng as unknown as { tickState: { shipDesigns: Map<string, ShipDesign> } }).tickState.shipDesigns = updatedDesigns;
+    }
   }, []);
 
   // Phaser emits when a fleet is clicked on the galaxy map
@@ -1179,8 +1232,12 @@ export function App(): React.ReactElement {
 
   /** Listen for notifications emitted by the engine. */
   const handleEngineNotification = useCallback((notification: GameNotification) => {
+    // Sync the time-control UI when the engine auto-pauses
+    if (notification.autoPause) {
+      setGameSpeed('paused');
+    }
     pushNotification(notification);
-  }, [pushNotification]);
+  }, [pushNotification, setGameSpeed]);
 
   // Player clicks "Cancel Migration" in PlanetDetailPanel
   const handleCancelMigration = useCallback(() => {
@@ -1693,6 +1750,7 @@ export function App(): React.ReactElement {
           empireId="player"
           savedDesigns={savedDesigns}
           onSaveDesign={handleSaveDesign}
+          onDeleteDesign={handleDeleteDesign}
           onClose={handleCloseShipDesigner}
         />
       </div>

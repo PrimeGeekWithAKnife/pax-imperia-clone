@@ -248,7 +248,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-  create(data?: { knownSystemIds?: string[]; setupData?: { species: Species; config: { galaxySize: string; galaxyShape: string; aiOpponents: number; seed: string; aiDifficulty: string } } }): void {
+  create(data?: { knownSystemIds?: string[]; setupData?: { species: Species; config: { galaxySize: string; galaxyShape: string; aiOpponents: number; seed: string; aiDifficulty: string; victoryConditions?: string[] } } }): void {
     // Reset state from any previous run
     this.parallaxStars = [];
     this.nebulaWisps = [];
@@ -333,6 +333,7 @@ export class GalaxyMapScene extends Phaser.Scene {
           },
           ...aiPlayers,
         ],
+        victoryCriteria: setup?.config?.victoryConditions,
       });
 
       this.galaxy = gameState.galaxy;

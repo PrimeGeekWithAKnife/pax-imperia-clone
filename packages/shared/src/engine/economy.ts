@@ -10,7 +10,8 @@
  *   - Ship production is slowed (50 % of normal construction rate).
  *
  * Food / organics consumption:
- *   - Population consumes 1 organic unit per 50 000 population per tick.
+ *   - Population consumes 1 organic unit per 10 000 population per tick (min 1).
+ *   - Species reproduction trait modifies consumption (trait 5 = normal).
  *   - If organics reach zero, population declines (starvation).
  */
 
@@ -405,16 +406,26 @@ export function getEnergyStatus(resources: EmpireResources): EnergyStatus {
 // ---------------------------------------------------------------------------
 
 /** Population units per organic consumed per tick. */
-export const ORGANICS_PER_POPULATION = 50_000;
+export const ORGANICS_PER_POPULATION = 10_000;
 
 /**
  * Calculate how many organics an empire's total population consumes per tick.
  *
- * Formula: floor(totalPopulation / ORGANICS_PER_POPULATION)
- * Minimum 0 (an empire with < 50 000 population consumes 0).
+ * Formula: ceil(totalPopulation / ORGANICS_PER_POPULATION) with a minimum of 1
+ * for any non-zero population. The racial reproduction trait modifies consumption:
+ * trait 5 = normal, trait 10 = double, trait 1 = one-fifth.
+ *
+ * @param totalPopulation Sum of currentPopulation across all empire-owned planets.
+ * @param speciesReproductionTrait Species reproduction trait (1-10, default 5).
  */
-export function calculateOrganicsConsumption(totalPopulation: number): number {
-  return Math.floor(Math.max(0, totalPopulation) / ORGANICS_PER_POPULATION);
+export function calculateOrganicsConsumption(
+  totalPopulation: number,
+  speciesReproductionTrait?: number,
+): number {
+  if (totalPopulation <= 0) return 0;
+  const base = Math.max(1, Math.ceil(totalPopulation / ORGANICS_PER_POPULATION));
+  const racialMod = speciesReproductionTrait ? (speciesReproductionTrait / 5) : 1;
+  return Math.ceil(base * racialMod);
 }
 
 /** Result of applying the food-consumption step to empire resources. */
@@ -439,12 +450,14 @@ export interface FoodConsumptionResult {
  *
  * @param resources       Current empire resources (post-production tick).
  * @param totalPopulation Sum of `currentPopulation` across all empire-owned planets.
+ * @param speciesReproductionTrait Species reproduction trait (1-10, default 5).
  */
 export function applyFoodConsumption(
   resources: EmpireResources,
   totalPopulation: number,
+  speciesReproductionTrait?: number,
 ): FoodConsumptionResult {
-  const consumed = calculateOrganicsConsumption(totalPopulation);
+  const consumed = calculateOrganicsConsumption(totalPopulation, speciesReproductionTrait);
 
   if (consumed === 0) {
     return { resources, isStarving: false, consumed: 0 };

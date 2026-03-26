@@ -16,6 +16,8 @@ export interface GameState {
   currentTick: number;
   speed: GameSpeedName;
   status: GameStatus;
+  /** Which victory conditions are active for this game.  When empty or absent, all are enabled. */
+  victoryCriteria?: VictoryCriteria[];
 }
 
 /** Settings provided when creating a new game */

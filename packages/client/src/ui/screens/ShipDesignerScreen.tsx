@@ -165,6 +165,7 @@ export interface ShipDesignerScreenProps {
   empireId: string;
   savedDesigns: ShipDesign[];
   onSaveDesign: (design: ShipDesign) => void;
+  onDeleteDesign?: (designId: string) => void;
   onClose: () => void;
 }
 
@@ -176,6 +177,7 @@ export function ShipDesignerScreen({
   empireId,
   savedDesigns,
   onSaveDesign,
+  onDeleteDesign,
   onClose,
 }: ShipDesignerScreenProps): React.ReactElement {
   // ── Hull selection ──────────────────────────────────────────────────────────
@@ -689,20 +691,49 @@ export function ShipDesignerScreen({
               {savedDesigns.map((d) => {
                 const dHull = HULL_TEMPLATES.find((h) => h.class === d.hull);
                 return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    className="sd-saved-item"
-                    onClick={() => handleLoadDesign(d)}
-                    title={`Load design: ${d.name}`}
-                  >
-                    <span className="sd-saved-item-icon">
-                      {dHull ? <SavedDesignIcon hullClass={dHull.class} /> : '?'}
-                    </span>
-                    <span className="sd-saved-item-name">{d.name}</span>
-                    <span className="sd-saved-item-hull">{dHull?.name ?? d.hull}</span>
-                    <span className="sd-saved-item-cost">{d.totalCost}cr</span>
-                  </button>
+                  <div key={d.id} className="sd-saved-item-wrapper" style={{ position: 'relative', display: 'inline-flex' }}>
+                    <button
+                      type="button"
+                      className="sd-saved-item"
+                      onClick={() => handleLoadDesign(d)}
+                      title={`Load design: ${d.name}`}
+                    >
+                      <span className="sd-saved-item-icon">
+                        {dHull ? <SavedDesignIcon hullClass={dHull.class} /> : '?'}
+                      </span>
+                      <span className="sd-saved-item-name">{d.name}</span>
+                      <span className="sd-saved-item-hull">{dHull?.name ?? d.hull}</span>
+                      <span className="sd-saved-item-cost">{d.totalCost}cr</span>
+                    </button>
+                    {onDeleteDesign && (
+                      <button
+                        type="button"
+                        className="sd-saved-item-delete"
+                        onClick={(e) => { e.stopPropagation(); onDeleteDesign(d.id); }}
+                        title={`Delete design: ${d.name}`}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          width: '18px',
+                          height: '18px',
+                          padding: 0,
+                          border: '1px solid rgba(255,80,80,0.4)',
+                          borderRadius: '3px',
+                          background: 'rgba(255,40,40,0.15)',
+                          color: '#ff6666',
+                          fontSize: '12px',
+                          lineHeight: '16px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          zIndex: 1,
+                          fontFamily: 'monospace',
+                        }}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

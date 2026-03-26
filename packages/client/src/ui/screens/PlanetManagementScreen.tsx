@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
-import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier } from '@nova-imperia/shared';
+import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -206,6 +206,8 @@ interface BuildingPickerProps {
   empireTechs?: string[];
   /** The player's species ID, used to filter racial buildings. */
   playerSpeciesId?: string;
+  /** The zone the player clicked on — passed to canBuildOnPlanet for slot checking. */
+  targetZone?: 'surface' | 'orbital' | 'underground';
   onSelect: (type: BuildingType) => void;
   onClose: () => void;
 }
@@ -215,6 +217,7 @@ function BuildingPicker({
   empireResources,
   empireTechs,
   playerSpeciesId,
+  targetZone = 'surface',
   onSelect,
   onClose,
 }: BuildingPickerProps): React.ReactElement {
@@ -371,7 +374,7 @@ function BuildingPicker({
             visibleBuildings.map((type) => {
               const def = BUILDING_DEFINITIONS[type];
 
-              const check = canBuildOnPlanet(planet, type, undefined, empireTechs);
+              const check = canBuildOnPlanet(planet, type, undefined, empireTechs, targetZone);
               const canAffordBuilding = Object.entries(def.baseCost).every(
                 ([res, needed]) => (empireResources[res as keyof EmpireResources] ?? 0) >= (needed ?? 0),
               );
@@ -1032,11 +1035,12 @@ export function PlanetManagementScreen({
                 <div className="pm-stat-row">
                   <span className="pm-stat-label">Consumption</span>
                   <span className="pm-stat-value" style={{ color: '#ff8844' }}>
-                    -{Math.round(planet.currentPopulation / 50_000 * 10) / 10}
+                    -{Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION))}
                   </span>
                 </div>
                 {(() => {
-                  const foodNet = (production.organics ?? 0) - planet.currentPopulation / 50_000;
+                  const consumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
+                  const foodNet = (production.organics ?? 0) - consumption;
                   const isDeficit = foodNet < 0;
                   return (
                     <div className="pm-stat-row">
@@ -1209,7 +1213,7 @@ export function PlanetManagementScreen({
                               />
                             </div>
                             <span className="pm-shipyard__turns-left">
-                              {item.turnsRemaining} turn{item.turnsRemaining !== 1 ? 's' : ''} remaining
+                              {Math.ceil(item.turnsRemaining)} turn{Math.ceil(item.turnsRemaining) !== 1 ? 's' : ''} remaining
                             </span>
                           </div>
                         );
@@ -1451,6 +1455,43 @@ export function PlanetManagementScreen({
                       <div className="pm-prod-empty">No output — build something</div>
                     )}
                   </div>
+
+                  {planet.currentPopulation > 0 && (() => {
+                    const foodProd = production.organics ?? 0;
+                    const foodConsumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
+                    const foodBalance = foodProd - foodConsumption;
+                    const isDeficit = foodBalance < 0;
+                    return (
+                      <>
+                        <div className="pm-divider" />
+                        <div className="pm-section-label">FOOD (ORGANICS)</div>
+                        <div className="pm-prod-group">
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Production</span>
+                            <span className="pm-stat-value pm-stat-value--positive">
+                              +{Math.round(foodProd * 10) / 10}
+                            </span>
+                          </div>
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Consumption</span>
+                            <span className="pm-stat-value" style={{ color: '#ff8844' }}>
+                              -{foodConsumption}
+                            </span>
+                          </div>
+                          <div className="pm-stat-row">
+                            <span className="pm-stat-label">Net</span>
+                            <span
+                              className="pm-stat-value"
+                              style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                            >
+                              {foodBalance >= 0 ? '+' : ''}{Math.round(foodBalance * 10) / 10}
+                              {isDeficit && ' (STARVATION)'}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               )}
 
@@ -1595,6 +1636,7 @@ export function PlanetManagementScreen({
           empireResources={empireResources}
           empireTechs={empireTechs}
           playerSpeciesId={playerSpeciesId}
+          targetZone={buildZone}
           onSelect={handleSelectBuilding}
           onClose={() => setPickerOpen(false)}
         />
