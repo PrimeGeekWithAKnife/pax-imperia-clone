@@ -7782,6 +7782,99 @@
   font-style: italic;
 }
 
+/* ── Fleet split UI ────────────────────────────────────────────────────────── */
+
+.fleet-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fleet-screen__split-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: rgba(255, 160, 0, 0.1);
+  border: 1px solid rgba(255, 160, 0, 0.3);
+  border-radius: 3px;
+  color: #ffa844;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.fleet-screen__split-btn:hover:not(:disabled) {
+  background: rgba(255, 160, 0, 0.18);
+  border-color: #ffa844;
+}
+
+.fleet-screen__split-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fleet-screen__split-hint {
+  width: 100%;
+  padding: 6px 0;
+  color: #ffa844;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.fleet-screen__split-confirm-btn {
+  flex: 1;
+  padding: 8px 14px;
+  background: rgba(255, 160, 0, 0.15);
+  border: 1px solid #ffa844;
+  border-radius: 3px;
+  color: #ffa844;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fleet-screen__split-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fleet-screen__split-cancel-btn {
+  flex: 1;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fleet-screen__ship-row--selectable:hover {
+  background: rgba(255, 160, 0, 0.08);
+}
+
+.fleet-screen__ship-row--selected {
+  background: rgba(255, 160, 0, 0.12);
+  border-left: 2px solid #ffa844;
+}
+
+.fleet-screen__ship-check {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #ffa844;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
 /* ── Right: movement orders ── */
 
 .fleet-screen__active-order {

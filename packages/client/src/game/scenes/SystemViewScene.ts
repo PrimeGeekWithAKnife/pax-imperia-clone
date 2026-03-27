@@ -260,6 +260,9 @@ export class SystemViewScene extends Phaser.Scene {
     // Minimap click — return to galaxy map view
     this.game.events.on('minimap:navigate', this._handleMinimapNavigate, this);
 
+    // Tactical combat — transition to CombatScene when the player clicks Engage
+    this.game.events.on('combat:start_tactical', this._handleStartTactical, this);
+
     // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
 
@@ -282,6 +285,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
       this.game.events.off('minimap:navigate', this._handleMinimapNavigate, this);
+      this.game.events.off('combat:start_tactical', this._handleStartTactical, this);
       this._clearMigrationAnimations();
       // Destroy ship indicators
       for (const [, sprites] of this.shipSprites) {
@@ -298,24 +302,30 @@ export class SystemViewScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    // Advance planet orbits — positions are in world-space (worldContainer)
-    for (const entry of this.orbitEntries) {
-      entry.angle += entry.speed * delta;
-      const px = Math.cos(entry.angle) * entry.orbitRadius;
-      const py = Math.sin(entry.angle) * entry.orbitRadius;
-      entry.container.setPosition(px, py);
+    // Check if game is paused — freeze all orbital and migration animations
+    const engine = getGameEngine();
+    const isPaused = engine?.getState().gameState.speed === 'paused';
+
+    if (!isPaused) {
+      // Advance planet orbits — positions are in world-space (worldContainer)
+      for (const entry of this.orbitEntries) {
+        entry.angle += entry.speed * delta;
+        const px = Math.cos(entry.angle) * entry.orbitRadius;
+        const py = Math.sin(entry.angle) * entry.orbitRadius;
+        entry.container.setPosition(px, py);
+      }
+
+      // Animate fleet orbits
+      for (const [, state] of this.fleetOrbitState) {
+        state.angle += state.speed * delta;
+      }
+      this._updateFleetPositions();
+
+      // Update colony ship animations
+      this._updateMigrationAnimations(delta);
     }
 
-    // Animate fleet orbits
-    for (const [, state] of this.fleetOrbitState) {
-      state.angle += state.speed * delta;
-    }
-    this._updateFleetPositions();
-
-    // Update colony ship animations
-    this._updateMigrationAnimations(delta);
-
-    // Smooth zoom lerp
+    // Smooth zoom lerp (always runs so zoom input feels responsive)
     this._updateZoomLerp();
   }
 
@@ -425,7 +435,7 @@ export class SystemViewScene extends Phaser.Scene {
   // ── Migration actions ─────────────────────────────────────────────────────────
 
   private handleStartMigrationAction = (payload: unknown): void => {
-    const { systemId, targetPlanetId } = payload as {
+    const { systemId, targetPlanetId, empireId } = payload as {
       systemId: string;
       targetPlanetId: string;
       empireId: string;
@@ -439,9 +449,16 @@ export class SystemViewScene extends Phaser.Scene {
       return;
     }
 
-    const ownedPlanet = this.system.planets.find(p => p.ownerId !== null);
+    // Read live engine state — this.system is a stale snapshot from scene creation
+    const liveSystem = engine.getState().gameState.galaxy.systems.find(s => s.id === systemId);
+    if (!liveSystem) {
+      console.warn(`[SystemViewScene] System "${systemId}" not found in engine state`);
+      return;
+    }
+
+    const ownedPlanet = liveSystem.planets.find(p => p.ownerId === empireId);
     if (!ownedPlanet) {
-      console.warn('[SystemViewScene] No owned planet in system to source migrants from');
+      console.warn('[SystemViewScene] No player-owned planet in system to source migrants from');
       return;
     }
 
@@ -751,12 +768,13 @@ export class SystemViewScene extends Phaser.Scene {
         const angle = (indexInGroup / groupSize) * Math.PI * 2;
         orbitState = {
           angle,
-          speed: 0.0003,
-          radius: fleet.orbitTarget && fleet.orbitTarget !== 'star' ? 25 : maxOrbitRadius + 80,
+          speed: 0.00005,
+          radius: fleet.orbitTarget && fleet.orbitTarget !== 'star' ? 25 : ORBIT_BASE_RADIUS * 0.4,
         };
         this.fleetOrbitState.set(fleet.id, orbitState);
       }
 
+      const innerOrbitRadius = ORBIT_BASE_RADIUS * 0.4;
       let wx: number, wy: number;
       if (fleet.orbitTarget && fleet.orbitTarget !== 'star') {
         const planetPos = this._getPlanetWorldPos(fleet.orbitTarget);
@@ -764,8 +782,8 @@ export class SystemViewScene extends Phaser.Scene {
           wx = planetPos.x + Math.cos(orbitState.angle) * orbitState.radius;
           wy = planetPos.y + Math.sin(orbitState.angle) * orbitState.radius;
         } else {
-          wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
-          wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+          wx = Math.cos(orbitState.angle) * innerOrbitRadius;
+          wy = Math.sin(orbitState.angle) * innerOrbitRadius;
         }
       } else {
         wx = Math.cos(orbitState.angle) * orbitState.radius;
@@ -917,9 +935,7 @@ export class SystemViewScene extends Phaser.Scene {
     const state = engine.getState();
     const fleets = state.gameState.fleets.filter(f => f.position.systemId === this.system.id);
 
-    const maxOrbitRadius = this.orbitEntries.length > 0
-      ? Math.max(...this.orbitEntries.map(e => e.orbitRadius))
-      : 200;
+    const innerOrbitRadius = ORBIT_BASE_RADIUS * 0.4;
 
     for (const fleet of fleets) {
       const objects = this.shipSprites.get(fleet.id);
@@ -933,12 +949,12 @@ export class SystemViewScene extends Phaser.Scene {
           wx = planetPos.x + Math.cos(orbitState.angle) * orbitState.radius;
           wy = planetPos.y + Math.sin(orbitState.angle) * orbitState.radius;
         } else {
-          wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
-          wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+          wx = Math.cos(orbitState.angle) * innerOrbitRadius;
+          wy = Math.sin(orbitState.angle) * innerOrbitRadius;
         }
       } else {
-        wx = Math.cos(orbitState.angle) * (maxOrbitRadius + 80);
-        wy = Math.sin(orbitState.angle) * (maxOrbitRadius + 80);
+        wx = Math.cos(orbitState.angle) * orbitState.radius;
+        wy = Math.sin(orbitState.angle) * orbitState.radius;
       }
 
       // Move all game objects that make up this fleet icon
@@ -1364,6 +1380,11 @@ export class SystemViewScene extends Phaser.Scene {
     this.ambient?.stopAll();
     this.music?.crossfadeTo('galaxy');
     this.scene.start('GalaxyMapScene', {});
+  };
+
+  /** Transition to the CombatScene for tactical combat. */
+  private _handleStartTactical = (data: unknown): void => {
+    this.scene.start('CombatScene', data as object);
   };
 
   /** Minimap click while in system view — return to galaxy map. */

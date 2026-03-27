@@ -156,6 +156,8 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
   const [editingName, setEditingName] = useState(false);
   const [fleetName, setFleetName] = useState('');
   const [moveModeActive, setMoveModeActive] = useState(false);
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitShipIds, setSplitShipIds] = useState<Set<string>>(new Set());
 
   // ── Derived: selected fleet + its ships ───────────────────────────────────
 
@@ -231,6 +233,8 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
     setSelectedFleetId(id);
     setMoveModeActive(false);
     setEditingName(false);
+    setSplitMode(false);
+    setSplitShipIds(new Set());
   }, []);
 
   const handleNameClick = useCallback(() => {
@@ -274,6 +278,28 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
     if (!selectedFleet) return;
     emitToPhaser('fleet:cancel_movement', { fleetId: selectedFleet.id });
   }, [selectedFleet]);
+
+  const handleToggleSplitMode = useCallback(() => {
+    setSplitMode(prev => !prev);
+    setSplitShipIds(new Set());
+    setMoveModeActive(false);
+  }, []);
+
+  const handleToggleSplitShip = useCallback((shipId: string) => {
+    setSplitShipIds(prev => {
+      const next = new Set(prev);
+      if (next.has(shipId)) next.delete(shipId);
+      else next.add(shipId);
+      return next;
+    });
+  }, []);
+
+  const handleSplitConfirm = useCallback(() => {
+    if (!selectedFleet || splitShipIds.size === 0) return;
+    emitToPhaser('fleet:split', { fleetId: selectedFleet.id, shipIds: Array.from(splitShipIds) });
+    setSplitMode(false);
+    setSplitShipIds(new Set());
+  }, [selectedFleet, splitShipIds]);
 
   // ── Fleet strength ─────────────────────────────────────────────────────────
 
@@ -471,8 +497,19 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                       const shipHpPct = ship.maxHullPoints > 0 ? ship.hullPoints / ship.maxHullPoints : 1;
                       const hullClass = resolveHullClass(ship, designs);
                       const thumbSrc = renderShipThumbnail(hullClass, 22);
+                      const isChecked = splitShipIds.has(ship.id);
                       return (
-                        <div key={ship.id} className="fleet-screen__ship-row">
+                        <div
+                          key={ship.id}
+                          className={`fleet-screen__ship-row${splitMode ? ' fleet-screen__ship-row--selectable' : ''}${isChecked ? ' fleet-screen__ship-row--selected' : ''}`}
+                          onClick={splitMode ? () => handleToggleSplitShip(ship.id) : undefined}
+                          style={splitMode ? { cursor: 'pointer' } : undefined}
+                        >
+                          {splitMode && (
+                            <span className="fleet-screen__ship-check">
+                              {isChecked ? '[x]' : '[ ]'}
+                            </span>
+                          )}
                           {thumbSrc && (
                             <img
                               src={thumbSrc}
@@ -499,17 +536,52 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                   </div>
                 </div>
 
-                {/* Move button */}
-                <div className="fleet-screen__detail-section">
-                  <button
-                    type="button"
-                    className={`fleet-screen__move-btn${moveModeActive ? ' fleet-screen__move-btn--active' : ''}`}
-                    onClick={handleMoveToggle}
-                    disabled={!!inTransitInfo}
-                    title={inTransitInfo ? 'Fleet is already in transit' : 'Select a destination system'}
-                  >
-                    {moveModeActive ? 'Select Destination...' : 'Move Fleet'}
-                  </button>
+                {/* Action buttons */}
+                <div className="fleet-screen__detail-section fleet-screen__actions">
+                  {!splitMode ? (
+                    <>
+                      <button
+                        type="button"
+                        className={`fleet-screen__move-btn${moveModeActive ? ' fleet-screen__move-btn--active' : ''}`}
+                        onClick={handleMoveToggle}
+                        disabled={!!inTransitInfo}
+                        title={inTransitInfo ? 'Fleet is already in transit' : 'Select a destination system'}
+                      >
+                        {moveModeActive ? 'Select Destination...' : 'Move Fleet'}
+                      </button>
+                      <button
+                        type="button"
+                        className="fleet-screen__split-btn"
+                        onClick={handleToggleSplitMode}
+                        disabled={selectedFleetShips.length < 2}
+                        title={selectedFleetShips.length < 2 ? 'Need at least 2 ships to split' : 'Select ships to split into a new fleet'}
+                      >
+                        Split Fleet
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="fleet-screen__split-hint">
+                        Select ships to move to a new fleet ({splitShipIds.size} selected)
+                      </div>
+                      <button
+                        type="button"
+                        className="fleet-screen__split-confirm-btn"
+                        onClick={handleSplitConfirm}
+                        disabled={splitShipIds.size === 0 || splitShipIds.size >= selectedFleetShips.length}
+                        title={splitShipIds.size >= selectedFleetShips.length ? 'Must leave at least one ship in the original fleet' : 'Confirm split'}
+                      >
+                        Confirm Split
+                      </button>
+                      <button
+                        type="button"
+                        className="fleet-screen__split-cancel-btn"
+                        onClick={handleToggleSplitMode}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             ) : (

@@ -1354,6 +1354,23 @@ export function App(): React.ReactElement {
   useGameEvent<Technology[]>('research:techs_loaded', handleTechsLoaded);
   useGameEvent<{ fleet: Fleet; ships: Ship[] }>('fleet:selected', handleFleetSelected);
   useGameEvent<void>('fleet:deselected', handleFleetDeselected);
+  // Fleet management events — relay to engine
+  useGameEvent<{ fleetId: string; shipIds: string[] }>('fleet:split', useCallback((data: { fleetId: string; shipIds: string[] }) => {
+    const engine = getGameEngine();
+    engine?.splitFleet(data.fleetId, data.shipIds);
+  }, []));
+  useGameEvent<{ fleetId: string; name: string }>('fleet:rename', useCallback((data: { fleetId: string; name: string }) => {
+    const engine = getGameEngine();
+    engine?.renameFleet(data.fleetId, data.name);
+  }, []));
+  useGameEvent<{ fleetId: string; stance: string }>('fleet:stance', useCallback((data: { fleetId: string; stance: string }) => {
+    const engine = getGameEngine();
+    engine?.setFleetStance(data.fleetId, data.stance);
+  }, []));
+  useGameEvent<{ fleetId: string }>('fleet:disband', useCallback((data: { fleetId: string }) => {
+    const engine = getGameEngine();
+    engine?.disbandFleet(data.fleetId);
+  }, []));
   // Engine events
   useGameEvent<Galaxy>('engine:galaxy_updated', handleGalaxyUpdated);
   useGameEvent<{ x: number; y: number; width: number; height: number }>('engine:viewport_changed', handleViewportChanged);
@@ -2106,8 +2123,36 @@ export function App(): React.ReactElement {
           enemyInitiated={pendingCombat.enemyInitiated}
           onEngage={handleCombatEngage}
           onFlee={handleCombatFlee}
-          onHail={() => setPendingCombat(null)}
-          onClose={() => setPendingCombat(null)}
+          onHail={() => {
+            // Hail = attempt diplomacy — clear pending combat and resume the engine
+            const engine = getGameEngine();
+            if (engine) {
+              engine.applyTacticalCombatResult({
+                tick: 0, ships: [], projectiles: [], missiles: [], fighters: [],
+                beamEffects: [], pointDefenceEffects: [], environment: [],
+                battlefieldWidth: 0, battlefieldHeight: 0, outcome: null,
+                attackerFormation: 'line', defenderFormation: 'line', admirals: [],
+                layout: 'open_space',
+              });
+              engine.start();
+            }
+            setPendingCombat(null);
+          }}
+          onClose={() => {
+            // Closing the dialog = disengage — clear pending combat and resume
+            const engine = getGameEngine();
+            if (engine) {
+              engine.applyTacticalCombatResult({
+                tick: 0, ships: [], projectiles: [], missiles: [], fighters: [],
+                beamEffects: [], pointDefenceEffects: [], environment: [],
+                battlefieldWidth: 0, battlefieldHeight: 0, outcome: null,
+                attackerFormation: 'line', defenderFormation: 'line', admirals: [],
+                layout: 'open_space',
+              });
+              engine.start();
+            }
+            setPendingCombat(null);
+          }}
         />
       )}
 
