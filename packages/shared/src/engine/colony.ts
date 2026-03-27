@@ -831,6 +831,17 @@ export function processMigrationTick(
   let targetPlanet = system.planets[targetPlanetIndex]!;
   const eventMessages: string[] = [];
 
+  // Guard: if another empire has already colonised the target (e.g. via a
+  // colony ship that landed between the migration being ordered and now),
+  // cancel the migration to prevent depositing colonists on a rival's planet.
+  if (targetPlanet.ownerId !== null && targetPlanet.ownerId !== order.empireId) {
+    return {
+      order: { ...order, status: 'cancelled', transitWaves: [] },
+      system,
+      events: ['Migration cancelled: planet was colonised by another empire'],
+    };
+  }
+
   // ── 1. Advance in-transit waves — deliver those that have arrived ──────
   let transitWaves = [...(order.transitWaves ?? [])];
   let newArrivedTotal = order.arrivedPopulation;

@@ -470,6 +470,18 @@ function processPlayerActions(
             continue;
           }
 
+          // Guard against race condition: reject if an active migration already
+          // targets this planet (e.g. another empire's ColonisePlanet was
+          // processed earlier in the same tick, or a migration from a prior tick
+          // is still in progress).
+          const activeMigrationToTarget = state.migrationOrders.find(
+            o => o.targetPlanetId === planetId && o.status === 'migrating',
+          );
+          if (activeMigrationToTarget) {
+            console.warn(`[game-loop] ColonizePlanet rejected: active migration already targets planet "${planetId}"`);
+            continue;
+          }
+
           // Pass the empire's current tech age for tiered starter buildings
           const empireResearchState = state.researchStates.get(empireId);
           const currentAge = empireResearchState?.currentAge ?? 'nano_atomic';
