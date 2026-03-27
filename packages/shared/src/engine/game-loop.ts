@@ -81,6 +81,7 @@ import {
   canUpgradeBuilding,
   addUpgradeToQueue,
   getUpgradeCost,
+  getEffectiveMaxPopulation,
   TRANSIT_DURATION,
   type MigrationOrder,
 } from './colony.js';
@@ -452,7 +453,7 @@ function processPlayerActions(
           if (!empire) continue;
 
           // Find a coloniser ship in the fleet
-          const designsMap = state.shipDesigns ?? new Map<string, Ship>();
+          const designsMap = state.shipDesigns ?? new Map<string, ShipDesign>();
           const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
           const coloniserShip = fleetShips.find(s => {
             const design = designsMap.get(s.designId);
@@ -622,11 +623,26 @@ function processPlayerActions(
           continue;
         }
 
-        // Deduct building cost from the empire's resource stockpile (with zone cost multiplier)
+        // Check affordability and deduct building cost from the empire's resource stockpile (with zone cost multiplier)
         const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
         if (buildDef) {
           const costMultiplier = ZONE_COST_MULTIPLIER[targetZone] ?? 1;
           const res = getEmpireResources(state, empireId);
+
+          // Verify the empire can afford the building before deducting
+          let canAfford = true;
+          for (const [key, amount] of Object.entries(buildDef.baseCost)) {
+            const cost = (amount ?? 0) * costMultiplier;
+            if (cost > 0 && (res[key as keyof EmpireResources] ?? 0) < cost) {
+              canAfford = false;
+              break;
+            }
+          }
+          if (!canAfford) {
+            console.warn(`[game-loop] ConstructBuilding rejected — empire "${empireId}" cannot afford "${buildingType}"`);
+            continue;
+          }
+
           for (const [key, amount] of Object.entries(buildDef.baseCost)) {
             if (amount && amount > 0) {
               res[key as keyof EmpireResources] -= amount * costMultiplier;
@@ -1092,7 +1108,8 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
         if (growth < 0) growth = 0;
       }
 
-      const newPop = Math.min(planet.currentPopulation + growth, planet.maxPopulation);
+      const effectiveMax = getEffectiveMaxPopulation(planet);
+      const newPop = Math.min(planet.currentPopulation + growth, effectiveMax);
       const updatedPlanet: Planet = { ...planet, currentPopulation: newPop };
       systems = replacePlanet(systems, updatedPlanet);
     }
@@ -2064,8 +2081,11 @@ function stepAIDecisions(
       allTechs,
     );
 
-    // 3. Pick the top N, deduplicated
-    const topDecisions = selectTopDecisions(allDecisions, AI_DECISIONS_PER_TICK);
+    // 3. Filter out unimplemented decision types that would waste slots, then pick top N
+    const executableDecisions = allDecisions.filter(d =>
+      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy'].includes(d.type)
+    );
+    const topDecisions = selectTopDecisions(executableDecisions, AI_DECISIONS_PER_TICK);
 
     // 4. Execute each decision
     for (const decision of topDecisions) {
@@ -2120,10 +2140,16 @@ function executeAIBuild(
   empireId: string,
   decision: AIDecision,
 ): GameTickState {
-  const { planetId, buildingType } = decision.params as {
+  const { planetId, buildingType, buildingId } = decision.params as {
     planetId: string;
     buildingType: string;
+    buildingId?: string;
   };
+
+  // If buildingId is present, this is an upgrade — route to the upgrade path
+  if (buildingId) {
+    return executeAIUpgrade(state, empireId, planetId, buildingId);
+  }
 
   // Find the planet and its parent system
   let systems = state.gameState.galaxy.systems;
@@ -2172,6 +2198,78 @@ function executeAIBuild(
   // Queue the building
   const updatedPlanet = addBuildingToQueue(targetPlanet, buildingType as BuildingType, undefined, empireTechs);
   systems = replacePlanet(systems, updatedPlanet);
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Upgrade: upgrade an existing building on an AI-owned planet
+// ---------------------------------------------------------------------------
+
+function executeAIUpgrade(
+  state: GameTickState,
+  empireId: string,
+  planetId: string,
+  buildingId: string,
+): GameTickState {
+  // Find the planet
+  let systems = state.gameState.galaxy.systems;
+  let targetPlanet: Planet | undefined;
+  for (const system of systems) {
+    const p = system.planets.find(pl => pl.id === planetId);
+    if (p) { targetPlanet = p; break; }
+  }
+  if (!targetPlanet) return state;
+
+  // Ownership check
+  if (targetPlanet.ownerId !== empireId) return state;
+
+  // Determine current age for the empire
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  const currentAge = empire?.currentAge ?? 'nano_atomic';
+
+  // Validate the upgrade is allowed
+  const upgradeCheck = canUpgradeBuilding(targetPlanet, buildingId, currentAge);
+  if (!upgradeCheck.allowed) return state;
+
+  const building = targetPlanet.buildings.find(b => b.id === buildingId);
+  if (!building) return state;
+
+  const upgradeCost = getUpgradeCost(building.type, building.level);
+
+  // Check affordability
+  const res = getEmpireResources(state, empireId);
+  for (const [key, amount] of Object.entries(upgradeCost)) {
+    if (amount && amount > 0) {
+      if ((res[key as keyof EmpireResources] ?? 0) < amount) return state;
+    }
+  }
+
+  // Deduct costs
+  for (const [key, amount] of Object.entries(upgradeCost)) {
+    if (amount && amount > 0) {
+      res[key as keyof EmpireResources] -= amount;
+    }
+  }
+  state = applyResources(state, empireId, res);
+  systems = state.gameState.galaxy.systems;
+
+  // Re-fetch the planet after resource update
+  for (const system of systems) {
+    const p = system.planets.find(pl => pl.id === planetId);
+    if (p) { targetPlanet = p; break; }
+  }
+  if (!targetPlanet) return state;
+
+  // Queue the upgrade
+  const planetWithUpgrade = addUpgradeToQueue(targetPlanet, buildingId, currentAge);
+  systems = replacePlanet(systems, planetWithUpgrade);
 
   return {
     ...state,
@@ -2744,6 +2842,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
     shipDesigns,
+    shipComponents: [...SHIP_COMPONENTS],
     espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
     espionageEventLog: [],
   };

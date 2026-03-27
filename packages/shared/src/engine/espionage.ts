@@ -253,6 +253,9 @@ export function assignMission(
   targetEmpireId: string,
   mission: SpyMission,
 ): SpyAgent {
+  if (targetEmpireId === agent.empireId && mission !== 'counter_intel') {
+    throw new Error('Cannot assign spy to target own empire');
+  }
   return {
     ...agent,
     targetEmpireId,

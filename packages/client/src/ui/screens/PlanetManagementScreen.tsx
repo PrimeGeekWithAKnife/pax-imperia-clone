@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, BASE_TAX_RATE, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
 import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
@@ -135,8 +135,8 @@ function estimatePlanetProduction(planet: Planet): Record<string, number> {
     researchPoints: 0,
   };
 
-  // Base tax estimate: population * 0.5 credits/turn
-  totals.credits += planet.currentPopulation * 0.5;
+  // Base tax estimate: population * BASE_TAX_RATE credits/turn
+  totals.credits += planet.currentPopulation * BASE_TAX_RATE;
 
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];
@@ -196,7 +196,7 @@ const BUILDING_CATEGORY_MEMBERS: Record<Exclude<BuildingCategory, 'all' | 'bluep
   population: ['population_center', 'hydroponics_bay', 'medical_bay', 'advanced_medical_centre', 'entertainment_complex'] as BuildingType[],
   military: ['shipyard', 'defense_grid', 'military_academy'] as BuildingType[],
   commerce: ['trade_hub', 'spaceport', 'communications_hub'] as BuildingType[],
-  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station', 'energy_storage'] as BuildingType[],
+  infrastructure: ['research_lab', 'orbital_platform', 'terraforming_station', 'energy_storage', 'underground_complex'] as BuildingType[],
   environment: ['waste_dump', 'waste_incinerator', 'atmosphere_cleanser', 'orbital_waste_ejector'] as BuildingType[],
 };
 

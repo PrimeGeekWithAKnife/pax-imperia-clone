@@ -53,7 +53,7 @@ const GOVERNMENT_ORDER: GovernmentType[] = Object.keys(GOVERNMENTS) as Governmen
 const VICTORY_TYPES = [
   { key: 'conquest',       label: 'Conquest',                desc: 'Control 75% of all colonised planets' },
   { key: 'economic',       label: 'Economic Dominance',      desc: 'Hold 10\u00d7 more credits than any rival for 500 ticks' },
-  { key: 'technological',  label: 'Technological Supremacy', desc: 'Research the Ascension Project' },
+  { key: 'research',       label: 'Technological Supremacy', desc: 'Research the Ascension Project' },
   { key: 'diplomatic',     label: 'Diplomatic Victory',      desc: 'Form alliances with every surviving empire' },
   { key: 'score',          label: 'Score Victory',           desc: 'Highest combined score at tick limit' },
 ] as const;
