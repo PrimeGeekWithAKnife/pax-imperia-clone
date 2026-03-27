@@ -426,6 +426,7 @@ export class GameEngine {
           const colonisedPlanet = {
             ...targetPlanet,
             ownerId: mig.empireId,
+            currentPopulation: mig.arrivedPopulation,
             buildings: [...targetPlanet.buildings, starterBuilding],
           };
           const patchedPlanets = targetSys.planets.map(p =>
@@ -1448,6 +1449,22 @@ export class GameEngine {
     if (!fleet) return false;
     const updatedFleets = this.tickState.gameState.fleets.map(f =>
       f.id === fleetId ? { ...f, stance: stance as Fleet['stance'] } : f,
+    );
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+    return true;
+  }
+
+  /**
+   * Set or clear the admiral name for a fleet.
+   */
+  setFleetAdmiral(fleetId: string, admiralName: string | undefined): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, admiralName: admiralName || undefined } : f,
     );
     this.tickState = {
       ...this.tickState,

@@ -504,7 +504,7 @@ export function PlanetDetailPanel({
                   <div className="panel-row">
                     <span className="panel-label">Colonists</span>
                     <span className="panel-value panel-value--muted">
-                      {(COLONIST_TRANSFER_COUNT / 1000).toFixed(0)}K transferred (1-10% mortality)
+                      25K transferred (1-5% mortality)
                     </span>
                   </div>
 

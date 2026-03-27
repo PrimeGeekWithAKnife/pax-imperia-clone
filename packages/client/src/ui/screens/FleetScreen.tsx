@@ -158,6 +158,8 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
   const [moveModeActive, setMoveModeActive] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   const [splitShipIds, setSplitShipIds] = useState<Set<string>>(new Set());
+  const [editingAdmiral, setEditingAdmiral] = useState(false);
+  const [admiralName, setAdmiralName] = useState('');
 
   // ── Derived: selected fleet + its ships ───────────────────────────────────
 
@@ -235,6 +237,7 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
     setEditingName(false);
     setSplitMode(false);
     setSplitShipIds(new Set());
+    setEditingAdmiral(false);
   }, []);
 
   const handleNameClick = useCallback(() => {
@@ -300,6 +303,19 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
     setSplitMode(false);
     setSplitShipIds(new Set());
   }, [selectedFleet, splitShipIds]);
+
+  const handleAdmiralClick = useCallback(() => {
+    if (!selectedFleet) return;
+    setAdmiralName(selectedFleet.admiralName ?? '');
+    setEditingAdmiral(true);
+  }, [selectedFleet]);
+
+  const handleAdmiralCommit = useCallback(() => {
+    setEditingAdmiral(false);
+    if (!selectedFleet || !engine) return;
+    const trimmed = admiralName.trim();
+    engine.setFleetAdmiral(selectedFleet.id, trimmed || undefined);
+  }, [selectedFleet, engine, admiralName]);
 
   // ── Fleet strength ─────────────────────────────────────────────────────────
 
@@ -470,6 +486,35 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Admiral */}
+                <div className="fleet-screen__detail-section">
+                  <div className="pm-section-label">Admiral</div>
+                  {editingAdmiral ? (
+                    <input
+                      className="fleet-screen__name-input"
+                      value={admiralName}
+                      autoFocus
+                      placeholder="Enter admiral name..."
+                      onChange={(e) => setAdmiralName(e.target.value)}
+                      onBlur={handleAdmiralCommit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAdmiralCommit();
+                        if (e.key === 'Escape') setEditingAdmiral(false);
+                      }}
+                      maxLength={40}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="fleet-screen__admiral-btn"
+                      onClick={handleAdmiralClick}
+                      title="Click to assign or change admiral"
+                    >
+                      {selectedFleet.admiralName || 'No admiral assigned — click to assign'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Fleet strength */}

@@ -356,19 +356,20 @@ export function App(): React.ReactElement {
   }, [selectedPlanet, activeMigrations]);
 
   // ── Derive source planet name hint for the colonise panel ──
-  // Show the first owned planet in the current system as the migration source.
+  // Show the most populous player-owned planet in the system as the migration source.
   const migrationSourcePlanetName = useMemo((): string | null => {
-    if (!selectedPlanet) return null;
+    if (!selectedPlanet || !playerEmpire) return null;
     const systemId = activeSystemId ?? selectedSystem?.id;
     if (!systemId) return null;
     const engine = getGameEngine();
     if (!engine) return null;
     const system = engine.getState().gameState.galaxy.systems.find(s => s.id === systemId);
-    const owned = system?.planets.find(
-      p => p.ownerId !== null && p.id !== selectedPlanet.id,
-    );
-    return owned?.name ?? null;
-  }, [selectedPlanet, activeSystemId, selectedSystem]);
+    if (!system) return null;
+    const owned = system.planets
+      .filter(p => p.ownerId === playerEmpire.id && p.id !== selectedPlanet.id)
+      .sort((a, b) => b.currentPopulation - a.currentPopulation);
+    return owned[0]?.name ?? null;
+  }, [selectedPlanet, activeSystemId, selectedSystem, playerEmpire]);
 
   // ── Determine whether the player owns at least one planet in the active system ──
   // Required for in-system colonisation eligibility (Bug 2 fix).
@@ -1363,6 +1364,10 @@ export function App(): React.ReactElement {
   useGameEvent<{ fleetId: string }>('fleet:disband', useCallback((data: { fleetId: string }) => {
     const engine = getGameEngine();
     engine?.disbandFleet(data.fleetId);
+  }, []));
+  useGameEvent<{ fleetId: string; admiralName: string | undefined }>('fleet:admiral', useCallback((data: { fleetId: string; admiralName: string | undefined }) => {
+    const engine = getGameEngine();
+    engine?.setFleetAdmiral(data.fleetId, data.admiralName);
   }, []));
   // Engine events
   useGameEvent<Galaxy>('engine:galaxy_updated', handleGalaxyUpdated);

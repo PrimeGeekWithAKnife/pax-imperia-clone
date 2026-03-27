@@ -63,14 +63,14 @@ function generateMigrationId(): string {
 // Ticks (days) between each wave departure.
 const WAVE_INTERVAL_TICKS = 3;
 // Colonists dispatched per wave (source loses this, target gains survivors).
-const COLONISTS_PER_WAVE = 5_000;
-// Random mortality per wave: 1-10% of wave dies in transit.
+const COLONISTS_PER_WAVE = 2_500;
+// Random mortality per wave: 1-5% of wave dies in transit.
 const TRANSIT_LOSS_RATE_MIN = 0.01;
-const TRANSIT_LOSS_RATE_MAX = 0.10;
+const TRANSIT_LOSS_RATE_MAX = 0.05;
 // Kept for backwards compat — average loss rate for estimates.
-const TRANSIT_LOSS_RATE = 0.05;
+const TRANSIT_LOSS_RATE = 0.03;
 // Total colonists to transfer (migration completes when this many have departed).
-const MIGRATION_THRESHOLD = 100_000;
+const MIGRATION_THRESHOLD = 25_000;
 
 /**
  * Start a new migration order.

@@ -7867,6 +7867,26 @@
   border-left: 2px solid #ffa844;
 }
 
+.fleet-screen__admiral-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fleet-screen__admiral-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 .fleet-screen__ship-check {
   font-family: var(--font-mono);
   font-size: 11px;

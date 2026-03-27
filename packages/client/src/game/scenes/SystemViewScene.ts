@@ -456,7 +456,11 @@ export class SystemViewScene extends Phaser.Scene {
       return;
     }
 
-    const ownedPlanet = liveSystem.planets.find(p => p.ownerId === empireId);
+    // Pick the most populous player-owned planet as the migration source
+    const ownedPlanets = liveSystem.planets
+      .filter(p => p.ownerId === empireId && p.id !== targetPlanetId)
+      .sort((a, b) => b.currentPopulation - a.currentPopulation);
+    const ownedPlanet = ownedPlanets[0];
     if (!ownedPlanet) {
       console.warn('[SystemViewScene] No player-owned planet in system to source migrants from');
       return;

@@ -112,6 +112,8 @@ export interface Fleet {
   patrolling?: boolean;
   /** Original patrol route waypoints — restored when patrol cycle completes. */
   patrolRoute?: string[];
+  /** Name of the admiral commanding this fleet (if assigned). */
+  admiralName?: string;
 }
 
 export type FleetStance =

@@ -1747,11 +1747,12 @@ function stepShipProduction(state: GameTickState): GameTickState {
 
       // Create a new ship at the construction planet's system
       const newShipId = generateId();
+      const design = state.shipDesigns?.get(order.designId);
       const newShip: Ship = {
         id: newShipId,
         designId: order.designId,
-        name: `Newly Built Ship`,
-        hullPoints: 60, // default destroyer hull points; real value comes from design
+        name: design?.name ?? 'Newly Built Ship',
+        hullPoints: 60, // default hull points; real value comes from hull template
         maxHullPoints: 60,
         systemDamage: {
           engines: 0,
@@ -1763,14 +1764,6 @@ function stepShipProduction(state: GameTickState): GameTickState {
         position: { systemId },
         fleetId: null,
       };
-
-      // Look up hull points from design if available
-      const design = state.shipDesigns?.get(order.designId);
-      if (design) {
-        // Design.totalCost is cost, not hull points — hull points come from
-        // the HullTemplate which we don't have here.  Leave as 60 and note
-        // this should be wired up once the design registry is available.
-      }
 
       // Find an existing friendly fleet in the system to assign the ship to,
       // or create a new singleton fleet.
