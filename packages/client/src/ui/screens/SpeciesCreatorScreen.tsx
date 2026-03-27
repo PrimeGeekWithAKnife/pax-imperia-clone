@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { Species, SpeciesTraits, EnvironmentPreference, SpecialAbility } from '@nova-imperia/shared';
+import type { Species, SpeciesTraits, EnvironmentPreference, SpecialAbility, GovernmentType } from '@nova-imperia/shared';
 import { TraitSlider } from '../components/TraitSlider';
 import { AbilityPicker, ABILITY_INFO } from '../components/AbilityPicker';
 import { portraitCache } from '../../game/rendering/portraitCache';
@@ -422,6 +422,7 @@ export function SpeciesCreatorScreen({
   const handleStartGame = useCallback(() => {
     if (!isValid) return;
 
+    const isHiveMind = abilities.includes('hive_mind');
     const species: Species = {
       id: `player_${Date.now()}`,
       name: name.trim(),
@@ -431,6 +432,12 @@ export function SpeciesCreatorScreen({
       environmentPreference: env,
       specialAbilities: abilities,
       isPrebuilt: false,
+      defaultGovernment: isHiveMind
+        ? 'hive_mind' as GovernmentType
+        : 'democracy' as GovernmentType,
+      allowedGovernments: isHiveMind
+        ? ['hive_mind', 'technocracy'] as GovernmentType[]
+        : undefined, // all except hive_mind — handled by GameSetupScreen
     };
 
     onContinue({ species, originStory: origin });
