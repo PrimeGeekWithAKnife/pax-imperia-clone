@@ -2765,6 +2765,15 @@ export function processGameTick(
     };
   }
 
+  // Clean up empty fleets (ships may have been consumed by colonisation, transfers, etc.)
+  const nonEmptyFleets = s.gameState.fleets.filter(f => f.ships.length > 0);
+  if (nonEmptyFleets.length !== s.gameState.fleets.length) {
+    s = {
+      ...s,
+      gameState: { ...s.gameState, fleets: nonEmptyFleets },
+    };
+  }
+
   // 11. Advance Tick
   s = {
     ...s,
