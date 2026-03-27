@@ -5,7 +5,7 @@ import { PlanetRenderer, renderAsteroidBelt } from '../rendering/PlanetRenderer'
 import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 import { getGameEngine, destroyGameEngine } from '../../engine/GameEngine';
-import type { MigrationOrder } from '../../engine/migration';
+import type { MigrationOrder } from '@nova-imperia/shared';
 import type { GameTickState, GameSpeedName } from '@nova-imperia/shared';
 import { getTickRate } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';

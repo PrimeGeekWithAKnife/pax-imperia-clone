@@ -15,6 +15,7 @@ import {
   deserializeTickState,
   createSaveGame,
   loadSaveGame,
+  validateSaveGame,
   SAVE_FORMAT_VERSION,
 } from '../engine/save-load.js';
 import {
@@ -309,5 +310,140 @@ describe('simulation continuity after load', () => {
       const res = restored.empireResourcesMap.get(empire.id);
       expect(res).toBeDefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateSaveGame
+// ---------------------------------------------------------------------------
+
+describe('validateSaveGame', () => {
+  it('accepts a valid save game', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('rejects missing version', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    (save as any).version = undefined;
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('version'));
+  });
+
+  it('rejects missing tickState', () => {
+    const save = { version: '0.1.0', timestamp: 0, playerName: '', speciesId: '', empireName: '' } as any;
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('tickState'));
+  });
+
+  it('rejects missing gameState', () => {
+    const save = { version: '0.1.0', timestamp: 0, playerName: '', speciesId: '', empireName: '', tickState: {} } as any;
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('gameState'));
+  });
+
+  it('detects no empires', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    save.tickState.gameState.empires = [];
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('No empires'));
+  });
+
+  it('detects no star systems', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    save.tickState.gameState.galaxy.systems = [];
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('No star systems'));
+  });
+
+  it('detects negative tick counter', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    save.tickState.gameState.currentTick = -5;
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('tick counter'));
+  });
+
+  it('detects negative empire credits', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    save.tickState.gameState.empires[0].credits = -100;
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('negative credits'));
+  });
+
+  it('detects negative planet population', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    const systems = save.tickState.gameState.galaxy.systems;
+    // Find a planet to corrupt
+    for (const sys of systems) {
+      if (sys.planets.length > 0) {
+        sys.planets[0].currentPopulation = -10;
+        break;
+      }
+    }
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('negative population'));
+  });
+
+  it('detects negative ship hull points', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    // Inject a corrupted ship
+    save.tickState.gameState.ships.push({
+      id: 'corrupt-ship',
+      designId: 'x',
+      name: 'Broken Vessel',
+      hullPoints: -5,
+      maxHullPoints: 100,
+      systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
+      position: { systemId: 'sys-0' },
+      fleetId: null,
+    });
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('negative hull points'));
+  });
+
+  it('detects zero maxHullPoints on ship', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    save.tickState.gameState.ships.push({
+      id: 'corrupt-ship-2',
+      designId: 'x',
+      name: 'Ghost Ship',
+      hullPoints: 0,
+      maxHullPoints: 0,
+      systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
+      position: { systemId: 'sys-0' },
+      fleetId: null,
+    });
+    const result = validateSaveGame(save);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContainEqual(expect.stringContaining('invalid maxHullPoints'));
+  });
+
+  it('loadSaveGame still loads a save with warnings (does not throw)', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    // Corrupt credits but keep it structurally valid
+    save.tickState.gameState.empires[0].credits = -999;
+    // Should not throw — just warn
+    expect(() => loadSaveGame(save)).not.toThrow();
   });
 });
