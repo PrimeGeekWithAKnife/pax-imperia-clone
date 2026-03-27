@@ -75,19 +75,15 @@ import type {
   CombatResolvedEvent,
   TechResearchedEvent,
   ColonyEstablishedEvent,
+  MigrationStartedEvent,
+  MigrationWaveEvent,
+  MigrationOrder,
   GameEvent,
   TacticalState,
   BattleReport,
   EmpireResources,
 } from '@nova-imperia/shared';
 import type { BattleResultsData, BattleShipRecord } from '../ui/screens/BattleResultsScreen.js';
-import {
-  createMigrationOrder,
-  cancelMigration,
-  getActiveMigrations as getMigrationOrders,
-  tickMigrations,
-} from './migration.js';
-import type { MigrationOrder } from './migration.js';
 import { getSaveManager } from './SaveManager.js';
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
@@ -175,6 +171,9 @@ export class GameEngine {
     const prevShipIds = new Set(this.tickState.gameState.ships.map(s => s.id));
     const prevShips = [...this.tickState.gameState.ships];
     const prevFleets = [...this.tickState.gameState.fleets];
+    // Snapshot migration orders before the tick so we can look up order data
+    // even if stepMigrations removes completed orders from the new state.
+    const prevMigrationOrders = [...this.tickState.migrationOrders];
 
     let newState: GameTickState;
     let events: GameEvent[];
@@ -289,6 +288,34 @@ export class GameEngine {
             systemId: ce.systemId,
             planetId: ce.planetId,
           });
+          // Also emit migration_completed so the React UI can show the
+          // colonisation notification and refresh the planet panel.
+          this.game.events.emit('engine:migration_completed', {
+            targetPlanetId: ce.planetId,
+            systemId: ce.systemId,
+            empireId: ce.empireId,
+          });
+          break;
+        }
+        case 'MigrationStarted': {
+          const ms = event as MigrationStartedEvent;
+          this.game.events.emit('engine:migration_started', ms);
+          break;
+        }
+        case 'MigrationWave': {
+          const mw = event as MigrationWaveEvent;
+          // Look up the migration order from the pre-tick snapshot (the order
+          // may have been removed from the post-tick state if it completed).
+          const migOrder = prevMigrationOrders.find(
+            o => o.systemId === mw.systemId && o.empireId === mw.empireId && o.status === 'migrating',
+          );
+          if (migOrder) {
+            this.game.events.emit('engine:migration_wave', {
+              migration: migOrder,
+              waveNumber: 0,
+              colonistsDispatched: mw.departed,
+            });
+          }
           break;
         }
         default:
@@ -359,98 +386,12 @@ export class GameEngine {
     // ── Emit galaxy snapshot so the minimap can refresh ─────────────────────
     this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
 
-    // ── Process active migrations and emit wave events ───────────────────────
-    // Each wave gradually moves population: source loses dispatched, target gains survivors.
-    const waveEvents = tickMigrations();
-    for (const evt of waveEvents) {
-      const mig = evt.migration;
-      const dispatched = evt.colonistsDispatched;
-      const arrived = dispatched - Math.round(dispatched * 0.05); // approx — actual mortality tracked in migration
-
-      // Deduct from source planet, add to target planet (gradual transfer)
-      const systems = this.tickState.gameState.galaxy.systems;
-      const sysIdx = systems.findIndex(s => s.id === mig.systemId);
-      if (sysIdx >= 0) {
-        const sys = systems[sysIdx]!;
-        const updatedPlanets = sys.planets.map(p => {
-          if (p.id === mig.sourcePlanetId) {
-            // Source loses dispatched colonists
-            return { ...p, currentPopulation: Math.max(0, p.currentPopulation - dispatched) };
-          }
-          if (p.id === mig.targetPlanetId && p.ownerId === mig.empireId) {
-            // Target gains survivors (only if already colonised)
-            return { ...p, currentPopulation: p.currentPopulation + arrived };
-          }
-          return p;
-        });
-        const updatedSystems = [...systems];
-        updatedSystems[sysIdx] = { ...sys, planets: updatedPlanets };
-        this.tickState = {
-          ...this.tickState,
-          gameState: {
-            ...this.tickState.gameState,
-            galaxy: { ...this.tickState.gameState.galaxy, systems: updatedSystems },
-          },
-        };
-      }
-
-      this.game.events.emit('engine:migration_wave', {
-        migration: mig,
-        waveNumber: evt.waveNumber,
-        colonistsDispatched: dispatched,
-      });
-      if (mig.status === 'completed') {
-        // If target planet isn't colonised yet (first migration), establish the colony.
-        // We set ownerId and add a starter building directly rather than calling
-        // colonisePlanet(), because that method's validation rejects planets that
-        // already have population (which the migration waves have already transferred).
-        const completedSystems = this.tickState.gameState.galaxy.systems;
-        const targetSys = completedSystems.find(s => s.id === mig.systemId);
-        const targetPlanet = targetSys?.planets.find(p => p.id === mig.targetPlanetId);
-        if (targetPlanet && targetPlanet.ownerId === null && targetSys) {
-          const starterBuilding = {
-            id: `bld-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            type: 'population_center' as BuildingType,
-            level: 1,
-          };
-          const colonisedPlanet = {
-            ...targetPlanet,
-            ownerId: mig.empireId,
-            buildings: [...targetPlanet.buildings, starterBuilding],
-          };
-          const patchedPlanets = targetSys.planets.map(p =>
-            p.id === mig.targetPlanetId ? colonisedPlanet : p,
-          );
-          const patchedSystem = {
-            ...targetSys,
-            planets: patchedPlanets,
-            ownerId: targetSys.ownerId ?? mig.empireId,
-          };
-          const patchedSystems = completedSystems.map(s =>
-            s.id === mig.systemId ? patchedSystem : s,
-          );
-          this.tickState = {
-            ...this.tickState,
-            gameState: {
-              ...this.tickState.gameState,
-              galaxy: { ...this.tickState.gameState.galaxy, systems: patchedSystems },
-            },
-          };
-
-          // Emit colonisation events so the UI refreshes
-          this.game.events.emit('engine:planet_updated', { systemId: mig.systemId, planet: colonisedPlanet });
-          this.game.events.emit('engine:galaxy_updated', this.tickState.gameState.galaxy);
-          this.game.events.emit('engine:planet_colonised', {
-            planetName: colonisedPlanet.name,
-            systemId: mig.systemId,
-            planetId: mig.targetPlanetId,
-          });
-        }
-        this.game.events.emit('engine:migration_completed', mig);
-      }
-    }
-    // Broadcast updated migration list so React stays in sync
-    this.game.events.emit('engine:migrations_updated', getMigrationOrders());
+    // ── Broadcast migration list from the shared game loop state ──────────
+    // The shared game loop's stepMigrations is the single source of truth for
+    // migration processing.  We just forward the current migration orders to
+    // React so the UI stays in sync.
+    this.game.events.emit('engine:migrations_updated',
+      this.tickState.migrationOrders.filter(o => o.status === 'migrating'));
 
     // ── Auto-save (time-based, every 60 seconds of real time) ──────────────
     try {
@@ -1167,15 +1108,28 @@ export class GameEngine {
       return false;
     }
 
-    const order = createMigrationOrder(systemId, sourcePlanetId, targetPlanetId, sourcePlanet.ownerId);
-    if (!order) {
+    // Check no migration is already active for this target planet
+    const existing = this.tickState.migrationOrders.find(
+      o => o.targetPlanetId === targetPlanetId && o.status === 'migrating',
+    );
+    if (existing) {
       console.warn('[GameEngine.startMigration] Migration already active for target planet');
       return false;
     }
 
-    this.game.events.emit('engine:migration_started', order);
-    // Broadcast updated list
-    this.game.events.emit('engine:migrations_updated', getMigrationOrders());
+    // Push a ColonisePlanet action onto pendingActions so the shared game loop
+    // handles migration creation, cost deduction, and event emission next tick.
+    this.tickState = {
+      ...this.tickState,
+      pendingActions: [
+        ...this.tickState.pendingActions,
+        {
+          empireId: sourcePlanet.ownerId,
+          action: { type: 'ColonisePlanet' as const, empireId: sourcePlanet.ownerId, systemId, planetId: targetPlanetId },
+          tick: this.tickState.gameState.currentTick,
+        },
+      ],
+    };
     return true;
   }
 
@@ -1187,23 +1141,33 @@ export class GameEngine {
    * @returns true if a migration was found and cancelled, false otherwise.
    */
   stopMigration(targetPlanetId: string): boolean {
-    const cancelled = cancelMigration(targetPlanetId);
-    if (cancelled) {
-      this.game.events.emit('engine:migration_cancelled', { targetPlanetId });
-      this.game.events.emit('engine:migrations_updated', getMigrationOrders());
-    }
-    return cancelled;
+    const orderIndex = this.tickState.migrationOrders.findIndex(
+      o => o.targetPlanetId === targetPlanetId && o.status === 'migrating',
+    );
+    if (orderIndex === -1) return false;
+
+    // Cancel the migration order directly in the tick state
+    const updatedOrders = [...this.tickState.migrationOrders];
+    updatedOrders[orderIndex] = { ...updatedOrders[orderIndex]!, status: 'cancelled' };
+    this.tickState = { ...this.tickState, migrationOrders: updatedOrders };
+
+    this.game.events.emit('engine:migration_cancelled', { targetPlanetId });
+    this.game.events.emit('engine:migrations_updated',
+      this.tickState.migrationOrders.filter(o => o.status === 'migrating'));
+    return true;
   }
 
   /**
-   * Returns all active (in_progress) migration orders, optionally filtered by
+   * Returns all active (migrating) migration orders, optionally filtered by
    * system ID.
    *
    * This is used by SystemViewScene to determine which ship animations to show
    * and by React components to display migration status.
    */
   getActiveMigrations(systemId?: string): MigrationOrder[] {
-    return getMigrationOrders(systemId);
+    return this.tickState.migrationOrders.filter(
+      o => o.status === 'migrating' && (systemId === undefined || o.systemId === systemId),
+    );
   }
 
   /**
