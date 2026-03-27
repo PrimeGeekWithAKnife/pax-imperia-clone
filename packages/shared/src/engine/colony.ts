@@ -1210,15 +1210,18 @@ export function canBuildOnPlanet(
     };
   }
 
-  // Slot check — zone-aware
+  // Slot check — zone-aware (includes items already queued for construction)
   const slots = getBuildingSlots(planet);
   const zoneSlots = slots[targetZone];
-  if (zoneSlots.used >= zoneSlots.total) {
+  const queuedInZone = planet.productionQueue.filter(
+    q => q.type === 'building' && (q.targetZone ?? 'surface') === targetZone
+  ).length;
+  if (zoneSlots.used + queuedInZone >= zoneSlots.total) {
     return {
       allowed: false,
       reason: targetZone === 'surface'
-        ? `No surface slots available (${zoneSlots.used}/${zoneSlots.total})`
-        : `No ${targetZone} slots available (${zoneSlots.used}/${zoneSlots.total})`,
+        ? `No surface slots available (${zoneSlots.used + queuedInZone}/${zoneSlots.total})`
+        : `No ${targetZone} slots available (${zoneSlots.used + queuedInZone}/${zoneSlots.total})`,
     };
   }
 
