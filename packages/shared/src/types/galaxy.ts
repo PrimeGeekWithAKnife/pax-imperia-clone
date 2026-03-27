@@ -29,6 +29,37 @@ export type StarType =
   | 'neutron'
   | 'binary';
 
+export type PlanetSize =
+  | 'colossal'      // 21 slots
+  | 'gigantic'      // 19 slots
+  | 'very_large'    // 17 slots
+  | 'large'         // 15 slots
+  | 'above_average' // 13 slots
+  | 'average'       // 11 slots
+  | 'below_average' // 9 slots
+  | 'small'         // 7 slots
+  | 'very_small'    // 5 slots
+  | 'tiny';         // 3 slots
+
+export type PlanetModifierType =
+  | 'xenoarchaeology'       // research boost from ancient alien ruins
+  | 'minor_race'            // indigenous sentient species on the planet
+  | 'vicious_storms'        // negative: happiness and construction penalty
+  | 'earthquakes'           // negative: building condition degrades faster
+  | 'beneficial_radiation'  // positive: research and population growth boost
+  | 'unique_bacteria'       // positive: science and organics boost
+  | 'ancient_ruins'         // positive: one-time research windfall on colonisation
+  | 'rich_deposits'         // positive: mineral and resource extraction boost
+  | 'unstable_tectonics'    // negative: random building damage
+  | 'paradise_flora';       // positive: beauty, happiness, and food boost
+
+export interface PlanetModifier {
+  type: PlanetModifierType;
+  effect: 'positive' | 'negative' | 'neutral';
+  label: string;
+  description: string;
+}
+
 export interface Planet {
   id: string;
   name: string;
@@ -38,6 +69,14 @@ export interface Planet {
   gravity: number; // 0.1 to 3.0 (Earth = 1.0)
   temperature: number; // Kelvin
   naturalResources: number; // 0-100 wealth rating
+  /** Planet size tier — determines base surface building slots. Absent in old saves. */
+  size?: PlanetSize;
+  /** Fertility rating 0-100. Low fertility requires hydroponics for food. Absent in old saves. */
+  fertility?: number;
+  /** Beauty rating 0-100. Higher = happier population, economic building bonus. Absent in old saves. */
+  beauty?: number;
+  /** Special modifiers giving unique positive or negative effects. Absent in old saves. */
+  modifiers?: PlanetModifier[];
   maxPopulation: number;
   currentPopulation: number;
   ownerId: string | null;

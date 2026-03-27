@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import type { Planet, Empire, Ship } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
-import { calculateHabitability, canColonize, COLONISATION_MINERAL_COST, COLONIST_TRANSFER_COUNT } from '@nova-imperia/shared';
+import { calculateHabitability, canColonize, COLONISATION_MINERAL_COST, COLONIST_TRANSFER_COUNT, PLANET_SIZE_LABELS, PLANET_SIZE_SLOTS } from '@nova-imperia/shared';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -376,6 +376,57 @@ export function PlanetDetailPanel({
               </span>
             </span>
           </div>
+
+          {/* ── Planet Characteristics ── */}
+          <div className="panel-divider" />
+          <div className="panel-section-label">CHARACTERISTICS</div>
+
+          {planet.size && (
+            <div className="panel-row">
+              <span className="panel-label">Size</span>
+              <span className="panel-value">
+                {PLANET_SIZE_LABELS[planet.size] ?? planet.size}
+                <span className="panel-value--muted"> ({PLANET_SIZE_SLOTS[planet.size] ?? '?'} slots)</span>
+              </span>
+            </div>
+          )}
+
+          {planet.fertility !== undefined && (
+            <div className="panel-row panel-row--column">
+              <span className="panel-label">Fertility</span>
+              <ResourceBar value={planet.fertility} />
+              {planet.fertility <= 20 && (
+                <span className="panel-value--muted panel-value--warning" style={{ fontSize: '9px' }}>
+                  Low fertility — hydroponics required
+                </span>
+              )}
+            </div>
+          )}
+
+          {planet.beauty !== undefined && (
+            <div className="panel-row panel-row--column">
+              <span className="panel-label">Beauty</span>
+              <ResourceBar value={planet.beauty} />
+            </div>
+          )}
+
+          {/* ── Special Modifiers ── */}
+          {planet.modifiers && planet.modifiers.length > 0 && (
+            <>
+              <div className="panel-divider" />
+              <div className="panel-section-label">SPECIAL</div>
+              {planet.modifiers.map((mod, idx) => (
+                <div key={idx} className="panel-row panel-row--column">
+                  <span className={`panel-label panel-modifier panel-modifier--${mod.effect}`}>
+                    {mod.effect === 'positive' ? '+' : mod.effect === 'negative' ? '-' : '~'} {mod.label}
+                  </span>
+                  <span className="panel-value--muted" style={{ fontSize: '9px' }}>
+                    {mod.description}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
 
           {/* ── Resources & Population ── */}
           <div className="panel-divider" />

@@ -215,6 +215,15 @@
   font-style: italic;
 }
 
+.panel-value--warning {
+  color: #cc8844;
+}
+
+.panel-modifier { font-weight: 600; }
+.panel-modifier--positive { color: #44cc66; }
+.panel-modifier--negative { color: #cc4444; }
+.panel-modifier--neutral { color: #88aacc; }
+
 .panel-divider {
   border: none;
   border-top: 1px solid var(--color-border);

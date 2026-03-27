@@ -13,6 +13,7 @@ import type { EmpireResources } from '../types/resources.js';
 import { TECH_AGES } from '../constants/game.js';
 import {
   PLANET_BUILDING_SLOTS,
+  PLANET_SIZE_SLOTS,
   ATMOSPHERE_ADJACENCY,
   BASE_GROWTH_RATE,
   MIN_COLONIZE_HABITABILITY,
@@ -1137,7 +1138,8 @@ const UNDERGROUND_BASE_SLOTS = 3;
  * Underground slots come from underground_complex buildings (3 + level each).
  */
 export function getBuildingSlots(planet: Planet): ZonedSlots {
-  const surfaceTotal = PLANET_BUILDING_SLOTS[planet.type];
+  // Use size-based slots if available (new planets), fall back to type-based (old saves)
+  const surfaceTotal = planet.size ? PLANET_SIZE_SLOTS[planet.size] : PLANET_BUILDING_SLOTS[planet.type];
 
   let orbitalTotal = 0;
   let undergroundTotal = 0;
