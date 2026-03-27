@@ -1569,7 +1569,13 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
             * speciesConstructionFactor;
         }
       }
-      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult;
+
+      // Energy deficit penalty: halve construction rate when planet energy
+      // demand exceeds production (ratio < 1.0).
+      const planetEnergy = state.energyStateMap.get(planet.id);
+      const energyConstructionMult = (planetEnergy && planetEnergy.ratio < 1.0) ? 0.5 : 1.0;
+
+      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult * energyConstructionMult;
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {
@@ -1703,6 +1709,14 @@ function stepShipProduction(state: GameTickState): GameTickState {
   let systems = state.gameState.galaxy.systems;
 
   for (const order of state.productionOrders) {
+    // Energy deficit penalty: skip every other tick (50 % speed) when
+    // the planet's energy demand exceeds production.
+    const planetEnergy = state.energyStateMap.get(order.planetId);
+    if (planetEnergy && planetEnergy.ratio < 1.0 && state.gameState.currentTick % 2 === 0) {
+      remainingOrders.push(order);
+      continue;
+    }
+
     const result = processShipProduction(order);
 
     if (result.completed) {
