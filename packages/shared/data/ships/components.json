@@ -311,5 +311,104 @@
     },
     "cost": 90,
     "requiredTech": "modular_architecture"
+  },
+  {
+    "id": "basic_life_support",
+    "name": "Basic Life Support",
+    "type": "life_support",
+    "description": "Standard crew life support — improves morale recovery rate",
+    "stats": {
+      "moraleRecovery": 2,
+      "crewCapacity": 50
+    },
+    "cost": 30,
+    "requiredTech": null
+  },
+  {
+    "id": "targeting_computer_mk1",
+    "name": "Targeting Computer Mk I",
+    "type": "targeting_computer",
+    "description": "Fire-control system — increases weapon accuracy",
+    "stats": {
+      "accuracyBonus": 10,
+      "trackingSpeed": 5
+    },
+    "cost": 75,
+    "requiredTech": null
+  },
+  {
+    "id": "targeting_computer_mk2",
+    "name": "Targeting Computer Mk II",
+    "type": "targeting_computer",
+    "description": "Advanced fire-control — significantly increases weapon accuracy",
+    "stats": {
+      "accuracyBonus": 20,
+      "trackingSpeed": 12
+    },
+    "cost": 180,
+    "requiredTech": "predictive_targeting"
+  },
+  {
+    "id": "advanced_sensor_suite",
+    "name": "Advanced Sensor Suite",
+    "type": "advanced_sensors",
+    "description": "Long-range detection array with deep-scan capability",
+    "stats": {
+      "sensorRange": 6,
+      "detectionBonus": 15,
+      "stealthPenetration": 10
+    },
+    "cost": 120,
+    "requiredTech": null
+  },
+  {
+    "id": "damage_control_system",
+    "name": "Damage Control System",
+    "type": "damage_control",
+    "description": "Automated repair drones and hull sealant — reduces system damage and repairs hull",
+    "stats": {
+      "repairRate": 3,
+      "systemDamageReduction": 15
+    },
+    "cost": 100,
+    "requiredTech": null
+  },
+  {
+    "id": "ecm_suite_mk1",
+    "name": "ECM Suite Mk I",
+    "type": "ecm_suite",
+    "description": "Electronic countermeasures — reduces enemy weapon accuracy against this ship",
+    "stats": {
+      "evasionBonus": 10,
+      "missileDeflection": 15
+    },
+    "cost": 95,
+    "requiredTech": null
+  },
+  {
+    "id": "ecm_suite_mk2",
+    "name": "ECM Suite Mk II",
+    "type": "ecm_suite",
+    "description": "Advanced electronic warfare suite — greatly reduces enemy accuracy",
+    "stats": {
+      "evasionBonus": 20,
+      "missileDeflection": 30,
+      "sensorJamming": 15
+    },
+    "cost": 250,
+    "requiredTech": "electronic_warfare"
+  },
+  {
+    "id": "advanced_life_support",
+    "name": "Advanced Life Support",
+    "type": "life_support",
+    "description": "Enhanced crew quarters and medical bays — greatly improves morale and crew health",
+    "stats": {
+      "moraleRecovery": 5,
+      "crewCapacity": 100,
+      "healthBonus": 10
+    },
+    "cost": 110,
+    "requiredTech": "advanced_habitation"
   }
 ]

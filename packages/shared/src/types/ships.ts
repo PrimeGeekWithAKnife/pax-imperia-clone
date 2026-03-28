@@ -12,6 +12,14 @@ export type HullClass =
   | 'battle_station'
   | 'deep_space_probe';
 
+/** Slot categories — each slot belongs to exactly one category. */
+export type SlotCategory =
+  | 'weapon'
+  | 'defence'
+  | 'engine'
+  | 'warp_drive'
+  | 'internal';
+
 export interface HullTemplate {
   class: HullClass;
   name: string;
@@ -23,6 +31,8 @@ export interface HullTemplate {
   baseMineralCost?: number;
   baseSpeed: number;
   requiredAge: string; // TechAge required to build
+  /** Hangar configuration — defines how many ships and what class this hull can carry. */
+  hangarSlots?: { count: number; carriesHull: HullClass };
 }
 
 export interface SlotPosition {
@@ -32,6 +42,8 @@ export interface SlotPosition {
   facing: 'fore' | 'aft' | 'port' | 'starboard' | 'turret';
   size: 'small' | 'medium' | 'large';
   allowedTypes: ComponentType[];
+  /** Slot category — determines which section this slot appears in. */
+  category?: SlotCategory;
 }
 
 export type ComponentType =
@@ -46,7 +58,21 @@ export type ComponentType =
   | 'warp_drive'
   | 'sensor'
   | 'repair_drone'
-  | 'special';
+  | 'special'
+  | 'life_support'
+  | 'targeting_computer'
+  | 'advanced_sensors'
+  | 'damage_control'
+  | 'ecm_suite';
+
+/** Component types that belong to each slot category. */
+export const SLOT_CATEGORY_TYPES: Record<SlotCategory, ComponentType[]> = {
+  weapon: ['weapon_beam', 'weapon_projectile', 'weapon_missile', 'weapon_point_defense', 'fighter_bay'],
+  defence: ['shield', 'armor'],
+  engine: ['engine'],
+  warp_drive: ['warp_drive'],
+  internal: ['sensor', 'repair_drone', 'special', 'life_support', 'targeting_computer', 'advanced_sensors', 'damage_control', 'ecm_suite'],
+};
 
 export type WeaponCategory =
   | 'energy'
@@ -72,6 +98,8 @@ export interface ShipDesign {
   components: { slotId: string; componentId: string }[];
   totalCost: number;
   empireId: string;
+  /** Armour plating fraction (0 = none, 1 = maximum). Affects HP and cost. */
+  armourPlating?: number;
 }
 
 export type CrewExperienceLevel = 'green' | 'regular' | 'veteran' | 'elite';
@@ -87,6 +115,8 @@ export interface Ship {
   fleetId: string | null;
   /** Crew experience level, gained through combat. Defaults to 'green' when absent. */
   crewExperience?: CrewExperienceLevel;
+  /** If set, this ship is carried inside another ship (carrier/battle station). */
+  carriedBy?: string;
 }
 
 export interface SystemDamage {
@@ -119,3 +149,19 @@ export type FleetStance =
   | 'defensive'
   | 'evasive'
   | 'patrol';
+
+// ---------------------------------------------------------------------------
+// Armour plating helpers
+// ---------------------------------------------------------------------------
+
+/** Calculate effective hull points with armour plating applied. */
+export function getEffectiveHullPoints(baseHP: number, armourPlating: number): number {
+  const ap = Math.max(0, Math.min(1, armourPlating));
+  return Math.round(baseHP * (1 + 2 * ap));
+}
+
+/** Calculate effective cost with armour plating applied. */
+export function getEffectiveCost(baseCost: number, armourPlating: number): number {
+  const ap = Math.max(0, Math.min(1, armourPlating));
+  return Math.round(baseCost * (1 + 3 * ap));
+}
