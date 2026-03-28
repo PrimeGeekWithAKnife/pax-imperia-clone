@@ -1743,6 +1743,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       if (weapon.type === 'beam') {
         let beamDamage = weapon.damage;
 
+        // Range falloff: damage reduces linearly past 60% of max range (down to 40% at max range)
+        const rangeFraction = d / weapon.range;
+        if (rangeFraction > 0.6) {
+          const falloff = 1.0 - (rangeFraction - 0.6) / 0.4 * 0.6; // 1.0 at 60%, 0.4 at 100%
+          beamDamage *= Math.max(0.4, falloff);
+        }
+
         // Nebula attenuation: reduce beam damage when firing through nebula
         const nebula = segmentPassesThroughFeature(
           ship.position.x, ship.position.y,

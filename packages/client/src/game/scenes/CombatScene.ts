@@ -1226,30 +1226,44 @@ export class CombatScene extends Phaser.Scene {
     this._checkBattleEnd();
   }
 
-  /** Give idle AI ships an attack order against the nearest enemy. */
+  /** Give AI ships attack orders — retarget if idle or current target is dead. */
   private _runAiOrders(): void {
     for (const ship of this.tacticalState.ships) {
       if (ship.destroyed || ship.routed) continue;
       if (this._isPlayerSide(ship)) continue;
-      if (ship.order.type !== 'idle') continue;
 
-      // Find nearest living enemy
-      let nearestId: string | null = null;
-      let nearestDist = Infinity;
-      for (const enemy of this.tacticalState.ships) {
-        if (enemy.destroyed || enemy.routed) continue;
-        if (enemy.side === ship.side) continue;
-        const dx = enemy.position.x - ship.position.x;
-        const dy = enemy.position.y - ship.position.y;
-        const dist = dx * dx + dy * dy;
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestId = enemy.id;
-        }
+      // Check if current attack target is still alive
+      const needsRetarget = ship.order.type === 'idle' ||
+        (ship.order.type === 'attack' && !this.tacticalState.ships.some(
+          s => (s.id === ship.order.type && ship.order.type === 'attack' ? (ship.order as { targetId: string }).targetId : '') && !s.destroyed && !s.routed
+        ));
+
+      // Simpler: always retarget if idle, or if target is dead/routed
+      let currentTargetAlive = false;
+      if (ship.order.type === 'attack') {
+        const tid = (ship.order as { targetId: string }).targetId;
+        currentTargetAlive = this.tacticalState.ships.some(s => s.id === tid && !s.destroyed && !s.routed);
       }
 
-      if (nearestId) {
-        this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'attack', targetId: nearestId });
+      if (ship.order.type === 'idle' || (ship.order.type === 'attack' && !currentTargetAlive)) {
+        // Find nearest living enemy
+        let nearestId: string | null = null;
+        let nearestDist = Infinity;
+        for (const enemy of this.tacticalState.ships) {
+          if (enemy.destroyed || enemy.routed) continue;
+          if (enemy.side === ship.side) continue;
+          const dx = enemy.position.x - ship.position.x;
+          const dy = enemy.position.y - ship.position.y;
+          const d = dx * dx + dy * dy;
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestId = enemy.id;
+          }
+        }
+
+        if (nearestId) {
+          this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'attack', targetId: nearestId });
+        }
       }
     }
   }
