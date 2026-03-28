@@ -5,10 +5,11 @@
  * any state changes returned from these functions.
  */
 
-import type { Fleet, Ship, FleetStance } from '../types/ships.js';
+import type { Fleet, Ship, ShipDesign, ShipComponent, FleetStance } from '../types/ships.js';
 import type { Galaxy } from '../types/galaxy.js';
 import { findPath } from '../pathfinding/astar.js';
 import { generateId } from '../utils/id.js';
+import { designHasWarpDrive } from './ship-design.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -170,6 +171,72 @@ export function removeShipFromFleet(fleet: Fleet, shipId: string): Fleet {
 }
 
 // ---------------------------------------------------------------------------
+// Carrier mechanics — ships carrying ships
+// ---------------------------------------------------------------------------
+
+/**
+ * Load a ship into a carrier's hangar. Returns updated copies of both ships.
+ * Returns null if the carrier cannot carry this ship (wrong hull class, full,
+ * or cargo is already carried).
+ */
+export function loadShipIntoCarrier(
+  carrier: Ship,
+  cargo: Ship,
+  carrierDesign: ShipDesign,
+  cargoDesign: ShipDesign,
+  hullTemplates: Map<string, { hangarSlots?: { count: number; carriesHull: string } }>,
+  allShips: Ship[],
+): { carrier: Ship; cargo: Ship } | null {
+  const carrierHull = hullTemplates.get(carrierDesign.hull);
+  if (!carrierHull?.hangarSlots) return null;
+
+  // Check hull class match
+  if (cargoDesign.hull !== carrierHull.hangarSlots.carriesHull) return null;
+
+  // Check cargo isn't already carried
+  if (cargo.carriedBy) return null;
+
+  // Count how many ships this carrier already holds
+  const currentLoad = allShips.filter(s => s.carriedBy === carrier.id).length;
+  if (currentLoad >= carrierHull.hangarSlots.count) return null;
+
+  return {
+    carrier,
+    cargo: { ...cargo, carriedBy: carrier.id },
+  };
+}
+
+/**
+ * Unload a ship from its carrier. Returns the updated cargo ship with
+ * carriedBy cleared. The fleet must be stationary (not in transit).
+ */
+export function unloadShipFromCarrier(cargo: Ship): Ship {
+  return { ...cargo, carriedBy: undefined };
+}
+
+/**
+ * Get all ships carried by a given carrier (direct children only).
+ */
+export function getCarriedShips(carrierId: string, allShips: Ship[]): Ship[] {
+  return allShips.filter(s => s.carriedBy === carrierId);
+}
+
+/**
+ * Recursively get all ships carried by a carrier, including ships carried by
+ * sub-carriers (e.g. battle station -> carriers -> destroyers).
+ */
+export function getAllCarriedShipsRecursive(carrierId: string, allShips: Ship[]): Ship[] {
+  const result: Ship[] = [];
+  const directChildren = allShips.filter(s => s.carriedBy === carrierId);
+  for (const child of directChildren) {
+    result.push(child);
+    // Recursively get ships carried by this child
+    result.push(...getAllCarriedShipsRecursive(child.id, allShips));
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Fleet movement
 // ---------------------------------------------------------------------------
 
@@ -197,6 +264,53 @@ export function determineTravelMode(empireTechnologies: string[]): TravelMode {
   if (techs.has('artificial_wormholes')) return 'advanced_wormhole';
   if (techs.has('wormhole_stabilisation')) return 'wormhole';
   return 'slow_ftl';
+}
+
+/**
+ * Check which ships in a fleet can travel between star systems (have warp drives)
+ * and which cannot (must be carried).
+ *
+ * Ships with `carriedBy` set are exempt — they travel inside their carrier.
+ */
+export function getFleetWarpStatus(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): { warpCapable: string[]; notWarpCapable: string[] } {
+  const fleetShips = ships.filter(s => fleet.ships.includes(s.id));
+  const warpCapable: string[] = [];
+  const notWarpCapable: string[] = [];
+
+  for (const ship of fleetShips) {
+    // Carried ships are exempt — they travel with their carrier
+    if (ship.carriedBy) {
+      warpCapable.push(ship.id);
+      continue;
+    }
+    const design = designs.get(ship.designId);
+    if (design && designHasWarpDrive(design, components)) {
+      warpCapable.push(ship.id);
+    } else {
+      notWarpCapable.push(ship.id);
+    }
+  }
+
+  return { warpCapable, notWarpCapable };
+}
+
+/**
+ * Returns true if the fleet can travel between star systems.
+ * All non-carried ships must have a warp drive.
+ */
+export function fleetCanWarp(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): boolean {
+  const { notWarpCapable } = getFleetWarpStatus(fleet, ships, designs, components);
+  return notWarpCapable.length === 0;
 }
 
 /**

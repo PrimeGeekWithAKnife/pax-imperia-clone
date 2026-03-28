@@ -755,6 +755,27 @@ export function initializeTacticalCombat(
 ): TacticalState {
   const componentById = new Map(components.map((c) => [c.id, c]));
 
+  // Expand ship arrays to include carried ships (carrier -> destroyer, battle station -> carrier -> destroyer)
+  // This recursively deploys all nested ships for combat.
+  const allProvidedShips = [...attackerShips, ...defenderShips];
+  function expandCarriedShips(sideShips: Ship[]): Ship[] {
+    const expanded: Ship[] = [];
+    for (const ship of sideShips) {
+      expanded.push(ship);
+      // Find ships carried by this one
+      const carried = allProvidedShips.filter(s => s.carriedBy === ship.id);
+      if (carried.length > 0) {
+        expanded.push(...expandCarriedShips(carried));
+      }
+    }
+    return expanded;
+  }
+  // Only expand from top-level (non-carried) ships to avoid duplicates
+  const topAttackers = attackerShips.filter(s => !s.carriedBy);
+  const topDefenders = defenderShips.filter(s => !s.carriedBy);
+  const expandedAttackers = expandCarriedShips(topAttackers);
+  const expandedDefenders = expandCarriedShips(topDefenders);
+
   // For planetary assault, defenders are placed closer to the planet
   const defenderBaseX = layout === 'planetary_assault'
     ? BATTLEFIELD_WIDTH - 250
@@ -809,8 +830,8 @@ export function initializeTacticalCombat(
   }
 
   const ships: TacticalShip[] = [
-    ...buildSide(attackerShips, 'attacker'),
-    ...buildSide(defenderShips, 'defender'),
+    ...buildSide(expandedAttackers, 'attacker'),
+    ...buildSide(expandedDefenders, 'defender'),
   ];
 
   // Add orbital defence platforms for planetary assault
@@ -898,6 +919,14 @@ interface ExtractedStats {
   armour: number;
   sensorRange: number;
   weapons: TacticalWeapon[];
+  /** Accuracy bonus from targeting computers (applied to all weapons). */
+  accuracyBonus: number;
+  /** Evasion bonus from ECM suites (reduces incoming accuracy). */
+  evasionBonus: number;
+  /** Hull repair rate per tick from damage control systems. */
+  repairRate: number;
+  /** Morale recovery bonus from life support systems. */
+  moraleRecovery: number;
 }
 
 /**
@@ -912,6 +941,10 @@ function extractShipStats(
   let maxShields = 0;
   let armour = 0;
   let sensorRange = 0;
+  let accuracyBonus = 0;
+  let evasionBonus = 0;
+  let repairRate = 0;
+  let moraleRecovery = 0;
 
   if (design != null) {
     for (const assignment of design.components) {
@@ -965,11 +998,32 @@ function extractShipStats(
           armour += comp.stats['armorRating'] ?? 0;
           break;
         case 'sensor':
+        case 'advanced_sensors':
           sensorRange = Math.max(sensorRange, (comp.stats['sensorRange'] ?? 0) * RANGE_TO_BATTLEFIELD);
+          break;
+        case 'targeting_computer':
+          accuracyBonus += comp.stats['accuracyBonus'] ?? 0;
+          break;
+        case 'ecm_suite':
+          evasionBonus += comp.stats['evasionBonus'] ?? 0;
+          break;
+        case 'damage_control':
+        case 'repair_drone':
+          repairRate += comp.stats['repairRate'] ?? 0;
+          break;
+        case 'life_support':
+          moraleRecovery += comp.stats['moraleRecovery'] ?? 0;
           break;
         default:
           break;
       }
+    }
+  }
+
+  // Apply accuracy bonus from targeting computers to all weapons
+  if (accuracyBonus > 0) {
+    for (const w of weapons) {
+      w.accuracy = Math.min(100, w.accuracy + accuracyBonus);
     }
   }
 
@@ -980,6 +1034,10 @@ function extractShipStats(
     armour,
     sensorRange: sensorRange > 0 ? sensorRange : DEFAULT_SENSOR_RANGE,
     weapons,
+    accuracyBonus,
+    evasionBonus,
+    repairRate,
+    moraleRecovery,
   };
 }
 
