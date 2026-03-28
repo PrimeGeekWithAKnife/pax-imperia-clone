@@ -1852,16 +1852,18 @@ function stepResearch(
   let empires = state.gameState.empires;
 
   for (const empire of state.gameState.empires) {
-    let researchState = newResearchStates.get(empire.id);
-    if (!researchState) continue;
+    const rawResearchState = newResearchStates.get(empire.id);
+    if (!rawResearchState) continue;
 
     // Sync research state age with empire age to prevent regression.
     // Empire.currentAge is authoritative — researchState.currentAge can lag
     // if a previous save/load cycle or code path advanced one but not the other.
     const empireAgeIdx = TECH_AGES.findIndex(a => a.name === empire.currentAge);
-    const researchAgeIdx = TECH_AGES.findIndex(a => a.name === researchState.currentAge);
+    const researchAgeIdx = TECH_AGES.findIndex(a => a.name === rawResearchState.currentAge);
+    const researchState: ResearchState = empireAgeIdx > researchAgeIdx
+      ? { ...rawResearchState, currentAge: empire.currentAge }
+      : rawResearchState;
     if (empireAgeIdx > researchAgeIdx) {
-      researchState = { ...researchState, currentAge: empire.currentAge };
       newResearchStates.set(empire.id, researchState);
     }
 

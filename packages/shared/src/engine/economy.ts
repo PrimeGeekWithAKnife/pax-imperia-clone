@@ -218,9 +218,9 @@ export function calculateEmpireProduction(
   const bonuses = empire.resourceBonuses;
   if (bonuses) {
     for (const [resource, multiplier] of Object.entries(bonuses)) {
-      if (resource in total && multiplier !== 1) {
-        (total as Record<string, number>)[resource] =
-          Math.round((total as Record<string, number>)[resource] * multiplier);
+      const key = resource as keyof ResourceProduction;
+      if (key in total && multiplier !== 1) {
+        total[key] = Math.round(total[key] * multiplier);
       }
     }
   }
