@@ -32,6 +32,10 @@ export interface CombatSceneData {
   defenderName: string;
   layout?: CombatLayout;
   planetData?: PlanetData;
+  /** Scene to return to after battle ends. Defaults to 'GalaxyMapScene'. */
+  returnScene?: string;
+  /** If true, this is a standalone skirmish — skip engine events. */
+  isSkirmish?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,9 +46,9 @@ const BG_COLOR = 0x050510;
 const STAR_COUNT = 100;
 
 /** Triangle dimensions (pixels) */
-const SHIP_BASE = 12;
-const SHIP_HEIGHT = 18;
-const SELECTION_RING_RADIUS = 14;
+const SHIP_BASE = 22;
+const SHIP_HEIGHT = 30;
+const SELECTION_RING_RADIUS = 24;
 const SELECTION_RING_COLOR = 0xffffff;
 const SELECTION_RING_ALPHA = 0.85;
 
@@ -147,8 +151,12 @@ export class CombatScene extends Phaser.Scene {
   private battleEnded = false;
   private paused = false;
 
-  /** Currently selected friendly TacticalShip id (or null) */
-  private selectedShipId: string | null = null;
+  /** Currently selected friendly TacticalShip ids. */
+  private selectedShipIds = new Set<string>();
+
+  /** Pre-battle overlay is showing (formation/posture selection before combat starts) */
+  private preBattleActive = false;
+  private preBattleGroup: Phaser.GameObjects.Group | null = null;
 
   // ── Speed control ──────────────────────────────────────────────────────────
   private speedIndex = 0;
@@ -192,7 +200,7 @@ export class CombatScene extends Phaser.Scene {
     this.sceneData = data;
     this.battleEnded = false;
     this.paused = false;
-    this.selectedShipId = null;
+    this.selectedShipIds.clear();
     this.speedIndex = 0;
     this.shipContainers.clear();
     this.prevHull.clear();
@@ -254,12 +262,19 @@ export class CombatScene extends Phaser.Scene {
     // ── Input ──────────────────────────────────────────────────────────────
     this._setupInput();
 
-    // ── Tick loop ──────────────────────────────────────────────────────────
+    // ── Prevent browser context menu ──────────────────────────────────────
+    this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ── Tick loop (starts paused for pre-battle overlay) ──────────────────
     this.tickTimer = this.time.addEvent({
       delay: SPEED_PRESETS[0]!.msPerTick,
       loop: true,
       callback: () => this._onTick(),
     });
+    this.tickTimer.paused = true;
+
+    // ── Pre-battle overlay ────────────────────────────────────────────────
+    this._showPreBattleOverlay();
 
     // Emit scene change for React overlay awareness
     this.game.events.emit('scene:change', 'CombatScene');
@@ -448,18 +463,31 @@ export class CombatScene extends Phaser.Scene {
 
       container.add(gfx);
 
-      // Name label below the triangle
-      const label = this.add.text(0, SHIP_BASE / 2 + 4, ship.name, {
+      // Health bar below the triangle
+      const hpBarBg = this.add.graphics();
+      hpBarBg.fillStyle(0x222222, 0.8);
+      hpBarBg.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE, 3);
+      container.add(hpBarBg);
+
+      const hpBar = this.add.graphics();
+      hpBar.fillStyle(0x44ff88, 1);
+      hpBar.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE, 3);
+      container.add(hpBar);
+      container.setData('hpBar', hpBar);
+      container.setData('hpBarBg', hpBarBg);
+
+      // Name label below the health bar
+      const label = this.add.text(0, SHIP_BASE / 2 + 9, ship.name, {
         fontFamily: 'monospace',
-        fontSize: '8px',
+        fontSize: '10px',
         color: '#aabbcc',
         align: 'center',
       });
       label.setOrigin(0.5, 0);
       container.add(label);
 
-      // Make the container interactive for click targeting
-      container.setSize(SHIP_HEIGHT + 4, SHIP_BASE + 8);
+      // Make the container interactive for click targeting — generous hit area
+      container.setSize(SHIP_HEIGHT + 16, SHIP_BASE + 24);
       container.setInteractive();
 
       // Store data on the container for click handlers
@@ -507,10 +535,19 @@ export class CombatScene extends Phaser.Scene {
 
       if (ship.destroyed || ship.routed) continue;
 
-      // Fade alpha based on hull percentage (1.0 at full, 0.35 at near-zero)
+      // Fade alpha based on hull percentage (1.0 at full, 0.5 at near-zero)
       const hullFraction = ship.maxHull > 0 ? ship.hull / ship.maxHull : 1;
-      const alpha = 0.35 + hullFraction * 0.65;
+      const alpha = 0.5 + hullFraction * 0.5;
       container.setAlpha(alpha);
+
+      // Update health bar
+      const hpBar = container.getData('hpBar') as Phaser.GameObjects.Graphics | undefined;
+      if (hpBar) {
+        hpBar.clear();
+        const barColor = hullFraction > 0.5 ? 0x44ff88 : hullFraction > 0.25 ? 0xffcc44 : 0xff4444;
+        hpBar.fillStyle(barColor, 1);
+        hpBar.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE * hullFraction, 3);
+      }
 
       // Damage flash — if hull dropped since last check
       const prev = this.prevHull.get(ship.id) ?? ship.hull;
@@ -723,14 +760,16 @@ export class CombatScene extends Phaser.Scene {
 
   private _drawSelectionRing(): void {
     this.selectionRing.clear();
-    if (!this.selectedShipId) return;
-    const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
-    if (!ship || ship.destroyed || ship.routed) {
-      this.selectedShipId = null;
-      return;
+    if (this.selectedShipIds.size === 0) return;
+    for (const id of this.selectedShipIds) {
+      const ship = this.tacticalState.ships.find(s => s.id === id);
+      if (!ship || ship.destroyed || ship.routed) {
+        this.selectedShipIds.delete(id);
+        continue;
+      }
+      this.selectionRing.lineStyle(2, SELECTION_RING_COLOR, SELECTION_RING_ALPHA);
+      this.selectionRing.strokeCircle(ship.position.x, ship.position.y, SELECTION_RING_RADIUS);
     }
-    this.selectionRing.lineStyle(2, SELECTION_RING_COLOR, SELECTION_RING_ALPHA);
-    this.selectionRing.strokeCircle(ship.position.x, ship.position.y, SELECTION_RING_RADIUS);
   }
 
   // =========================================================================
@@ -893,11 +932,16 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private _updateSelectedInfo(): void {
-    if (!this.selectedShipId) {
+    if (this.selectedShipIds.size === 0) {
       this.selectedInfoLabel.setText('');
       return;
     }
-    const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
+    if (this.selectedShipIds.size > 1) {
+      this.selectedInfoLabel.setText(`${this.selectedShipIds.size} ships selected  |  Ctrl+A = select all`);
+      return;
+    }
+    const shipId = this.selectedShipIds.values().next().value as string;
+    const ship = this.tacticalState.ships.find(s => s.id === shipId);
     if (!ship) {
       this.selectedInfoLabel.setText('');
       return;
@@ -920,68 +964,108 @@ export class CombatScene extends Phaser.Scene {
   // Input
   // =========================================================================
 
+  /** Flag to prevent background click handler when a ship container was clicked. */
+  private _shipClickedThisFrame = false;
+
   private _setupInput(): void {
-    // ESC to deselect
+    // ESC to deselect all
     this.input.keyboard?.on('keydown-ESC', () => {
-      this.selectedShipId = null;
+      this.selectedShipIds.clear();
     });
 
-    // Right-click anywhere in the scene for move/attack orders
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this._handleRightClick(pointer);
+    // Ctrl+A to select all friendly ships
+    this.input.keyboard?.on('keydown-A', (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        this.selectedShipIds.clear();
+        for (const ship of this.tacticalState.ships) {
+          if (this._isPlayerSide(ship) && !ship.destroyed && !ship.routed) {
+            this.selectedShipIds.add(ship.id);
+          }
+        }
       }
     });
 
-    // Left-click on ship containers
+    // Left-click on ship containers — register FIRST so the flag is set before background fires
     for (const [, container] of this.shipContainers) {
       container.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (this.preBattleActive) return;
         if (pointer.leftButtonDown()) {
+          this._shipClickedThisFrame = true;
           this._handleShipLeftClick(container);
         }
       });
     }
+
+    // Left-click anywhere — move order if clicking empty space with a selected ship
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.preBattleActive) return;
+      if (pointer.leftButtonDown()) {
+        if (this._shipClickedThisFrame) {
+          this._shipClickedThisFrame = false;
+          return;
+        }
+        this._handleLeftClickBackground(pointer);
+      }
+    });
   }
 
   private _handleShipLeftClick(container: Phaser.GameObjects.Container): void {
     const shipId = container.getData('shipId') as string;
-    const side = container.getData('side') as 'attacker' | 'defender';
     const ship = this.tacticalState.ships.find(s => s.id === shipId);
     if (!ship) return;
 
     if (this._isPlayerSide(ship)) {
-      // Clicking a friendly ship — select it
-      this.selectedShipId = shipId;
-    } else if (this.selectedShipId) {
+      // Clicking a friendly ship — select it (replace selection unless Shift held)
+      this.selectedShipIds.clear();
+      this.selectedShipIds.add(shipId);
+    } else if (this.selectedShipIds.size > 0) {
       // Clicking an enemy ship while we have a selection — attack order
       this._issueOrder({ type: 'attack', targetId: shipId });
     }
   }
 
-  private _handleRightClick(pointer: Phaser.Input.Pointer): void {
-    if (!this.selectedShipId) return;
+  /** Left-click on empty space — move/attack order for all selected ships. */
+  private _handleLeftClickBackground(pointer: Phaser.Input.Pointer): void {
+    if (this.selectedShipIds.size === 0) return;
 
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
-    // Check if right-clicked on an enemy ship
+    // Check if we clicked near an enemy ship — attack instead
     for (const ship of this.tacticalState.ships) {
       if (ship.destroyed || ship.routed) continue;
       if (this._isPlayerSide(ship)) continue;
       const dx = worldPoint.x - ship.position.x;
       const dy = worldPoint.y - ship.position.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
         this._issueOrder({ type: 'attack', targetId: ship.id });
         return;
       }
     }
 
-    // Otherwise — move order
+    // Check if we clicked near a friendly ship — select it instead
+    for (const ship of this.tacticalState.ships) {
+      if (ship.destroyed || ship.routed) continue;
+      if (!this._isPlayerSide(ship)) continue;
+      const dx = worldPoint.x - ship.position.x;
+      const dy = worldPoint.y - ship.position.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        this.selectedShipIds.clear();
+        this.selectedShipIds.add(ship.id);
+        return;
+      }
+    }
+
+    // Empty space — move order for all selected ships
     this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
   }
 
+  /** Issue an order to all currently selected ships. */
   private _issueOrder(order: ShipOrder): void {
-    if (!this.selectedShipId) return;
-    this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, order);
+    if (this.selectedShipIds.size === 0) return;
+    for (const id of this.selectedShipIds) {
+      this.tacticalState = setShipOrder(this.tacticalState, id, order);
+    }
   }
 
   // =========================================================================
@@ -1079,11 +1163,12 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private _admiralRepair(): void {
-    if (!this.selectedShipId) return;
+    if (this.selectedShipIds.size === 0) return;
     const side = this._getPlayerSide();
     const admiral = this.tacticalState.admirals.find((a) => a.side === side);
     if (!admiral || admiral.emergencyRepairUsed) return;
-    this.tacticalState = admiralEmergencyRepair(this.tacticalState, side, this.selectedShipId);
+    const targetId = this.selectedShipIds.values().next().value as string;
+    this.tacticalState = admiralEmergencyRepair(this.tacticalState, side, targetId);
     this.repairButton.setColor('#333344');
     this._updateAdmiralHUD();
   }
@@ -1114,11 +1199,42 @@ export class CombatScene extends Phaser.Scene {
   private _onTick(): void {
     if (this.battleEnded) return;
 
+    // AI logic: idle non-player ships attack nearest enemy
+    this._runAiOrders();
+
     this.tacticalState = processTacticalTick(this.tacticalState);
     this.tickLabel.setText(`Tick: ${this.tacticalState.tick}`);
 
     // Check for battle end
     this._checkBattleEnd();
+  }
+
+  /** Give idle AI ships an attack order against the nearest enemy. */
+  private _runAiOrders(): void {
+    for (const ship of this.tacticalState.ships) {
+      if (ship.destroyed || ship.routed) continue;
+      if (this._isPlayerSide(ship)) continue;
+      if (ship.order.type !== 'idle') continue;
+
+      // Find nearest living enemy
+      let nearestId: string | null = null;
+      let nearestDist = Infinity;
+      for (const enemy of this.tacticalState.ships) {
+        if (enemy.destroyed || enemy.routed) continue;
+        if (enemy.side === ship.side) continue;
+        const dx = enemy.position.x - ship.position.x;
+        const dy = enemy.position.y - ship.position.y;
+        const dist = dx * dx + dy * dy;
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestId = enemy.id;
+        }
+      }
+
+      if (nearestId) {
+        this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'attack', targetId: nearestId });
+      }
+    }
   }
 
   private _checkBattleEnd(): void {
@@ -1157,6 +1273,12 @@ export class CombatScene extends Phaser.Scene {
 
     // After 2 seconds, check whether to transition to ground combat or end
     this.time.delayedCall(2000, () => {
+      // Skirmish mode — show stats overlay and return to menu
+      if (this.sceneData.isSkirmish) {
+        this._showSkirmishResults(playerWon, resultColor);
+        return;
+      }
+
       // If attacker won a planetary assault, transition to ground combat
       if (
         this.tacticalState.outcome === 'attacker_wins' &&
@@ -1203,7 +1325,225 @@ export class CombatScene extends Phaser.Scene {
       }
 
       this.game.events.emit('combat:tactical_complete', this.tacticalState);
-      this.scene.start('GalaxyMapScene', {});
+      this.scene.start(this.sceneData.returnScene ?? 'GalaxyMapScene', {});
     });
+  }
+
+  /** Show post-battle statistics overlay for skirmish mode. */
+  private _showSkirmishResults(playerWon: boolean, _resultColor: string): void {
+    const { width, height } = this.scale;
+    const ships = this.tacticalState.ships;
+    const ticks = this.tacticalState.tick;
+
+    const attackerTotal = ships.filter(s => s.side === 'attacker').length;
+    const attackerLost = ships.filter(s => s.side === 'attacker' && s.destroyed).length;
+    const attackerRouted = ships.filter(s => s.side === 'attacker' && s.routed).length;
+    const defenderTotal = ships.filter(s => s.side === 'defender').length;
+    const defenderLost = ships.filter(s => s.side === 'defender' && s.destroyed).length;
+    const defenderRouted = ships.filter(s => s.side === 'defender' && s.routed).length;
+
+    // Dark overlay
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75);
+    overlay.setScrollFactor(0).setDepth(300).setInteractive();
+
+    // Panel background — matching pre-battle style
+    const panelW = Math.min(820, width * 0.8);
+    const panelH = Math.min(580, height * 0.8);
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelBg = this.add.rectangle(panelX, panelY, panelW, panelH, 0x080814, 0.95);
+    panelBg.setStrokeStyle(1, 0x00d4ff, 0.4);
+    panelBg.setScrollFactor(0).setDepth(301);
+
+    const topY = panelY - panelH / 2;
+    const resultText = playerWon ? 'VICTORY' : 'DEFEAT';
+    const resultGlow = playerWon ? '#44ff88' : '#ff4444';
+
+    // Title
+    this.add.text(panelX, topY + 50, resultText, {
+      fontFamily: 'monospace', fontSize: '42px', color: resultGlow,
+      shadow: { offsetX: 0, offsetY: 0, color: resultGlow, blur: 24, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+
+    // Duration
+    this.add.text(panelX, topY + 105, `Battle duration: ${ticks} ticks`, {
+      fontFamily: 'monospace', fontSize: '16px', color: '#667788',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+
+    // Two-column fleet summaries
+    const colLeft = panelX - panelW * 0.22;
+    const colRight = panelX + panelW * 0.22;
+    const sumY = topY + 155;
+
+    // Attacker column
+    this.add.text(colLeft, sumY, this.sceneData.attackerName, {
+      fontFamily: 'monospace', fontSize: '20px', color: this.sceneData.attackerColor,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+    this.add.text(colLeft, sumY + 30,
+      `${attackerTotal} ships  |  ${attackerLost} lost  |  ${attackerRouted} routed`, {
+      fontFamily: 'monospace', fontSize: '14px', color: '#aabbcc',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+
+    // Defender column
+    this.add.text(colRight, sumY, this.sceneData.defenderName, {
+      fontFamily: 'monospace', fontSize: '20px', color: this.sceneData.defenderColor,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+    this.add.text(colRight, sumY + 30,
+      `${defenderTotal} ships  |  ${defenderLost} lost  |  ${defenderRouted} routed`, {
+      fontFamily: 'monospace', fontSize: '14px', color: '#aabbcc',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+
+    // Per-ship breakdown
+    const shipY = sumY + 70;
+    const attackerShips = ships.filter(s => s.side === 'attacker');
+    const defenderShips = ships.filter(s => s.side === 'defender');
+    const maxRows = Math.max(attackerShips.length, defenderShips.length);
+
+    for (let i = 0; i < maxRows; i++) {
+      if (i < attackerShips.length) {
+        const s = attackerShips[i];
+        const status = s.destroyed ? 'DESTROYED' : s.routed ? 'ROUTED' : `${Math.round(s.hull)}/${s.maxHull} HP`;
+        const color = s.destroyed ? '#ff4444' : s.routed ? '#ffaa44' : '#44ff88';
+        this.add.text(colLeft, shipY + i * 22, `${s.name}  ${status}`, {
+          fontFamily: 'monospace', fontSize: '13px', color,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+      }
+      if (i < defenderShips.length) {
+        const s = defenderShips[i];
+        const status = s.destroyed ? 'DESTROYED' : s.routed ? 'ROUTED' : `${Math.round(s.hull)}/${s.maxHull} HP`;
+        const color = s.destroyed ? '#ff4444' : s.routed ? '#ffaa44' : '#44ff88';
+        this.add.text(colRight, shipY + i * 22, `${s.name}  ${status}`, {
+          fontFamily: 'monospace', fontSize: '13px', color,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+      }
+    }
+
+    // "Back to Menu" button
+    const btnText = this.add.text(panelX, topY + panelH - 70, '[ BACK TO MENU ]', {
+      fontFamily: 'monospace', fontSize: '32px', color: '#00d4ff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 20, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(302).setInteractive({ useHandCursor: true });
+
+    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
+    btnText.on('pointerout', () => btnText.setColor('#00d4ff'));
+    btnText.on('pointerdown', () => {
+      this.scene.start(this.sceneData.returnScene ?? 'MainMenuScene', {});
+    });
+  }
+
+  // =========================================================================
+  // Pre-battle overlay (formation + posture selection)
+  // =========================================================================
+
+  private _showPreBattleOverlay(): void {
+    this.preBattleActive = true;
+    this.preBattleGroup = this.add.group();
+    const { width, height } = this.scale;
+
+    // Semi-transparent overlay
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75);
+    overlay.setScrollFactor(0).setDepth(400).setInteractive();
+    this.preBattleGroup.add(overlay);
+
+    // ── Panel background ──
+    const panelW = Math.min(820, width * 0.8);
+    const panelH = Math.min(580, height * 0.8);
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelBg = this.add.rectangle(panelX, panelY, panelW, panelH, 0x080814, 0.95);
+    panelBg.setStrokeStyle(1, 0x00d4ff, 0.4);
+    panelBg.setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(panelBg);
+
+    const topY = panelY - panelH / 2;
+
+    // ── Title ──
+    const title = this.add.text(panelX, topY + 50, 'BATTLE STATIONS', {
+      fontFamily: 'monospace', fontSize: '42px', color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 24, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(title);
+
+    // ── Matchup ──
+    const matchup = this.add.text(panelX, topY + 110,
+      `${this.sceneData.attackerName}  vs  ${this.sceneData.defenderName}`, {
+      fontFamily: 'monospace', fontSize: '22px', color: '#aabbcc',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(matchup);
+
+    // ── Ship counts ──
+    const playerSide = this._getPlayerSide();
+    const playerShipCount = this.tacticalState.ships.filter(s => s.side === playerSide).length;
+    const enemyShipCount = this.tacticalState.ships.filter(s => s.side !== playerSide).length;
+    const counts = this.add.text(panelX, topY + 148,
+      `Your fleet: ${playerShipCount} ships    Enemy fleet: ${enemyShipCount} ships`, {
+      fontFamily: 'monospace', fontSize: '16px', color: '#667788',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(counts);
+
+    // ── Formation label ──
+    const fmLabel = this.add.text(panelX, topY + 210, 'CHOOSE FORMATION', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#aabbcc', letterSpacing: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(fmLabel);
+
+    // ── Formation buttons ──
+    let selectedFormation: FormationType = 'line';
+    const fmButtons: Phaser.GameObjects.Text[] = [];
+    const btnSpacing = 160;
+
+    FORMATION_TYPES.forEach((fm, i) => {
+      const x = panelX + (i - 1.5) * btnSpacing;
+      const btn = this.add.text(x, topY + 260, fm.label, {
+        fontFamily: 'monospace', fontSize: '26px',
+        color: fm.type === selectedFormation ? '#44ffaa' : '#6688aa',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(402).setInteractive({ useHandCursor: true });
+
+      btn.on('pointerdown', () => {
+        selectedFormation = fm.type;
+        fmButtons.forEach((b, j) => b.setColor(j === i ? '#44ffaa' : '#6688aa'));
+        const side = this._getPlayerSide();
+        this.tacticalState = setFormation(this.tacticalState, side, fm.type);
+      });
+      btn.on('pointerover', () => btn.setColor('#ffffff'));
+      btn.on('pointerout', () => btn.setColor(fm.type === selectedFormation ? '#44ffaa' : '#6688aa'));
+
+      fmButtons.push(btn);
+      this.preBattleGroup!.add(btn);
+    });
+
+    // ── Controls hints ──
+    const hints = [
+      'Click a ship to select, then click to move or attack',
+      'Ctrl+A to select all ships  |  ESC to deselect',
+    ];
+    hints.forEach((line, i) => {
+      const hint = this.add.text(panelX, topY + 340 + i * 28, line, {
+        fontFamily: 'monospace', fontSize: '15px', color: '#556677',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+      this.preBattleGroup!.add(hint);
+    });
+
+    // ── ENGAGE button ──
+    const engageBtn = this.add.text(panelX, topY + panelH - 70, '[ ENGAGE ]', {
+      fontFamily: 'monospace', fontSize: '40px', color: '#00d4ff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 28, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402).setInteractive({ useHandCursor: true });
+    this.preBattleGroup.add(engageBtn);
+
+    engageBtn.on('pointerover', () => engageBtn.setColor('#ffffff'));
+    engageBtn.on('pointerout', () => engageBtn.setColor('#00d4ff'));
+    engageBtn.on('pointerdown', () => {
+      this._dismissPreBattle();
+    });
+  }
+
+  private _dismissPreBattle(): void {
+    if (this.preBattleGroup) {
+      this.preBattleGroup.clear(true, true);
+      this.preBattleGroup = null;
+    }
+    this.preBattleActive = false;
+    this.tickTimer.paused = false;
   }
 }

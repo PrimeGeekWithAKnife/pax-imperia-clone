@@ -1494,6 +1494,20 @@ export class GameEngine {
     return this.tickState;
   }
 
+  /** Register or update a ship design in the engine state. */
+  saveShipDesign(design: ShipDesign): void {
+    const updatedDesigns = new Map(this.tickState.shipDesigns ?? []);
+    updatedDesigns.set(design.id, design);
+    this.tickState = { ...this.tickState, shipDesigns: updatedDesigns };
+  }
+
+  /** Remove a ship design from the engine state. */
+  deleteShipDesign(designId: string): void {
+    const updatedDesigns = new Map(this.tickState.shipDesigns ?? []);
+    updatedDesigns.delete(designId);
+    this.tickState = { ...this.tickState, shipDesigns: updatedDesigns };
+  }
+
   // ── Espionage ────────────────────────────────────────────────────────────
 
   /**

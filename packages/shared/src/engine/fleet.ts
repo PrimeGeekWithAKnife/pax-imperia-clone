@@ -5,10 +5,11 @@
  * any state changes returned from these functions.
  */
 
-import type { Fleet, Ship, FleetStance } from '../types/ships.js';
+import type { Fleet, Ship, ShipDesign, ShipComponent, FleetStance } from '../types/ships.js';
 import type { Galaxy } from '../types/galaxy.js';
 import { findPath } from '../pathfinding/astar.js';
 import { generateId } from '../utils/id.js';
+import { designHasWarpDrive } from './ship-design.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -170,6 +171,75 @@ export function removeShipFromFleet(fleet: Fleet, shipId: string): Fleet {
 }
 
 // ---------------------------------------------------------------------------
+// Carrier mechanics — ships carrying ships
+// ---------------------------------------------------------------------------
+
+/**
+ * Load a ship into a carrier's hangar. Returns updated copies of both ships.
+ * Returns null if the carrier cannot carry this ship (wrong hull class, full,
+ * or cargo is already carried).
+ */
+export function loadShipIntoCarrier(
+  carrier: Ship,
+  cargo: Ship,
+  carrierDesign: ShipDesign,
+  cargoDesign: ShipDesign,
+  hullTemplates: Map<string, { hangarSlots?: { count: number; carries: Array<{ hull: string; quantity: number }> } }>,
+  allShips: Ship[],
+): { carrier: Ship; cargo: Ship } | null {
+  const carrierHull = hullTemplates.get(carrierDesign.hull);
+  if (!carrierHull?.hangarSlots) return null;
+
+  // Check if this hull class is one of the carriable options
+  const carryOption = carrierHull.hangarSlots.carries.find(c => c.hull === cargoDesign.hull);
+  if (!carryOption) return null;
+
+  // Check cargo isn't already carried
+  if (cargo.carriedBy) return null;
+
+  // Count total bay capacity used. Each bay holds one option's full quantity.
+  // For simplicity: count carried ships of each type and check against bay limits.
+  const carried = allShips.filter(s => s.carriedBy === carrier.id);
+  const totalBaysUsed = Math.ceil(carried.length / Math.max(1, carryOption.quantity));
+  if (totalBaysUsed >= carrierHull.hangarSlots.count) return null;
+
+  return {
+    carrier,
+    cargo: { ...cargo, carriedBy: carrier.id },
+  };
+}
+
+/**
+ * Unload a ship from its carrier. Returns the updated cargo ship with
+ * carriedBy cleared. The fleet must be stationary (not in transit).
+ */
+export function unloadShipFromCarrier(cargo: Ship): Ship {
+  return { ...cargo, carriedBy: undefined };
+}
+
+/**
+ * Get all ships carried by a given carrier (direct children only).
+ */
+export function getCarriedShips(carrierId: string, allShips: Ship[]): Ship[] {
+  return allShips.filter(s => s.carriedBy === carrierId);
+}
+
+/**
+ * Recursively get all ships carried by a carrier, including ships carried by
+ * sub-carriers (e.g. battle station -> carriers -> destroyers).
+ */
+export function getAllCarriedShipsRecursive(carrierId: string, allShips: Ship[]): Ship[] {
+  const result: Ship[] = [];
+  const directChildren = allShips.filter(s => s.carriedBy === carrierId);
+  for (const child of directChildren) {
+    result.push(child);
+    // Recursively get ships carried by this child
+    result.push(...getAllCarriedShipsRecursive(child.id, allShips));
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Fleet movement
 // ---------------------------------------------------------------------------
 
@@ -197,6 +267,111 @@ export function determineTravelMode(empireTechnologies: string[]): TravelMode {
   if (techs.has('artificial_wormholes')) return 'advanced_wormhole';
   if (techs.has('wormhole_stabilisation')) return 'wormhole';
   return 'slow_ftl';
+}
+
+/**
+ * Base ticks per hop when no warp drive stats are available (fallback).
+ * With ship-level warp calculation, this is only used as a ceiling.
+ */
+const BASE_TICKS_PER_HOP = 20;
+
+/**
+ * Calculate ticks per hop for a fleet based on the slowest warp-capable ship.
+ *
+ * Warp speed is determined by: warpDrive.warpSpeed + (enginePower / 10).
+ * More engine power means faster jumps. The fleet moves at the speed of its
+ * slowest warp-capable ship (carried ships are excluded).
+ *
+ * Returns ticks per hop (lower = faster). Minimum 2.
+ */
+export function calculateFleetWarpSpeed(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): number {
+  const componentById = new Map(components.map(c => [c.id, c]));
+  let slowestSpeed = Infinity;
+
+  const fleetShips = ships.filter(s => fleet.ships.includes(s.id) && !s.carriedBy);
+
+  for (const ship of fleetShips) {
+    const design = designs.get(ship.designId);
+    if (!design) continue;
+
+    let warpSpeed = 0;
+    let powerOutput = 0;
+
+    for (const assignment of design.components) {
+      const comp = componentById.get(assignment.componentId);
+      if (!comp) continue;
+      if (comp.type === 'warp_drive') {
+        warpSpeed = Math.max(warpSpeed, comp.stats['warpSpeed'] ?? 0);
+      }
+      if (comp.type === 'engine') {
+        powerOutput += comp.stats['powerOutput'] ?? 0;
+      }
+    }
+
+    if (warpSpeed === 0) continue; // no warp drive — skip (shouldn't be in fleet)
+
+    // Effective warp speed: base warp + power bonus (every 10 power = +1 warp speed)
+    const effectiveSpeed = warpSpeed + Math.floor(powerOutput / 10);
+    slowestSpeed = Math.min(slowestSpeed, effectiveSpeed);
+  }
+
+  if (slowestSpeed === Infinity) return BASE_TICKS_PER_HOP;
+
+  // Convert speed to ticks: higher speed = fewer ticks. Speed 2 = 20 ticks, speed 10 = 4 ticks.
+  const ticks = Math.max(2, Math.round(40 / slowestSpeed));
+  return ticks;
+}
+
+/**
+ * Check which ships in a fleet can travel between star systems (have warp drives)
+ * and which cannot (must be carried).
+ *
+ * Ships with `carriedBy` set are exempt — they travel inside their carrier.
+ */
+export function getFleetWarpStatus(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): { warpCapable: string[]; notWarpCapable: string[] } {
+  const fleetShips = ships.filter(s => fleet.ships.includes(s.id));
+  const warpCapable: string[] = [];
+  const notWarpCapable: string[] = [];
+
+  for (const ship of fleetShips) {
+    // Carried ships are exempt — they travel with their carrier
+    if (ship.carriedBy) {
+      warpCapable.push(ship.id);
+      continue;
+    }
+    const design = designs.get(ship.designId);
+    if (design && designHasWarpDrive(design, components)) {
+      warpCapable.push(ship.id);
+    } else {
+      notWarpCapable.push(ship.id);
+    }
+  }
+
+  return { warpCapable, notWarpCapable };
+}
+
+/**
+ * Returns true if the fleet can travel between star systems.
+ * All non-carried ships must have a warp drive.
+ */
+export function fleetCanWarp(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): boolean {
+  const { notWarpCapable } = getFleetWarpStatus(fleet, ships, designs, components);
+  return notWarpCapable.length === 0;
 }
 
 /**

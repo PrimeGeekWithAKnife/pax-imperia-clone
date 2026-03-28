@@ -420,7 +420,16 @@ export function applyTechEffects(empire: Empire, tech: Technology): Empire {
         break;
       }
 
-      case 'resource_bonus':
+      case 'resource_bonus': {
+        // Accumulate resource production multipliers.
+        // Multipliers stack multiplicatively: 1.5 * 1.2 = 1.8x total.
+        const bonuses = { ...(updated.resourceBonuses ?? {}) };
+        const current = bonuses[effect.resource] ?? 1;
+        bonuses[effect.resource] = current * effect.multiplier;
+        updated = { ...updated, resourceBonuses: bonuses };
+        break;
+      }
+
       case 'unlock_hull':
       case 'unlock_component':
       case 'unlock_building':

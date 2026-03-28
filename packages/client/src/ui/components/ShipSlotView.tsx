@@ -31,6 +31,11 @@ const COMPONENT_TYPE_COLOR: Record<ComponentType, string> = {
   sensor:              'var(--slot-color-sensor)',
   repair_drone:        'var(--slot-color-repair)',
   special:             'var(--slot-color-special)',
+  life_support:        'var(--slot-color-internal, #88aacc)',
+  targeting_computer:  'var(--slot-color-internal, #88aacc)',
+  advanced_sensors:    'var(--slot-color-sensor)',
+  damage_control:      'var(--slot-color-repair)',
+  ecm_suite:           'var(--slot-color-internal, #88aacc)',
 };
 
 const FACING_ARROW: Record<SlotPosition['facing'], string> = {

@@ -214,6 +214,17 @@ export function calculateEmpireProduction(
     addPartial(total, planetProduction.production);
   }
 
+  // Apply tech-derived resource production multipliers (e.g. +50% energy from Dyson Collectors)
+  const bonuses = empire.resourceBonuses;
+  if (bonuses) {
+    for (const [resource, multiplier] of Object.entries(bonuses)) {
+      const key = resource as keyof ResourceProduction;
+      if (key in total && multiplier !== 1) {
+        total[key] = Math.round(total[key] * multiplier);
+      }
+    }
+  }
+
   return { total, perPlanet };
 }
 
