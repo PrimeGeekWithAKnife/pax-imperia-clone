@@ -590,15 +590,22 @@ export function App(): React.ReactElement {
   const handleOpenSkirmish = useCallback(() => {
     setCurrentScreen('skirmish');
     setIsPaused(false);
+    // Disable Phaser input so MainMenuScene buttons don't receive clicks through the overlay
+    const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as Phaser.Game | undefined;
+    if (phaserGame) phaserGame.input.enabled = false;
   }, []);
 
   const handleCloseSkirmish = useCallback(() => {
     setCurrentScreen('game');
+    const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as Phaser.Game | undefined;
+    if (phaserGame) phaserGame.input.enabled = true;
   }, []);
 
   const handleStartSkirmish = useCallback((config: SkirmishConfig) => {
     const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as Phaser.Game | undefined;
     if (!phaserGame) return;
+    // Re-enable Phaser input for the CombatScene
+    phaserGame.input.enabled = true;
 
     const playerEmpireId = generateId();
     const aiEmpireId = generateId();
