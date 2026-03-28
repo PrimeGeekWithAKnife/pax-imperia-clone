@@ -252,14 +252,39 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
         </select>
       </div>
 
-      {/* Ship roster */}
+      {/* Add ship buttons — immediately below species picker */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>
-          FLEET ({ships.length}/{MAX_SHIPS})
+          ADD SHIPS ({ships.length}/{MAX_SHIPS})
         </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+          {availableHulls.map(h => (
+            <button
+              key={h.class}
+              onClick={() => onAddShip(h.class)}
+              disabled={ships.length >= MAX_SHIPS}
+              style={{
+                background: ships.length >= MAX_SHIPS ? 'rgba(20, 20, 30, 0.3)' : 'rgba(0, 40, 60, 0.5)',
+                border: '1px solid var(--color-border)',
+                color: ships.length >= MAX_SHIPS ? 'var(--color-text-muted)' : 'var(--color-text)',
+                fontFamily: 'var(--font-mono)', fontSize: 10,
+                padding: '4px 8px', cursor: ships.length >= MAX_SHIPS ? 'not-allowed' : 'pointer',
+                letterSpacing: '0.05em',
+              }}
+              title={`${h.name} — ${h.hp} HP`}
+            >
+              + {h.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Current ships */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+      {/* Fleet roster */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>
+          FLEET
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {ships.map((hull, i) => {
             const tmpl = HULL_TEMPLATE_BY_CLASS[hull];
             return (
@@ -293,26 +318,6 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
             </div>
           )}
         </div>
-
-        {/* Add ship buttons */}
-        {ships.length < MAX_SHIPS && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {availableHulls.map(h => (
-              <button
-                key={h.class}
-                onClick={() => onAddShip(h.class)}
-                style={{
-                  background: 'rgba(0, 40, 60, 0.5)', border: '1px solid var(--color-border)',
-                  color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: 10,
-                  padding: '4px 8px', cursor: 'pointer', letterSpacing: '0.05em',
-                }}
-                title={`${h.name} — ${h.hp} HP`}
-              >
-                + {h.name}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
