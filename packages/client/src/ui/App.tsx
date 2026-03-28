@@ -26,6 +26,8 @@ import { FleetPanel } from './components/FleetPanel';
 import { SpeciesCreatorScreen } from './screens/SpeciesCreatorScreen';
 import { GameSetupScreen } from './screens/GameSetupScreen';
 import type { GameConfig } from './screens/GameSetupScreen';
+import { SkirmishSetupScreen } from './screens/SkirmishSetupScreen';
+import type { SkirmishConfig } from './screens/SkirmishSetupScreen';
 import { PauseMenu } from './screens/PauseMenu';
 import { SaveLoadScreen } from './screens/SaveLoadScreen';
 import type { SaveLoadTab } from './screens/SaveLoadScreen';
@@ -55,8 +57,17 @@ import type { GameLogEntry } from './components/EventLog';
 import { VictoryTracker } from './components/VictoryTracker';
 import { calculateVictoryProgress } from '@nova-imperia/shared';
 import type { VictoryProgress } from '@nova-imperia/shared';
+import {
+  generateDefaultDesigns,
+  getAvailableComponents,
+  autoEquipDesign,
+  generateId,
+  HULL_TEMPLATE_BY_CLASS,
+  SHIP_COMPONENTS,
+} from '@nova-imperia/shared';
+import type { HullClass } from '@nova-imperia/shared';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'victory';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'victory' | 'skirmish';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -573,6 +584,128 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
     setGameStarted(true);
     setIsPaused(false);
+  }, []);
+
+  // ── Skirmish (Space Battle) handlers ──
+  const handleOpenSkirmish = useCallback(() => {
+    setCurrentScreen('skirmish');
+    setIsPaused(false);
+  }, []);
+
+  const handleCloseSkirmish = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleStartSkirmish = useCallback((config: SkirmishConfig) => {
+    const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as Phaser.Game | undefined;
+    if (!phaserGame) return;
+
+    const playerEmpireId = generateId();
+    const aiEmpireId = generateId();
+    const playerFleetId = generateId();
+    const aiFleetId = generateId();
+
+    // Use all components for skirmish — tech age only gates which hulls are available
+    const availableComponents = SHIP_COMPONENTS;
+    const designs = new Map<string, ShipDesign>();
+
+    const makeDesign = (hull: HullClass, empireId: string): ShipDesign => {
+      const template = HULL_TEMPLATE_BY_CLASS[hull];
+      if (!template) throw new Error(`Unknown hull: ${hull}`);
+      const equipped = autoEquipDesign(template, availableComponents);
+      // autoEquipDesign returns a full ShipDesign — override id, name, empireId, cost
+      const design: ShipDesign = {
+        ...equipped,
+        id: generateId(),
+        name: template.name,
+        empireId,
+        totalCost: template.baseCost + equipped.components.reduce((sum, c) => {
+          const comp = SHIP_COMPONENTS.find(sc => sc.id === c.componentId);
+          return sum + (comp?.cost ?? 0);
+        }, 0),
+      };
+      designs.set(design.id, design);
+      return design;
+    };
+
+    // Build ships for each side
+    const playerShips: Ship[] = config.playerShips.map(hull => {
+      const design = makeDesign(hull, playerEmpireId);
+      const hp = HULL_TEMPLATE_BY_CLASS[hull]?.baseHullPoints ?? 60;
+      const ship: Ship = {
+        id: generateId(),
+        designId: design.id,
+        name: design.name,
+        hullPoints: hp,
+        maxHullPoints: hp,
+        systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
+        position: { systemId: 'skirmish' },
+        fleetId: playerFleetId,
+      };
+      return ship;
+    });
+
+    const aiShips: Ship[] = config.aiShips.map(hull => {
+      const design = makeDesign(hull, aiEmpireId);
+      const hp = HULL_TEMPLATE_BY_CLASS[hull]?.baseHullPoints ?? 60;
+      const ship: Ship = {
+        id: generateId(),
+        designId: design.id,
+        name: design.name,
+        hullPoints: hp,
+        maxHullPoints: hp,
+        systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
+        position: { systemId: 'skirmish' },
+        fleetId: aiFleetId,
+      };
+      return ship;
+    });
+
+    const playerFleet: Fleet = {
+      id: playerFleetId,
+      name: `${config.playerSpecies.name} Fleet`,
+      ships: playerShips.map(s => s.id),
+      empireId: playerEmpireId,
+      position: { systemId: 'skirmish' },
+      destination: null,
+      waypoints: [],
+      stance: 'aggressive',
+    };
+
+    const aiFleet: Fleet = {
+      id: aiFleetId,
+      name: `${config.aiSpecies.name} Fleet`,
+      ships: aiShips.map(s => s.id),
+      empireId: aiEmpireId,
+      position: { systemId: 'skirmish' },
+      destination: null,
+      waypoints: [],
+      stance: 'aggressive',
+    };
+
+    const combatData = {
+      attackerFleet: playerFleet,
+      defenderFleet: aiFleet,
+      attackerShips: playerShips,
+      defenderShips: aiShips,
+      designs,
+      components: SHIP_COMPONENTS,
+      playerEmpireId,
+      attackerColor: '#00d4ff',
+      defenderColor: '#ff6644',
+      attackerName: config.playerSpecies.name,
+      defenderName: config.aiSpecies.name,
+      layout: 'open_space' as const,
+      returnScene: 'MainMenuScene',
+      isSkirmish: true,
+    };
+
+    setCurrentScreen('game');
+    // Launch combat scene directly
+    const activeScene = phaserGame.scene.getScenes(true)[0];
+    if (activeScene) {
+      activeScene.scene.start('CombatScene', combatData);
+    }
   }, []);
 
   // Phaser emits this to open the research screen
@@ -1359,6 +1492,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('ui:new_game', handleNewGame);
   useGameEvent<void>('ui:load_game', handleOpenLoadGame);
   useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
+  useGameEvent<void>('ui:skirmish', handleOpenSkirmish);
   useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
@@ -1854,6 +1988,18 @@ export function App(): React.ReactElement {
           playerName={playerEmpire.species.name || 'Commander'}
           onBack={handleCloseMultiplayer}
           onGameStart={handleMultiplayerGameStart}
+        />
+      </div>
+    );
+  }
+
+  // Render skirmish setup screen as full-screen overlay
+  if (currentScreen === 'skirmish') {
+    return (
+      <div className="ui-overlay">
+        <SkirmishSetupScreen
+          onBack={handleCloseSkirmish}
+          onStartBattle={handleStartSkirmish}
         />
       </div>
     );

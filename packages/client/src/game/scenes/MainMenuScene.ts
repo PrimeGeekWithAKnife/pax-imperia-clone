@@ -291,8 +291,16 @@ export class MainMenuScene extends Phaser.Scene {
         },
       },
       {
-        label: 'Multiplayer',
+        label: 'Space Battle',
         yFrac: 0.59 + resumeOffset,
+        action: () => {
+          this.sfx?.playClick();
+          this.game.events.emit('ui:skirmish');
+        },
+      },
+      {
+        label: 'Multiplayer',
+        yFrac: 0.67 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.game.events.emit('ui:multiplayer');
@@ -300,7 +308,7 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         label: 'Settings',
-        yFrac: 0.67 + resumeOffset,
+        yFrac: 0.75 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.game.events.emit('ui:settings');
@@ -308,7 +316,7 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         label: 'Credits',
-        yFrac: 0.75 + resumeOffset,
+        yFrac: 0.83 + resumeOffset,
         action: () => {
           this.sfx?.playClick();
           this.showCreditsOverlay(width, height);

@@ -32,6 +32,10 @@ export interface CombatSceneData {
   defenderName: string;
   layout?: CombatLayout;
   planetData?: PlanetData;
+  /** Scene to return to after battle ends. Defaults to 'GalaxyMapScene'. */
+  returnScene?: string;
+  /** If true, this is a standalone skirmish — skip engine events. */
+  isSkirmish?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1157,6 +1161,12 @@ export class CombatScene extends Phaser.Scene {
 
     // After 2 seconds, check whether to transition to ground combat or end
     this.time.delayedCall(2000, () => {
+      // Skirmish mode — show stats overlay and return to menu
+      if (this.sceneData.isSkirmish) {
+        this._showSkirmishResults(playerWon, resultColor);
+        return;
+      }
+
       // If attacker won a planetary assault, transition to ground combat
       if (
         this.tacticalState.outcome === 'attacker_wins' &&
@@ -1203,7 +1213,100 @@ export class CombatScene extends Phaser.Scene {
       }
 
       this.game.events.emit('combat:tactical_complete', this.tacticalState);
-      this.scene.start('GalaxyMapScene', {});
+      this.scene.start(this.sceneData.returnScene ?? 'GalaxyMapScene', {});
+    });
+  }
+
+  /** Show post-battle statistics overlay for skirmish mode. */
+  private _showSkirmishResults(_playerWon: boolean, _resultColor: string): void {
+    const { width, height } = this.scale;
+    const ships = this.tacticalState.ships;
+    const ticks = this.tacticalState.tick;
+
+    const attackerTotal = ships.filter(s => s.side === 'attacker').length;
+    const attackerLost = ships.filter(s => s.side === 'attacker' && s.destroyed).length;
+    const attackerRouted = ships.filter(s => s.side === 'attacker' && s.routed).length;
+    const defenderTotal = ships.filter(s => s.side === 'defender').length;
+    const defenderLost = ships.filter(s => s.side === 'defender' && s.destroyed).length;
+    const defenderRouted = ships.filter(s => s.side === 'defender' && s.routed).length;
+
+    // Dark overlay
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+    overlay.setScrollFactor(0).setDepth(300);
+
+    const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#aabbcc',
+    };
+
+    const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 12, fill: true },
+    };
+
+    const y0 = height * 0.25;
+    this.add.text(width / 2, y0, 'BATTLE RESULTS', headerStyle)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+
+    const lines = [
+      `Duration: ${ticks} ticks`,
+      ``,
+      `${this.sceneData.attackerName} (Attacker)`,
+      `  Ships: ${attackerTotal}  |  Lost: ${attackerLost}  |  Routed: ${attackerRouted}  |  Surviving: ${attackerTotal - attackerLost}`,
+      ``,
+      `${this.sceneData.defenderName} (Defender)`,
+      `  Ships: ${defenderTotal}  |  Lost: ${defenderLost}  |  Routed: ${defenderRouted}  |  Surviving: ${defenderTotal - defenderLost}`,
+    ];
+
+    lines.forEach((line, i) => {
+      this.add.text(width / 2, y0 + 40 + i * 22, line, textStyle)
+        .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+    });
+
+    // Per-ship breakdown
+    const shipY = y0 + 40 + lines.length * 22 + 20;
+    this.add.text(width * 0.3, shipY, 'ATTACKER SHIPS', { ...textStyle, color: this.sceneData.attackerColor })
+      .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+    this.add.text(width * 0.7, shipY, 'DEFENDER SHIPS', { ...textStyle, color: this.sceneData.defenderColor })
+      .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+
+    const attackerShips = ships.filter(s => s.side === 'attacker');
+    const defenderShips = ships.filter(s => s.side === 'defender');
+    const maxRows = Math.max(attackerShips.length, defenderShips.length);
+
+    for (let i = 0; i < maxRows; i++) {
+      if (i < attackerShips.length) {
+        const s = attackerShips[i];
+        const status = s.destroyed ? '[DESTROYED]' : s.routed ? '[ROUTED]' : `${Math.round(s.hull)}/${s.maxHull} HP`;
+        const color = s.destroyed ? '#ff4444' : s.routed ? '#ffaa44' : '#44ff88';
+        this.add.text(width * 0.3, shipY + 20 + i * 18, `${s.name}  ${status}`, { ...textStyle, fontSize: '11px', color })
+          .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+      }
+      if (i < defenderShips.length) {
+        const s = defenderShips[i];
+        const status = s.destroyed ? '[DESTROYED]' : s.routed ? '[ROUTED]' : `${Math.round(s.hull)}/${s.maxHull} HP`;
+        const color = s.destroyed ? '#ff4444' : s.routed ? '#ffaa44' : '#44ff88';
+        this.add.text(width * 0.7, shipY + 20 + i * 18, `${s.name}  ${status}`, { ...textStyle, fontSize: '11px', color })
+          .setOrigin(0.5).setScrollFactor(0).setDepth(301);
+      }
+    }
+
+    // "Back to Menu" button
+    const btnY = Math.min(shipY + 20 + maxRows * 18 + 40, height * 0.88);
+    const btnText = this.add.text(width / 2, btnY, '[ BACK TO MENU ]', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#00d4ff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 14, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(301).setInteractive({ useHandCursor: true });
+
+    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
+    btnText.on('pointerout', () => btnText.setColor('#00d4ff'));
+    btnText.on('pointerdown', () => {
+      this.scene.start(this.sceneData.returnScene ?? 'MainMenuScene', {});
     });
   }
 }
