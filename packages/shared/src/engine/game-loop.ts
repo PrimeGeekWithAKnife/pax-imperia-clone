@@ -625,10 +625,15 @@ function processPlayerActions(
           continue;
         }
 
-        // Check affordability and deduct building cost from the empire's resource stockpile (with zone cost multiplier)
+        // Check affordability and deduct building cost (zone multiplier + government buildingCost modifier)
         const buildDef = BUILDING_DEFINITIONS[buildingType as BuildingType];
         if (buildDef) {
-          const costMultiplier = ZONE_COST_MULTIPLIER[targetZone] ?? 1;
+          const zoneMultiplier = ZONE_COST_MULTIPLIER[targetZone] ?? 1;
+          const buildingEmpire = empires.find(e => e.id === empireId);
+          const govBuildingCostMult = buildingEmpire
+            ? (GOVERNMENTS[buildingEmpire.government]?.modifiers.buildingCost ?? 1.0)
+            : 1.0;
+          const costMultiplier = zoneMultiplier * govBuildingCostMult;
           const res = getEmpireResources(state, empireId);
 
           // Verify the empire can afford the building before deducting
@@ -970,7 +975,17 @@ function stepCombatResolution(
       defenderDesigns,
     };
 
-    const outcome = autoResolveCombat(setup, components);
+    // Compute combat multipliers from species combat trait (1-10, normalised to 0.7-1.3)
+    // and government combatBonus (e.g. 1.0, 1.5, 0.85)
+    const attackerEmpire = state.gameState.empires.find(e => e.id === attackerFleet.empireId);
+    const defenderEmpire = state.gameState.empires.find(e => e.id === defenderFleet.empireId);
+    const traitToMult = (trait: number) => 0.7 + (trait / 10) * 0.6; // trait 1 = 0.76, trait 5 = 1.0, trait 10 = 1.3
+    const attackerGov = attackerEmpire ? GOVERNMENTS[attackerEmpire.government] : undefined;
+    const defenderGov = defenderEmpire ? GOVERNMENTS[defenderEmpire.government] : undefined;
+    const attackerMult = traitToMult(attackerEmpire?.species.traits.combat ?? 5) * (attackerGov?.combatBonus ?? 1.0);
+    const defenderMult = traitToMult(defenderEmpire?.species.traits.combat ?? 5) * (defenderGov?.combatBonus ?? 1.0);
+
+    const outcome = autoResolveCombat(setup, components, attackerMult, defenderMult);
 
     // Build a minimal CombatState to use applyCombatResults
     // We only need the ship lists; applyCombatResults handles the rest.
@@ -1571,7 +1586,10 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
             * speciesConstructionFactor;
         }
       }
-      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult;
+      // Energy deficit halves construction speed
+      const empireResources = empire ? state.empireResourcesMap.get(empire.id) : undefined;
+      const energyMult = empireResources ? getEnergyStatus(empireResources).constructionMultiplier : 1.0;
+      const constructionRate = (BASE_CONSTRUCTION_RATE + factoryOutput) * govConstructionMult * energyMult;
       const updatedPlanet = processConstructionQueue(planet, constructionRate);
 
       if (updatedPlanet !== planet) {
@@ -1970,6 +1988,7 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
  */
 function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState {
   let espState = state.espionageState;
+  let systems = state.gameState.galaxy.systems;
 
   // 1. Recalculate passive counter-intel from communications_hub buildings
   for (const empire of state.gameState.empires) {
@@ -2031,6 +2050,37 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
       });
     }
 
+    // Sabotage: destroy a random building on a target empire's planet
+    if (evt.type === 'sabotage') {
+      const targetEmpire = empires.find(e => e.id === evt.targetEmpireId);
+      if (targetEmpire) {
+        // Find a random planet with buildings owned by the target
+        const targetPlanets: { systemIdx: number; planetIdx: number }[] = [];
+        for (let si = 0; si < systems.length; si++) {
+          for (let pi = 0; pi < systems[si].planets.length; pi++) {
+            const p = systems[si].planets[pi];
+            if (p.ownerId === evt.targetEmpireId && p.buildings.length > 0) {
+              targetPlanets.push({ systemIdx: si, planetIdx: pi });
+            }
+          }
+        }
+        if (targetPlanets.length > 0) {
+          const pick = targetPlanets[Math.floor(Math.random() * targetPlanets.length)];
+          const planet = systems[pick.systemIdx].planets[pick.planetIdx];
+          const buildingIdx = Math.floor(Math.random() * planet.buildings.length);
+          const destroyedBuilding = planet.buildings[buildingIdx];
+          const updatedBuildings = planet.buildings.filter((_, i) => i !== buildingIdx);
+          const updatedPlanet = { ...planet, buildings: updatedBuildings };
+          systems = systems.map((sys, si) =>
+            si === pick.systemIdx
+              ? { ...sys, planets: sys.planets.map((p, pi) => pi === pick.planetIdx ? updatedPlanet : p) }
+              : sys,
+          );
+          console.log(`[Espionage] Sabotage destroyed ${destroyedBuilding.type} on ${planet.name}`);
+        }
+      }
+    }
+
     // Push a typed game event so the UI event log can pick it up
     const espEvent: EspionageResultEvent = {
       type: 'EspionageResult',
@@ -2051,6 +2101,7 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
     gameState: {
       ...state.gameState,
       empires,
+      galaxy: { ...state.gameState.galaxy, systems },
     },
   };
 }

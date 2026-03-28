@@ -103,7 +103,35 @@ export interface ShipDesign {
   armourPlating?: number;
 }
 
-export type CrewExperienceLevel = 'green' | 'regular' | 'veteran' | 'elite';
+export type CrewExperienceLevel =
+  | 'recruit'     // Level 1 — I
+  | 'trained'     // Level 2 — II
+  | 'regular'     // Level 3 — III
+  | 'seasoned'    // Level 4 — ‹
+  | 'veteran'     // Level 5 — ‹‹
+  | 'hardened'    // Level 6 — ‹‹‹
+  | 'elite'       // Level 7 — ★
+  | 'ace'         // Level 8 — ★★
+  | 'legendary';  // Level 9 — ★★★
+
+/** Ordered list of experience levels for promotion logic. */
+export const EXPERIENCE_LEVELS: readonly CrewExperienceLevel[] = [
+  'recruit', 'trained', 'regular', 'seasoned', 'veteran',
+  'hardened', 'elite', 'ace', 'legendary',
+];
+
+/** Visual indicator for each experience level. */
+export const EXPERIENCE_INSIGNIA: Record<CrewExperienceLevel, string> = {
+  recruit:   'I',
+  trained:   'II',
+  regular:   'III',
+  seasoned:  '\u2039',       // ‹
+  veteran:   '\u2039\u2039', // ‹‹
+  hardened:  '\u2039\u2039\u2039', // ‹‹‹
+  elite:     '\u2605',       // ★
+  ace:       '\u2605\u2605', // ★★
+  legendary: '\u2605\u2605\u2605', // ★★★
+};
 
 export interface Ship {
   id: string;

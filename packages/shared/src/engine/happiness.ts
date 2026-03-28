@@ -150,11 +150,21 @@ export function calculatePlanetHappiness(
     factors.push({ label: 'Energy deficit', points: pts });
   }
 
-  // ── Food / organics shortage ──────────────────────────────────────────────
+  // ── Food / organics — graduated scale ─────────────────────────────────────
+  // Surplus (>200): +5 bonus. Adequate (50-200): no effect.
+  // Low (1-49): -10 warning. Zero: -25 starvation crisis.
   if (empireResources.organics <= 0) {
-    const pts = -20;
+    const pts = -25;
+    score += pts;
+    factors.push({ label: 'Starvation crisis', points: pts });
+  } else if (empireResources.organics < 50) {
+    const pts = -10;
     score += pts;
     factors.push({ label: 'Food shortage', points: pts });
+  } else if (empireResources.organics > 200) {
+    const pts = 5;
+    score += pts;
+    factors.push({ label: 'Food abundance', points: pts });
   }
 
   // ── War ───────────────────────────────────────────────────────────────────

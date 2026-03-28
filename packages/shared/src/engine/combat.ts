@@ -608,8 +608,32 @@ export function processCombatTick(
 export function autoResolveCombat(
   setup: CombatSetup,
   allComponents: ShipComponent[],
+  /** Combined combat multiplier for attacker (species combat trait * government combatBonus). */
+  attackerMultiplier = 1.0,
+  /** Combined combat multiplier for defender. */
+  defenderMultiplier = 1.0,
 ): CombatOutcome {
   let state = initializeCombat(setup, allComponents);
+
+  // Apply combat multipliers to initial ship morale and hull (simulates trait/government advantage)
+  if (attackerMultiplier !== 1.0) {
+    state = {
+      ...state,
+      attackerShips: state.attackerShips.map(s => ({
+        ...s,
+        morale: Math.min(100, s.morale * attackerMultiplier),
+      })),
+    };
+  }
+  if (defenderMultiplier !== 1.0) {
+    state = {
+      ...state,
+      defenderShips: state.defenderShips.map(s => ({
+        ...s,
+        morale: Math.min(100, s.morale * defenderMultiplier),
+      })),
+    };
+  }
 
   while (state.outcome === null && state.tick < MAX_TICKS) {
     state = processCombatTick(

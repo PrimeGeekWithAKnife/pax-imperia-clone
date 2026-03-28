@@ -151,7 +151,7 @@ export type ShipOrder =
   | { type: 'move'; x: number; y: number }
   | { type: 'flee' };
 
-export type CrewExperience = 'green' | 'regular' | 'veteran' | 'elite';
+export type CrewExperience = 'recruit' | 'trained' | 'regular' | 'seasoned' | 'veteran' | 'hardened' | 'elite' | 'ace' | 'legendary';
 
 export interface Crew {
   morale: number;        // 0-100
@@ -823,7 +823,7 @@ export function initializeTacticalCombat(
         crew: {
           morale: 80,
           health: 100,
-          experience: 'regular' as CrewExperience,
+          experience: (ship.crewExperience ?? 'regular') as CrewExperience,
         },
       };
     });
@@ -1691,10 +1691,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Accuracy roll — experience and morale affect hit chance
       // Fighter bays always launch (accuracy is per-fighter, handled elsewhere)
       if (weapon.type !== 'fighter_bay') {
-        const expAccuracyMod = ship.crew.experience === 'elite' ? 1.15
-          : ship.crew.experience === 'veteran' ? 1.1
-          : ship.crew.experience === 'regular' ? 1.0
-          : 0.85; // green
+        const EXP_ACCURACY: Record<CrewExperience, number> = {
+          recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
+          veteran: 1.10, hardened: 1.15, elite: 1.20, ace: 1.25, legendary: 1.30,
+        };
+        const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
         const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
         const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod;
         if (Math.random() * 100 > effectiveAccuracy) {
@@ -1865,11 +1866,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     if (ship.hull < ship.maxHull * 0.3) morale -= 0.3;
 
     // Experience resilience bonus (partially offsets losses)
-    const resilienceBonus =
-      ship.crew.experience === 'elite' ? 0.15
-      : ship.crew.experience === 'veteran' ? 0.1
-      : ship.crew.experience === 'regular' ? 0.05
-      : 0;
+    const EXP_RESILIENCE: Record<CrewExperience, number> = {
+      recruit: 0, trained: 0.02, regular: 0.05, seasoned: 0.08, veteran: 0.10,
+      hardened: 0.13, elite: 0.15, ace: 0.18, legendary: 0.20,
+    };
+    const resilienceBonus = EXP_RESILIENCE[ship.crew.experience] ?? 0;
     morale += resilienceBonus;
 
     morale = Math.max(0, Math.min(100, morale));
@@ -1999,12 +2000,10 @@ export function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip
  * Compute the number of tactical pauses an admiral gets based on experience.
  */
 export function admiralPauseCount(experience: CrewExperience): number {
-  switch (experience) {
-    case 'green': return 1;
-    case 'regular': return 2;
-    case 'veteran': return 3;
-    case 'elite': return 4;
-  }
+  const idx = EXP_LEVELS.indexOf(experience);
+  if (idx < 0) return 1;
+  // 1 pause at recruit, scaling to 5 at legendary
+  return 1 + Math.floor(idx / 2);
 }
 
 /**
@@ -2104,7 +2103,10 @@ export function admiralPause(
 // Experience gain
 // ---------------------------------------------------------------------------
 
-const EXP_LEVELS: readonly CrewExperience[] = ['green', 'regular', 'veteran', 'elite'];
+const EXP_LEVELS: readonly CrewExperience[] = [
+  'recruit', 'trained', 'regular', 'seasoned', 'veteran',
+  'hardened', 'elite', 'ace', 'legendary',
+];
 
 /**
  * Calculate post-combat experience promotion for a ship's crew.

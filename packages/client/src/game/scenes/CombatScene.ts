@@ -11,7 +11,8 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CrewExperience } from '@nova-imperia/shared';
+import { EXPERIENCE_INSIGNIA } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
 // ---------------------------------------------------------------------------
@@ -462,6 +463,22 @@ export class CombatScene extends Phaser.Scene {
       gfx.strokePath();
 
       container.add(gfx);
+
+      // Experience insignia above the triangle
+      const insignia = EXPERIENCE_INSIGNIA[ship.crew.experience as keyof typeof EXPERIENCE_INSIGNIA] ?? '';
+      if (insignia) {
+        const isRoman = ['I', 'II', 'III'].includes(insignia);
+        const insigniaColor = insignia.includes('\u2605') ? '#ffdd44' : isRoman ? '#aabbcc' : '#44ddff';
+        const insigniaLabel = this.add.text(0, -SHIP_BASE / 2 - 10, insignia, {
+          fontFamily: 'monospace',
+          fontSize: '8px',
+          color: insigniaColor,
+          align: 'center',
+        });
+        insigniaLabel.setOrigin(0.5, 1);
+        container.add(insigniaLabel);
+        container.setData('insigniaLabel', insigniaLabel);
+      }
 
       // Health bar below the triangle
       const hpBarBg = this.add.graphics();

@@ -33,6 +33,7 @@ import {
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
 import { GOVERNMENTS } from '../types/government.js';
 import { ZONE_MAINTENANCE_MULTIPLIER } from './colony.js';
+import { isBuildingFunctional } from './building-condition.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -136,6 +137,9 @@ export function calculatePlanetProduction(
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];
     if (!def) continue;
+
+    // Non-functional buildings (condition <= 70%) produce nothing
+    if (!isBuildingFunctional(building.condition ?? 100)) continue;
 
     // Start from the building's base production.
     let scaledOutput: Partial<ResourceProduction> = scalePartial(
