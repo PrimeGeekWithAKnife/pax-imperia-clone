@@ -1576,5 +1576,11 @@ export class CombatScene extends Phaser.Scene {
     }
     this.preBattleActive = false;
     this.tickTimer.paused = false;
+
+    // Debug: log ship weapons for both sides
+    for (const ship of this.tacticalState.ships) {
+      const weaponList = ship.weapons.map(w => `${w.type}(dmg:${w.damage},rng:${w.range})`).join(', ');
+      console.log(`[Combat] ${ship.side} ${ship.name} — ${ship.weapons.length} weapons: ${weaponList} | HP:${ship.hull}/${ship.maxHull} SPD:${ship.speed}`);
+    }
   }
 }
