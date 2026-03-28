@@ -154,6 +154,10 @@ export class CombatScene extends Phaser.Scene {
   /** Currently selected friendly TacticalShip id (or null) */
   private selectedShipId: string | null = null;
 
+  /** Pre-battle overlay is showing (formation/posture selection before combat starts) */
+  private preBattleActive = false;
+  private preBattleGroup: Phaser.GameObjects.Group | null = null;
+
   // ── Speed control ──────────────────────────────────────────────────────────
   private speedIndex = 0;
   private tickTimer!: Phaser.Time.TimerEvent;
@@ -258,12 +262,19 @@ export class CombatScene extends Phaser.Scene {
     // ── Input ──────────────────────────────────────────────────────────────
     this._setupInput();
 
-    // ── Tick loop ──────────────────────────────────────────────────────────
+    // ── Prevent browser context menu ──────────────────────────────────────
+    this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ── Tick loop (starts paused for pre-battle overlay) ──────────────────
     this.tickTimer = this.time.addEvent({
       delay: SPEED_PRESETS[0]!.msPerTick,
       loop: true,
       callback: () => this._onTick(),
     });
+    this.tickTimer.paused = true;
+
+    // ── Pre-battle overlay ────────────────────────────────────────────────
+    this._showPreBattleOverlay();
 
     // Emit scene change for React overlay awareness
     this.game.events.emit('scene:change', 'CombatScene');
@@ -930,18 +941,22 @@ export class CombatScene extends Phaser.Scene {
       this.selectedShipId = null;
     });
 
-    // Right-click anywhere in the scene for move/attack orders
+    // Left-click anywhere — move order if clicking empty space with a selected ship
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this._handleRightClick(pointer);
+      if (this.preBattleActive) return;
+      if (pointer.leftButtonDown()) {
+        this._handleLeftClickBackground(pointer);
       }
     });
 
-    // Left-click on ship containers
+    // Left-click on ship containers (higher priority than background)
     for (const [, container] of this.shipContainers) {
       container.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (this.preBattleActive) return;
         if (pointer.leftButtonDown()) {
           this._handleShipLeftClick(container);
+          // Stop propagation so the background handler doesn't fire a move order
+          pointer.event.stopPropagation();
         }
       });
     }
@@ -962,24 +977,37 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  private _handleRightClick(pointer: Phaser.Input.Pointer): void {
+  /** Left-click on empty space — move order for the selected ship. */
+  private _handleLeftClickBackground(pointer: Phaser.Input.Pointer): void {
     if (!this.selectedShipId) return;
 
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
-    // Check if right-clicked on an enemy ship
+    // Check if we clicked near an enemy ship — attack instead
     for (const ship of this.tacticalState.ships) {
       if (ship.destroyed || ship.routed) continue;
       if (this._isPlayerSide(ship)) continue;
       const dx = worldPoint.x - ship.position.x;
       const dy = worldPoint.y - ship.position.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
         this._issueOrder({ type: 'attack', targetId: ship.id });
         return;
       }
     }
 
-    // Otherwise — move order
+    // Check if we clicked near a friendly ship — select it instead
+    for (const ship of this.tacticalState.ships) {
+      if (ship.destroyed || ship.routed) continue;
+      if (!this._isPlayerSide(ship)) continue;
+      const dx = worldPoint.x - ship.position.x;
+      const dy = worldPoint.y - ship.position.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        this.selectedShipId = ship.id;
+        return;
+      }
+    }
+
+    // Empty space — move order
     this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
   }
 
@@ -1118,11 +1146,42 @@ export class CombatScene extends Phaser.Scene {
   private _onTick(): void {
     if (this.battleEnded) return;
 
+    // AI logic: idle non-player ships attack nearest enemy
+    this._runAiOrders();
+
     this.tacticalState = processTacticalTick(this.tacticalState);
     this.tickLabel.setText(`Tick: ${this.tacticalState.tick}`);
 
     // Check for battle end
     this._checkBattleEnd();
+  }
+
+  /** Give idle AI ships an attack order against the nearest enemy. */
+  private _runAiOrders(): void {
+    for (const ship of this.tacticalState.ships) {
+      if (ship.destroyed || ship.routed) continue;
+      if (this._isPlayerSide(ship)) continue;
+      if (ship.order.type !== 'idle') continue;
+
+      // Find nearest living enemy
+      let nearestId: string | null = null;
+      let nearestDist = Infinity;
+      for (const enemy of this.tacticalState.ships) {
+        if (enemy.destroyed || enemy.routed) continue;
+        if (enemy.side === ship.side) continue;
+        const dx = enemy.position.x - ship.position.x;
+        const dy = enemy.position.y - ship.position.y;
+        const dist = dx * dx + dy * dy;
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestId = enemy.id;
+        }
+      }
+
+      if (nearestId) {
+        this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'attack', targetId: nearestId });
+      }
+    }
   }
 
   private _checkBattleEnd(): void {
@@ -1308,5 +1367,116 @@ export class CombatScene extends Phaser.Scene {
     btnText.on('pointerdown', () => {
       this.scene.start(this.sceneData.returnScene ?? 'MainMenuScene', {});
     });
+  }
+
+  // =========================================================================
+  // Pre-battle overlay (formation + posture selection)
+  // =========================================================================
+
+  private _showPreBattleOverlay(): void {
+    this.preBattleActive = true;
+    this.preBattleGroup = this.add.group();
+    const { width, height } = this.scale;
+
+    // Semi-transparent overlay
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
+    overlay.setScrollFactor(0).setDepth(400);
+    this.preBattleGroup.add(overlay);
+
+    const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'monospace', fontSize: '24px', color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 16, fill: true },
+    };
+    const labelStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'monospace', fontSize: '12px', color: '#aabbcc', letterSpacing: 2,
+    };
+    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'monospace', fontSize: '14px', color: '#6688aa',
+    };
+    const btnActiveStyle = { color: '#44ffaa' };
+
+    // Title
+    const title = this.add.text(width / 2, height * 0.2, 'BATTLE STATIONS', headerStyle)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(title);
+
+    // Subtitle
+    const sub = this.add.text(width / 2, height * 0.2 + 34,
+      `${this.sceneData.attackerName}  vs  ${this.sceneData.defenderName}`, labelStyle)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(sub);
+
+    // Formation selection
+    const fmLabel = this.add.text(width / 2, height * 0.38, 'FORMATION', labelStyle)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(fmLabel);
+
+    let selectedFormation: FormationType = 'line';
+    const fmButtons: Phaser.GameObjects.Text[] = [];
+
+    FORMATION_TYPES.forEach((fm, i) => {
+      const x = width / 2 + (i - 1.5) * 100;
+      const btn = this.add.text(x, height * 0.38 + 28, fm.label, {
+        ...btnStyle,
+        color: fm.type === selectedFormation ? btnActiveStyle.color : btnStyle.color,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+
+      btn.on('pointerdown', () => {
+        selectedFormation = fm.type;
+        fmButtons.forEach((b, j) => b.setColor(j === i ? btnActiveStyle.color : (btnStyle.color as string)));
+        // Apply formation immediately to preview
+        const side = this._getPlayerSide();
+        this.tacticalState = setFormation(this.tacticalState, side, fm.type);
+      });
+      btn.on('pointerover', () => btn.setColor('#ffffff'));
+      btn.on('pointerout', () => btn.setColor(fm.type === selectedFormation ? btnActiveStyle.color : (btnStyle.color as string)));
+
+      fmButtons.push(btn);
+      this.preBattleGroup!.add(btn);
+    });
+
+    // Ship count info
+    const playerSide = this._getPlayerSide();
+    const playerShipCount = this.tacticalState.ships.filter(s => s.side === playerSide).length;
+    const enemyShipCount = this.tacticalState.ships.filter(s => s.side !== playerSide).length;
+    const infoText = this.add.text(width / 2, height * 0.52,
+      `Your fleet: ${playerShipCount} ships    Enemy: ${enemyShipCount} ships`, labelStyle)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(infoText);
+
+    // Controls hint
+    const hintLines = [
+      'Left-click a ship to select, then click to move or click an enemy to attack',
+      'Use formation buttons (bottom-left) to reposition your fleet',
+      'RETREAT ALL orders all ships to flee the battlefield',
+    ];
+    hintLines.forEach((line, i) => {
+      const hint = this.add.text(width / 2, height * 0.6 + i * 18, line, {
+        fontFamily: 'monospace', fontSize: '10px', color: '#667788',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+      this.preBattleGroup!.add(hint);
+    });
+
+    // ENGAGE button
+    const engageBtn = this.add.text(width / 2, height * 0.76, '[ ENGAGE ]', {
+      fontFamily: 'monospace', fontSize: '28px', color: '#00d4ff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 20, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+    this.preBattleGroup.add(engageBtn);
+
+    engageBtn.on('pointerover', () => engageBtn.setColor('#ffffff'));
+    engageBtn.on('pointerout', () => engageBtn.setColor('#00d4ff'));
+    engageBtn.on('pointerdown', () => {
+      this._dismissPreBattle();
+    });
+  }
+
+  private _dismissPreBattle(): void {
+    if (this.preBattleGroup) {
+      this.preBattleGroup.clear(true, true);
+      this.preBattleGroup = null;
+    }
+    this.preBattleActive = false;
+    this.tickTimer.paused = false;
   }
 }
