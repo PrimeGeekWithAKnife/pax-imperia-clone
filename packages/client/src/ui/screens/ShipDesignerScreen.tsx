@@ -66,12 +66,17 @@ const COMP_TYPE_LABEL: Record<ComponentType, string> = {
   weapon_point_defense:'Point Defense',
   fighter_bay:         'Fighter Bay',
   shield:              'Shield',
-  armor:               'Armor',
+  armor:               'Armour',
   engine:              'Engine',
   warp_drive:          'Warp Drive',
   sensor:              'Sensor',
   repair_drone:        'Repair Drone',
   special:             'Special',
+  life_support:        'Life Support',
+  targeting_computer:  'Targeting Computer',
+  advanced_sensors:    'Advanced Sensors',
+  damage_control:      'Damage Control',
+  ecm_suite:           'ECM Suite',
 };
 
 // Key stat name for a component type
@@ -96,7 +101,16 @@ function keyStat(component: ShipComponent): string {
     case 'sensor':
       return `rng ${s['sensorRange'] ?? 0}`;
     case 'repair_drone':
+    case 'damage_control':
       return `${s['repairRate'] ?? 0}/tick`;
+    case 'targeting_computer':
+      return `+${s['accuracyBonus'] ?? 0}% acc`;
+    case 'ecm_suite':
+      return `+${s['evasionBonus'] ?? 0}% eva`;
+    case 'advanced_sensors':
+      return `rng ${s['sensorRange'] ?? 0}`;
+    case 'life_support':
+      return `+${s['moraleRecovery'] ?? 0} morale`;
     case 'special':
       return `cost ${component.cost}`;
   }
@@ -186,6 +200,7 @@ export function ShipDesignerScreen({
   // ── Current working design ──────────────────────────────────────────────────
   const [designName, setDesignName] = useState('New Design');
   const [assignments, setAssignments] = useState<SlotAssignment[]>([]);
+  const [armourPlating, setArmourPlating] = useState(0);
 
   // ── Slot/component picker state ─────────────────────────────────────────────
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -218,8 +233,9 @@ export function ShipDesignerScreen({
       components: assignments,
       totalCost: 0,
       empireId,
+      armourPlating,
     }),
-    [designName, hull.class, assignments, empireId],
+    [designName, hull.class, assignments, empireId, armourPlating],
   );
 
   const validationResult = useMemo(
@@ -266,6 +282,7 @@ export function ShipDesignerScreen({
   const handleHullSelect = useCallback((hullClass: HullClass) => {
     setSelectedHullClass(hullClass);
     setAssignments([]);
+    setArmourPlating(0);
     setSelectedSlotId(null);
     setPickerOpen(false);
   }, []);
@@ -338,6 +355,7 @@ export function ShipDesignerScreen({
       setSelectedHullClass(design.hull);
       setDesignName(design.name);
       setAssignments(design.components);
+      setArmourPlating(design.armourPlating ?? 0);
       setSelectedSlotId(null);
       setPickerOpen(false);
     },
@@ -394,9 +412,14 @@ export function ShipDesignerScreen({
                       <div className="sd-hull-name">{h.name}</div>
                       <div className="sd-hull-stats">
                         <span>{h.baseHullPoints} HP</span>
-                        <span>{h.maxSlots} slots</span>
+                        <span>
+                          W:{h.slotLayout.filter(s => s.category === 'weapon').length}
+                          {' '}D:{h.slotLayout.filter(s => s.category === 'defence').length}
+                          {' '}I:{h.slotLayout.filter(s => s.category === 'internal').length}
+                        </span>
                         <span>{h.baseCost}cr</span>
-                        <span>spd {h.baseSpeed}</span>
+                        {h.slotLayout.some(s => s.category === 'warp_drive') && <span>WARP</span>}
+                        {h.hangarSlots && <span>{h.hangarSlots.count} bays</span>}
                       </div>
                       {!unlocked && (
                         <div className="sd-hull-locked-msg">
@@ -528,14 +551,55 @@ export function ShipDesignerScreen({
                 <span className="sd-stat-value">{hull.name}</span>
               </div>
               <div className="sd-stat-row">
-                <span className="sd-stat-label">Hull Points</span>
+                <span className="sd-stat-label">Base HP</span>
                 <span className="sd-stat-value">{hull.baseHullPoints}</span>
+              </div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Effective HP</span>
+                <span className="sd-stat-value" style={{ color: 'var(--color-accent)' }}>{designStats.effectiveHullPoints}</span>
               </div>
               <div className="sd-stat-row">
                 <span className="sd-stat-label">Slots</span>
                 <span className="sd-stat-value">
                   {assignments.length}/{hull.maxSlots}
                 </span>
+              </div>
+              {hull.hangarSlots && (
+                <div className="sd-stat-row">
+                  <span className="sd-stat-label">Hangar ({hull.hangarSlots.count} bays)</span>
+                  <span className="sd-stat-value" style={{ fontSize: 9 }}>
+                    {hull.hangarSlots.carries.map(c => `${c.quantity}x ${c.hull}`).join(' or ')}
+                  </span>
+                </div>
+              )}
+              {!hull.slotLayout.some(s => s.category === 'warp_drive') && (
+                <div className="sd-stat-row">
+                  <span className="sd-stat-label" style={{ color: '#ff8844' }}>No Warp Drive</span>
+                  <span className="sd-stat-value" style={{ color: '#ff8844', fontSize: 9 }}>System-local only</span>
+                </div>
+              )}
+            </div>
+
+            {/* Armour plating slider */}
+            <div className="sd-stats-section">
+              <div className="sd-stats-section-label">ARMOUR PLATING</div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Level</span>
+                <span className="sd-stat-value">{Math.round(armourPlating * 100)}%</span>
+              </div>
+              <div style={{ padding: '4px 0 8px' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(armourPlating * 100)}
+                  onChange={(e) => setArmourPlating(Number(e.target.value) / 100)}
+                  style={{ width: '100%', accentColor: 'var(--color-accent)' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--color-text-muted)' }}>
+                  <span>None (1x cost)</span>
+                  <span>Max (4x cost, 3x HP)</span>
+                </div>
               </div>
             </div>
 
@@ -552,6 +616,8 @@ export function ShipDesignerScreen({
                   { label: 'Speed',          value: designStats.speed,         compare: compareStats?.speed,         unit: ''    },
                   { label: 'Sensor Range',   value: designStats.sensorRange,   compare: compareStats?.sensorRange,   unit: ''    },
                   { label: 'Repair Rate',    value: designStats.repairRate,    compare: compareStats?.repairRate,    unit: '/t'  },
+                  { label: 'Accuracy Bonus', value: designStats.accuracyBonus, compare: compareStats?.accuracyBonus, unit: '%'   },
+                  { label: 'Evasion Bonus',  value: designStats.evasionBonus,  compare: compareStats?.evasionBonus,  unit: '%'   },
                 ] as const
               ).map(({ label, value, compare, unit }) => {
                 const hasCompare = compare !== undefined && compare !== null;

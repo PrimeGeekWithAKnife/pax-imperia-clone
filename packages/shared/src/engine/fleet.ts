@@ -184,21 +184,24 @@ export function loadShipIntoCarrier(
   cargo: Ship,
   carrierDesign: ShipDesign,
   cargoDesign: ShipDesign,
-  hullTemplates: Map<string, { hangarSlots?: { count: number; carriesHull: string } }>,
+  hullTemplates: Map<string, { hangarSlots?: { count: number; carries: Array<{ hull: string; quantity: number }> } }>,
   allShips: Ship[],
 ): { carrier: Ship; cargo: Ship } | null {
   const carrierHull = hullTemplates.get(carrierDesign.hull);
   if (!carrierHull?.hangarSlots) return null;
 
-  // Check hull class match
-  if (cargoDesign.hull !== carrierHull.hangarSlots.carriesHull) return null;
+  // Check if this hull class is one of the carriable options
+  const carryOption = carrierHull.hangarSlots.carries.find(c => c.hull === cargoDesign.hull);
+  if (!carryOption) return null;
 
   // Check cargo isn't already carried
   if (cargo.carriedBy) return null;
 
-  // Count how many ships this carrier already holds
-  const currentLoad = allShips.filter(s => s.carriedBy === carrier.id).length;
-  if (currentLoad >= carrierHull.hangarSlots.count) return null;
+  // Count total bay capacity used. Each bay holds one option's full quantity.
+  // For simplicity: count carried ships of each type and check against bay limits.
+  const carried = allShips.filter(s => s.carriedBy === carrier.id);
+  const totalBaysUsed = Math.ceil(carried.length / Math.max(1, carryOption.quantity));
+  if (totalBaysUsed >= carrierHull.hangarSlots.count) return null;
 
   return {
     carrier,

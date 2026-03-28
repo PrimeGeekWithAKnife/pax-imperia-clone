@@ -261,7 +261,7 @@
     "baseCost": 800,
     "baseSpeed": 4,
     "requiredAge": "anti_matter",
-    "hangarSlots": { "count": 3, "carriesHull": "destroyer" }
+    "hangarSlots": { "count": 3, "carries": [{ "hull": "destroyer", "quantity": 1 }] }
   },
   {
     "class": "battleship",
@@ -509,6 +509,6 @@
     "baseCost": 3000,
     "baseSpeed": 1,
     "requiredAge": "singularity",
-    "hangarSlots": { "count": 3, "carriesHull": "carrier" }
+    "hangarSlots": { "count": 3, "carries": [{ "hull": "carrier", "quantity": 1 }, { "hull": "destroyer", "quantity": 5 }] }
   }
 ]

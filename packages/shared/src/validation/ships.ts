@@ -69,7 +69,10 @@ export const HullTemplateSchema = z.object({
   requiredAge: z.string().min(1),
   hangarSlots: z.object({
     count: z.number().int().positive(),
-    carriesHull: HullClassSchema,
+    carries: z.array(z.object({
+      hull: HullClassSchema,
+      quantity: z.number().int().positive(),
+    })).min(1),
   }).optional(),
 });
 

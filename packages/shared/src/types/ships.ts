@@ -31,8 +31,9 @@ export interface HullTemplate {
   baseMineralCost?: number;
   baseSpeed: number;
   requiredAge: string; // TechAge required to build
-  /** Hangar configuration — defines how many ships and what class this hull can carry. */
-  hangarSlots?: { count: number; carriesHull: HullClass };
+  /** Hangar configuration — defines bay count and what each bay can hold.
+   *  Each bay can hold ONE option from the carries array (e.g. 1 carrier OR 5 destroyers). */
+  hangarSlots?: { count: number; carries: Array<{ hull: HullClass; quantity: number }> };
 }
 
 export interface SlotPosition {
