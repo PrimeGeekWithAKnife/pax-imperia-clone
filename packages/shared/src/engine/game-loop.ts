@@ -29,6 +29,7 @@
 import type { GameState } from '../types/game-state.js';
 import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
+import { getEffectiveHullPoints } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { Governor } from '../types/governor.js';
 import { GOVERNMENTS } from '../types/government.js';
@@ -1750,7 +1751,8 @@ function stepShipProduction(state: GameTickState): GameTickState {
       const newShipId = generateId();
       const design = state.shipDesigns?.get(order.designId);
       const hullTemplate = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
-      const hp = hullTemplate?.baseHullPoints ?? 60;
+      const baseHp = hullTemplate?.baseHullPoints ?? 60;
+      const hp = getEffectiveHullPoints(baseHp, design?.armourPlating ?? 0);
       const newShip: Ship = {
         id: newShipId,
         designId: order.designId,

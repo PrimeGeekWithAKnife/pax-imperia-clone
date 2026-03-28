@@ -7,6 +7,7 @@
  */
 
 import type { HullTemplate, ShipComponent, ShipDesign, Ship, ComponentType, SlotPosition } from '../types/ships.js';
+import { getEffectiveHullPoints, getEffectiveCost } from '../types/ships.js';
 import { generateId } from '../utils/id.js';
 import { TECH_AGES } from '../constants/game.js';
 import { HULL_TEMPLATES } from '../../data/ships/index.js';
@@ -23,6 +24,12 @@ export interface DesignStats {
   sensorRange: number;
   repairRate: number;
   cost: number;
+  /** Effective hull points after armour plating. */
+  effectiveHullPoints: number;
+  /** Accuracy bonus from targeting computers. */
+  accuracyBonus: number;
+  /** Evasion bonus from ECM suites. */
+  evasionBonus: number;
 }
 
 export interface ValidationResult {
@@ -86,6 +93,7 @@ function inferComponentSize(component: ShipComponent): SlotPosition['size'] {
  *  3. Each component type is allowed in its assigned slot.
  *  4. The design contains at least one engine component.
  *  5. All component IDs can be resolved in the provided components array.
+ *  6. Component fits the slot size.
  */
 export function validateDesign(
   design: ShipDesign,
@@ -144,6 +152,12 @@ export function validateDesign(
     errors.push('Design has no engine or warp drive — the ship cannot move.');
   }
 
+  // Validate armour plating range
+  const ap = design.armourPlating ?? 0;
+  if (ap < 0 || ap > 1) {
+    errors.push(`Armour plating must be between 0 and 1 (got ${ap}).`);
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -157,7 +171,8 @@ export function validateDesign(
  * Speed is the maximum speed value found across all engine components.
  * Sensor range is the maximum range across all sensor components.
  * All damage, shield, armor, and repair values are summed.
- * Cost includes the hull base cost plus all component costs.
+ * Cost includes the hull base cost plus all component costs, modified by armour plating.
+ * Effective hull points factor in armour plating.
  */
 export function calculateDesignStats(
   design: ShipDesign,
@@ -165,6 +180,7 @@ export function calculateDesignStats(
   components: ShipComponent[],
 ): DesignStats {
   const componentById = new Map(components.map((c) => [c.id, c]));
+  const ap = design.armourPlating ?? 0;
 
   const stats: DesignStats = {
     totalDamage: 0,
@@ -173,7 +189,10 @@ export function calculateDesignStats(
     speed: 0,
     sensorRange: 0,
     repairRate: 0,
-    cost: hull.baseCost,
+    cost: getEffectiveCost(hull.baseCost, ap),
+    effectiveHullPoints: getEffectiveHullPoints(hull.baseHullPoints, ap),
+    accuracyBonus: 0,
+    evasionBonus: 0,
   };
 
   for (const assignment of design.components) {
@@ -191,7 +210,6 @@ export function calculateDesignStats(
         break;
 
       case 'fighter_bay':
-        // Each fighter contributes its damage multiplied by the fighter count
         stats.totalDamage +=
           (component.stats['fighterCount'] ?? 0) * (component.stats['damage'] ?? 0);
         break;
@@ -216,15 +234,26 @@ export function calculateDesignStats(
         break;
 
       case 'sensor':
+      case 'advanced_sensors':
         stats.sensorRange = Math.max(stats.sensorRange, component.stats['sensorRange'] ?? 0);
         break;
 
       case 'repair_drone':
+      case 'damage_control':
         stats.repairRate += component.stats['repairRate'] ?? 0;
         break;
 
+      case 'targeting_computer':
+        stats.accuracyBonus += component.stats['accuracyBonus'] ?? 0;
+        break;
+
+      case 'ecm_suite':
+        stats.evasionBonus += component.stats['evasionBonus'] ?? 0;
+        break;
+
+      case 'life_support':
       case 'special':
-        // special components may provide a variety of stats; aggregate generically
+        // Effects applied elsewhere (morale recovery, crew health)
         break;
     }
   }
@@ -244,6 +273,7 @@ export function calculateDesignStats(
 /**
  * Instantiate a new Ship from a completed ShipDesign.
  * The ship starts undamaged, not assigned to a fleet, at the given system.
+ * Hull points are modified by the design's armour plating.
  */
 export function createShipFromDesign(
   design: ShipDesign,
@@ -251,12 +281,13 @@ export function createShipFromDesign(
   empireId: string,
   systemId: string,
 ): Ship {
+  const hp = getEffectiveHullPoints(hull.baseHullPoints, design.armourPlating ?? 0);
   return {
     id: generateId(),
     designId: design.id,
     name: design.name,
-    hullPoints: hull.baseHullPoints,
-    maxHullPoints: hull.baseHullPoints,
+    hullPoints: hp,
+    maxHullPoints: hp,
     systemDamage: {
       engines: 0,
       weapons: 0,
@@ -302,8 +333,7 @@ export function getAvailableComponents(
  *  3. Engine/warp_drive slots prefer the highest-speed component.
  *  4. Shield slots prefer the highest shieldStrength.
  *  5. Armor slots prefer the highest armorRating.
- *  6. Sensor slots prefer the highest sensorRange.
- *  7. repair_drone, fighter_bay, special — best by cost as a proxy.
+ *  6. Sensor/internal slots — best by relevant stat.
  *
  * The returned ShipDesign has a generated ID, uses the hull's class, and
  * starts with an empty empireId (caller should override before persisting).
@@ -340,6 +370,7 @@ export function autoEquipDesign(
     components: assignments,
     totalCost: 0, // caller should recalculate with calculateDesignStats
     empireId: '',
+    armourPlating: 0,
   };
 }
 
@@ -384,10 +415,21 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
       return (s['warpSpeed'] ?? 0) + (s['warpRange'] ?? 0) * 0.5;
 
     case 'sensor':
+    case 'advanced_sensors':
       return (s['sensorRange'] ?? 0) + (s['detectionBonus'] ?? 0) * 0.3;
 
     case 'repair_drone':
+    case 'damage_control':
       return s['repairRate'] ?? 0;
+
+    case 'targeting_computer':
+      return s['accuracyBonus'] ?? 0;
+
+    case 'ecm_suite':
+      return s['evasionBonus'] ?? 0;
+
+    case 'life_support':
+      return (s['moraleRecovery'] ?? 0) + (s['crewCapacity'] ?? 0) * 0.1;
 
     case 'special':
       // No dominant stat for 'special'; fall back to cost as a quality proxy
@@ -426,16 +468,31 @@ export function generateDefaultDesigns(
     design.id = `default-${hull.class}-${empireId}`;
     design.name = hull.name;
     design.empireId = empireId;
-    // Calculate total cost
-    let totalCost = hull.baseCost;
-    for (const comp of design.components) {
-      const compDef = availableComponents.find(c => c.id === comp.componentId);
-      if (compDef) totalCost += compDef.cost;
-    }
-    design.totalCost = totalCost;
+    // Calculate total cost (with armour plating = 0)
+    const stats = calculateDesignStats(design, hull, availableComponents);
+    design.totalCost = stats.cost;
 
     newDesigns.push(design);
   }
 
   return newDesigns;
+}
+
+// ---------------------------------------------------------------------------
+// Warp drive helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the given ship design includes a warp_drive component.
+ * Ships without a warp drive cannot travel between star systems unless carried.
+ */
+export function designHasWarpDrive(
+  design: ShipDesign,
+  components: ShipComponent[],
+): boolean {
+  const componentById = new Map(components.map((c) => [c.id, c]));
+  return design.components.some(a => {
+    const comp = componentById.get(a.componentId);
+    return comp?.type === 'warp_drive';
+  });
 }
