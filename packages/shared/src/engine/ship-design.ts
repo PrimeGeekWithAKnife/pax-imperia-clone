@@ -166,7 +166,7 @@ export function validateDesign(
     errors.push(`Armour plating must be between 0 and 1 (got ${ap}).`);
   }
 
-  // Power budget check
+  // Power budget check (warp drives excluded — not active during combat)
   let powerOut = 0;
   let powerDraw = 0;
   let powerBuf = 0;
@@ -175,13 +175,13 @@ export function validateDesign(
     if (!c) continue;
     if (c.type === 'engine') {
       powerOut += c.stats['powerOutput'] ?? 0;
-    } else {
+    } else if (c.type !== 'warp_drive') {
       powerDraw += c.stats['powerDraw'] ?? 0;
     }
     powerBuf += c.stats['powerBuffer'] ?? 0;
   }
   if (powerOut + powerBuf < powerDraw) {
-    errors.push(`Power deficit: systems draw ${powerDraw} but engines output ${powerOut} + ${powerBuf} buffer. Ship will be underpowered.`);
+    errors.push(`Power deficit: combat systems draw ${powerDraw} but engines output ${powerOut} + ${powerBuf} buffer. Ship will be underpowered.`);
   }
 
   return { valid: errors.length === 0, errors };
@@ -231,12 +231,12 @@ export function calculateDesignStats(
 
     stats.cost += component.cost;
 
-    // Accumulate power draw from all components (engines generate, everything else consumes)
-    const draw = component.stats['powerDraw'] ?? 0;
+    // Accumulate power: engines generate, everything else consumes.
+    // Warp drives are excluded from combat power draw — you don't warp and fight simultaneously.
     if (component.type === 'engine') {
       stats.powerOutput += component.stats['powerOutput'] ?? 0;
-    } else {
-      stats.powerDraw += draw;
+    } else if (component.type !== 'warp_drive') {
+      stats.powerDraw += component.stats['powerDraw'] ?? 0;
     }
 
     // Accumulate power buffer from batteries/capacitors
