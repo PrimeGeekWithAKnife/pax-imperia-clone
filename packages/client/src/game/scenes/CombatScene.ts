@@ -46,9 +46,9 @@ const BG_COLOR = 0x050510;
 const STAR_COUNT = 100;
 
 /** Triangle dimensions (pixels) */
-const SHIP_BASE = 12;
-const SHIP_HEIGHT = 18;
-const SELECTION_RING_RADIUS = 14;
+const SHIP_BASE = 22;
+const SHIP_HEIGHT = 30;
+const SELECTION_RING_RADIUS = 24;
 const SELECTION_RING_COLOR = 0xffffff;
 const SELECTION_RING_ALPHA = 0.85;
 
@@ -463,18 +463,31 @@ export class CombatScene extends Phaser.Scene {
 
       container.add(gfx);
 
-      // Name label below the triangle
-      const label = this.add.text(0, SHIP_BASE / 2 + 4, ship.name, {
+      // Health bar below the triangle
+      const hpBarBg = this.add.graphics();
+      hpBarBg.fillStyle(0x222222, 0.8);
+      hpBarBg.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE, 3);
+      container.add(hpBarBg);
+
+      const hpBar = this.add.graphics();
+      hpBar.fillStyle(0x44ff88, 1);
+      hpBar.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE, 3);
+      container.add(hpBar);
+      container.setData('hpBar', hpBar);
+      container.setData('hpBarBg', hpBarBg);
+
+      // Name label below the health bar
+      const label = this.add.text(0, SHIP_BASE / 2 + 9, ship.name, {
         fontFamily: 'monospace',
-        fontSize: '8px',
+        fontSize: '10px',
         color: '#aabbcc',
         align: 'center',
       });
       label.setOrigin(0.5, 0);
       container.add(label);
 
-      // Make the container interactive for click targeting
-      container.setSize(SHIP_HEIGHT + 4, SHIP_BASE + 8);
+      // Make the container interactive for click targeting — generous hit area
+      container.setSize(SHIP_HEIGHT + 16, SHIP_BASE + 24);
       container.setInteractive();
 
       // Store data on the container for click handlers
@@ -522,10 +535,19 @@ export class CombatScene extends Phaser.Scene {
 
       if (ship.destroyed || ship.routed) continue;
 
-      // Fade alpha based on hull percentage (1.0 at full, 0.35 at near-zero)
+      // Fade alpha based on hull percentage (1.0 at full, 0.5 at near-zero)
       const hullFraction = ship.maxHull > 0 ? ship.hull / ship.maxHull : 1;
-      const alpha = 0.35 + hullFraction * 0.65;
+      const alpha = 0.5 + hullFraction * 0.5;
       container.setAlpha(alpha);
+
+      // Update health bar
+      const hpBar = container.getData('hpBar') as Phaser.GameObjects.Graphics | undefined;
+      if (hpBar) {
+        hpBar.clear();
+        const barColor = hullFraction > 0.5 ? 0x44ff88 : hullFraction > 0.25 ? 0xffcc44 : 0xff4444;
+        hpBar.fillStyle(barColor, 1);
+        hpBar.fillRect(-SHIP_BASE / 2, SHIP_BASE / 2 + 3, SHIP_BASE * hullFraction, 3);
+      }
 
       // Damage flash — if hull dropped since last check
       const prev = this.prevHull.get(ship.id) ?? ship.hull;
@@ -935,31 +957,38 @@ export class CombatScene extends Phaser.Scene {
   // Input
   // =========================================================================
 
+  /** Flag to prevent background click handler when a ship container was clicked. */
+  private _shipClickedThisFrame = false;
+
   private _setupInput(): void {
     // ESC to deselect
     this.input.keyboard?.on('keydown-ESC', () => {
       this.selectedShipId = null;
     });
 
-    // Left-click anywhere — move order if clicking empty space with a selected ship
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.preBattleActive) return;
-      if (pointer.leftButtonDown()) {
-        this._handleLeftClickBackground(pointer);
-      }
-    });
-
-    // Left-click on ship containers (higher priority than background)
+    // Left-click on ship containers — register FIRST so the flag is set before background fires
     for (const [, container] of this.shipContainers) {
       container.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         if (this.preBattleActive) return;
         if (pointer.leftButtonDown()) {
+          this._shipClickedThisFrame = true;
           this._handleShipLeftClick(container);
-          // Stop propagation so the background handler doesn't fire a move order
-          pointer.event.stopPropagation();
         }
       });
     }
+
+    // Left-click anywhere — move order if clicking empty space with a selected ship
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.preBattleActive) return;
+      if (pointer.leftButtonDown()) {
+        // Skip if a ship container already handled this click
+        if (this._shipClickedThisFrame) {
+          this._shipClickedThisFrame = false;
+          return;
+        }
+        this._handleLeftClickBackground(pointer);
+      }
+    });
   }
 
   private _handleShipLeftClick(container: Phaser.GameObjects.Container): void {

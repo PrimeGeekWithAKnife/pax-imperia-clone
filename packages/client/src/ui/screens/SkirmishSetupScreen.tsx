@@ -113,7 +113,7 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
 
   return (
     <div className="game-setup-overlay">
-      <div className="game-setup" style={{ width: 'min(1200px, 96vw)', height: 'min(720px, 92vh)' }}>
+      <div className="game-setup" style={{ width: 'min(1400px, 98vw)', height: 'min(850px, 96vh)' }}>
         {/* Header */}
         <div className="game-setup__header">
           <div className="game-setup__title">SPACE BATTLE</div>
@@ -137,20 +137,20 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
           {/* Centre divider with tech age */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
-            padding: '24px 16px', borderLeft: '1px solid var(--color-border)', borderRight: '1px solid var(--color-border)',
-            background: 'rgba(0, 20, 40, 0.4)', minWidth: 180,
+            padding: '28px 20px', borderLeft: '1px solid var(--color-border)', borderRight: '1px solid var(--color-border)',
+            background: 'rgba(0, 20, 40, 0.4)', minWidth: 200,
           }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginBottom: 8 }}>TECH AGE</div>
+            <div style={{ fontSize: 13, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginBottom: 12 }}>TECH AGE</div>
             {AGE_OPTIONS.map(a => (
               <button
                 key={a.key}
                 onClick={() => handleAgeChange(a.key)}
                 style={{
-                  display: 'block', width: '100%', padding: '8px 12px', marginBottom: 4,
+                  display: 'block', width: '100%', padding: '10px 16px', marginBottom: 6,
                   background: techAge === a.key ? 'rgba(0, 212, 255, 0.15)' : 'transparent',
                   border: techAge === a.key ? '1px solid var(--color-accent)' : '1px solid transparent',
                   color: techAge === a.key ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.05em',
+                  fontFamily: 'var(--font-mono)', fontSize: 14, letterSpacing: '0.05em',
                   cursor: 'pointer', textAlign: 'left',
                 }}
               >
@@ -158,8 +158,8 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
               </button>
             ))}
 
-            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 24, marginBottom: 8 }}>VS</div>
-            <div style={{ fontSize: 48, color: 'var(--color-accent)', opacity: 0.3, fontWeight: 'bold' }}>&#x2694;</div>
+            <div style={{ fontSize: 13, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 28, marginBottom: 10 }}>VS</div>
+            <div style={{ fontSize: 56, color: 'var(--color-accent)', opacity: 0.3, fontWeight: 'bold' }}>&#x2694;</div>
           </div>
 
           {/* AI side */}
@@ -185,12 +185,12 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
             style={{
               background: 'transparent', border: '1px solid var(--color-border)',
               color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)',
-              padding: '8px 20px', fontSize: 12, letterSpacing: '0.1em', cursor: 'pointer',
+              padding: '10px 24px', fontSize: 14, letterSpacing: '0.1em', cursor: 'pointer',
             }}
           >
             BACK
           </button>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
             {playerShips.length} vs {aiShips.length} ships
           </div>
           <button
@@ -200,7 +200,7 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
               background: canStart ? 'rgba(0, 212, 255, 0.15)' : 'rgba(40, 40, 60, 0.3)',
               border: canStart ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
               color: canStart ? 'var(--color-accent)' : 'var(--color-text-muted)',
-              fontFamily: 'var(--font-mono)', padding: '8px 28px', fontSize: 14,
+              fontFamily: 'var(--font-mono)', padding: '10px 32px', fontSize: 16,
               letterSpacing: '0.15em', cursor: canStart ? 'pointer' : 'not-allowed',
               textShadow: canStart ? '0 0 12px rgba(0, 212, 255, 0.5)' : 'none',
             }}
@@ -228,18 +228,18 @@ interface SidePanelProps {
 
 function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, onAddShip, onRemoveShip, color }: SidePanelProps): React.ReactElement {
   return (
-    <div style={{ padding: '20px 24px', overflow: 'auto' }}>
+    <div style={{ padding: '24px 28px', overflow: 'auto' }}>
       {/* Side label */}
       <div style={{
-        fontSize: 12, letterSpacing: '0.25em', color, marginBottom: 16,
-        textShadow: `0 0 10px ${color}40`,
+        fontSize: 16, letterSpacing: '0.25em', color, marginBottom: 20,
+        textShadow: `0 0 12px ${color}40`,
       }}>
         {label}
       </div>
 
       {/* Species picker */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>SPECIES</div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 8 }}>SPECIES</div>
         <select
           value={speciesId}
           onChange={(e) => onSpeciesChange(e.target.value)}
@@ -253,11 +253,11 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
       </div>
 
       {/* Add ship buttons — immediately below species picker */}
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 8 }}>
           ADD SHIPS ({ships.length}/{MAX_SHIPS})
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {availableHulls.map(h => (
             <button
               key={h.class}
@@ -267,8 +267,8 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
                 background: ships.length >= MAX_SHIPS ? 'rgba(20, 20, 30, 0.3)' : 'rgba(0, 40, 60, 0.5)',
                 border: '1px solid var(--color-border)',
                 color: ships.length >= MAX_SHIPS ? 'var(--color-text-muted)' : 'var(--color-text)',
-                fontFamily: 'var(--font-mono)', fontSize: 10,
-                padding: '4px 8px', cursor: ships.length >= MAX_SHIPS ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font-mono)', fontSize: 13,
+                padding: '6px 12px', cursor: ships.length >= MAX_SHIPS ? 'not-allowed' : 'pointer',
                 letterSpacing: '0.05em',
               }}
               title={`${h.name} — ${h.hp} HP`}
@@ -281,21 +281,21 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
 
       {/* Fleet roster */}
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>
+        <div style={{ fontSize: 13, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 8 }}>
           FLEET
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {ships.map((hull, i) => {
             const tmpl = HULL_TEMPLATE_BY_CLASS[hull];
             return (
               <div key={i} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '5px 10px', background: 'rgba(0, 30, 50, 0.5)',
-                border: '1px solid var(--color-border)', fontSize: 12,
+                padding: '7px 12px', background: 'rgba(0, 30, 50, 0.5)',
+                border: '1px solid var(--color-border)', fontSize: 14,
               }}>
                 <span style={{ color: 'var(--color-text)' }}>
                   {tmpl?.name ?? hull}
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: 10, marginLeft: 8 }}>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: 12, marginLeft: 10 }}>
                     {tmpl?.baseHullPoints ?? '?'} HP
                   </span>
                 </span>
@@ -303,7 +303,7 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
                   onClick={() => onRemoveShip(i)}
                   style={{
                     background: 'transparent', border: 'none', color: '#ff4444',
-                    cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 14, padding: '0 4px',
+                    cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 18, padding: '0 6px',
                   }}
                   title="Remove ship"
                 >
@@ -313,7 +313,7 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
             );
           })}
           {ships.length === 0 && (
-            <div style={{ color: 'var(--color-text-muted)', fontSize: 11, fontStyle: 'italic', padding: 4 }}>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: 13, fontStyle: 'italic', padding: 6 }}>
               No ships — add at least one
             </div>
           )}
