@@ -270,6 +270,64 @@ export function determineTravelMode(empireTechnologies: string[]): TravelMode {
 }
 
 /**
+ * Base ticks per hop when no warp drive stats are available (fallback).
+ * With ship-level warp calculation, this is only used as a ceiling.
+ */
+const BASE_TICKS_PER_HOP = 20;
+
+/**
+ * Calculate ticks per hop for a fleet based on the slowest warp-capable ship.
+ *
+ * Warp speed is determined by: warpDrive.warpSpeed + (enginePower / 10).
+ * More engine power means faster jumps. The fleet moves at the speed of its
+ * slowest warp-capable ship (carried ships are excluded).
+ *
+ * Returns ticks per hop (lower = faster). Minimum 2.
+ */
+export function calculateFleetWarpSpeed(
+  fleet: Fleet,
+  ships: Ship[],
+  designs: Map<string, ShipDesign>,
+  components: ShipComponent[],
+): number {
+  const componentById = new Map(components.map(c => [c.id, c]));
+  let slowestSpeed = Infinity;
+
+  const fleetShips = ships.filter(s => fleet.ships.includes(s.id) && !s.carriedBy);
+
+  for (const ship of fleetShips) {
+    const design = designs.get(ship.designId);
+    if (!design) continue;
+
+    let warpSpeed = 0;
+    let powerOutput = 0;
+
+    for (const assignment of design.components) {
+      const comp = componentById.get(assignment.componentId);
+      if (!comp) continue;
+      if (comp.type === 'warp_drive') {
+        warpSpeed = Math.max(warpSpeed, comp.stats['warpSpeed'] ?? 0);
+      }
+      if (comp.type === 'engine') {
+        powerOutput += comp.stats['powerOutput'] ?? 0;
+      }
+    }
+
+    if (warpSpeed === 0) continue; // no warp drive — skip (shouldn't be in fleet)
+
+    // Effective warp speed: base warp + power bonus (every 10 power = +1 warp speed)
+    const effectiveSpeed = warpSpeed + Math.floor(powerOutput / 10);
+    slowestSpeed = Math.min(slowestSpeed, effectiveSpeed);
+  }
+
+  if (slowestSpeed === Infinity) return BASE_TICKS_PER_HOP;
+
+  // Convert speed to ticks: higher speed = fewer ticks. Speed 2 = 20 ticks, speed 10 = 4 ticks.
+  const ticks = Math.max(2, Math.round(40 / slowestSpeed));
+  return ticks;
+}
+
+/**
  * Check which ships in a fleet can travel between star systems (have warp drives)
  * and which cannot (must be carried).
  *
