@@ -19,6 +19,19 @@ export const ComponentTypeSchema = z.enum([
   'sensor',
   'repair_drone',
   'special',
+  'life_support',
+  'targeting_computer',
+  'advanced_sensors',
+  'damage_control',
+  'ecm_suite',
+]);
+
+export const SlotCategorySchema = z.enum([
+  'weapon',
+  'defence',
+  'engine',
+  'warp_drive',
+  'internal',
 ]);
 
 export const SlotFacingSchema = z.enum([
@@ -40,6 +53,7 @@ export const SlotPositionSchema = z.object({
   facing: SlotFacingSchema,
   size: SlotSizeSchema,
   allowedTypes: z.array(ComponentTypeSchema).min(1),
+  category: SlotCategorySchema.optional(),
 });
 
 // ── HullTemplate ──────────────────────────────────────────────────────────────
@@ -53,6 +67,10 @@ export const HullTemplateSchema = z.object({
   baseCost: z.number().int().positive(),
   baseSpeed: z.number().int().positive(),
   requiredAge: z.string().min(1),
+  hangarSlots: z.object({
+    count: z.number().int().positive(),
+    carriesHull: HullClassSchema,
+  }).optional(),
 });
 
 // ── ShipComponent ─────────────────────────────────────────────────────────────
@@ -92,6 +110,7 @@ export const ShipDesignSchema = z.object({
   components: z.array(ShipDesignComponentAssignmentSchema),
   totalCost: z.number().nonnegative(),
   empireId: z.string(),
+  armourPlating: z.number().min(0).max(1).optional(),
 });
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
