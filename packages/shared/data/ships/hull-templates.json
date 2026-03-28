@@ -6,16 +6,36 @@
     "maxSlots": 2,
     "slotLayout": [
       {
-        "id": "dsp_engine_1", "x": 0, "y": 0, "facing": "aft", "size": "small",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "dsp_engine_1",
+        "x": 0,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "dsp_internal_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dsp_internal_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 50,
+    "baseCost": 150,
     "baseSpeed": 10,
     "requiredAge": "nano_atomic"
   },
@@ -26,25 +46,62 @@
     "maxSlots": 4,
     "slotLayout": [
       {
-        "id": "scout_weapon_1", "x": 0, "y": 0, "facing": "fore", "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"],
+        "id": "scout_weapon_1",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense"
+        ],
         "category": "weapon"
       },
       {
-        "id": "scout_defence_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "scout_defence_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "scout_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "small",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "scout_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "scout_internal_1", "x": 1, "y": 1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "scout_internal_1",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 100,
+    "baseCost": 500,
     "baseSpeed": 8,
     "requiredAge": "nano_atomic"
   },
@@ -55,25 +112,62 @@
     "maxSlots": 4,
     "slotLayout": [
       {
-        "id": "transport_weapon_1", "x": 0, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"],
+        "id": "transport_weapon_1",
+        "x": 0,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense"
+        ],
         "category": "weapon"
       },
       {
-        "id": "transport_defence_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "transport_defence_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "transport_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "small",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "transport_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "transport_internal_1", "x": 1, "y": 1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "transport_internal_1",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 200,
+    "baseCost": 1000,
     "baseSpeed": 5,
     "requiredAge": "nano_atomic"
   },
@@ -84,35 +178,94 @@
     "maxSlots": 6,
     "slotLayout": [
       {
-        "id": "destroyer_weapon_1", "x": 0, "y": 0, "facing": "fore", "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"],
+        "id": "destroyer_weapon_1",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense"
+        ],
         "category": "weapon"
       },
       {
-        "id": "destroyer_weapon_2", "x": 0, "y": 1, "facing": "fore", "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"],
+        "id": "destroyer_weapon_2",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense"
+        ],
         "category": "weapon"
       },
       {
-        "id": "destroyer_defence_1", "x": 1, "y": 0, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "destroyer_defence_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "destroyer_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "small",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "destroyer_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "destroyer_internal_1", "x": 1, "y": 1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "destroyer_internal_1",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "destroyer_internal_2", "x": 1, "y": -1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "destroyer_internal_2",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 250,
+    "baseCost": 1000,
     "baseSpeed": 6,
     "requiredAge": "nano_atomic"
   },
@@ -123,24 +276,59 @@
     "maxSlots": 4,
     "slotLayout": [
       {
-        "id": "coloniser_defence_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "coloniser_defence_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "coloniser_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "small",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "coloniser_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "coloniser_warp_1", "x": 2, "y": 1, "facing": "aft", "size": "medium",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "coloniser_warp_1",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "coloniser_internal_1", "x": 1, "y": 1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "coloniser_internal_1",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 100000,
+    "baseCost": 20000,
     "baseSpeed": 3,
     "requiredAge": "nano_atomic"
   },
@@ -151,55 +339,153 @@
     "maxSlots": 10,
     "slotLayout": [
       {
-        "id": "cruiser_weapon_1", "x": 0, "y": -1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "cruiser_weapon_1",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "cruiser_weapon_2", "x": 0, "y": 0, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "cruiser_weapon_2",
+        "x": 0,
+        "y": 0,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "cruiser_weapon_3", "x": 0, "y": 1, "facing": "fore", "size": "small",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense"],
+        "id": "cruiser_weapon_3",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "small",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense"
+        ],
         "category": "weapon"
       },
       {
-        "id": "cruiser_defence_1", "x": 1, "y": -1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "cruiser_defence_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "cruiser_defence_2", "x": 1, "y": 1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "cruiser_defence_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "cruiser_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "medium",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "cruiser_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "cruiser_warp_1", "x": 2, "y": 1, "facing": "aft", "size": "medium",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "cruiser_warp_1",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "cruiser_internal_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "cruiser_internal_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "cruiser_internal_2", "x": 1, "y": -2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "cruiser_internal_2",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "cruiser_internal_3", "x": 1, "y": 2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "cruiser_internal_3",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 500,
+    "baseCost": 5000,
     "baseSpeed": 5,
-    "requiredAge": "nano_fusion"
+    "requiredAge": "nano_atomic"
   },
   {
     "class": "carrier",
@@ -208,60 +494,174 @@
     "maxSlots": 11,
     "slotLayout": [
       {
-        "id": "carrier_weapon_1", "x": 0, "y": -1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "carrier_weapon_1",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "carrier_weapon_2", "x": 0, "y": 0, "facing": "turret", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "carrier_weapon_2",
+        "x": 0,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "carrier_weapon_3", "x": 0, "y": 1, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "carrier_weapon_3",
+        "x": 0,
+        "y": 1,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "carrier_defence_1", "x": 1, "y": -1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "carrier_defence_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "carrier_defence_2", "x": 1, "y": 1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "carrier_defence_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "carrier_engine_1", "x": 2, "y": -1, "facing": "aft", "size": "medium",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "carrier_engine_1",
+        "x": 2,
+        "y": -1,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "carrier_engine_2", "x": 2, "y": 1, "facing": "aft", "size": "medium",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "carrier_engine_2",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "carrier_warp_1", "x": 2, "y": 0, "facing": "aft", "size": "medium",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "carrier_warp_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "carrier_internal_1", "x": 1, "y": 0, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "carrier_internal_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "carrier_internal_2", "x": 1, "y": -2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "carrier_internal_2",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "carrier_internal_3", "x": 1, "y": 2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "carrier_internal_3",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 800,
+    "baseCost": 10000,
     "baseSpeed": 4,
-    "requiredAge": "anti_matter",
-    "hangarSlots": { "count": 3, "carries": [{ "hull": "destroyer", "quantity": 1 }] }
+    "requiredAge": "fusion",
+    "hangarSlots": {
+      "count": 3,
+      "carries": [
+        {
+          "hull": "destroyer",
+          "quantity": 1
+        }
+      ]
+    }
   },
   {
     "class": "battleship",
@@ -270,69 +670,199 @@
     "maxSlots": 13,
     "slotLayout": [
       {
-        "id": "battleship_weapon_1", "x": 0, "y": -2, "facing": "fore", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "battleship_weapon_1",
+        "x": 0,
+        "y": -2,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "battleship_weapon_2", "x": 0, "y": -1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "battleship_weapon_2",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "battleship_weapon_3", "x": 0, "y": 1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "battleship_weapon_3",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "battleship_weapon_4", "x": 0, "y": 2, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "battleship_weapon_4",
+        "x": 0,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "battleship_defence_1", "x": 1, "y": -1, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "battleship_defence_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "battleship_defence_2", "x": 1, "y": 0, "facing": "turret", "size": "medium",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "battleship_defence_2",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "battleship_defence_3", "x": 1, "y": 1, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "battleship_defence_3",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "battleship_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "large",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "battleship_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "battleship_warp_1", "x": 2, "y": 1, "facing": "aft", "size": "medium",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "battleship_warp_1",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "medium",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "battleship_internal_1", "x": 1, "y": -2, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "battleship_internal_1",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "battleship_internal_2", "x": 1, "y": 2, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "battleship_internal_2",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "battleship_internal_3", "x": 2, "y": -1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "battleship_internal_3",
+        "x": 2,
+        "y": -1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "battleship_internal_4", "x": 2, "y": -2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "battleship_internal_4",
+        "x": 2,
+        "y": -2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 1200,
+    "baseCost": 10000,
     "baseSpeed": 3,
-    "requiredAge": "singularity"
+    "requiredAge": "fusion"
   },
   {
     "class": "dreadnought",
@@ -341,80 +871,235 @@
     "maxSlots": 15,
     "slotLayout": [
       {
-        "id": "dreadnought_weapon_1", "x": 0, "y": -3, "facing": "fore", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_1",
+        "x": 0,
+        "y": -3,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_weapon_2", "x": 0, "y": -2, "facing": "fore", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_2",
+        "x": 0,
+        "y": -2,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_weapon_3", "x": 0, "y": -1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_3",
+        "x": 0,
+        "y": -1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_weapon_4", "x": 0, "y": 1, "facing": "fore", "size": "medium",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_4",
+        "x": 0,
+        "y": 1,
+        "facing": "fore",
+        "size": "medium",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_weapon_5", "x": 0, "y": 2, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_5",
+        "x": 0,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_weapon_6", "x": 0, "y": 3, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "dreadnought_weapon_6",
+        "x": 0,
+        "y": 3,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "dreadnought_defence_1", "x": 1, "y": -1, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "dreadnought_defence_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "dreadnought_defence_2", "x": 1, "y": 1, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "dreadnought_defence_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "dreadnought_engine_1", "x": 2, "y": 0, "facing": "aft", "size": "large",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "dreadnought_engine_1",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "dreadnought_warp_1", "x": 2, "y": 1, "facing": "aft", "size": "large",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "dreadnought_warp_1",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "dreadnought_internal_1", "x": 1, "y": 0, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dreadnought_internal_1",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "dreadnought_internal_2", "x": 1, "y": -2, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dreadnought_internal_2",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "dreadnought_internal_3", "x": 1, "y": 2, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dreadnought_internal_3",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "dreadnought_internal_4", "x": 2, "y": -1, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dreadnought_internal_4",
+        "x": 2,
+        "y": -1,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "dreadnought_internal_5", "x": 2, "y": -2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "dreadnought_internal_5",
+        "x": 2,
+        "y": -2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 2000,
+    "baseCost": 20000,
     "baseSpeed": 2,
-    "requiredAge": "singularity"
+    "requiredAge": "nano_fusion"
   },
   {
     "class": "battle_station",
@@ -423,92 +1108,281 @@
     "maxSlots": 18,
     "slotLayout": [
       {
-        "id": "bstation_weapon_1", "x": 0, "y": -3, "facing": "fore", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_1",
+        "x": 0,
+        "y": -3,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_weapon_2", "x": 0, "y": -2, "facing": "fore", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_2",
+        "x": 0,
+        "y": -2,
+        "facing": "fore",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_weapon_3", "x": 0, "y": -1, "facing": "port", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_3",
+        "x": 0,
+        "y": -1,
+        "facing": "port",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_weapon_4", "x": 0, "y": 1, "facing": "starboard", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_4",
+        "x": 0,
+        "y": 1,
+        "facing": "starboard",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_weapon_5", "x": 0, "y": 2, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_5",
+        "x": 0,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_weapon_6", "x": 0, "y": 3, "facing": "turret", "size": "large",
-        "allowedTypes": ["weapon_beam", "weapon_projectile", "weapon_missile", "weapon_point_defense", "fighter_bay"],
+        "id": "bstation_weapon_6",
+        "x": 0,
+        "y": 3,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "weapon_beam",
+          "weapon_projectile",
+          "weapon_missile",
+          "weapon_point_defense",
+          "fighter_bay"
+        ],
         "category": "weapon"
       },
       {
-        "id": "bstation_defence_1", "x": 1, "y": -2, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "bstation_defence_1",
+        "x": 1,
+        "y": -2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "bstation_defence_2", "x": 1, "y": 0, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "bstation_defence_2",
+        "x": 1,
+        "y": 0,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "bstation_defence_3", "x": 1, "y": 2, "facing": "turret", "size": "large",
-        "allowedTypes": ["shield", "armor"], "category": "defence"
+        "id": "bstation_defence_3",
+        "x": 1,
+        "y": 2,
+        "facing": "turret",
+        "size": "large",
+        "allowedTypes": [
+          "shield",
+          "armor"
+        ],
+        "category": "defence"
       },
       {
-        "id": "bstation_engine_1", "x": 2, "y": -1, "facing": "aft", "size": "large",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "bstation_engine_1",
+        "x": 2,
+        "y": -1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "bstation_engine_2", "x": 2, "y": 0, "facing": "aft", "size": "large",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "bstation_engine_2",
+        "x": 2,
+        "y": 0,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "bstation_engine_3", "x": 2, "y": 1, "facing": "aft", "size": "large",
-        "allowedTypes": ["engine"], "category": "engine"
+        "id": "bstation_engine_3",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "engine"
+        ],
+        "category": "engine"
       },
       {
-        "id": "bstation_warp_1", "x": 2, "y": 2, "facing": "aft", "size": "large",
-        "allowedTypes": ["warp_drive"], "category": "warp_drive"
+        "id": "bstation_warp_1",
+        "x": 2,
+        "y": 2,
+        "facing": "aft",
+        "size": "large",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       },
       {
-        "id": "bstation_internal_1", "x": 1, "y": -1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "bstation_internal_1",
+        "x": 1,
+        "y": -1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "bstation_internal_2", "x": 1, "y": 1, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "bstation_internal_2",
+        "x": 1,
+        "y": 1,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "bstation_internal_3", "x": 1, "y": -3, "facing": "turret", "size": "medium",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "bstation_internal_3",
+        "x": 1,
+        "y": -3,
+        "facing": "turret",
+        "size": "medium",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "bstation_internal_4", "x": 1, "y": 3, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "bstation_internal_4",
+        "x": 1,
+        "y": 3,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       },
       {
-        "id": "bstation_internal_5", "x": 2, "y": -2, "facing": "turret", "size": "small",
-        "allowedTypes": ["sensor", "repair_drone", "special", "life_support", "targeting_computer", "advanced_sensors", "damage_control", "ecm_suite"],
+        "id": "bstation_internal_5",
+        "x": 2,
+        "y": -2,
+        "facing": "turret",
+        "size": "small",
+        "allowedTypes": [
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
+        ],
         "category": "internal"
       }
     ],
-    "baseCost": 3000,
+    "baseCost": 100000,
     "baseSpeed": 1,
-    "requiredAge": "singularity",
-    "hangarSlots": { "count": 3, "carries": [{ "hull": "carrier", "quantity": 1 }, { "hull": "destroyer", "quantity": 5 }] }
+    "requiredAge": "nano_fusion",
+    "hangarSlots": {
+      "count": 3,
+      "carries": [
+        {
+          "hull": "carrier",
+          "quantity": 1
+        },
+        {
+          "hull": "destroyer",
+          "quantity": 5
+        }
+      ]
+    }
   }
 ]

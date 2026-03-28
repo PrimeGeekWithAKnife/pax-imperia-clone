@@ -41,22 +41,22 @@ export const TECH_AGES: TechAgeDefinition[] = [
   {
     name: 'nano_atomic',
     combatBonus: 0,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser'],
   },
   {
     name: 'fusion',
     combatBonus: 5,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship'],
   },
   {
     name: 'nano_fusion',
     combatBonus: 10,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
   },
   {
     name: 'anti_matter',
     combatBonus: 20,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier'],
+    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
   },
   {
     name: 'singularity',

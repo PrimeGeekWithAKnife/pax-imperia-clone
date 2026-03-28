@@ -171,6 +171,45 @@
     "requiredTech": "reactive_plating"
   },
   {
+    "id": "nano_weave_plating",
+    "name": "Nano-Weave Plating",
+    "type": "armor",
+    "description": "Self-repairing nano-fibre mesh that redistributes impact energy across the hull",
+    "stats": {
+      "armorRating": 65,
+      "massIncrease": 6,
+      "selfRepair": 2
+    },
+    "cost": 250,
+    "requiredTech": "nano_weave_materials"
+  },
+  {
+    "id": "neutronium_hull",
+    "name": "Neutronium Hull Plating",
+    "type": "armor",
+    "description": "Ultra-dense neutronium alloy — near-impervious to conventional weapons",
+    "stats": {
+      "armorRating": 100,
+      "massIncrease": 12,
+      "kineticResistance": 30
+    },
+    "cost": 500,
+    "requiredTech": "neutronium_forging"
+  },
+  {
+    "id": "phase_armour",
+    "name": "Phase-Shift Armour",
+    "type": "armor",
+    "description": "Dimensional phase plating that partially exists outside normal space, causing weapons to pass through",
+    "stats": {
+      "armorRating": 150,
+      "massIncrease": 4,
+      "phaseEvasion": 25
+    },
+    "cost": 900,
+    "requiredTech": "phase_materials"
+  },
+  {
     "id": "shield_harmonics",
     "name": "Shield Harmonics",
     "type": "shield",
