@@ -95,9 +95,9 @@ function keyStat(component: ShipComponent): string {
     case 'armor':
       return `${s['armorRating'] ?? 0} AR`;
     case 'engine':
-      return `spd ${s['speed'] ?? 0}`;
+      return `spd ${s['speed'] ?? 0} / ${s['powerOutput'] ?? 0}pw`;
     case 'warp_drive':
-      return `warp ${s['warpSpeed'] ?? 0}`;
+      return `warp ${s['warpSpeed'] ?? 0} / ${s['powerDraw'] ?? 0}pw`;
     case 'sensor':
       return `rng ${s['sensorRange'] ?? 0}`;
     case 'repair_drone':
@@ -618,6 +618,8 @@ export function ShipDesignerScreen({
                   { label: 'Repair Rate',    value: designStats.repairRate,    compare: compareStats?.repairRate,    unit: '/t'  },
                   { label: 'Accuracy Bonus', value: designStats.accuracyBonus, compare: compareStats?.accuracyBonus, unit: '%'   },
                   { label: 'Evasion Bonus',  value: designStats.evasionBonus,  compare: compareStats?.evasionBonus,  unit: '%'   },
+                  { label: 'Power Output',   value: designStats.powerOutput,   compare: compareStats?.powerOutput,   unit: ''    },
+                  { label: 'Power Draw',     value: designStats.powerDraw,     compare: compareStats?.powerDraw,     unit: ''    },
                 ] as const
               ).map(({ label, value, compare, unit }) => {
                 const hasCompare = compare !== undefined && compare !== null;
@@ -656,6 +658,33 @@ export function ShipDesignerScreen({
                   </div>
                 );
               })}
+            </div>
+
+            {/* Power balance */}
+            <div className="sd-stats-section">
+              <div className="sd-stats-section-label">POWER</div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Engine Output</span>
+                <span className="sd-stat-value">{designStats.powerOutput}</span>
+              </div>
+              {designStats.powerBuffer > 0 && (
+                <div className="sd-stat-row">
+                  <span className="sd-stat-label">Battery Buffer</span>
+                  <span className="sd-stat-value">+{designStats.powerBuffer}</span>
+                </div>
+              )}
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Systems Draw</span>
+                <span className="sd-stat-value">-{designStats.powerDraw}</span>
+              </div>
+              <div className="sd-stat-row sd-stat-row--total">
+                <span className="sd-stat-label">Balance</span>
+                <span className="sd-stat-value" style={{
+                  color: designStats.powerBalance >= 0 ? '#44ff88' : '#ff4444',
+                }}>
+                  {designStats.powerBalance >= 0 ? '+' : ''}{designStats.powerBalance}
+                </span>
+              </div>
             </div>
 
             {/* Cost breakdown */}

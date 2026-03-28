@@ -1,520 +1,75 @@
 [
-  {
-    "id": "pulse_laser",
-    "name": "Pulse Laser",
-    "type": "weapon_beam",
-    "category": "energy",
-    "stats": {
-      "damage": 10,
-      "range": 5,
-      "accuracy": 85
-    },
-    "cost": 50,
-    "requiredTech": null
-  },
-  {
-    "id": "kinetic_cannon",
-    "name": "Kinetic Cannon",
-    "type": "weapon_projectile",
-    "category": "kinetic",
-    "stats": {
-      "damage": 15,
-      "range": 3,
-      "accuracy": 90
-    },
-    "cost": 60,
-    "requiredTech": null
-  },
-  {
-    "id": "basic_missile",
-    "name": "Basic Missile",
-    "type": "weapon_missile",
-    "category": "propulsion",
-    "stats": {
-      "damage": 20,
-      "range": 8,
-      "accuracy": 70
-    },
-    "cost": 80,
-    "requiredTech": null
-  },
-  {
-    "id": "point_defense_turret",
-    "name": "Point Defense Turret",
-    "type": "weapon_point_defense",
-    "category": "kinetic",
-    "stats": {
-      "damage": 5,
-      "range": 2,
-      "interceptRate": 60
-    },
-    "cost": 45,
-    "requiredTech": null
-  },
-  {
-    "id": "light_fighter_bay",
-    "name": "Light Fighter Bay",
-    "type": "fighter_bay",
-    "category": "propulsion",
-    "stats": {
-      "fighterCount": 4,
-      "damage": 8,
-      "range": 6
-    },
-    "cost": 120,
-    "requiredTech": null
-  },
-  {
-    "id": "deflector_shield",
-    "name": "Deflector Shield",
-    "type": "shield",
-    "stats": {
-      "shieldStrength": 30,
-      "rechargeRate": 3
-    },
-    "cost": 70,
-    "requiredTech": null
-  },
-  {
-    "id": "composite_plate",
-    "name": "Composite Plate",
-    "type": "armor",
-    "description": "Standard layered composite hull plating — baseline protection",
-    "stats": {
-      "armorRating": 15,
-      "massIncrease": 4
-    },
-    "cost": 40,
-    "requiredTech": null
-  },
-  {
-    "id": "advanced_composite_plate",
-    "name": "Advanced Composite Plate",
-    "type": "armor",
-    "description": "Improved composite with ceramic interlayers — better impact distribution",
-    "stats": {
-      "armorRating": 25,
-      "massIncrease": 5
-    },
-    "cost": 80,
-    "requiredTech": "advanced_composites"
-  },
-  {
-    "id": "enhanced_composite_plate",
-    "name": "Enhanced Composite Plate",
-    "type": "armor",
-    "description": "Molecular-bonded composite matrix — significant step up from standard plating",
-    "stats": {
-      "armorRating": 35,
-      "massIncrease": 5,
-      "impactAbsorption": 5
-    },
-    "cost": 120,
-    "requiredTech": "enhanced_composites"
-  },
-  {
-    "id": "ion_engine",
-    "name": "Ion Engine",
-    "type": "engine",
-    "stats": {
-      "speed": 3,
-      "energyConsumption": 2
-    },
-    "cost": 65,
-    "requiredTech": null
-  },
-  {
-    "id": "basic_warp_drive",
-    "name": "Basic Warp Drive",
-    "type": "warp_drive",
-    "stats": {
-      "warpSpeed": 2,
-      "warpRange": 3
-    },
-    "cost": 90,
-    "requiredTech": null
-  },
-  {
-    "id": "short_range_scanner",
-    "name": "Short-Range Scanner",
-    "type": "sensor",
-    "stats": {
-      "sensorRange": 3,
-      "detectionBonus": 5
-    },
-    "cost": 40,
-    "requiredTech": null
-  },
-  {
-    "id": "field_repair_unit",
-    "name": "Field Repair Unit",
-    "type": "repair_drone",
-    "stats": {
-      "repairRate": 5,
-      "repairRange": 1
-    },
-    "cost": 85,
-    "requiredTech": null
-  },
-  {
-    "id": "phased_array",
-    "name": "Phased Array",
-    "type": "weapon_beam",
-    "category": "energy",
-    "stats": {
-      "damage": 20,
-      "range": 6,
-      "accuracy": 90,
-      "piercingBonus": 5
-    },
-    "cost": 120,
-    "requiredTech": "phased_arrays"
-  },
-  {
-    "id": "guided_torpedo",
-    "name": "Guided Torpedo",
-    "type": "weapon_missile",
-    "category": "propulsion",
-    "stats": {
-      "damage": 35,
-      "range": 10,
-      "accuracy": 80,
-      "blastRadius": 2
-    },
-    "cost": 150,
-    "requiredTech": "guided_torpedoes"
-  },
-  {
-    "id": "reactive_armor",
-    "name": "Reactive Armour",
-    "type": "armor",
-    "description": "Explosive-reactive tiles that detonate outward on impact — effective against kinetic rounds",
-    "stats": {
-      "armorRating": 45,
-      "massIncrease": 7,
-      "explosiveResistance": 15
-    },
-    "cost": 160,
-    "requiredTech": "reactive_plating"
-  },
-  {
-    "id": "hardened_reactive_armor",
-    "name": "Hardened Reactive Armour",
-    "type": "armor",
-    "description": "Second-generation reactive plating with layered detonation chambers",
-    "stats": {
-      "armorRating": 55,
-      "massIncrease": 8,
-      "explosiveResistance": 20
-    },
-    "cost": 220,
-    "requiredTech": "hardened_reactive_plating"
-  },
-  {
-    "id": "nano_weave_plating",
-    "name": "Nano-Weave Plating",
-    "type": "armor",
-    "description": "Self-repairing nano-fibre mesh that redistributes impact energy across the hull",
-    "stats": {
-      "armorRating": 70,
-      "massIncrease": 6,
-      "selfRepair": 2
-    },
-    "cost": 300,
-    "requiredTech": "nano_weave_materials"
-  },
-  {
-    "id": "reinforced_nano_weave",
-    "name": "Reinforced Nano-Weave",
-    "type": "armor",
-    "description": "Dense nano-fibre lattice reinforced with rare-element threading — superior repair rate",
-    "stats": {
-      "armorRating": 85,
-      "massIncrease": 7,
-      "selfRepair": 4
-    },
-    "cost": 400,
-    "requiredTech": "reinforced_nano_weave"
-  },
-  {
-    "id": "neutronium_hull",
-    "name": "Neutronium Hull Plating",
-    "type": "armor",
-    "description": "Ultra-dense neutronium alloy — near-impervious to conventional weapons",
-    "stats": {
-      "armorRating": 110,
-      "massIncrease": 12,
-      "kineticResistance": 30
-    },
-    "cost": 550,
-    "requiredTech": "neutronium_forging"
-  },
-  {
-    "id": "phase_armour",
-    "name": "Phase-Shift Armour",
-    "type": "armor",
-    "description": "Dimensional phase plating that partially exists outside normal space — weapons pass through",
-    "stats": {
-      "armorRating": 140,
-      "massIncrease": 4,
-      "phaseEvasion": 25
-    },
-    "cost": 800,
-    "requiredTech": "phase_materials"
-  },
-  {
-    "id": "singularity_shell",
-    "name": "Singularity Shell",
-    "type": "armor",
-    "description": "Micro-singularity lattice that warps space around the hull, deflecting all but the most powerful attacks",
-    "stats": {
-      "armorRating": 180,
-      "massIncrease": 3,
-      "phaseEvasion": 35,
-      "graviticDeflection": 20
-    },
-    "cost": 1200,
-    "requiredTech": "singularity_engineering"
-  },
-  {
-    "id": "shield_harmonics",
-    "name": "Shield Harmonics",
-    "type": "shield",
-    "stats": {
-      "shieldStrength": 60,
-      "rechargeRate": 6,
-      "resonanceBonus": 10
-    },
-    "cost": 160,
-    "requiredTech": "shield_harmonics"
-  },
-  {
-    "id": "fusion_drive",
-    "name": "Fusion Drive",
-    "type": "engine",
-    "stats": {
-      "speed": 5,
-      "energyConsumption": 4,
-      "thrustEfficiency": 15
-    },
-    "cost": 175,
-    "requiredTech": "fusion_drives"
-  },
-  {
-    "id": "heavy_fighter_bay",
-    "name": "Heavy Fighter Bay",
-    "type": "fighter_bay",
-    "category": "propulsion",
-    "stats": {
-      "fighterCount": 8,
-      "damage": 15,
-      "range": 8,
-      "armorRating": 5
-    },
-    "cost": 280,
-    "requiredTech": "heavy_fighter_wings"
-  },
-  {
-    "id": "disruptor_beam",
-    "name": "Disruptor Beam",
-    "type": "weapon_beam",
-    "category": "energy",
-    "stats": {
-      "damage": 35,
-      "range": 7,
-      "accuracy": 88,
-      "shieldPenetration": 20
-    },
-    "cost": 210,
-    "requiredTech": "disruptor_beams"
-  },
-  {
-    "id": "neutronium_barrier",
-    "name": "Neutronium Barrier",
-    "type": "shield",
-    "stats": {
-      "shieldStrength": 100,
-      "rechargeRate": 8,
-      "kineticAbsorption": 25
-    },
-    "cost": 300,
-    "requiredTech": "neutronium_barriers"
-  },
-  {
-    "id": "antimatter_drive",
-    "name": "Antimatter Drive",
-    "type": "engine",
-    "stats": {
-      "speed": 7,
-      "energyConsumption": 7,
-      "thrustEfficiency": 30
-    },
-    "cost": 350,
-    "requiredTech": "antimatter_drives"
-  },
-  {
-    "id": "plasma_lance",
-    "name": "Plasma Lance",
-    "type": "weapon_beam",
-    "category": "energy",
-    "stats": {
-      "damage": 50,
-      "range": 8,
-      "accuracy": 82,
-      "armorPenetration": 30
-    },
-    "cost": 400,
-    "requiredTech": "plasma_lances"
-  },
-  {
-    "id": "phase_shield",
-    "name": "Phase Shield",
-    "type": "shield",
-    "stats": {
-      "shieldStrength": 150,
-      "rechargeRate": 12,
-      "phaseShift": 40
-    },
-    "cost": 500,
-    "requiredTech": "phase_shields"
-  },
-  {
-    "id": "deep_space_scanner",
-    "name": "Deep Space Scanner",
-    "type": "sensor",
-    "stats": {
-      "sensorRange": 8,
-      "detectionBonus": 20,
-      "deepScanBonus": 15
-    },
-    "cost": 200,
-    "requiredTech": "dimensional_scanning"
-  },
-  {
-    "id": "battering_ram",
-    "name": "Battering Ram",
-    "type": "weapon_projectile",
-    "category": "mechanical",
-    "description": "A reinforced prow spike for ramming manoeuvres",
-    "stats": {
-      "damage": 25,
-      "range": 1,
-      "accuracy": 95
-    },
-    "cost": 70,
-    "requiredTech": null
-  },
-  {
-    "id": "grappling_claws",
-    "name": "Grappling Claws",
-    "type": "special",
-    "category": "mechanical",
-    "description": "Mechanical appendages that latch onto and crush enemy hulls",
-    "stats": {
-      "damage": 15,
-      "range": 1,
-      "accuracy": 90
-    },
-    "cost": 90,
-    "requiredTech": "modular_architecture"
-  },
-  {
-    "id": "basic_life_support",
-    "name": "Basic Life Support",
-    "type": "life_support",
-    "description": "Standard crew life support — improves morale recovery rate",
-    "stats": {
-      "moraleRecovery": 2,
-      "crewCapacity": 50
-    },
-    "cost": 30,
-    "requiredTech": null
-  },
-  {
-    "id": "targeting_computer_mk1",
-    "name": "Targeting Computer Mk I",
-    "type": "targeting_computer",
-    "description": "Fire-control system — increases weapon accuracy",
-    "stats": {
-      "accuracyBonus": 10,
-      "trackingSpeed": 5
-    },
-    "cost": 75,
-    "requiredTech": null
-  },
-  {
-    "id": "targeting_computer_mk2",
-    "name": "Targeting Computer Mk II",
-    "type": "targeting_computer",
-    "description": "Advanced fire-control — significantly increases weapon accuracy",
-    "stats": {
-      "accuracyBonus": 20,
-      "trackingSpeed": 12
-    },
-    "cost": 180,
-    "requiredTech": "predictive_targeting"
-  },
-  {
-    "id": "advanced_sensor_suite",
-    "name": "Advanced Sensor Suite",
-    "type": "advanced_sensors",
-    "description": "Long-range detection array with deep-scan capability",
-    "stats": {
-      "sensorRange": 6,
-      "detectionBonus": 15,
-      "stealthPenetration": 10
-    },
-    "cost": 120,
-    "requiredTech": null
-  },
-  {
-    "id": "damage_control_system",
-    "name": "Damage Control System",
-    "type": "damage_control",
-    "description": "Automated repair drones and hull sealant — reduces system damage and repairs hull",
-    "stats": {
-      "repairRate": 3,
-      "systemDamageReduction": 15
-    },
-    "cost": 100,
-    "requiredTech": null
-  },
-  {
-    "id": "ecm_suite_mk1",
-    "name": "ECM Suite Mk I",
-    "type": "ecm_suite",
-    "description": "Electronic countermeasures — reduces enemy weapon accuracy against this ship",
-    "stats": {
-      "evasionBonus": 10,
-      "missileDeflection": 15
-    },
-    "cost": 95,
-    "requiredTech": null
-  },
-  {
-    "id": "ecm_suite_mk2",
-    "name": "ECM Suite Mk II",
-    "type": "ecm_suite",
-    "description": "Advanced electronic warfare suite — greatly reduces enemy accuracy",
-    "stats": {
-      "evasionBonus": 20,
-      "missileDeflection": 30,
-      "sensorJamming": 15
-    },
-    "cost": 250,
-    "requiredTech": "electronic_warfare"
-  },
-  {
-    "id": "advanced_life_support",
-    "name": "Advanced Life Support",
-    "type": "life_support",
-    "description": "Enhanced crew quarters and medical bays — greatly improves morale and crew health",
-    "stats": {
-      "moraleRecovery": 5,
-      "crewCapacity": 100,
-      "healthBonus": 10
-    },
-    "cost": 110,
-    "requiredTech": "advanced_habitation"
-  }
+  {"id":"pulse_laser","name":"Pulse Laser","type":"weapon_beam","category":"energy","description":"Short-burst coherent light weapon","stats":{"damage":10,"range":5,"accuracy":85,"powerDraw":3},"cost":50,"requiredTech":null},
+  {"id":"phased_array","name":"Phased Array","type":"weapon_beam","category":"energy","description":"Multi-emitter beam array with improved tracking","stats":{"damage":20,"range":6,"accuracy":90,"piercingBonus":5,"powerDraw":5},"cost":120,"requiredTech":"phased_arrays"},
+  {"id":"particle_beam_cannon","name":"Particle Beam Cannon","type":"weapon_beam","category":"energy","description":"Accelerated particle stream that strips armour at the atomic level","stats":{"damage":30,"range":6,"accuracy":88,"armorPenetration":15,"powerDraw":7},"cost":200,"requiredTech":"particle_acceleration"},
+  {"id":"disruptor_beam","name":"Disruptor Beam","type":"weapon_beam","category":"energy","description":"Disrupts molecular bonds — devastating against shields","stats":{"damage":35,"range":7,"accuracy":88,"shieldPenetration":20,"powerDraw":8},"cost":280,"requiredTech":"disruptor_beams"},
+  {"id":"radiation_ray","name":"Radiation Ray","type":"weapon_beam","category":"energy","description":"Ionising radiation projector — damages crew and systems through hull","stats":{"damage":25,"range":5,"accuracy":92,"systemDamageBonus":25,"crewDamage":15,"powerDraw":6},"cost":240,"requiredTech":"directed_radiation"},
+  {"id":"plasma_lance","name":"Plasma Lance","type":"weapon_beam","category":"energy","description":"Superheated plasma stream — the most powerful beam weapon","stats":{"damage":50,"range":8,"accuracy":82,"armorPenetration":30,"powerDraw":12},"cost":450,"requiredTech":"plasma_lances"},
+
+  {"id":"kinetic_cannon","name":"Kinetic Cannon","type":"weapon_projectile","category":"kinetic","description":"Electromagnetic railgun firing solid slugs","stats":{"damage":15,"range":3,"accuracy":90,"powerDraw":2},"cost":60,"requiredTech":null},
+  {"id":"battering_ram","name":"Battering Ram","type":"weapon_projectile","category":"mechanical","description":"Reinforced prow spike for ramming manoeuvres","stats":{"damage":25,"range":1,"accuracy":95,"powerDraw":0},"cost":70,"requiredTech":null},
+  {"id":"mass_driver","name":"Mass Driver","type":"weapon_projectile","category":"kinetic","description":"High-velocity mass accelerator — punches through armour at extreme range","stats":{"damage":30,"range":7,"accuracy":85,"armorPenetration":20,"powerDraw":4},"cost":180,"requiredTech":"mass_drivers"},
+  {"id":"gauss_cannon","name":"Gauss Cannon","type":"weapon_projectile","category":"kinetic","description":"Magnetically accelerated rounds with devastating impact","stats":{"damage":40,"range":6,"accuracy":88,"armorPenetration":25,"powerDraw":6},"cost":300,"requiredTech":"gauss_technology"},
+
+  {"id":"basic_torpedo","name":"Basic Torpedo","type":"weapon_missile","category":"propulsion","description":"Self-propelled explosive warhead","stats":{"damage":20,"range":8,"accuracy":70,"powerDraw":1},"cost":80,"requiredTech":null},
+  {"id":"guided_torpedo","name":"Guided Torpedo","type":"weapon_missile","category":"propulsion","description":"Smart-tracking torpedo with terminal guidance","stats":{"damage":35,"range":10,"accuracy":80,"blastRadius":2,"powerDraw":2},"cost":150,"requiredTech":"guided_torpedoes"},
+  {"id":"fusion_torpedo","name":"Fusion Torpedo","type":"weapon_missile","category":"propulsion","description":"Fusion-warhead torpedo — massive blast radius","stats":{"damage":50,"range":10,"accuracy":75,"blastRadius":4,"powerDraw":2},"cost":250,"requiredTech":"fusion_warheads"},
+  {"id":"antimatter_torpedo","name":"Antimatter Torpedo","type":"weapon_missile","category":"propulsion","description":"Antimatter annihilation warhead — devastating against capital ships","stats":{"damage":70,"range":12,"accuracy":72,"blastRadius":3,"powerDraw":3},"cost":400,"requiredTech":"antimatter_warheads"},
+  {"id":"singularity_torpedo","name":"Singularity Torpedo","type":"weapon_missile","category":"propulsion","description":"Creates a micro-singularity at the point of impact","stats":{"damage":100,"range":14,"accuracy":68,"blastRadius":5,"graviticPull":20,"powerDraw":4},"cost":650,"requiredTech":"singularity_weapons"},
+
+  {"id":"point_defense_turret","name":"Point Defence Turret","type":"weapon_point_defense","category":"kinetic","description":"Rapid-fire close-in weapon system for intercepting missiles and fighters","stats":{"damage":5,"range":2,"interceptRate":60,"powerDraw":2},"cost":45,"requiredTech":null},
+  {"id":"flak_battery","name":"Flak Battery","type":"weapon_point_defense","category":"kinetic","description":"Area-denial fragmentation rounds — higher intercept rate","stats":{"damage":8,"range":3,"interceptRate":75,"powerDraw":3},"cost":120,"requiredTech":"advanced_point_defense"},
+
+  {"id":"light_fighter_bay","name":"Light Fighter Bay","type":"fighter_bay","category":"propulsion","description":"Launches 4 light strike craft","stats":{"fighterCount":4,"damage":8,"range":6,"powerDraw":3},"cost":120,"requiredTech":null},
+  {"id":"heavy_fighter_bay","name":"Heavy Fighter Bay","type":"fighter_bay","category":"propulsion","description":"Launches 8 armoured strike craft","stats":{"fighterCount":8,"damage":15,"range":8,"armorRating":5,"powerDraw":5},"cost":280,"requiredTech":"heavy_fighter_wings"},
+
+  {"id":"deflector_shield","name":"Deflector Shield","type":"shield","description":"Basic energy barrier — absorbs incoming damage","stats":{"shieldStrength":30,"rechargeRate":3,"powerDraw":4},"cost":70,"requiredTech":null},
+  {"id":"shield_harmonics","name":"Shield Harmonics","type":"shield","description":"Resonance-tuned shields with faster recharge","stats":{"shieldStrength":60,"rechargeRate":6,"resonanceBonus":10,"powerDraw":6},"cost":160,"requiredTech":"shield_harmonics"},
+  {"id":"neutronium_barrier","name":"Neutronium Barrier","type":"shield","description":"Ultra-dense energy barrier — excellent kinetic absorption","stats":{"shieldStrength":100,"rechargeRate":8,"kineticAbsorption":25,"powerDraw":9},"cost":300,"requiredTech":"neutronium_barriers"},
+  {"id":"phase_shield","name":"Phase Shield","type":"shield","description":"Partially phase-shifts incoming projectiles — ultimate shield technology","stats":{"shieldStrength":150,"rechargeRate":12,"phaseShift":40,"powerDraw":14},"cost":500,"requiredTech":"phase_shields"},
+
+  {"id":"composite_plate","name":"Composite Plate","type":"armor","description":"Standard layered composite hull plating","stats":{"armorRating":15,"massIncrease":4},"cost":40,"requiredTech":null},
+  {"id":"advanced_composite_plate","name":"Advanced Composite Plate","type":"armor","description":"Improved composite with ceramic interlayers","stats":{"armorRating":25,"massIncrease":5},"cost":80,"requiredTech":"advanced_composites"},
+  {"id":"enhanced_composite_plate","name":"Enhanced Composite Plate","type":"armor","description":"Molecular-bonded composite matrix","stats":{"armorRating":35,"massIncrease":5,"impactAbsorption":5},"cost":120,"requiredTech":"enhanced_composites"},
+  {"id":"reactive_armor","name":"Reactive Armour","type":"armor","description":"Explosive-reactive tiles that detonate outward on impact","stats":{"armorRating":45,"massIncrease":7,"explosiveResistance":15},"cost":160,"requiredTech":"reactive_plating"},
+  {"id":"hardened_reactive_armor","name":"Hardened Reactive Armour","type":"armor","description":"Second-generation reactive plating with layered detonation chambers","stats":{"armorRating":55,"massIncrease":8,"explosiveResistance":20},"cost":220,"requiredTech":"hardened_reactive_plating"},
+  {"id":"nano_weave_plating","name":"Nano-Weave Plating","type":"armor","description":"Self-repairing nano-fibre mesh","stats":{"armorRating":70,"massIncrease":6,"selfRepair":2},"cost":300,"requiredTech":"nano_weave_materials"},
+  {"id":"reinforced_nano_weave","name":"Reinforced Nano-Weave","type":"armor","description":"Dense nano-fibre lattice with rare-element threading","stats":{"armorRating":85,"massIncrease":7,"selfRepair":4},"cost":400,"requiredTech":"reinforced_nano_weave"},
+  {"id":"neutronium_hull","name":"Neutronium Hull Plating","type":"armor","description":"Ultra-dense neutronium alloy","stats":{"armorRating":110,"massIncrease":12,"kineticResistance":30},"cost":550,"requiredTech":"neutronium_forging"},
+  {"id":"phase_armour","name":"Phase-Shift Armour","type":"armor","description":"Dimensional phase plating — weapons pass through","stats":{"armorRating":140,"massIncrease":4,"phaseEvasion":25},"cost":800,"requiredTech":"phase_materials"},
+  {"id":"singularity_shell","name":"Singularity Shell","type":"armor","description":"Micro-singularity lattice warps space around the hull","stats":{"armorRating":180,"massIncrease":3,"phaseEvasion":35,"graviticDeflection":20},"cost":1200,"requiredTech":"singularity_engineering"},
+
+  {"id":"ion_engine","name":"Ion Engine","type":"engine","description":"Basic ion thruster — reliable but low output","stats":{"speed":3,"powerOutput":10},"cost":65,"requiredTech":null},
+  {"id":"fusion_reactor_drive","name":"Fusion Reactor Drive","type":"engine","description":"Fusion-powered drive with significantly more power","stats":{"speed":5,"powerOutput":18},"cost":175,"requiredTech":"fusion_drives"},
+  {"id":"antimatter_drive","name":"Antimatter Drive","type":"engine","description":"Antimatter annihilation engine — extreme power output","stats":{"speed":7,"powerOutput":30},"cost":350,"requiredTech":"antimatter_drives"},
+  {"id":"singularity_drive","name":"Singularity Drive","type":"engine","description":"Harnesses a contained micro-singularity — ultimate power source","stats":{"speed":9,"powerOutput":50},"cost":600,"requiredTech":"singularity_drives"},
+
+  {"id":"basic_warp_drive","name":"Basic Warp Drive","type":"warp_drive","description":"Enables inter-system travel by warping spacetime","stats":{"warpSpeed":2,"warpRange":3,"powerDraw":4},"cost":90,"requiredTech":null},
+  {"id":"enhanced_warp_drive","name":"Enhanced Warp Drive","type":"warp_drive","description":"Improved warp coils for faster inter-system transit","stats":{"warpSpeed":4,"warpRange":5,"powerDraw":6},"cost":200,"requiredTech":"enhanced_warp_coils"},
+  {"id":"transwarp_drive","name":"Transwarp Drive","type":"warp_drive","description":"Tears a temporary wormhole — near-instant travel","stats":{"warpSpeed":8,"warpRange":10,"powerDraw":10},"cost":500,"requiredTech":"transwarp_technology"},
+
+  {"id":"short_range_scanner","name":"Short-Range Scanner","type":"sensor","description":"Basic sensor array","stats":{"sensorRange":3,"detectionBonus":5,"powerDraw":1},"cost":40,"requiredTech":null},
+  {"id":"deep_space_scanner","name":"Deep Space Scanner","type":"sensor","description":"Long-range detection array","stats":{"sensorRange":8,"detectionBonus":20,"deepScanBonus":15,"powerDraw":3},"cost":200,"requiredTech":"dimensional_scanning"},
+
+  {"id":"field_repair_unit","name":"Field Repair Unit","type":"repair_drone","description":"Automated repair drones","stats":{"repairRate":5,"repairRange":1,"powerDraw":2},"cost":85,"requiredTech":null},
+
+  {"id":"grappling_claws","name":"Grappling Claws","type":"special","category":"mechanical","description":"Mechanical appendages that latch onto and crush enemy hulls","stats":{"damage":15,"range":1,"accuracy":90,"powerDraw":1},"cost":90,"requiredTech":"modular_architecture"},
+
+  {"id":"basic_life_support","name":"Basic Life Support","type":"life_support","description":"Standard crew life support — improves morale recovery","stats":{"moraleRecovery":2,"crewCapacity":50,"powerDraw":2},"cost":30,"requiredTech":null},
+  {"id":"advanced_life_support","name":"Advanced Life Support","type":"life_support","description":"Enhanced crew quarters and medical bays","stats":{"moraleRecovery":5,"crewCapacity":100,"healthBonus":10,"powerDraw":3},"cost":110,"requiredTech":"advanced_habitation"},
+
+  {"id":"targeting_computer_mk1","name":"Targeting Computer Mk I","type":"targeting_computer","description":"Fire-control system — increases weapon accuracy","stats":{"accuracyBonus":10,"trackingSpeed":5,"powerDraw":2},"cost":75,"requiredTech":null},
+  {"id":"targeting_computer_mk2","name":"Targeting Computer Mk II","type":"targeting_computer","description":"Advanced fire-control with predictive tracking","stats":{"accuracyBonus":20,"trackingSpeed":12,"powerDraw":3},"cost":180,"requiredTech":"predictive_targeting"},
+
+  {"id":"advanced_sensor_suite","name":"Advanced Sensor Suite","type":"advanced_sensors","description":"Long-range detection array with deep-scan capability","stats":{"sensorRange":6,"detectionBonus":15,"stealthPenetration":10,"powerDraw":3},"cost":120,"requiredTech":null},
+
+  {"id":"damage_control_system","name":"Damage Control System","type":"damage_control","description":"Automated repair drones and hull sealant","stats":{"repairRate":3,"systemDamageReduction":15,"powerDraw":2},"cost":100,"requiredTech":null},
+
+  {"id":"ecm_suite_mk1","name":"ECM Suite Mk I","type":"ecm_suite","description":"Electronic countermeasures — reduces enemy accuracy","stats":{"evasionBonus":10,"missileDeflection":15,"powerDraw":3},"cost":95,"requiredTech":null},
+  {"id":"ecm_suite_mk2","name":"ECM Suite Mk II","type":"ecm_suite","description":"Advanced electronic warfare suite","stats":{"evasionBonus":20,"missileDeflection":30,"sensorJamming":15,"powerDraw":5},"cost":250,"requiredTech":"electronic_warfare"},
+
+  {"id":"capacitor_bank","name":"Capacitor Bank","type":"life_support","description":"Energy storage cells — provides additional power buffer","stats":{"powerBuffer":8,"moraleRecovery":0,"crewCapacity":0},"cost":50,"requiredTech":null},
+  {"id":"fusion_battery","name":"Fusion Battery","type":"life_support","description":"Compact fusion cells — significant power reserves","stats":{"powerBuffer":15,"moraleRecovery":0,"crewCapacity":0},"cost":120,"requiredTech":"fusion_energy_storage"},
+  {"id":"antimatter_battery","name":"Antimatter Battery","type":"life_support","description":"Antimatter containment cells — massive stored energy","stats":{"powerBuffer":25,"moraleRecovery":0,"crewCapacity":0},"cost":280,"requiredTech":"antimatter_containment"},
+  {"id":"zero_point_cell","name":"Zero-Point Cell","type":"life_support","description":"Extracts energy from quantum vacuum — near-unlimited buffer","stats":{"powerBuffer":40,"moraleRecovery":0,"crewCapacity":0},"cost":500,"requiredTech":"zero_point_energy"}
 ]
