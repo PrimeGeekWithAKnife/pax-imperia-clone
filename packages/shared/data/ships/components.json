@@ -79,12 +79,38 @@
     "id": "composite_plate",
     "name": "Composite Plate",
     "type": "armor",
+    "description": "Standard layered composite hull plating — baseline protection",
     "stats": {
-      "armorRating": 20,
+      "armorRating": 15,
+      "massIncrease": 4
+    },
+    "cost": 40,
+    "requiredTech": null
+  },
+  {
+    "id": "advanced_composite_plate",
+    "name": "Advanced Composite Plate",
+    "type": "armor",
+    "description": "Improved composite with ceramic interlayers — better impact distribution",
+    "stats": {
+      "armorRating": 25,
       "massIncrease": 5
     },
-    "cost": 55,
-    "requiredTech": null
+    "cost": 80,
+    "requiredTech": "advanced_composites"
+  },
+  {
+    "id": "enhanced_composite_plate",
+    "name": "Enhanced Composite Plate",
+    "type": "armor",
+    "description": "Molecular-bonded composite matrix — significant step up from standard plating",
+    "stats": {
+      "armorRating": 35,
+      "massIncrease": 5,
+      "impactAbsorption": 5
+    },
+    "cost": 120,
+    "requiredTech": "enhanced_composites"
   },
   {
     "id": "ion_engine",
@@ -160,15 +186,29 @@
   },
   {
     "id": "reactive_armor",
-    "name": "Reactive Armor",
+    "name": "Reactive Armour",
     "type": "armor",
+    "description": "Explosive-reactive tiles that detonate outward on impact — effective against kinetic rounds",
     "stats": {
-      "armorRating": 40,
-      "massIncrease": 8,
+      "armorRating": 45,
+      "massIncrease": 7,
       "explosiveResistance": 15
     },
-    "cost": 130,
+    "cost": 160,
     "requiredTech": "reactive_plating"
+  },
+  {
+    "id": "hardened_reactive_armor",
+    "name": "Hardened Reactive Armour",
+    "type": "armor",
+    "description": "Second-generation reactive plating with layered detonation chambers",
+    "stats": {
+      "armorRating": 55,
+      "massIncrease": 8,
+      "explosiveResistance": 20
+    },
+    "cost": 220,
+    "requiredTech": "hardened_reactive_plating"
   },
   {
     "id": "nano_weave_plating",
@@ -176,12 +216,25 @@
     "type": "armor",
     "description": "Self-repairing nano-fibre mesh that redistributes impact energy across the hull",
     "stats": {
-      "armorRating": 65,
+      "armorRating": 70,
       "massIncrease": 6,
       "selfRepair": 2
     },
-    "cost": 250,
+    "cost": 300,
     "requiredTech": "nano_weave_materials"
+  },
+  {
+    "id": "reinforced_nano_weave",
+    "name": "Reinforced Nano-Weave",
+    "type": "armor",
+    "description": "Dense nano-fibre lattice reinforced with rare-element threading — superior repair rate",
+    "stats": {
+      "armorRating": 85,
+      "massIncrease": 7,
+      "selfRepair": 4
+    },
+    "cost": 400,
+    "requiredTech": "reinforced_nano_weave"
   },
   {
     "id": "neutronium_hull",
@@ -189,25 +242,39 @@
     "type": "armor",
     "description": "Ultra-dense neutronium alloy — near-impervious to conventional weapons",
     "stats": {
-      "armorRating": 100,
+      "armorRating": 110,
       "massIncrease": 12,
       "kineticResistance": 30
     },
-    "cost": 500,
+    "cost": 550,
     "requiredTech": "neutronium_forging"
   },
   {
     "id": "phase_armour",
     "name": "Phase-Shift Armour",
     "type": "armor",
-    "description": "Dimensional phase plating that partially exists outside normal space, causing weapons to pass through",
+    "description": "Dimensional phase plating that partially exists outside normal space — weapons pass through",
     "stats": {
-      "armorRating": 150,
+      "armorRating": 140,
       "massIncrease": 4,
       "phaseEvasion": 25
     },
-    "cost": 900,
+    "cost": 800,
     "requiredTech": "phase_materials"
+  },
+  {
+    "id": "singularity_shell",
+    "name": "Singularity Shell",
+    "type": "armor",
+    "description": "Micro-singularity lattice that warps space around the hull, deflecting all but the most powerful attacks",
+    "stats": {
+      "armorRating": 180,
+      "massIncrease": 3,
+      "phaseEvasion": 35,
+      "graviticDeflection": 20
+    },
+    "cost": 1200,
+    "requiredTech": "singularity_engineering"
   },
   {
     "id": "shield_harmonics",
