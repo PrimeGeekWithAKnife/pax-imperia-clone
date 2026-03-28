@@ -982,8 +982,8 @@ function stepCombatResolution(
     const traitToMult = (trait: number) => 0.7 + (trait / 10) * 0.6; // trait 1 = 0.76, trait 5 = 1.0, trait 10 = 1.3
     const attackerGov = attackerEmpire ? GOVERNMENTS[attackerEmpire.government] : undefined;
     const defenderGov = defenderEmpire ? GOVERNMENTS[defenderEmpire.government] : undefined;
-    const attackerMult = traitToMult(attackerEmpire?.species.traits.combat ?? 5) * (attackerGov?.combatBonus ?? 1.0);
-    const defenderMult = traitToMult(defenderEmpire?.species.traits.combat ?? 5) * (defenderGov?.combatBonus ?? 1.0);
+    const attackerMult = traitToMult(attackerEmpire?.species.traits.combat ?? 5) * (attackerGov?.modifiers.combatBonus ?? 1.0);
+    const defenderMult = traitToMult(defenderEmpire?.species.traits.combat ?? 5) * (defenderGov?.modifiers.combatBonus ?? 1.0);
 
     const outcome = autoResolveCombat(setup, components, attackerMult, defenderMult);
 

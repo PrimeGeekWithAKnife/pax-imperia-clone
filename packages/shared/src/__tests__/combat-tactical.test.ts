@@ -2484,7 +2484,7 @@ describe('Crew morale', () => {
       id: 'fearful',
       side: 'attacker',
       position: { x: 100, y: 100 },
-      crew: { morale: 5, health: 100, experience: 'green' },
+      crew: { morale: 5, health: 100, experience: 'recruit' },
     });
     const enemy = makeTacticalShip({
       id: 'enemy',
@@ -2692,7 +2692,7 @@ describe('Admiral emergency repair', () => {
 
 describe('Admiral pause', () => {
   it('pause count from admiral experience', () => {
-    expect(admiralPauseCount('green')).toBe(1);
+    expect(admiralPauseCount('recruit')).toBe(1);
     expect(admiralPauseCount('regular')).toBe(2);
     expect(admiralPauseCount('veteran')).toBe(3);
     expect(admiralPauseCount('elite')).toBe(4);
@@ -2745,7 +2745,7 @@ describe('Experience gain calculation', () => {
     const ship = makeTacticalShip({
       id: 'outnumbered',
       side: 'attacker',
-      crew: { morale: 80, health: 100, experience: 'green' },
+      crew: { morale: 80, health: 100, experience: 'recruit' },
     });
 
     // Lost but was outnumbered (5 vs 3, ratio > 1.5)
@@ -2768,7 +2768,7 @@ describe('Experience gain calculation', () => {
     const ship = makeTacticalShip({
       id: 'green-ship',
       side: 'attacker',
-      crew: { morale: 80, health: 100, experience: 'green' },
+      crew: { morale: 80, health: 100, experience: 'recruit' },
     });
 
     const result = calculateExperienceGain(ship, true, 3, 3);

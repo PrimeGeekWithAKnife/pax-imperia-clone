@@ -96,7 +96,7 @@ function makeTacticalShip(
     crew: {
       morale: 100,
       health: 100,
-      experience: 'green',
+      experience: 'recruit',
     },
     ...overrides,
   };
@@ -220,9 +220,9 @@ describe('generateBattleReport', () => {
   it('includes experience promotions for surviving ships', () => {
     // Equal numbers: 2 vs 2, so the loser is not outnumbered
     const ships = [
-      makeTacticalShip('a1', 'attacker', { crew: { morale: 100, health: 100, experience: 'green' } }),
+      makeTacticalShip('a1', 'attacker', { crew: { morale: 100, health: 100, experience: 'recruit' } }),
       makeTacticalShip('a2', 'attacker', { destroyed: true, hull: 0 }),
-      makeTacticalShip('d1', 'defender', { crew: { morale: 100, health: 100, experience: 'green' } }),
+      makeTacticalShip('d1', 'defender', { crew: { morale: 100, health: 100, experience: 'recruit' } }),
       makeTacticalShip('d2', 'defender', { destroyed: true, hull: 0 }),
     ];
     const state = makeState(ships, 'attacker_wins');
@@ -235,7 +235,7 @@ describe('generateBattleReport', () => {
 
     // Losing side green crew stays green (not victorious, equal numbers so not outnumbered)
     expect(report.defender.experienceGained.length).toBe(1);
-    expect(report.defender.experienceGained[0]!.newExperience).toBe('green');
+    expect(report.defender.experienceGained[0]!.newExperience).toBe('recruit');
   });
 
   it('does not include destroyed ships in experience promotions', () => {
@@ -273,7 +273,7 @@ describe('generateBattleReport', () => {
 describe('calculateExperienceGain', () => {
   it('promotes green crew to regular on victory', () => {
     const ship = makeTacticalShip('s1', 'attacker', {
-      crew: { morale: 100, health: 100, experience: 'green' },
+      crew: { morale: 100, health: 100, experience: 'recruit' },
     });
     const result = calculateExperienceGain(ship, true, 3, 3);
     expect(result).toBe('regular');
@@ -281,15 +281,15 @@ describe('calculateExperienceGain', () => {
 
   it('does not promote losing crew in equal battle', () => {
     const ship = makeTacticalShip('s1', 'defender', {
-      crew: { morale: 100, health: 100, experience: 'green' },
+      crew: { morale: 100, health: 100, experience: 'recruit' },
     });
     const result = calculateExperienceGain(ship, false, 3, 3);
-    expect(result).toBe('green');
+    expect(result).toBe('recruit');
   });
 
   it('promotes losing crew when significantly outnumbered', () => {
     const ship = makeTacticalShip('s1', 'defender', {
-      crew: { morale: 100, health: 100, experience: 'green' },
+      crew: { morale: 100, health: 100, experience: 'recruit' },
     });
     // 5 enemies vs 2 allies: outnumbered by more than 1.5x
     const result = calculateExperienceGain(ship, false, 5, 2);
