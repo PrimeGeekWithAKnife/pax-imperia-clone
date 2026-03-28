@@ -859,27 +859,14 @@ export function App(): React.ReactElement {
       const withoutOld = prev.filter((d) => d.id !== design.id);
       return [...withoutOld, design];
     });
-    // Also register the design in the game engine so the sync loop
-    // (which reads from engine state) doesn't overwrite our React state.
     const eng = getGameEngine();
-    if (eng) {
-      const state = eng.getState();
-      const updatedDesigns = new Map(state.shipDesigns ?? []);
-      updatedDesigns.set(design.id, design);
-      (eng as unknown as { tickState: { shipDesigns: Map<string, ShipDesign> } }).tickState.shipDesigns = updatedDesigns;
-    }
+    if (eng) eng.saveShipDesign(design);
   }, []);
 
   const handleDeleteDesign = useCallback((designId: string) => {
     setSavedDesigns((prev) => prev.filter((d) => d.id !== designId));
-    // Also remove from the game engine state to keep in sync.
     const eng = getGameEngine();
-    if (eng) {
-      const state = eng.getState();
-      const updatedDesigns = new Map(state.shipDesigns ?? []);
-      updatedDesigns.delete(designId);
-      (eng as unknown as { tickState: { shipDesigns: Map<string, ShipDesign> } }).tickState.shipDesigns = updatedDesigns;
-    }
+    if (eng) eng.deleteShipDesign(designId);
   }, []);
 
   // Phaser emits when a fleet is clicked on the galaxy map
@@ -1103,11 +1090,26 @@ export function App(): React.ReactElement {
 
           if (playerWon) {
             const combatTrait = playerEmpireObj.species.traits.combat;
+            // Look up actual planet from game state by name
+            let foundPlanetId = '';
+            let foundSystemId = '';
+            let foundPopulation = 0;
+            for (const sys of state.gameState.galaxy.systems) {
+              for (const p of sys.planets) {
+                if (p.name === tacticalState.planetData!.name) {
+                  foundPlanetId = p.id;
+                  foundSystemId = sys.id;
+                  foundPopulation = p.currentPopulation;
+                  break;
+                }
+              }
+              if (foundPlanetId) break;
+            }
             setOccupationData({
               planetName: tacticalState.planetData.name,
-              planetPopulation: 1000, // placeholder until population is tracked
-              planetId: '', // will be populated from system data in future
-              systemId: '',
+              planetPopulation: foundPopulation,
+              planetId: foundPlanetId,
+              systemId: foundSystemId,
               playerSpeciesId: playerEmpireObj.species.id,
               allowedPolicies: getAllowedPolicies(combatTrait),
             });
@@ -1143,11 +1145,26 @@ export function App(): React.ReactElement {
       const playerEmpireObj = state.gameState.empires.find(e => !e.isAI);
       if (playerEmpireObj && playerEmpireObj.id === result.attackerEmpireId) {
         const combatTrait = playerEmpireObj.species.traits.combat;
+        // Look up actual planet from game state by name
+        let foundPlanetId = '';
+        let foundSystemId = '';
+        let foundPopulation = 0;
+        for (const sys of state.gameState.galaxy.systems) {
+          for (const p of sys.planets) {
+            if (p.name === result.planetName) {
+              foundPlanetId = p.id;
+              foundSystemId = sys.id;
+              foundPopulation = p.currentPopulation;
+              break;
+            }
+          }
+          if (foundPlanetId) break;
+        }
         setOccupationData({
           planetName: result.planetName,
-          planetPopulation: 1000, // placeholder until population is tracked
-          planetId: '', // will be populated from system data in future
-          systemId: '',
+          planetPopulation: foundPopulation,
+          planetId: foundPlanetId,
+          systemId: foundSystemId,
           playerSpeciesId: playerEmpireObj.species.id,
           allowedPolicies: getAllowedPolicies(combatTrait),
         });

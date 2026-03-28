@@ -66,6 +66,8 @@ export interface Empire {
   isAI: boolean;
   aiPersonality?: AIPersonality;
   government: GovernmentType;
+  /** Accumulated resource production multipliers from tech effects (e.g. { energy: 1.5, minerals: 1.2 }). */
+  resourceBonuses?: Record<string, number>;
 }
 
 export type TechAge =

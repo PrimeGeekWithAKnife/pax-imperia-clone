@@ -46,9 +46,10 @@ import type {
   TerraformingCompleteEvent,
   GovernorDiedEvent,
   GovernorAppointedEvent,
+  EspionageResultEvent,
 } from '../types/events.js';
 import { GAME_SPEEDS, TECH_AGES } from '../constants/game.js';
-import { SHIP_COMPONENTS } from '../../data/ships/index.js';
+import { SHIP_COMPONENTS, HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 import { generateDefaultDesigns, getAvailableComponents } from './ship-design.js';
 import {
   BASE_CONSTRUCTION_RATE,
@@ -1747,12 +1748,15 @@ function stepShipProduction(state: GameTickState): GameTickState {
 
       // Create a new ship at the construction planet's system
       const newShipId = generateId();
+      const design = state.shipDesigns?.get(order.designId);
+      const hullTemplate = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
+      const hp = hullTemplate?.baseHullPoints ?? 60;
       const newShip: Ship = {
         id: newShipId,
         designId: order.designId,
-        name: `Newly Built Ship`,
-        hullPoints: 60, // default destroyer hull points; real value comes from design
-        maxHullPoints: 60,
+        name: design?.name ?? 'Newly Built Ship',
+        hullPoints: hp,
+        maxHullPoints: hp,
         systemDamage: {
           engines: 0,
           weapons: 0,
@@ -1763,14 +1767,6 @@ function stepShipProduction(state: GameTickState): GameTickState {
         position: { systemId },
         fleetId: null,
       };
-
-      // Look up hull points from design if available
-      const design = state.shipDesigns?.get(order.designId);
-      if (design) {
-        // Design.totalCost is cost, not hull points — hull points come from
-        // the HullTemplate which we don't have here.  Leave as 60 and note
-        // this should be wired up once the design registry is available.
-      }
 
       // Find an existing friendly fleet in the system to assign the ship to,
       // or create a new singleton fleet.
@@ -1856,8 +1852,18 @@ function stepResearch(
   let empires = state.gameState.empires;
 
   for (const empire of state.gameState.empires) {
-    const researchState = newResearchStates.get(empire.id);
+    let researchState = newResearchStates.get(empire.id);
     if (!researchState) continue;
+
+    // Sync research state age with empire age to prevent regression.
+    // Empire.currentAge is authoritative — researchState.currentAge can lag
+    // if a previous save/load cycle or code path advanced one but not the other.
+    const empireAgeIdx = TECH_AGES.findIndex(a => a.name === empire.currentAge);
+    const researchAgeIdx = TECH_AGES.findIndex(a => a.name === researchState.currentAge);
+    if (empireAgeIdx > researchAgeIdx) {
+      researchState = { ...researchState, currentAge: empire.currentAge };
+      newResearchStates.set(empire.id, researchState);
+    }
 
     if (researchState.activeResearch.length === 0) continue;
 
@@ -2021,12 +2027,13 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
       });
     }
 
-    // Push a generic game event so the UI event log can pick it up
-    events.push({
-      type: 'EspionageResult' as GameEvent['type'],
+    // Push a typed game event so the UI event log can pick it up
+    const espEvent: EspionageResultEvent = {
+      type: 'EspionageResult',
       espionageEvent: evt,
       tick: state.gameState.currentTick,
-    } as unknown as GameEvent);
+    };
+    events.push(espEvent);
   }
 
   // 4. Append espionage events to the cumulative log (newest last)

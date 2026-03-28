@@ -275,6 +275,13 @@ export interface GovernorAppointedEvent {
   tick: number;
 }
 
+/** Emitted when an espionage mission produces a result. */
+export interface EspionageResultEvent {
+  type: 'EspionageResult';
+  espionageEvent: unknown;
+  tick: number;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -295,4 +302,5 @@ export type GameEvent =
   | TerraformingProgressEvent
   | TerraformingCompleteEvent
   | GovernorDiedEvent
-  | GovernorAppointedEvent;
+  | GovernorAppointedEvent
+  | EspionageResultEvent;

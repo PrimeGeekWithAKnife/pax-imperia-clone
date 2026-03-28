@@ -236,28 +236,29 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
     return totals;
   }, [ownedPlanetRows, playerEmpire]);
 
-  // Upkeep costs
+  // Upkeep costs — compute fleet and building costs separately from the engine
   const upkeepTotals = useMemo(() => {
     if (!playerEmpire) {
       return { fleet: 0, buildings: 0, spies: 0, total: 0 };
     }
     const empireFleetIds = new Set(fleets.filter(f => f.empireId === empireId).map(f => f.id));
     const shipCount = ships.filter(s => s.fleetId !== null && empireFleetIds.has(s.fleetId)).length;
-    const buildingCount = ownedPlanetRows.reduce((n, r) => n + r.planet.buildings.length, 0);
-    const upkeep = calculateUpkeep(playerEmpire, shipCount, buildingCount);
-    // Fleet upkeep credits component
-    const _fleetCost = Math.abs(
-      upkeep.credits - Math.abs(upkeep.credits - upkeep.credits), // simplified to keep fleet portion
-    );
-    // Approximate split: 2 credits per ship, 1 credit per building
-    const fleetCredits = shipCount * 2;
-    const buildingCredits = buildingCount * 1;
-    const spyCost = 0; // stub for future spy system
+    const ownedPlanets = ownedPlanetRows.map(r => r.planet);
+
+    // Fleet-only upkeep (0 buildings)
+    const fleetOnly = calculateUpkeep(playerEmpire, shipCount, 0);
+    const fleetCredits = Math.abs(fleetOnly.credits);
+
+    // Full upkeep with zone-aware building maintenance
+    const fullUpkeep = calculateUpkeep(playerEmpire, shipCount, 0, ownedPlanets);
+    const totalCredits = Math.abs(fullUpkeep.credits);
+    const buildingCredits = totalCredits - fleetCredits;
+
     return {
       fleet: fleetCredits,
       buildings: buildingCredits,
-      spies: spyCost,
-      total: Math.abs(upkeep.credits),
+      spies: 0,
+      total: totalCredits,
     };
   }, [playerEmpire, fleets, ships, ownedPlanetRows, empireId]);
 
