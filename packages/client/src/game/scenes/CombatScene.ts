@@ -1408,89 +1408,94 @@ export class CombatScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Semi-transparent overlay
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
-    overlay.setScrollFactor(0).setDepth(400);
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75);
+    overlay.setScrollFactor(0).setDepth(400).setInteractive();
     this.preBattleGroup.add(overlay);
 
-    const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'monospace', fontSize: '24px', color: '#ffffff',
-      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 16, fill: true },
-    };
-    const labelStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'monospace', fontSize: '12px', color: '#aabbcc', letterSpacing: 2,
-    };
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'monospace', fontSize: '14px', color: '#6688aa',
-    };
-    const btnActiveStyle = { color: '#44ffaa' };
+    // ── Panel background ──
+    const panelW = Math.min(700, width * 0.7);
+    const panelH = Math.min(500, height * 0.7);
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelBg = this.add.rectangle(panelX, panelY, panelW, panelH, 0x080814, 0.95);
+    panelBg.setStrokeStyle(1, 0x00d4ff, 0.4);
+    panelBg.setScrollFactor(0).setDepth(401);
+    this.preBattleGroup.add(panelBg);
 
-    // Title
-    const title = this.add.text(width / 2, height * 0.2, 'BATTLE STATIONS', headerStyle)
-      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    const topY = panelY - panelH / 2;
+
+    // ── Title ──
+    const title = this.add.text(panelX, topY + 40, 'BATTLE STATIONS', {
+      fontFamily: 'monospace', fontSize: '36px', color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 20, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
     this.preBattleGroup.add(title);
 
-    // Subtitle
-    const sub = this.add.text(width / 2, height * 0.2 + 34,
-      `${this.sceneData.attackerName}  vs  ${this.sceneData.defenderName}`, labelStyle)
-      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
-    this.preBattleGroup.add(sub);
+    // ── Matchup ──
+    const matchup = this.add.text(panelX, topY + 90,
+      `${this.sceneData.attackerName}  vs  ${this.sceneData.defenderName}`, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#aabbcc',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(matchup);
 
-    // Formation selection
-    const fmLabel = this.add.text(width / 2, height * 0.38, 'FORMATION', labelStyle)
-      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    // ── Ship counts ──
+    const playerSide = this._getPlayerSide();
+    const playerShipCount = this.tacticalState.ships.filter(s => s.side === playerSide).length;
+    const enemyShipCount = this.tacticalState.ships.filter(s => s.side !== playerSide).length;
+    const counts = this.add.text(panelX, topY + 120,
+      `Your fleet: ${playerShipCount} ships    Enemy fleet: ${enemyShipCount} ships`, {
+      fontFamily: 'monospace', fontSize: '14px', color: '#667788',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
+    this.preBattleGroup.add(counts);
+
+    // ── Formation label ──
+    const fmLabel = this.add.text(panelX, topY + 170, 'CHOOSE FORMATION', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#aabbcc', letterSpacing: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
     this.preBattleGroup.add(fmLabel);
 
+    // ── Formation buttons ──
     let selectedFormation: FormationType = 'line';
     const fmButtons: Phaser.GameObjects.Text[] = [];
+    const btnSpacing = 140;
 
     FORMATION_TYPES.forEach((fm, i) => {
-      const x = width / 2 + (i - 1.5) * 100;
-      const btn = this.add.text(x, height * 0.38 + 28, fm.label, {
-        ...btnStyle,
-        color: fm.type === selectedFormation ? btnActiveStyle.color : btnStyle.color,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+      const x = panelX + (i - 1.5) * btnSpacing;
+      const btn = this.add.text(x, topY + 210, fm.label, {
+        fontFamily: 'monospace', fontSize: '22px',
+        color: fm.type === selectedFormation ? '#44ffaa' : '#6688aa',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(402).setInteractive({ useHandCursor: true });
 
       btn.on('pointerdown', () => {
         selectedFormation = fm.type;
-        fmButtons.forEach((b, j) => b.setColor(j === i ? btnActiveStyle.color : (btnStyle.color as string)));
-        // Apply formation immediately to preview
+        fmButtons.forEach((b, j) => b.setColor(j === i ? '#44ffaa' : '#6688aa'));
         const side = this._getPlayerSide();
         this.tacticalState = setFormation(this.tacticalState, side, fm.type);
       });
       btn.on('pointerover', () => btn.setColor('#ffffff'));
-      btn.on('pointerout', () => btn.setColor(fm.type === selectedFormation ? btnActiveStyle.color : (btnStyle.color as string)));
+      btn.on('pointerout', () => btn.setColor(fm.type === selectedFormation ? '#44ffaa' : '#6688aa'));
 
       fmButtons.push(btn);
       this.preBattleGroup!.add(btn);
     });
 
-    // Ship count info
-    const playerSide = this._getPlayerSide();
-    const playerShipCount = this.tacticalState.ships.filter(s => s.side === playerSide).length;
-    const enemyShipCount = this.tacticalState.ships.filter(s => s.side !== playerSide).length;
-    const infoText = this.add.text(width / 2, height * 0.52,
-      `Your fleet: ${playerShipCount} ships    Enemy: ${enemyShipCount} ships`, labelStyle)
-      .setOrigin(0.5).setScrollFactor(0).setDepth(401);
-    this.preBattleGroup.add(infoText);
-
-    // Controls hint
-    const hintLines = [
-      'Left-click a ship to select, then click to move or click an enemy to attack',
-      'Use formation buttons (bottom-left) to reposition your fleet',
-      'RETREAT ALL orders all ships to flee the battlefield',
+    // ── Controls hints ──
+    const hints = [
+      'Click a ship to select it, then click to move or attack',
+      'Formation buttons (bottom-left) reposition your fleet',
     ];
-    hintLines.forEach((line, i) => {
-      const hint = this.add.text(width / 2, height * 0.6 + i * 18, line, {
-        fontFamily: 'monospace', fontSize: '10px', color: '#667788',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+    hints.forEach((line, i) => {
+      const hint = this.add.text(panelX, topY + 280 + i * 24, line, {
+        fontFamily: 'monospace', fontSize: '13px', color: '#556677',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(402);
       this.preBattleGroup!.add(hint);
     });
 
-    // ENGAGE button
-    const engageBtn = this.add.text(width / 2, height * 0.76, '[ ENGAGE ]', {
-      fontFamily: 'monospace', fontSize: '28px', color: '#00d4ff',
-      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 20, fill: true },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+    // ── ENGAGE button ──
+    const engageBtn = this.add.text(panelX, topY + panelH - 60, '[ ENGAGE ]', {
+      fontFamily: 'monospace', fontSize: '36px', color: '#00d4ff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#00d4ff', blur: 24, fill: true },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(402).setInteractive({ useHandCursor: true });
     this.preBattleGroup.add(engageBtn);
 
     engageBtn.on('pointerover', () => engageBtn.setColor('#ffffff'));
