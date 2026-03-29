@@ -1544,6 +1544,57 @@ export class GameEngine {
     this.tickState = { ...this.tickState, shipDesigns: updatedDesigns };
   }
 
+  // ── Planet Capture ──────────────────────────────────────────────────────
+
+  /**
+   * Transfer planet ownership after ground combat victory.
+   * Sets the planet's ownerId to the attacker, reduces population based on
+   * combat intensity, and optionally destroys buildings if war crimes occurred.
+   */
+  capturePlanet(
+    planetId: string,
+    newOwnerId: string,
+    populationSurvivalFraction: number,
+    destroyBuildings: number,
+    warCrimes: boolean,
+  ): void {
+    const systems = this.tickState.gameState.galaxy.systems.map(sys => ({
+      ...sys,
+      planets: sys.planets.map(p => {
+        if (p.id !== planetId) return p;
+
+        // Transfer ownership
+        let buildings = [...p.buildings];
+
+        // War crimes destroy random buildings
+        if (warCrimes && destroyBuildings > 0) {
+          for (let i = 0; i < destroyBuildings && buildings.length > 0; i++) {
+            const idx = Math.floor(Math.random() * buildings.length);
+            buildings = buildings.filter((_, bi) => bi !== idx);
+          }
+        }
+
+        // Surviving population is a fraction of the original
+        const survivingPop = Math.max(1000, Math.round(p.currentPopulation * populationSurvivalFraction));
+
+        return {
+          ...p,
+          ownerId: newOwnerId,
+          currentPopulation: survivingPop,
+          buildings,
+        };
+      }),
+    }));
+
+    this.tickState = {
+      ...this.tickState,
+      gameState: {
+        ...this.tickState.gameState,
+        galaxy: { ...this.tickState.gameState.galaxy, systems },
+      },
+    };
+  }
+
   // ── Espionage ────────────────────────────────────────────────────────────
 
   /**

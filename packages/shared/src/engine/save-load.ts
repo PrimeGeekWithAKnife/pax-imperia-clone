@@ -23,7 +23,7 @@ import type { PlanetWasteState, PlanetEnergyState } from '../types/waste.js';
 import type { SpyAgent, EspionageEvent } from './espionage.js';
 import { initialiseEspionage } from './espionage.js';
 
-export const SAVE_FORMAT_VERSION = '0.1.0';
+export const SAVE_FORMAT_VERSION = '0.2.0';
 
 // ---------------------------------------------------------------------------
 // Serialised representations
@@ -107,6 +107,17 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
 // ---------------------------------------------------------------------------
 
 export function deserializeTickState(data: SerializedTickState): GameTickState {
+  // Migrate ship designs from v0.1.0 format (missing armourPlating, old slot IDs)
+  const migratedDesigns: Array<[string, ShipDesign]> = (data.shipDesigns ?? []).map(
+    ([id, design]) => {
+      const migrated: ShipDesign = {
+        ...design,
+        armourPlating: design.armourPlating ?? 0,
+      };
+      return [id, migrated] as [string, ShipDesign];
+    },
+  );
+
   return {
     gameState: data.gameState,
     researchStates: new Map(data.researchStates),
@@ -120,7 +131,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     economicLeadTicks: new Map(data.economicLeadTicks),
     allTechCount: data.allTechCount,
     terraformingProgressMap: new Map(data.terraformingProgressMap),
-    shipDesigns: new Map(data.shipDesigns),
+    shipDesigns: new Map(migratedDesigns),
     shipComponents: data.shipComponents,
     governors: data.governors ?? [],
     wasteMap: new Map(data.wasteMap ?? []),

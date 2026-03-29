@@ -1285,26 +1285,65 @@ export function App(): React.ReactElement {
     };
 
     if (result.outcome === 'attacker_wins') {
-      // Check if the player was the attacker
       const state = engine.getState();
+
+      // Find the planet being captured
+      let foundPlanetId = '';
+      let foundSystemId = '';
+      let foundPopulation = 0;
+      for (const sys of state.gameState.galaxy.systems) {
+        for (const p of sys.planets) {
+          if (p.name === result.planetName) {
+            foundPlanetId = p.id;
+            foundSystemId = sys.id;
+            foundPopulation = p.currentPopulation;
+            break;
+          }
+        }
+        if (foundPlanetId) break;
+      }
+
+      // Transfer planet ownership to the attacker
+      if (foundPlanetId) {
+        // Population survival: 50% normally, 20% if war crimes
+        const survivalFraction = result.warCrimesCommitted ? 0.2 : 0.5;
+        // War crimes destroy 1-3 buildings
+        const buildingsDestroyed = result.warCrimesCommitted ? Math.floor(Math.random() * 3) + 1 : 0;
+        engine.capturePlanet(
+          foundPlanetId,
+          result.attackerEmpireId,
+          survivalFraction,
+          buildingsDestroyed,
+          result.warCrimesCommitted ?? false,
+        );
+      }
+
+      // War crimes: apply -30 diplomatic attitude penalty from all other empires
+      if (result.warCrimesCommitted && foundPlanetId) {
+        const updatedState = engine.getState();
+        const updatedEmpires = updatedState.gameState.empires.map(e => {
+          if (e.id === result.attackerEmpireId) return e;
+          const existing = e.diplomacy.find(d => d.empireId === result.attackerEmpireId);
+          if (existing) {
+            return {
+              ...e,
+              diplomacy: e.diplomacy.map(d =>
+                d.empireId === result.attackerEmpireId
+                  ? { ...d, attitude: d.attitude - 30 }
+                  : d,
+              ),
+            };
+          }
+          return e;
+        });
+        // Apply via direct state update (engine doesn't have a diplomacy API yet)
+        (engine as unknown as { tickState: { gameState: { empires: typeof updatedEmpires } } }).tickState.gameState.empires = updatedEmpires;
+      }
+
+      // Show occupation dialog if player was the attacker
       const playerEmpireObj = state.gameState.empires.find(e => !e.isAI);
       if (playerEmpireObj && playerEmpireObj.id === result.attackerEmpireId) {
         const combatTrait = playerEmpireObj.species.traits.combat;
-        // Look up actual planet from game state by name
-        let foundPlanetId = '';
-        let foundSystemId = '';
-        let foundPopulation = 0;
-        for (const sys of state.gameState.galaxy.systems) {
-          for (const p of sys.planets) {
-            if (p.name === result.planetName) {
-              foundPlanetId = p.id;
-              foundSystemId = sys.id;
-              foundPopulation = p.currentPopulation;
-              break;
-            }
-          }
-          if (foundPlanetId) break;
-        }
         setOccupationData({
           planetName: result.planetName,
           planetPopulation: foundPopulation,
