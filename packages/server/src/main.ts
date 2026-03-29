@@ -84,18 +84,27 @@ async function bootstrap(): Promise<void> {
 
   /** POST /api/saves — write a save file to the server. */
   fastify.post<{ Body: { name: string; data: unknown } }>('/api/saves', {
-    bodyLimit: 50 * 1024 * 1024, // 50 MB
+    bodyLimit: 5 * 1024 * 1024, // 5 MB (reduced from 50 MB to limit disk exhaustion)
   }, async (request, reply) => {
     const { name, data } = request.body as { name?: string; data?: unknown };
     if (!name || typeof name !== 'string' || !data) {
       return reply.status(400).send({ error: 'Missing "name" or "data" in request body.' });
     }
-    // Sanitise file name — allow only word chars, hyphens, spaces, dots
-    const safeName = name.replace(/[^\w\s.\-]/g, '_').trim();
-    if (!safeName) {
+    // Sanitise file name — strip directory components, reject dot-only names
+    const safeName = path.basename(name.replace(/[^\w\s.\-]/g, '_').trim());
+    if (!safeName || /^\.+$/.test(safeName)) {
       return reply.status(400).send({ error: 'Invalid save name.' });
     }
-    const filePath = path.join(SAVES_DIR, `${safeName}.json`);
+    // Path traversal guard: ensure resolved path stays inside SAVES_DIR
+    const filePath = path.resolve(SAVES_DIR, `${safeName}.json`);
+    if (!filePath.startsWith(path.resolve(SAVES_DIR))) {
+      return reply.status(400).send({ error: 'Invalid save path.' });
+    }
+    // Limit total save files to prevent disk exhaustion
+    const existingFiles = fs.readdirSync(SAVES_DIR).filter(f => f.endsWith('.json'));
+    if (existingFiles.length >= 100) {
+      return reply.status(400).send({ error: 'Save file limit reached (100). Delete old saves first.' });
+    }
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     fastify.log.info(`Save written: ${filePath}`);
     return { ok: true, file: `${safeName}.json` };

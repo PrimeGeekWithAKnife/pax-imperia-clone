@@ -287,6 +287,11 @@ export class SocketManager {
     if (config.galaxyConfig) {
       config.galaxyConfig.seed = sanitiseSeed(config.galaxyConfig.seed);
     }
+    // Validate maxPlayers — clamp to safe range [2, 8]
+    if (typeof config.maxPlayers !== 'number' || !Number.isFinite(config.maxPlayers)) {
+      config.maxPlayers = 4;
+    }
+    config.maxPlayers = Math.max(2, Math.min(8, Math.round(config.maxPlayers)));
     // ────────────────────────────────────────────────────────────────────────
 
     if (socket.data.currentSessionId) {
