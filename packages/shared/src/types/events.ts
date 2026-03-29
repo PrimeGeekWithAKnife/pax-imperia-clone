@@ -275,6 +275,50 @@ export interface GovernorAppointedEvent {
   tick: number;
 }
 
+/** Emitted when war is declared between two empires. */
+export interface WarDeclaredEvent {
+  type: 'WarDeclared';
+  aggressorEmpireId: string;
+  targetEmpireId: string;
+  tick: number;
+}
+
+/** Emitted when peace is made between two empires. */
+export interface PeaceMadeEvent {
+  type: 'PeaceMade';
+  empireAId: string;
+  empireBId: string;
+  tick: number;
+}
+
+/** Emitted when a treaty is signed between two empires. */
+export interface TreatySignedEvent {
+  type: 'TreatySigned';
+  fromEmpireId: string;
+  toEmpireId: string;
+  treatyType: TreatyType;
+  tick: number;
+}
+
+/** Emitted when a treaty expires due to its duration ending. */
+export interface TreatyExpiredEvent {
+  type: 'TreatyExpired';
+  empireAId: string;
+  empireBId: string;
+  treatyType: TreatyType;
+  tick: number;
+}
+
+/** Emitted when diplomatic status changes (e.g. neutral → friendly). */
+export interface DiplomaticStatusChangedEvent {
+  type: 'DiplomaticStatusChanged';
+  empireId: string;
+  targetEmpireId: string;
+  oldStatus: string;
+  newStatus: string;
+  tick: number;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -295,4 +339,9 @@ export type GameEvent =
   | TerraformingProgressEvent
   | TerraformingCompleteEvent
   | GovernorDiedEvent
-  | GovernorAppointedEvent;
+  | GovernorAppointedEvent
+  | WarDeclaredEvent
+  | PeaceMadeEvent
+  | TreatySignedEvent
+  | TreatyExpiredEvent
+  | DiplomaticStatusChangedEvent;

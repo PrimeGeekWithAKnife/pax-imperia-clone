@@ -18,7 +18,7 @@
  *  5b. Terraforming        (atmosphere, temperature, biosphere, planet conversion)
  *  6.  Ship Production
  *  7.  Research Progress
- *  8.  Diplomacy Tick       (stub)
+ *  8.  Diplomacy Tick       (attitude decay, treaty expiry, trade income)
  *  9.  AI Decisions
  *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
  *  9c. Building Condition   (maintenance-based decay, functionality checks)
@@ -46,8 +46,15 @@ import type {
   TerraformingCompleteEvent,
   GovernorDiedEvent,
   GovernorAppointedEvent,
+  WarDeclaredEvent,
+  PeaceMadeEvent,
+  TreatySignedEvent,
+  TreatyExpiredEvent,
+  DiplomaticStatusChangedEvent,
 } from '../types/events.js';
-import { GAME_SPEEDS, TECH_AGES } from '../constants/game.js';
+import type { DiplomaticStatus, TreatyType } from '../types/species.js';
+import { GAME_SPEEDS, TECH_AGES, ATTITUDE_MIN, ATTITUDE_MAX } from '../constants/game.js';
+import { evaluateTreatyProposal, type TreatyProposal } from './diplomacy.js';
 import { SHIP_COMPONENTS } from '../../data/ships/index.js';
 import { generateDefaultDesigns, getAvailableComponents } from './ship-design.js';
 import {
@@ -1956,17 +1963,137 @@ function stepResearch(
 }
 
 // ---------------------------------------------------------------------------
-// Step 8: Diplomacy Tick (stub)
+// Step 8: Diplomacy Tick
 // ---------------------------------------------------------------------------
 
-function stepDiplomacyTick(state: GameTickState): GameTickState {
-  // TODO: When the diplomacy engine module is implemented, call it here.
-  // It should handle:
-  //  - Attitude decay towards neutrality over time
-  //  - Treaty expiry (treaties with finite duration)
-  //  - Trade-route income generation
-  //  - Diplomatic event generation (peace offers, war declarations)
-  return state;
+/** Per-tick attitude drift fraction toward zero. */
+const DIPLOMACY_ATTITUDE_DECAY_FRACTION = 0.02;
+/** Minimum absolute attitude shift per tick (so attitude always drifts). */
+const DIPLOMACY_ATTITUDE_DECAY_MIN = 0.5;
+/** Credits earned per active trade route per tick. */
+const DIPLOMACY_TRADE_ROUTE_INCOME = 5;
+/** Bonus credits when a trade treaty is active. */
+const DIPLOMACY_TRADE_TREATY_BONUS = 10;
+
+/**
+ * Derive a DiplomaticStatus from the current attitude score.
+ * Existing 'at_war' status is never changed by this helper alone — the caller
+ * must explicitly transition out of war via peace negotiation.
+ */
+function attitudeToStatus(attitude: number, current: DiplomaticStatus): DiplomaticStatus {
+  if (current === 'at_war') return 'at_war';
+  if (attitude >= 60) return 'allied';
+  if (attitude >= 25) return 'friendly';
+  if (attitude >= -25) return 'neutral';
+  return 'hostile';
+}
+
+function clampAttitude(v: number): number {
+  return Math.max(ATTITUDE_MIN, Math.min(ATTITUDE_MAX, v));
+}
+
+/**
+ * Process diplomacy each tick:
+ *  1. Attitude decays toward neutrality.
+ *  2. Timed treaties expire.
+ *  3. Diplomatic status recalculates from attitude.
+ *  4. Trade income from diplomatic relations is credited.
+ */
+function stepDiplomacyTick(state: GameTickState, events: GameEvent[]): GameTickState {
+  const tick = state.gameState.currentTick;
+  let empires = state.gameState.empires;
+  let empireResourcesMap = state.empireResourcesMap;
+
+  empires = empires.map(empire => {
+    const updatedDiplomacy = empire.diplomacy.map(rel => {
+      let { attitude, status, treaties, tradeRoutes } = {
+        attitude: rel.attitude,
+        status: rel.status,
+        treaties: [...rel.treaties],
+        tradeRoutes: rel.tradeRoutes,
+      };
+
+      // --- Attitude decay toward 0 ---
+      if (attitude !== 0) {
+        const decay =
+          Math.sign(attitude) *
+          Math.max(DIPLOMACY_ATTITUDE_DECAY_MIN, Math.abs(attitude) * DIPLOMACY_ATTITUDE_DECAY_FRACTION);
+        attitude = clampAttitude(attitude - decay);
+        // Snap to 0 when very close to avoid floating-point drift
+        if (Math.abs(attitude) < DIPLOMACY_ATTITUDE_DECAY_MIN) {
+          attitude = 0;
+        }
+      }
+
+      // --- Expire timed treaties ---
+      const beforeCount = treaties.length;
+      const expired = treaties.filter(t => t.duration !== -1 && tick - t.startTurn >= t.duration);
+      treaties = treaties.filter(t => t.duration === -1 || tick - t.startTurn < t.duration);
+
+      for (const t of expired) {
+        // Trade treaty expiry removes a trade route
+        if (t.type === 'trade' && tradeRoutes > 0) {
+          tradeRoutes -= 1;
+        }
+        events.push({
+          type: 'TreatyExpired',
+          empireAId: empire.id,
+          empireBId: rel.empireId,
+          treatyType: t.type,
+          tick,
+        } satisfies TreatyExpiredEvent);
+      }
+
+      // --- Recalculate status ---
+      const newStatus = attitudeToStatus(attitude, status);
+      if (newStatus !== status) {
+        events.push({
+          type: 'DiplomaticStatusChanged',
+          empireId: empire.id,
+          targetEmpireId: rel.empireId,
+          oldStatus: status,
+          newStatus,
+          tick,
+        } satisfies DiplomaticStatusChangedEvent);
+      }
+
+      return {
+        ...rel,
+        attitude,
+        status: newStatus,
+        treaties,
+        tradeRoutes,
+      };
+    });
+
+    return { ...empire, diplomacy: updatedDiplomacy };
+  });
+
+  // --- Trade income from diplomatic relations ---
+  const updatedResourcesMap = new Map(empireResourcesMap);
+  for (const empire of empires) {
+    let tradeIncome = 0;
+    for (const rel of empire.diplomacy) {
+      if (rel.status === 'at_war' || rel.status === 'unknown') continue;
+      tradeIncome += rel.tradeRoutes * DIPLOMACY_TRADE_ROUTE_INCOME;
+      const hasTradeTreaty = rel.treaties.some(t => t.type === 'trade' || t.type === 'trade_agreement');
+      if (hasTradeTreaty) {
+        tradeIncome += DIPLOMACY_TRADE_TREATY_BONUS;
+      }
+    }
+    if (tradeIncome > 0) {
+      const res = updatedResourcesMap.get(empire.id);
+      if (res) {
+        updatedResourcesMap.set(empire.id, { ...res, credits: res.credits + tradeIncome });
+      }
+    }
+  }
+
+  return {
+    ...state,
+    gameState: { ...state.gameState, empires },
+    empireResourcesMap: updatedResourcesMap,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2084,6 +2211,7 @@ const AI_DECISIONS_PER_TICK = 3;
 function stepAIDecisions(
   state: GameTickState,
   allTechs: import('../types/technology.js').Technology[] = [],
+  events: GameEvent[] = [],
 ): GameTickState {
   for (const empire of state.gameState.empires) {
     if (!empire.isAI) continue;
@@ -2109,13 +2237,13 @@ function stepAIDecisions(
 
     // 3. Filter out unimplemented decision types that would waste slots, then pick top N
     const executableDecisions = allDecisions.filter(d =>
-      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy'].includes(d.type)
+      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'diplomacy', 'war'].includes(d.type)
     );
     const topDecisions = selectTopDecisions(executableDecisions, AI_DECISIONS_PER_TICK);
 
     // 4. Execute each decision
     for (const decision of topDecisions) {
-      state = executeAIDecision(state, empire.id, decision, allTechs);
+      state = executeAIDecision(state, empire.id, decision, allTechs, events);
     }
   }
 
@@ -2131,6 +2259,7 @@ function executeAIDecision(
   empireId: string,
   decision: AIDecision,
   allTechs: import('../types/technology.js').Technology[],
+  events: GameEvent[] = [],
 ): GameTickState {
   switch (decision.type) {
     case 'build':
@@ -2151,7 +2280,13 @@ function executeAIDecision(
     case 'assign_spy':
       return executeAIAssignSpy(state, empireId, decision);
 
-    // colonize, diplomacy, and war are not yet wired — skip silently
+    case 'diplomacy':
+      return executeAIDiplomacy(state, empireId, decision, events);
+
+    case 'war':
+      return executeAIWar(state, empireId, decision, events);
+
+    // colonize not yet wired — skip silently
     default:
       return state;
   }
@@ -2527,6 +2662,206 @@ function executeAIAssignSpy(
 }
 
 // ---------------------------------------------------------------------------
+// AI Diplomacy: propose treaties
+// ---------------------------------------------------------------------------
+
+/** Treaty attitude bonus applied when a treaty is signed. */
+const AI_TREATY_ATTITUDE_BONUS: Partial<Record<TreatyType, number>> = {
+  non_aggression: 5,
+  trade: 8,
+  trade_agreement: 8,
+  research_sharing: 6,
+  mutual_defense: 12,
+  mutual_defence: 12,
+  military_alliance: 18,
+  alliance: 20,
+};
+
+function executeAIDiplomacy(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+  events: GameEvent[],
+): GameTickState {
+  const { targetEmpireId, treatyType } = decision.params as {
+    targetEmpireId: string;
+    action: string;
+    treatyType: TreatyType;
+  };
+  if (!targetEmpireId || !treatyType) return state;
+
+  const tick = state.gameState.currentTick;
+  const proposer = state.gameState.empires.find(e => e.id === empireId);
+  const target = state.gameState.empires.find(e => e.id === targetEmpireId);
+  if (!proposer || !target) return state;
+
+  // Check that the target has a relation with the proposer
+  const targetRelation = target.diplomacy.find(d => d.empireId === empireId);
+  if (!targetRelation) return state;
+
+  // Cannot propose while at war
+  if (targetRelation.status === 'at_war') return state;
+
+  // Already have this treaty type?
+  if (targetRelation.treaties.some(t => t.type === treatyType)) return state;
+
+  // If target is AI, use evaluateTreatyProposal to decide acceptance
+  if (target.isAI) {
+    // Build a DiplomaticRelationFull-like object for the evaluator
+    const relForEval = {
+      empireId: targetEmpireId,
+      targetEmpireId: empireId,
+      attitude: targetRelation.attitude,
+      trust: Math.max(0, (targetRelation.attitude + 100) / 2), // Derive trust from attitude as proxy
+      status: targetRelation.status,
+      treaties: targetRelation.treaties.map(t => ({
+        id: generateId(),
+        type: t.type,
+        startTick: t.startTurn,
+        duration: t.duration,
+      })),
+      tradeRoutes: targetRelation.tradeRoutes,
+      firstContact: 0,
+      lastInteraction: tick,
+      incidentLog: [],
+    };
+    const proposal: TreatyProposal = {
+      fromEmpireId: empireId,
+      toEmpireId: targetEmpireId,
+      treatyType,
+    };
+    const result = evaluateTreatyProposal(proposer, target, relForEval, proposal);
+    if (!result.accept) return state;
+  }
+
+  // Accept the treaty — add to both sides' diplomacy arrays
+  const newTreaty = { type: treatyType, startTurn: tick, duration: -1 };
+  const attBonus = AI_TREATY_ATTITUDE_BONUS[treatyType] ?? 0;
+
+  const empires = state.gameState.empires.map(e => {
+    if (e.id === empireId) {
+      return {
+        ...e,
+        diplomacy: e.diplomacy.map(d => {
+          if (d.empireId !== targetEmpireId) return d;
+          const newAttitude = clampAttitude(d.attitude + attBonus);
+          return {
+            ...d,
+            attitude: newAttitude,
+            treaties: [...d.treaties, { ...newTreaty }],
+            tradeRoutes: treatyType === 'trade' ? d.tradeRoutes + 1 : d.tradeRoutes,
+          };
+        }),
+      };
+    }
+    if (e.id === targetEmpireId) {
+      return {
+        ...e,
+        diplomacy: e.diplomacy.map(d => {
+          if (d.empireId !== empireId) return d;
+          const newAttitude = clampAttitude(d.attitude + attBonus);
+          return {
+            ...d,
+            attitude: newAttitude,
+            treaties: [...d.treaties, { ...newTreaty }],
+            tradeRoutes: treatyType === 'trade' ? d.tradeRoutes + 1 : d.tradeRoutes,
+          };
+        }),
+      };
+    }
+    return e;
+  });
+
+  events.push({
+    type: 'TreatySigned',
+    fromEmpireId: empireId,
+    toEmpireId: targetEmpireId,
+    treatyType,
+    tick,
+  } satisfies TreatySignedEvent);
+
+  return {
+    ...state,
+    gameState: { ...state.gameState, empires },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// AI War: declare war on target empire
+// ---------------------------------------------------------------------------
+
+/** Attitude and trust penalties when war is declared. */
+const WAR_DECLARATION_ATTITUDE_PENALTY = -60;
+
+function executeAIWar(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+  events: GameEvent[],
+): GameTickState {
+  const { targetEmpireId } = decision.params as { targetEmpireId: string };
+  if (!targetEmpireId) return state;
+
+  const tick = state.gameState.currentTick;
+
+  // Check preconditions: not already at war, and contact exists
+  const aggressor = state.gameState.empires.find(e => e.id === empireId);
+  if (!aggressor) return state;
+
+  const relWithTarget = aggressor.diplomacy.find(d => d.empireId === targetEmpireId);
+  if (!relWithTarget) return state;
+  if (relWithTarget.status === 'at_war') return state;
+  if (relWithTarget.status === 'allied') return state; // Cannot attack allies
+
+  // Declare war: set status to at_war on both sides, clear treaties, apply attitude penalty
+  const empires = state.gameState.empires.map(e => {
+    if (e.id === empireId) {
+      return {
+        ...e,
+        diplomacy: e.diplomacy.map(d => {
+          if (d.empireId !== targetEmpireId) return d;
+          return {
+            ...d,
+            status: 'at_war' as DiplomaticStatus,
+            attitude: clampAttitude(d.attitude + WAR_DECLARATION_ATTITUDE_PENALTY),
+            treaties: [],
+            tradeRoutes: 0,
+          };
+        }),
+      };
+    }
+    if (e.id === targetEmpireId) {
+      return {
+        ...e,
+        diplomacy: e.diplomacy.map(d => {
+          if (d.empireId !== empireId) return d;
+          return {
+            ...d,
+            status: 'at_war' as DiplomaticStatus,
+            attitude: clampAttitude(d.attitude + WAR_DECLARATION_ATTITUDE_PENALTY),
+            treaties: [],
+            tradeRoutes: 0,
+          };
+        }),
+      };
+    }
+    return e;
+  });
+
+  events.push({
+    type: 'WarDeclared',
+    aggressorEmpireId: empireId,
+    targetEmpireId,
+    tick,
+  } satisfies WarDeclaredEvent);
+
+  return {
+    ...state,
+    gameState: { ...state.gameState, empires },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 9b: Waste Processing
 // ---------------------------------------------------------------------------
 
@@ -2722,14 +3057,14 @@ export function processGameTick(
   // 7. Research Progress
   s = stepResearch(s, allTechs, events);
 
-  // 8. Diplomacy Tick (stub)
-  s = stepDiplomacyTick(s);
+  // 8. Diplomacy Tick (attitude decay, treaty expiry, trade income, status updates)
+  s = stepDiplomacyTick(s, events);
 
   // 8b. Espionage Tick (spy infiltration, mission rolls, counter-intel)
   s = stepEspionage(s, events);
 
   // 9. AI Decisions
-  s = stepAIDecisions(s, allTechs);
+  s = stepAIDecisions(s, allTechs, events);
 
   // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
   s = stepWaste(s);
