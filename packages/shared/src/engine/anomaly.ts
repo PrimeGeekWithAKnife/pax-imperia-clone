@@ -26,6 +26,9 @@ import type {
   ScanLevel,
   RiskChoice,
 } from '../types/anomaly.js';
+
+// Re-export types consumed by game-loop and other engine modules
+export type { ExcavationSite } from '../types/anomaly.js';
 import { generateId } from '../utils/id.js';
 
 // ---------------------------------------------------------------------------

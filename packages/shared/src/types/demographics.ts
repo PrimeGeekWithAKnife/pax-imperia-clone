@@ -78,4 +78,48 @@ export interface PlanetDemographics {
     population: number;
     loyalty: LoyaltyDistribution;
   }>;
+  /** Wealth distribution across the population */
+  wealth?: WealthDistribution;
+  /** Current employment state */
+  employment?: EmploymentState;
+  /** Current crime state */
+  crime?: CrimeState;
+}
+
+/** Distribution of wealth across four population bands */
+export interface WealthDistribution {
+  /** Fraction of population in the wealthy elite (0.0–1.0) */
+  wealthyElite: number;
+  /** Fraction of population in the middle class (0.0–1.0) */
+  middleClass: number;
+  /** Fraction of population in the working class (0.0–1.0) */
+  workingClass: number;
+  /** Fraction of population that is destitute (0.0–1.0) */
+  destitute: number;
+}
+
+/** Snapshot of a planet's employment situation */
+export interface EmploymentState {
+  /** Total jobs available from buildings */
+  totalJobs: number;
+  /** Number of jobs currently filled */
+  filledJobs: number;
+  /** Unemployment rate as a fraction (0.0–1.0) */
+  unemploymentRate: number;
+  /** Whether demand for labour exceeds the working-age population */
+  labourShortage: boolean;
+  /** Per-vocation gaps where demand exceeds supply (vocation → deficit) */
+  skillGaps: Record<string, number>;
+}
+
+/** Snapshot of a planet's crime situation */
+export interface CrimeState {
+  /** Overall crime rate (0.0–1.0) */
+  crimeRate: number;
+  /** Organised crime presence (0.0–1.0) */
+  organisedCrimePresence: number;
+  /** Black market activity level (0.0–1.0) */
+  blackMarketActivity: number;
+  /** Effectiveness of law enforcement after corruption degradation (0.0–1.0) */
+  lawEnforcementEffectiveness: number;
 }

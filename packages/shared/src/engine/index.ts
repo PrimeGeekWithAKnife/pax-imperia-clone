@@ -27,3 +27,4 @@ export * from './building-condition.js';
 export * from './combat-tactical.js';
 export * from './ground-combat.js';
 export * from './marketplace.js';
+export * from './politics.js';
