@@ -27,6 +27,7 @@ packages/*/vitest.config.d.ts.map
 .env
 .env.local
 .env.*.local
+.deploy-credentials
 
 # IDE
 .vscode/

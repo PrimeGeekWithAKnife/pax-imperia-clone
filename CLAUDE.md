@@ -20,8 +20,8 @@ Every fix and feature follows this promotion path:
 
 **DEV (.172)** — CT 108 on host2 (192.168.1.3), repo at `/opt/nova-imperia`:
 ```
-# Via paramiko (no direct SSH key to .172)
-ssh.connect('192.168.1.3', username='root', password='Roarsome')
+# Credentials in .deploy-credentials (gitignored)
+ssh.connect('192.168.1.3', username='root', password=<see .deploy-credentials>)
 pct exec 108 -- bash -c 'cd /opt/nova-imperia && git fetch origin && git reset --hard origin/<branch> && npm run build && systemctl restart nova-imperia-client nova-imperia-server'
 ```
 
@@ -32,7 +32,7 @@ ssh -i ~/.ssh/pve2_key root@192.168.1.6 "pct exec 109 -- bash -c 'cd /opt/ex-nih
 
 **PROD (.9)** — CT 110 on pve2, same pattern as UAT with CT 110.
 
-Both Proxmox hosts (pve2 at .6, host2 at .3) use credentials root/Roarsome.
+Credentials for both Proxmox hosts are in `.deploy-credentials` (gitignored).
 Always `git push` the branch before deploying — containers pull from GitHub.
 
 ## Tech Stack
