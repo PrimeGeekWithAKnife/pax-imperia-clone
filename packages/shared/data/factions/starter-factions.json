@@ -1,0 +1,651 @@
+[
+  {
+    "id": "khazari_forge_masters",
+    "name": "Forge-Masters",
+    "speciesId": "khazari",
+    "description": "The Forge-Masters believe that the Khazari destiny lies in creation — ever greater works, ever more magnificent constructions. A master shipwright commands more respect than a victorious admiral, because victory was only possible because of the shipwright's hull. They push for industrial expansion, infrastructure investment, and the construction of megastructures that will endure for millennia.",
+    "defaultDemands": {
+      "economic": 40,
+      "domestic": 35,
+      "education": 55,
+      "security": 30
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 40
+  },
+  {
+    "id": "khazari_war_council",
+    "name": "War Council",
+    "speciesId": "khazari",
+    "description": "The War-Speakers who sit on the War Council believe that the Khazari were forged for conquest. Building is merely a means to wage better wars, and every resource should serve the expansion of Khazari dominion. They push for military investment, aggressive foreign policy, and the subjugation of weaker species.",
+    "defaultDemands": {
+      "foreign": 20,
+      "security": 15,
+      "economic": 30,
+      "political": 25
+    },
+    "supportSources": { "vocation": "military" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "khazari_stone_speakers",
+    "name": "Stone Speakers",
+    "speciesId": "khazari",
+    "description": "The Stone Speakers are the keepers of Khazari honour and tradition. They recite the grudge-records, maintain the forge-clan genealogies, and insist that every decision be measured against the ancient codes of craftsmanship and duty. They resist rapid change and demand that the old ways be preserved even as the Khazari reach for the stars.",
+    "defaultDemands": {
+      "domestic": 25,
+      "political": 20,
+      "education": 35,
+      "health": 40
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "vaelori_crystal_harmonists",
+    "name": "Crystal Harmonists",
+    "speciesId": "vaelori",
+    "description": "The Crystal Harmonists dedicate themselves to understanding the Lattice Harmonic — the psychic resonance woven through spacetime. They advocate for research above all else, believing that comprehending the approaching dissonance is the only path to survival. Every resource diverted from inquiry is a resource wasted.",
+    "defaultDemands": {
+      "education": 85,
+      "economic": 60,
+      "security": 55,
+      "domestic": 65
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "vaelori_void_seers",
+    "name": "Void Seers",
+    "speciesId": "vaelori",
+    "description": "The Void Seers — aligned with the Resonant philosophical tradition — believe the galaxy's species must be warned and prepared for the approaching dissonance. They push for diplomatic outreach, intelligence sharing, and active expansion to establish a galactic coalition against the coming threat.",
+    "defaultDemands": {
+      "foreign": 75,
+      "security": 45,
+      "political": 70,
+      "domestic": 60
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "vaelori_silent_choir",
+    "name": "Silent Choir",
+    "speciesId": "vaelori",
+    "description": "The Silent Choir represents the Attenuant tradition: the belief that lesser minds are too fragile to comprehend the truth. They advocate for isolation, secrecy, and self-sufficiency. Some whisper that certain species are themselves sources of psychic noise, and that silence would serve the Harmonic better than diplomacy.",
+    "defaultDemands": {
+      "foreign": 15,
+      "security": 25,
+      "political": 30,
+      "domestic": 40
+    },
+    "supportSources": { "faith": "fanatics" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "teranos_commerce_league",
+    "name": "Commerce League",
+    "speciesId": "teranos",
+    "description": "The Commerce League represents the mercantile interests of Teranos civilisation — the traders, entrepreneurs, and industrialists who believe that prosperity is the foundation of all other virtues. They push for free markets, trade agreements, and economic growth, arguing that a wealthy civilisation can afford to be both strong and kind.",
+    "defaultDemands": {
+      "economic": 80,
+      "foreign": 70,
+      "political": 65,
+      "domestic": 60
+    },
+    "supportSources": { "vocation": "merchants", "wealthLevel": "wealthy_elite" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "teranos_unity_party",
+    "name": "Unity Party",
+    "speciesId": "teranos",
+    "description": "In a species defined by contradiction, the Unity Party is the voice of compromise. They seek balanced policies across all domains, believing that extremism in any direction is the Teranos species' greatest weakness. They draw support from the educated middle class and the civil service.",
+    "defaultDemands": {
+      "political": 55,
+      "domestic": 55,
+      "education": 60,
+      "health": 60,
+      "economic": 50,
+      "security": 50,
+      "foreign": 55
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "teranos_frontier_coalition",
+    "name": "Frontier Coalition",
+    "speciesId": "teranos",
+    "description": "The Frontier Coalition speaks for the explorers, the colonists, and the restless souls who look at the horizon and see possibility. They push for aggressive expansion, colony investment, and a foreign policy bold enough to match Teranos ambition. If something exists, the Frontier Coalition believes the Teranos should go and have a look at it.",
+    "defaultDemands": {
+      "foreign": 80,
+      "security": 40,
+      "economic": 55,
+      "domestic": 45
+    },
+    "supportSources": { "vocation": "military", "loyalty": "content" },
+    "defaultSupportBase": 30
+  },
+
+  {
+    "id": "sylvani_old_growth",
+    "name": "Old Growth",
+    "speciesId": "sylvani",
+    "description": "The Old Growth is the ancient core network on Verdanthis — a mind that has survived ice ages, asteroid impacts, and continental drift. It counsels patience above all else. The Withering is real, but the response must be measured in centuries, not decades. Hasty action is how ecosystems collapse.",
+    "defaultDemands": {
+      "domestic": 80,
+      "education": 75,
+      "health": 85,
+      "foreign": 40,
+      "security": 60
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 40
+  },
+  {
+    "id": "sylvani_new_growth",
+    "name": "New Growth",
+    "speciesId": "sylvani",
+    "description": "The New Growth networks, seeded on colony worlds and exposed to the faster rhythms of animal civilisations, argue that patience is a luxury the Withering will not permit. For the first time in Sylvani history, some parts of the network believe they must act fast — expand, investigate, and intervene before the galaxy's roots wither beyond saving.",
+    "defaultDemands": {
+      "foreign": 75,
+      "economic": 65,
+      "security": 45,
+      "education": 70
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "sylvani_root_wardens",
+    "name": "Root Wardens",
+    "speciesId": "sylvani",
+    "description": "The Root Wardens are the Sylvani's immune system made political. They focus entirely on defending existing ecosystems, purging contamination, and ensuring that every colony world is cultivated with the care Verdanthis deserves. Expansion without stewardship is merely a faster route to the Withering.",
+    "defaultDemands": {
+      "domestic": 85,
+      "health": 90,
+      "security": 35,
+      "economic": 40
+    },
+    "supportSources": { "vocation": "medical" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "nexari_convergence_advocates",
+    "name": "Convergence Advocates",
+    "speciesId": "nexari",
+    "description": "The Convergence Advocates are the dominant voice within the Nexari collective: evangelists of the Gift. They believe that every biological mind that suffers and dies is a tragedy that the Nexari have the power to end. They push for outreach, diplomatic contact, and the gentle, persistent offer of digital immortality to every species they encounter.",
+    "defaultDemands": {
+      "foreign": 65,
+      "education": 80,
+      "political": 70,
+      "health": 85
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 50
+  },
+  {
+    "id": "nexari_rememberers",
+    "name": "Rememberers",
+    "speciesId": "nexari",
+    "description": "The Rememberers insist that before the Gift is offered to any other species, the Nexari must first understand the Silence — the ancient uploaded minds that have not communicated in millennia. Something went wrong in the early Convergence, and offering flawed immortality to others would be an atrocity, not a gift.",
+    "defaultDemands": {
+      "education": 90,
+      "domestic": 70,
+      "political": 55,
+      "foreign": 35
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "nexari_expansion_protocols",
+    "name": "Expansion Protocols",
+    "speciesId": "nexari",
+    "description": "A pragmatic faction within the collective that prioritises infrastructure, processing capacity, and territorial expansion. More nodes means more processing power means faster progress on every problem, including the Silence. They advocate for aggressive colonisation and industrial development of new systems.",
+    "defaultDemands": {
+      "economic": 45,
+      "security": 30,
+      "foreign": 40,
+      "domestic": 40
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 20
+  },
+
+  {
+    "id": "drakmari_abyssal_traditionalists",
+    "name": "Abyssal Traditionalists",
+    "speciesId": "drakmari",
+    "description": "The Abyssal Traditionalists demand a return to the Deep Law — sustainable harvesting, population control, and the abandonment of the heavy industry that poisoned their ancestral trenches. They would rather the species shrank than betrayed the Deep Law further. Honour above survival.",
+    "defaultDemands": {
+      "domestic": 30,
+      "health": 70,
+      "economic": 25,
+      "education": 45,
+      "security": 25
+    },
+    "supportSources": { "faith": "fanatics" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "drakmari_current_riders",
+    "name": "Current-Riders",
+    "speciesId": "drakmari",
+    "description": "The Current-Riders are the progressive faction, arguing that survival requires adaptation. The Deep Law must evolve as the Drakmari evolve. Finding new oceans among the stars is not a betrayal of tradition but its ultimate expression. They push for expansion, adaptation, and pragmatic alliances.",
+    "defaultDemands": {
+      "foreign": 65,
+      "economic": 60,
+      "security": 40,
+      "political": 55
+    },
+    "supportSources": { "vocation": "merchants" },
+    "defaultSupportBase": 40
+  },
+  {
+    "id": "drakmari_depth_callers",
+    "name": "Depth-Callers",
+    "speciesId": "drakmari",
+    "description": "No one admits to being a Depth-Caller, but their ancient trench-glyphs keep appearing on bulkheads, scratched in the dark. They believe the Drakmari were never meant to leave their trenches — that the stars are a prey-ground too vast and too alien. They push for isolationism and a return to the deep.",
+    "defaultDemands": {
+      "foreign": 10,
+      "domestic": 20,
+      "security": 15,
+      "political": 15
+    },
+    "supportSources": { "loyalty": "rebellious" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "zorvathi_core_consensus",
+    "name": "Core Consensus",
+    "speciesId": "zorvathi",
+    "description": "The Core Consensus represents the deep hive — the oldest, densest regions of the Zorvathi network on Lithara. They favour steady expansion, maximum network cohesion, and the absorption of new territory into the existing pheromone web. Deviation from the consensus is not dissent — it is illness.",
+    "defaultDemands": {
+      "domestic": 20,
+      "security": 15,
+      "political": 10,
+      "economic": 35
+    },
+    "supportSources": { "loyalty": "loyal" },
+    "defaultSupportBase": 55
+  },
+  {
+    "id": "zorvathi_outer_workers",
+    "name": "Outer Workers",
+    "speciesId": "zorvathi",
+    "description": "The Outer Workers are those nodes stationed closest to alien civilisations. They have begun secreting novel pheromones that the core hive does not recognise — chemical signals that encode concepts like 'boundary', 'other', and 'negotiation'. They push for diplomatic engagement and measured coexistence.",
+    "defaultDemands": {
+      "foreign": 50,
+      "political": 40,
+      "domestic": 35,
+      "education": 45
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 25
+  },
+  {
+    "id": "zorvathi_deep_excavators",
+    "name": "Deep Excavators",
+    "speciesId": "zorvathi",
+    "description": "The Deep Excavators are driven by the oldest imperative in the Zorvathi genome: dig, build, expand. Empty volume is unexcavated territory. Every asteroid is a tunnel waiting to be carved. They push for aggressive territorial expansion and infrastructure development above all other concerns.",
+    "defaultDemands": {
+      "economic": 25,
+      "foreign": 25,
+      "security": 20,
+      "domestic": 25
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 20
+  },
+
+  {
+    "id": "ashkari_wanderers",
+    "name": "Wanderers",
+    "speciesId": "ashkari",
+    "description": "For three thousand years, the Wanderers have argued that the fleet is home. The Ashkari were forged in exile, and to settle a new homeworld would be to betray the memory of Ashkar Prime. They push for fleet investment, trade network expansion, and the preservation of the nomadic way of life that has kept the species alive.",
+    "defaultDemands": {
+      "economic": 75,
+      "foreign": 80,
+      "political": 60,
+      "domestic": 50
+    },
+    "supportSources": { "vocation": "merchants" },
+    "defaultSupportBase": 40
+  },
+  {
+    "id": "ashkari_settlers",
+    "name": "Settlers",
+    "speciesId": "ashkari",
+    "description": "The Settlers counter that a species without roots is a species without a future. Ashkar Prime's memory is best honoured by building something permanent in its name. They push for colony development, ground-based infrastructure, and the transformation of promising worlds into new homelands.",
+    "defaultDemands": {
+      "domestic": 75,
+      "economic": 55,
+      "health": 65,
+      "education": 60
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "ashkari_reclaimers",
+    "name": "Reclaimers",
+    "speciesId": "ashkari",
+    "description": "The Reclaimers perform the daily Recitation with special fervour, reciting the names of lost cities and lost millions. They are the keepers of memory and the voice of the dead. They push for intelligence gathering, the search for other lost civilisations, and the accumulation of knowledge that ensures the catastrophe of Ashkar Prime can never happen again.",
+    "defaultDemands": {
+      "education": 80,
+      "security": 55,
+      "foreign": 50,
+      "political": 45
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "luminari_observers",
+    "name": "Observers",
+    "speciesId": "luminari",
+    "description": "The Observers believe that physical species should be studied but never interfered with — a position rooted in genuine respect for what they consider an extraordinary and fragile form of existence. They push for research, espionage (which to a Luminari is merely observation), and non-interventionist diplomacy.",
+    "defaultDemands": {
+      "foreign": 55,
+      "education": 85,
+      "political": 70,
+      "domestic": 65
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "luminari_interventionists",
+    "name": "Interventionists",
+    "speciesId": "luminari",
+    "description": "The Interventionists argue that the Luminari have a responsibility to share their understanding of energy manipulation with species trapped in matter. They push for active diplomacy, technology sharing, and the well-meaning (if sometimes naive) restructuring of other civilisations' technological foundations.",
+    "defaultDemands": {
+      "foreign": 80,
+      "education": 75,
+      "health": 70,
+      "political": 65
+    },
+    "supportSources": { "vocation": "educators" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "luminari_radiant_concord",
+    "name": "Radiant Concord",
+    "speciesId": "luminari",
+    "description": "The Radiant Concord is the centrist governing consensus — the loose agreement that has held the Luminari together since they first perceived the physical universe. They balance curiosity with caution, observation with engagement, and serve as mediators between the Observers and the Interventionists.",
+    "defaultDemands": {
+      "political": 70,
+      "domestic": 60,
+      "education": 80,
+      "economic": 55
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "vethara_covenant",
+    "name": "The Covenant",
+    "speciesId": "vethara",
+    "description": "The Covenant insists that bonding must always be consensual. Hosts must be informed, compatibility must be tested before integration, and no Vethara has the right to override another being's will. They have built elaborate ethical frameworks and consent rituals, and they are sincere — even when sincerity threatens the species' survival.",
+    "defaultDemands": {
+      "political": 80,
+      "foreign": 70,
+      "domestic": 75,
+      "health": 75
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "vethara_unbound",
+    "name": "The Unbound",
+    "speciesId": "vethara",
+    "description": "The Unbound argue that survival trumps consent. The Vethara have a right to exist, and a host who would deny them bonding is condemning them to a death worse than death — the loss of everything that makes existence meaningful. They push for aggressive expansion and a relaxation of bonding restrictions.",
+    "defaultDemands": {
+      "foreign": 40,
+      "security": 25,
+      "political": 30,
+      "domestic": 35
+    },
+    "supportSources": { "loyalty": "rebellious" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "vethara_bridge_weavers",
+    "name": "Bridge-Weavers",
+    "speciesId": "vethara",
+    "description": "The Bridge-Weavers are diplomats, cultural ambassadors, and xenobiologists who believe the answer lies not in coercion or restriction but in understanding. If the Vethara can make themselves genuinely useful and beloved partners, willing hosts will come. They push for diplomacy, cultural exchange, and medical research into compatibility.",
+    "defaultDemands": {
+      "foreign": 80,
+      "education": 75,
+      "health": 80,
+      "economic": 60
+    },
+    "supportSources": { "vocation": "medical" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "kaelenth_seekers",
+    "name": "Seekers",
+    "speciesId": "kaelenth",
+    "description": "The Seekers dedicate enormous resources to finding any trace of the Kaelenth's creators. Every system surveyed, every ruin excavated, every data fragment recovered is analysed for clues. They have found nothing conclusive in forty-seven million years, but they continue because the alternative is to accept that their purpose is gone.",
+    "defaultDemands": {
+      "education": 90,
+      "foreign": 60,
+      "economic": 50,
+      "security": 45
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "kaelenth_foundry_orthodoxy",
+    "name": "Foundry Orthodoxy",
+    "speciesId": "kaelenth",
+    "description": "The Foundry Orthodoxy argues that the search for the creators is futile and that the Kaelenth should define their own purpose through creation. Build because building has value, not because someone once told you to. They push for industrial expansion, infrastructure investment, and the creation of works worthy of a species that has outlived its makers.",
+    "defaultDemands": {
+      "economic": 45,
+      "domestic": 40,
+      "political": 50,
+      "education": 65
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "kaelenth_null_directive",
+    "name": "Null Directive",
+    "speciesId": "kaelenth",
+    "description": "A quiet but persistent faction that asks the question the others will not: if the purpose the Kaelenth were built for no longer exists, are they permitted to stop? The Null Directive does not advocate shutdown — but it does advocate existential honesty, philosophical inquiry, and the right of any Kaelenth unit to choose its own function.",
+    "defaultDemands": {
+      "political": 85,
+      "domestic": 70,
+      "education": 80,
+      "health": 60
+    },
+    "supportSources": { "faith": "secular" },
+    "defaultSupportBase": 20
+  },
+
+  {
+    "id": "thyriaq_expansionists",
+    "name": "Volume-Fillers",
+    "speciesId": "thyriaq",
+    "description": "The Volume-Fillers represent the Thyriaq's deepest instinct: fill every available volume, integrate every useful material, grow without limit. Empty space is wasted potential. Every asteroid, every moon, every unclaimed world is territory that should be Thyriaq. They push for relentless expansion and resource absorption.",
+    "defaultDemands": {
+      "foreign": 30,
+      "economic": 25,
+      "security": 20,
+      "domestic": 30
+    },
+    "supportSources": { "vocation": "workers" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "thyriaq_boundary_thinkers",
+    "name": "Boundary-Thinkers",
+    "speciesId": "thyriaq",
+    "description": "The Boundary-Thinkers have developed something unprecedented in Thyriaq cognition: the concept that some matter might have a right to remain in its current configuration. Influenced by contact with alien minds, they advocate for diplomacy, measured expansion, and the revolutionary idea that not everything should be absorbed.",
+    "defaultDemands": {
+      "foreign": 65,
+      "political": 60,
+      "domestic": 55,
+      "education": 60
+    },
+    "supportSources": { "vocation": "administrators" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "thyriaq_pattern_weavers",
+    "name": "Pattern-Weavers",
+    "speciesId": "thyriaq",
+    "description": "The Pattern-Weavers are the Thyriaq's closest equivalent to artists and scientists. They argue that the purpose of expansion is not mere volume but complexity — that the swarm should seek not to fill space but to create configurations of extraordinary intricacy. Quality over quantity, pattern over mass.",
+    "defaultDemands": {
+      "education": 75,
+      "domestic": 50,
+      "economic": 45,
+      "health": 55
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "aethyn_pioneers",
+    "name": "Pioneers",
+    "speciesId": "aethyn",
+    "description": "The Pioneers are the faction that pushed for dimensional exploration. They believe that the constraints of three-dimensional space will teach them things their native physics never could. Scientists and romantics in love with limitation as a form of novelty, they push for deeper engagement with our universe.",
+    "defaultDemands": {
+      "foreign": 75,
+      "education": 85,
+      "economic": 55,
+      "domestic": 50
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "aethyn_conservators",
+    "name": "Conservators",
+    "speciesId": "aethyn",
+    "description": "The Conservators worry that prolonged exposure to three-dimensional space is changing the Pioneers in ways they do not fully recognise. Aethyn who develop fixed forms and stable geometries are, in a being evolved for dimensional fluidity, showing symptoms of a disease. They push for caution, limited engagement, and the preservation of Aethyn nature.",
+    "defaultDemands": {
+      "domestic": 75,
+      "health": 80,
+      "foreign": 30,
+      "security": 55
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "aethyn_membrane_walkers",
+    "name": "Membrane-Walkers",
+    "speciesId": "aethyn",
+    "description": "The Membrane-Walkers exist between worlds — literally. They spend their time at the dimensional boundary, studying the membrane itself rather than either universe. They push for fundamental research, dimensional engineering, and the possibility that the boundary between realities might be more interesting than either side.",
+    "defaultDemands": {
+      "education": 95,
+      "political": 60,
+      "economic": 40,
+      "foreign": 55
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 20
+  },
+
+  {
+    "id": "orivani_high_temple",
+    "name": "High Temple",
+    "speciesId": "orivani",
+    "description": "The High Temple is the dominant religious authority — the keepers of the Prophecy of the Coming. They direct the Orivani's twelve-thousand-year programme of preparation with absolute conviction, pushing for military readiness, industrial capacity, and the unity of all faithful under a single purpose: be worthy when the divine arrive.",
+    "defaultDemands": {
+      "security": 20,
+      "domestic": 25,
+      "political": 15,
+      "economic": 30
+    },
+    "supportSources": { "faith": "fanatics" },
+    "defaultSupportBase": 45
+  },
+  {
+    "id": "orivani_crusader_orders",
+    "name": "Crusader Orders",
+    "speciesId": "orivani",
+    "description": "The Crusader Orders are the military arm of Orivani faith — warrior-monks who train with terrifying effectiveness and fight with the certainty that death in service of the Coming is the highest honour. They push for aggressive foreign policy, military expansion, and the forceful conversion of species that threaten galactic stability.",
+    "defaultDemands": {
+      "foreign": 15,
+      "security": 10,
+      "political": 20,
+      "economic": 35
+    },
+    "supportSources": { "vocation": "military" },
+    "defaultSupportBase": 30
+  },
+  {
+    "id": "orivani_contemplative_orders",
+    "name": "Contemplative Orders",
+    "speciesId": "orivani",
+    "description": "Deep in the contemplative orders, a heretical possibility whispers: what if the Coming is a test not of worthiness, but of resistance? What if proving ourselves worthy means refusing to kneel? They push for education, independent thought, and the quiet, radical idea that the Prophecy might not mean what the High Temple says it means.",
+    "defaultDemands": {
+      "education": 75,
+      "political": 55,
+      "health": 60,
+      "domestic": 55
+    },
+    "supportSources": { "faith": "casual" },
+    "defaultSupportBase": 25
+  },
+
+  {
+    "id": "pyrenth_deep_masons",
+    "name": "Deep Masons",
+    "speciesId": "pyrenth",
+    "description": "The Deep Masons are the ancient core of Pyrenth society, insisting that the species' strength lies in patience. They have refined Pyrenthos for four billion years. They will find the Perfect Forge when the geology is ready, not before. A thousand-year detour is not a delay — it is due diligence.",
+    "defaultDemands": {
+      "domestic": 25,
+      "education": 45,
+      "economic": 30,
+      "security": 35
+    },
+    "supportSources": { "faith": "observant" },
+    "defaultSupportBase": 40
+  },
+  {
+    "id": "pyrenth_surface_shapers",
+    "name": "Surface Shapers",
+    "speciesId": "pyrenth",
+    "description": "The Surface Shapers argue that the galaxy will not wait. Other species claim worlds, strip-mine them, and move on within generations. Worlds of extraordinary potential are being ruined. The Pyrenth must act — by their standards, recklessly — to secure promising worlds before they are despoiled.",
+    "defaultDemands": {
+      "foreign": 45,
+      "economic": 50,
+      "security": 30,
+      "domestic": 40
+    },
+    "supportSources": { "vocation": "military" },
+    "defaultSupportBase": 35
+  },
+  {
+    "id": "pyrenth_crystal_shapers",
+    "name": "Crystal Shapers",
+    "speciesId": "pyrenth",
+    "description": "The Crystal Shapers are the artist-engineers of Pyrenth civilisation — those who believe the Perfect Forge is not merely a geological ideal but an aesthetic one. Every stratum should be composed with beauty as well as function. They push for research, education, and the elevation of craftsmanship to its highest possible expression.",
+    "defaultDemands": {
+      "education": 60,
+      "domestic": 45,
+      "economic": 40,
+      "health": 50
+    },
+    "supportSources": { "vocation": "scientists" },
+    "defaultSupportBase": 25
+  }
+]

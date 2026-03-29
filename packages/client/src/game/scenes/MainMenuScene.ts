@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 import { getSaveManager } from '../../engine/SaveManager';
+import { getVersionString } from '@nova-imperia/shared';
 
 const STAR_COUNT = 200;
 const GALAXY_ARMS = 3;
 const GALAXY_STAR_COUNT = 320;
 const DUST_MOTE_COUNT = 45;
-const VERSION = 'v0.1.0 Alpha';
+const VERSION = getVersionString();
 
 /**
  * MainMenuScene renders the game title, a procedural galaxy background,

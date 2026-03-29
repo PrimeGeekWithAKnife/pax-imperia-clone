@@ -1177,6 +1177,12 @@ function generateMinorSpecies(
       },
       attitude: 0,
       status: 'undiscovered',
+      properties: [],
+      integration: null,
+      uplift: null,
+      revolt: null,
+      interactingEmpireId: null,
+      currentInteraction: null,
     });
   }
 
