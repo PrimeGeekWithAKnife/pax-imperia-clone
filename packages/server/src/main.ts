@@ -14,6 +14,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { GameSessionManager } from './game/GameSessionManager.js';
 import { SocketManager } from './network/socketManager.js';
@@ -46,6 +47,23 @@ async function bootstrap(): Promise<void> {
         process.env['NODE_ENV'] !== 'production'
           ? { target: 'pino-pretty', options: { colorize: true } }
           : undefined,
+    },
+  });
+
+  // Security headers — CSP, X-Content-Type-Options, X-Frame-Options, etc.
+  await fastify.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
     },
   });
 

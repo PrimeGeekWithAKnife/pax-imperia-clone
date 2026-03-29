@@ -107,3 +107,66 @@ export function sanitiseSeed(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   return truncate(stripControlChars(raw).trim(), MAX_SEED_LENGTH);
 }
+
+// ---------------------------------------------------------------------------
+// Enum / structured field validators
+// ---------------------------------------------------------------------------
+
+/** Maximum length for a species ID string. */
+const MAX_SPECIES_ID_LENGTH = 60;
+
+/**
+ * Sanitise a species identifier.
+ * Returns null if the result is empty or non-string.
+ */
+export function sanitiseSpeciesId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = truncate(stripControlChars(raw).trim(), MAX_SPECIES_ID_LENGTH);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/** Allowed galaxy size values. */
+const VALID_GALAXY_SIZES = new Set(['small', 'medium', 'large', 'huge']);
+
+/** Allowed galaxy shape values. */
+const VALID_GALAXY_SHAPES = new Set(['spiral', 'elliptical', 'irregular', 'ring']);
+
+/**
+ * Validate and sanitise galaxy configuration fields.
+ * Returns a safe copy with invalid values replaced by defaults.
+ */
+export function sanitiseGalaxyConfig(raw: unknown): { size: string; shape: string; seed: string } {
+  const obj = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const size = typeof obj['size'] === 'string' && VALID_GALAXY_SIZES.has(obj['size']) ? obj['size'] : 'medium';
+  const shape = typeof obj['shape'] === 'string' && VALID_GALAXY_SHAPES.has(obj['shape']) ? obj['shape'] : 'spiral';
+  const seed = sanitiseSeed(obj['seed']);
+  return { size, shape, seed };
+}
+
+/**
+ * Maximum recursion depth for deep-cleaning user-supplied objects.
+ * Prevents stack overflow from deeply nested payloads.
+ */
+const MAX_DEPTH = 10;
+
+/**
+ * Strip dangerous keys (__proto__, constructor, prototype) from a plain
+ * object to prevent prototype pollution. Returns a sanitised shallow copy
+ * at each level, up to MAX_DEPTH. Non-object values pass through unchanged.
+ */
+export function sanitiseObject(value: unknown, depth = 0): unknown {
+  if (depth > MAX_DEPTH) return undefined;
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) {
+    return value.map((v) => sanitiseObject(v, depth + 1));
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    result[key] = sanitiseObject((value as Record<string, unknown>)[key], depth + 1);
+  }
+  return result;
+}

@@ -26,6 +26,9 @@ import {
   sanitiseChatMessage,
   sanitisePassword,
   sanitiseSeed,
+  sanitiseSpeciesId,
+  sanitiseGalaxyConfig,
+  sanitiseObject,
 } from './sanitise.js';
 
 // Convenience type alias for a fully-typed socket on this server.
@@ -35,6 +38,38 @@ type AppSocket = Socket<
   InterServerEvents,
   SocketData
 >;
+
+// ---------------------------------------------------------------------------
+// Socket.io rate limiting
+// ---------------------------------------------------------------------------
+
+/** Maximum events per socket within the time window before throttling. */
+const SOCKET_RATE_LIMIT_MAX = 60;
+/** Time window in milliseconds for the rate limiter. */
+const SOCKET_RATE_LIMIT_WINDOW_MS = 10_000; // 10 seconds
+
+/** Per-socket event counter for simple rate limiting. */
+interface RateLimitState {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitMap = new WeakMap<AppSocket, RateLimitState>();
+
+/**
+ * Check whether a socket has exceeded its event rate limit.
+ * Returns true if the event should be allowed, false if throttled.
+ */
+function checkRateLimit(socket: AppSocket): boolean {
+  const now = Date.now();
+  let state = rateLimitMap.get(socket);
+  if (!state || now >= state.resetAt) {
+    state = { count: 0, resetAt: now + SOCKET_RATE_LIMIT_WINDOW_MS };
+    rateLimitMap.set(socket, state);
+  }
+  state.count++;
+  return state.count <= SOCKET_RATE_LIMIT_MAX;
+}
 
 export class SocketManager {
   private io: SocketIOServer<
@@ -88,6 +123,31 @@ export class SocketManager {
     });
   }
 
+  /**
+   * Wrap a Socket.io event handler with per-socket rate limiting.
+   * If the socket exceeds the rate limit, the callback receives an error
+   * and the underlying handler is not invoked.
+   */
+  private withRateLimit<T extends unknown[], R>(
+    socket: AppSocket,
+    handler: (...args: T) => R,
+  ): (...args: T) => R | void {
+    return (...args: T) => {
+      if (!checkRateLimit(socket)) {
+        // Find the last argument that looks like a callback function
+        const lastArg = args[args.length - 1];
+        if (typeof lastArg === 'function') {
+          (lastArg as (ack: { success: boolean; error: string }) => void)({
+            success: false,
+            error: 'Rate limit exceeded. Please slow down.',
+          });
+        }
+        return;
+      }
+      return handler(...args);
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Connection lifecycle
   // ---------------------------------------------------------------------------
@@ -97,47 +157,47 @@ export class SocketManager {
       `[Socket] Client connected – id=${socket.id}  total=${this.connectedCount}`,
     );
 
-    socket.on('game:join', (payload, callback) =>
+    socket.on('game:join', this.withRateLimit(socket, (payload, callback) =>
       this.onGameJoin(socket, payload, callback),
-    );
+    ));
 
-    socket.on('game:leave', (payload, callback) =>
+    socket.on('game:leave', this.withRateLimit(socket, (payload, callback) =>
       this.onGameLeave(socket, payload, callback),
-    );
+    ));
 
-    socket.on('game:action', (payload, callback) =>
+    socket.on('game:action', this.withRateLimit(socket, (payload, callback) =>
       this.onGameAction(socket, payload, callback),
-    );
+    ));
 
     // ── Lobby events ──────────────────────────────────────────────────────────
 
-    socket.on('lobby:create', (payload, callback) =>
+    socket.on('lobby:create', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbyCreate(socket, payload, callback),
-    );
+    ));
 
-    socket.on('lobby:join', (payload, callback) =>
+    socket.on('lobby:join', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbyJoin(socket, payload, callback),
-    );
+    ));
 
-    socket.on('lobby:ready', (payload, callback) =>
+    socket.on('lobby:ready', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbyReady(socket, payload, callback),
-    );
+    ));
 
-    socket.on('lobby:start', (payload, callback) =>
+    socket.on('lobby:start', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbyStart(socket, payload, callback),
-    );
+    ));
 
-    socket.on('lobby:chat', (payload, callback) =>
+    socket.on('lobby:chat', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbyChat(socket, payload, callback),
-    );
+    ));
 
-    socket.on('lobby:list', (callback) =>
+    socket.on('lobby:list', this.withRateLimit(socket, (callback) =>
       this.onLobbyList(callback),
-    );
+    ));
 
-    socket.on('lobby:species', (payload, callback) =>
+    socket.on('lobby:species', this.withRateLimit(socket, (payload, callback) =>
       this.onLobbySpecies(socket, payload, callback),
-    );
+    ));
 
     socket.on('disconnect', (reason) => this.onDisconnect(socket, reason));
   }
@@ -224,7 +284,20 @@ export class SocketManager {
     payload: { sessionId: string; actionType: string; data: Record<string, unknown> },
     callback: (ack: { success: boolean; error?: string }) => void,
   ): void {
-    const { sessionId, actionType } = payload;
+    const { sessionId } = payload;
+
+    // Sanitise actionType
+    const actionType = typeof payload.actionType === 'string'
+      ? payload.actionType.slice(0, 100)
+      : '';
+    if (!actionType) {
+      callback({ success: false, error: 'actionType is required.' });
+      return;
+    }
+
+    // Sanitise data payload — strip __proto__/constructor/prototype to
+    // prevent prototype pollution attacks.
+    const _data = sanitiseObject(payload.data);
 
     const session = this.sessionManager.getSession(sessionId);
 
@@ -249,6 +322,7 @@ export class SocketManager {
 
     // TODO: Delegate to the game engine for validation and state mutation.
     // For now we acknowledge the action and broadcast the current state.
+    void _data; // Will be passed to the game engine once wired up
     callback({ success: true });
 
     // Broadcast updated state to all players in the room.
@@ -284,9 +358,13 @@ export class SocketManager {
     }
     config.gameName = gameName;
     config.password = sanitisePassword(config.password);
-    if (config.galaxyConfig) {
-      config.galaxyConfig.seed = sanitiseSeed(config.galaxyConfig.seed);
-    }
+    // Validate and sanitise galaxyConfig — enforce allowed enum values
+    const safeGalaxy = sanitiseGalaxyConfig(config.galaxyConfig);
+    config.galaxyConfig = {
+      size: safeGalaxy.size as typeof config.galaxyConfig.size,
+      shape: safeGalaxy.shape as typeof config.galaxyConfig.shape,
+      seed: safeGalaxy.seed,
+    };
     // Validate maxPlayers — clamp to safe range [2, 8]
     if (typeof config.maxPlayers !== 'number' || !Number.isFinite(config.maxPlayers)) {
       config.maxPlayers = 4;
@@ -495,10 +573,17 @@ export class SocketManager {
     payload: { sessionId: string; speciesId: string },
     callback: (ack: { success: boolean; error?: string }) => void,
   ): void {
-    const { sessionId, speciesId } = payload;
+    const { sessionId } = payload;
     const session = this.getSessionForSocket(socket, sessionId);
     if (!session) {
       callback({ success: false, error: 'Session not found or you are not in it.' });
+      return;
+    }
+
+    // Sanitise speciesId — reject missing or invalid values
+    const speciesId = sanitiseSpeciesId(payload.speciesId);
+    if (!speciesId) {
+      callback({ success: false, error: 'Species ID is required (max 60 characters).' });
       return;
     }
 
