@@ -999,7 +999,11 @@ function extractShipStats(
           break;
         case 'sensor':
         case 'advanced_sensors':
+        case 'scanner':
           sensorRange = Math.max(sensorRange, (comp.stats['sensorRange'] ?? 0) * RANGE_TO_BATTLEFIELD);
+          if (comp.stats['sensorRangeBonus']) {
+            sensorRange += comp.stats['sensorRangeBonus'] * RANGE_TO_BATTLEFIELD;
+          }
           break;
         case 'targeting_computer':
           accuracyBonus += comp.stats['accuracyBonus'] ?? 0;

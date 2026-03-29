@@ -100,6 +100,8 @@ function keyStat(component: ShipComponent): string {
       return `warp ${s['warpSpeed'] ?? 0} / ${s['powerDraw'] ?? 0}pw`;
     case 'sensor':
       return `rng ${s['sensorRange'] ?? 0}`;
+    case 'scanner':
+      return `scan ${s['scanAccuracy'] ?? 0}%${s['sensorRangeBonus'] ? ` +${s['sensorRangeBonus']} rng` : ''}`;
     case 'repair_drone':
     case 'damage_control':
       return `${s['repairRate'] ?? 0}/tick`;

@@ -28,3 +28,7 @@ export * from './combat-tactical.js';
 export * from './ground-combat.js';
 export * from './marketplace.js';
 export * from './politics.js';
+export * from './galactic-council.js';
+export * from './galactic-bank.js';
+export * from './grievance.js';
+export * from './diplomat.js';

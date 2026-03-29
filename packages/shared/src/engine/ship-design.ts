@@ -277,7 +277,12 @@ export function calculateDesignStats(
 
       case 'sensor':
       case 'advanced_sensors':
+      case 'scanner':
         stats.sensorRange = Math.max(stats.sensorRange, component.stats['sensorRange'] ?? 0);
+        // Scanner components may also grant a range bonus (e.g. deep_space_telescope)
+        if (component.stats['sensorRangeBonus']) {
+          stats.sensorRange += component.stats['sensorRangeBonus'];
+        }
         break;
 
       case 'repair_drone':
@@ -460,7 +465,8 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
 
     case 'sensor':
     case 'advanced_sensors':
-      return (s['sensorRange'] ?? 0) + (s['detectionBonus'] ?? 0) * 0.3;
+    case 'scanner':
+      return (s['sensorRange'] ?? 0) + (s['sensorRangeBonus'] ?? 0) + (s['detectionBonus'] ?? 0) * 0.3 + (s['scanAccuracy'] ?? 0) * 0.1;
 
     case 'repair_drone':
     case 'damage_control':

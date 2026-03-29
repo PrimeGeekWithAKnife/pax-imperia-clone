@@ -24,6 +24,7 @@ export const ComponentTypeSchema = z.enum([
   'advanced_sensors',
   'damage_control',
   'ecm_suite',
+  'scanner',
 ]);
 
 export const SlotCategorySchema = z.enum([

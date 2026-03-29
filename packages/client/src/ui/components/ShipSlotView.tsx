@@ -36,6 +36,7 @@ const COMPONENT_TYPE_COLOR: Record<ComponentType, string> = {
   advanced_sensors:    'var(--slot-color-sensor)',
   damage_control:      'var(--slot-color-repair)',
   ecm_suite:           'var(--slot-color-internal, #88aacc)',
+  scanner:             'var(--slot-color-sensor)',
 };
 
 const FACING_ARROW: Record<SlotPosition['facing'], string> = {
