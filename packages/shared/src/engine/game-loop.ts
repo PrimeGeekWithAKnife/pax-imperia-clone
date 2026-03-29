@@ -472,6 +472,18 @@ function processPlayerActions(
             continue;
           }
 
+          // Guard against race condition: reject if an active migration already
+          // targets this planet (e.g. another empire's ColonisePlanet was
+          // processed earlier in the same tick, or a migration from a prior tick
+          // is still in progress).
+          const activeMigrationToTarget = state.migrationOrders.find(
+            o => o.targetPlanetId === planetId && o.status === 'migrating',
+          );
+          if (activeMigrationToTarget) {
+            console.warn(`[game-loop] ColonizePlanet rejected: active migration already targets planet "${planetId}"`);
+            continue;
+          }
+
           // Pass the empire's current tech age for tiered starter buildings
           const empireResearchState = state.researchStates.get(empireId);
           const currentAge = empireResearchState?.currentAge ?? 'nano_atomic';
@@ -1723,6 +1735,14 @@ function stepShipProduction(state: GameTickState): GameTickState {
   let systems = state.gameState.galaxy.systems;
 
   for (const order of state.productionOrders) {
+    // Energy deficit penalty: skip every other tick (50 % speed) when
+    // the planet's energy demand exceeds production.
+    const planetEnergy = state.energyStateMap.get(order.planetId);
+    if (planetEnergy && planetEnergy.ratio < 1.0 && state.gameState.currentTick % 2 === 0) {
+      remainingOrders.push(order);
+      continue;
+    }
+
     const result = processShipProduction(order);
 
     if (result.completed) {
@@ -2851,6 +2871,15 @@ export function processGameTick(
     s = {
       ...s,
       gameState: { ...s.gameState, status: 'finished' },
+    };
+  }
+
+  // Clean up empty fleets (ships may have been consumed by colonisation, transfers, etc.)
+  const nonEmptyFleets = s.gameState.fleets.filter(f => f.ships.length > 0);
+  if (nonEmptyFleets.length !== s.gameState.fleets.length) {
+    s = {
+      ...s,
+      gameState: { ...s.gameState, fleets: nonEmptyFleets },
     };
   }
 

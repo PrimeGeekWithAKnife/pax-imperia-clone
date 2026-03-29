@@ -4,7 +4,7 @@ import type { EmpireResources } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
 import type { GameEngine } from '../engine/GameEngine';
 import { getGameEngine } from '../engine/GameEngine';
-import type { MigrationOrder } from '../engine/migration';
+import type { MigrationOrder } from '@nova-imperia/shared';
 import { estimateTotalWaves } from '../engine/migration';
 import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
 import type { ResearchState } from '@nova-imperia/shared';
@@ -355,14 +355,20 @@ export function App(): React.ReactElement {
       if (sourcePlanet) sourceName = sourcePlanet.name;
     }
 
+    // The shared MigrationOrder doesn't track aggregate colonistsLost or
+    // currentWave directly.  Derive approximate values from the order state.
+    const totalDeparted = mig.arrivedPopulation + (mig.transitWaves ?? []).reduce((s, w) => s + w.population, 0);
+    const estimatedWaveSize = mig.threshold / Math.max(1, estimateTotalWaves());
+    const waveCount = estimatedWaveSize > 0 ? Math.round(totalDeparted / estimatedWaveSize) : 0;
+
     return {
       arrivedPopulation: mig.arrivedPopulation,
       threshold: mig.threshold,
       ticksToNextWave: mig.ticksToNextWave,
-      status: mig.status,
+      status: mig.status === 'migrating' ? 'in_progress' : mig.status,
       sourcePlanetName: sourceName,
-      colonistsLost: mig.colonistsLost,
-      currentWave: mig.currentWave,
+      colonistsLost: Math.max(0, totalDeparted - mig.arrivedPopulation),
+      currentWave: waveCount,
     };
   }, [selectedPlanet, activeMigrations]);
 

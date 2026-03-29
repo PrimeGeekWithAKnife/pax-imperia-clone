@@ -170,12 +170,96 @@ export function createSaveGame(tickState: GameTickState, playerName: string): Sa
 }
 
 /**
+ * Validate a SaveGame for obvious corruption or impossible values.
+ *
+ * Returns a list of human-readable error strings.  An empty list means the
+ * save looks structurally sound.  This intentionally does **not** throw — a
+ * corrupt save is better than no save at all, so callers decide the policy.
+ */
+export function validateSaveGame(data: SaveGame): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  // Version check
+  if (!data.version || typeof data.version !== 'string') {
+    errors.push('Missing or invalid version');
+  }
+
+  // Tick state exists
+  if (!data.tickState) {
+    errors.push('Missing tickState');
+    return { valid: false, errors };
+  }
+
+  const ts = data.tickState;
+
+  // Game state exists
+  if (!ts.gameState) {
+    errors.push('Missing gameState');
+    return { valid: false, errors };
+  }
+
+  // At least one empire
+  if (!ts.gameState.empires || ts.gameState.empires.length === 0) {
+    errors.push('No empires in save data');
+  }
+
+  // At least one system
+  if (!ts.gameState.galaxy?.systems || ts.gameState.galaxy.systems.length === 0) {
+    errors.push('No star systems in save data');
+  }
+
+  // Tick counter is reasonable
+  if (typeof ts.gameState.currentTick !== 'number' || ts.gameState.currentTick < 0) {
+    errors.push('Invalid tick counter');
+  }
+
+  // Check for obviously corrupt empire values
+  for (const empire of (ts.gameState.empires ?? [])) {
+    if (typeof empire.credits !== 'number' || empire.credits < 0) {
+      errors.push(`Empire ${empire.name}: negative credits (${empire.credits})`);
+    }
+  }
+
+  // Check for obviously corrupt planet values
+  for (const system of (ts.gameState.galaxy?.systems ?? [])) {
+    for (const planet of system.planets) {
+      if (planet.currentPopulation < 0) {
+        errors.push(`Planet ${planet.name}: negative population (${planet.currentPopulation})`);
+      }
+      if (planet.maxPopulation < 0) {
+        errors.push(`Planet ${planet.name}: negative maxPopulation`);
+      }
+    }
+  }
+
+  // Check for obviously corrupt ship values
+  for (const ship of (ts.gameState.ships ?? [])) {
+    if (ship.hullPoints < 0) {
+      errors.push(`Ship ${ship.name}: negative hull points (${ship.hullPoints})`);
+    }
+    if (ship.maxHullPoints <= 0) {
+      errors.push(`Ship ${ship.name}: invalid maxHullPoints (${ship.maxHullPoints})`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Restore a GameTickState from a SaveGame envelope.
  *
  * Throws if the save format version is incompatible (major version mismatch).
+ * Logs warnings for structural issues but still attempts to load.
  */
 export function loadSaveGame(data: SaveGame): GameTickState {
   _assertVersionCompatible(data.version);
+
+  const validation = validateSaveGame(data);
+  if (!validation.valid) {
+    console.warn('[SaveManager] Save data validation warnings:', validation.errors);
+    // Don't reject — just warn. Let the player try to load corrupted saves.
+  }
+
   return deserializeTickState(data.tickState);
 }
 

@@ -223,7 +223,10 @@ export function GameSetupScreen({
   const [seed, setSeed] = useState('');
   const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('normal');
   const allowedGovs = useMemo<GovernmentType[]>(
-    () => species.allowedGovernments ?? GOVERNMENT_ORDER,
+    () => species.allowedGovernments
+      ?? (species.specialAbilities.includes('hive_mind')
+        ? GOVERNMENT_ORDER
+        : GOVERNMENT_ORDER.filter((g) => g !== 'hive_mind')),
     [species],
   );
   const [selectedGov, setSelectedGov] = useState<GovernmentType>(
