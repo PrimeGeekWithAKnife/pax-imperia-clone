@@ -1,0 +1,1323 @@
+[
+  {
+    "id": "precursor_signal",
+    "title": "The Precursor Signal",
+    "description": "A repeating signal from deep within a ruined complex leads your scientists on a trail across multiple star systems — each site revealing another fragment of an ancient shipyard's location. But you are not the only empire listening.",
+    "triggerAnomalyTypes": ["precursor_ruins", "ancient_beacon"],
+    "competitive": true,
+    "minDiscoveredAnomalies": 3,
+    "speciesBranches": {
+      "vaelori": [
+        {
+          "stepId": "ps_decode",
+          "narration": "The Vaelori crystalline matrices resonate with the signal instinctively. What takes other species' computers hours to process, your people perceive as a melody — a harmony of data encoded in frequencies your ancestors knew before they had words for mathematics. The signal is not merely information. It is music. And the song has eight verses.",
+          "additionalChoices": [
+            {
+              "id": "ps_decode_psionic",
+              "label": "Harmonise with the signal psionically",
+              "requirements": { "specialAbility": "psychic" },
+              "nextStepId": "ps_triangulate",
+              "rewards": { "researchPoints": 300, "loreFragment": "The Vaelori perceive a ninth verse, hidden beneath the others — a warning, encoded in a frequency that only crystalline minds can hear. Something terrible happened here. Something that was done deliberately." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "ps_discovery",
+        "title": "The Repeating Signal",
+        "narration": "Your science vessel's long-range sensors detect a repeating electromagnetic pulse emanating from within the precursor ruins. It is not random noise. The pattern is structured — a mathematical sequence that your analysts immediately recognise as a coordinate cipher. Someone, a very long time ago, wanted to be found. The question is whether they wanted to be found by you.",
+        "choices": [
+          {
+            "id": "ps_discovery_investigate",
+            "label": "Deploy a full analysis team to decode the signal",
+            "nextStepId": "ps_decode",
+            "rewards": { "researchPoints": 50 }
+          },
+          {
+            "id": "ps_discovery_broadcast",
+            "label": "Broadcast the signal to attract potential allies",
+            "nextStepId": "ps_decode",
+            "rewards": { "researchPoints": 25 },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": -10 } }
+          }
+        ]
+      },
+      {
+        "id": "ps_decode",
+        "title": "Deciphering the Cipher",
+        "narration": "The signal resolves into a coordinate set — not for one location but for a chain of them, each a precursor site scattered across the sector. Your cryptographers determine that the full message requires fragments from at least three more sites before the final coordinates can be reconstructed. This was deliberate. The precursors scattered their secrets like a trail of breadcrumbs, each site verifying the seeker's worthiness to find the next. Whatever lies at the end of this trail, they did not want it found by accident.",
+        "choices": [
+          {
+            "id": "ps_decode_pursue",
+            "label": "Commit a science fleet to follow the trail",
+            "nextStepId": "ps_triangulate",
+            "rewards": { "researchPoints": 100 }
+          },
+          {
+            "id": "ps_decode_sell",
+            "label": "Sell the partial coordinates to the highest bidder",
+            "nextStepId": null,
+            "rewards": { "credits": 500 },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": -15 } }
+          }
+        ]
+      },
+      {
+        "id": "ps_triangulate",
+        "title": "The Second Fragment",
+        "narration": "The second site is a shattered orbital station, its hull perforated by weapons fire that your metallurgists date to approximately four billion years ago. Inside, among the wreckage, you find the next fragment — etched into a material harder than anything in your periodic table. But you also find something else: scoring marks on the walls that match no known weapon type. Deep, systematic gouges, as though something enormous fed upon the station's structure. Your chief scientist notes, with forced calm, that the gouges are fresher than the weapons damage. Perhaps only a few million years old.",
+        "choices": [
+          {
+            "id": "ps_triangulate_continue",
+            "label": "Press on to the third site",
+            "nextStepId": "ps_third_site",
+            "rewards": { "researchPoints": 150, "loreFragment": "The station's logs reference an entity designated only as 'the Hunger'. No further context is provided, as though the name alone were sufficient explanation." }
+          },
+          {
+            "id": "ps_triangulate_study_gouges",
+            "label": "Divert resources to study the feeding marks",
+            "nextStepId": "ps_third_site",
+            "rewards": { "researchPoints": 250, "loreFragment": "Spectral analysis of the gouge residue reveals trace elements that do not appear on any periodic table — matter that has been partially digested by a process your physicists cannot identify. Whatever fed here consumed not just material but the atomic bonds themselves." },
+            "risks": { "shipDamage": 0.1 }
+          }
+        ]
+      },
+      {
+        "id": "ps_third_site",
+        "title": "The Gravity Tomb",
+        "narration": "The third fragment leads to a planet crushed by impossible gravity — a world that should not exist, its mass far exceeding what its size can account for. Buried beneath kilometres of compressed rock, your probes detect a precursor facility, still powered after aeons. The gravity is artificial. Someone locked this facility down and then made the planet itself the lock. Your engineers estimate that reaching the facility will require technology at the very edge of your capabilities — and that the precursors clearly intended it that way.",
+        "choices": [
+          {
+            "id": "ps_third_site_drill",
+            "label": "Deploy deep-core drilling equipment",
+            "requirements": { "minMinerals": 200 },
+            "nextStepId": "ps_facility",
+            "rewards": { "researchPoints": 200, "rareElements": 30 }
+          },
+          {
+            "id": "ps_third_site_gravity",
+            "label": "Attempt to neutralise the gravity lock",
+            "requirements": { "techIds": ["gravity_lens"] },
+            "nextStepId": "ps_facility",
+            "rewards": { "researchPoints": 350, "exoticMaterials": 20 }
+          }
+        ]
+      },
+      {
+        "id": "ps_facility",
+        "title": "The Sealed Memory",
+        "narration": "Inside the gravity tomb, you find not a fragment but a record — a holographic archive of staggering detail. It shows the precursor civilisation at its height: a galaxy-spanning empire of breathtaking sophistication. And then it shows what ended them. The record is damaged, corrupted, incomplete. But the images that survive are enough to silence your entire research team. Vast shapes moving between stars. Worlds stripped bare. Fleets dissolving into nothing. The precursors did not fall. They were devoured. The archive contains the fourth coordinate fragment, along with a single phrase in the precursor language that your linguists translate with difficulty. It reads: 'We built the weapon. We hid the weapon. May those who find it be worthier than we were.'",
+        "choices": [
+          {
+            "id": "ps_facility_weapon",
+            "label": "This changes everything. Find the weapon.",
+            "nextStepId": "ps_fifth_site",
+            "rewards": { "researchPoints": 400, "loreFragment": "The holographic record's final frame shows a star system — your analysts identify it as a real location within the galaxy. The precursors' last stand. Whatever they built, they built it there." }
+          },
+          {
+            "id": "ps_facility_share",
+            "label": "Share the archive with all known empires",
+            "nextStepId": "ps_fifth_site",
+            "rewards": { "researchPoints": 200, "loreFragment": "Your broadcast of the archive causes a diplomatic earthquake. Some empires demand access to the trail. Others accuse you of fabricating the footage. The Vaelori, if contacted, say nothing — but their crystalline forms pulse with a frequency your instruments interpret as dread." },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 15 } }
+          }
+        ]
+      },
+      {
+        "id": "ps_fifth_site",
+        "title": "The Shipyard's Shadow",
+        "narration": "The fifth site is a void — a region of space where nothing exists. No stars, no dust, no radiation. Your sensors read it as absolute emptiness, which is physically impossible. Space is never truly empty. Something has been removed from this region, excised with surgical precision. And at the centre of the void, barely visible against the cosmic background, you detect a structure. It is enormous. It is dark. And it is waiting.",
+        "choices": [
+          {
+            "id": "ps_fifth_site_approach",
+            "label": "Approach with full sensor sweep",
+            "nextStepId": "ps_shipyard_approach",
+            "rewards": { "researchPoints": 300 }
+          },
+          {
+            "id": "ps_fifth_site_probe",
+            "label": "Send unmanned probes first",
+            "nextStepId": "ps_shipyard_approach",
+            "rewards": { "researchPoints": 200 },
+            "risks": { "shipDamage": 0.05 }
+          }
+        ]
+      },
+      {
+        "id": "ps_shipyard_approach",
+        "title": "The Precursor Shipyard",
+        "narration": "It is a shipyard. The largest artificial structure your civilisation has ever encountered — a lattice of construction bays stretching across three hundred kilometres, each bay sized for vessels that dwarf your largest dreadnoughts. Most bays are empty, their contents launched or destroyed aeons ago. But one bay, deep in the structure's heart, still holds its cargo. A ship. Incomplete, skeletal, built from materials your scientists cannot identify. The precursors' weapon against the Devourers was not a bomb or a beam. It was a vessel — something designed to go where the Devourers came from and fight them on their own terms. It was never finished. The Devourers came too soon.",
+        "choices": [
+          {
+            "id": "ps_shipyard_study",
+            "label": "Begin reverse-engineering the precursor vessel",
+            "nextStepId": "ps_completion",
+            "rewards": { "researchPoints": 500, "exoticMaterials": 40, "techUnlock": "precursor_hull_analysis" }
+          },
+          {
+            "id": "ps_shipyard_complete",
+            "label": "Attempt to complete the vessel with your own technology",
+            "requirements": { "minMinerals": 500 },
+            "nextStepId": "ps_completion",
+            "rewards": { "researchPoints": 300, "shipDesignUnlock": "precursor_leviathan" }
+          }
+        ]
+      },
+      {
+        "id": "ps_completion",
+        "title": "The Inheritance",
+        "narration": "Whether you study or complete the precursor vessel, the knowledge gained reshapes your understanding of physics. The precursors built with materials that exist in superposition — simultaneously matter and energy, solid and fluid. Their engineering was not merely advanced; it operated on principles your civilisation has not yet discovered the mathematics to describe. But the shipyard yields one more secret, tucked into the construction bay's control systems: a star chart. Updated automatically. Showing the current position of something vast, moving slowly inward from the galactic rim. The Devourers are not a historical curiosity. They are coming. And now, at last, you have the beginning of a way to fight them.",
+        "choices": [
+          {
+            "id": "ps_completion_prepare",
+            "label": "Begin a crash weapons programme based on precursor designs",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 800, "exoticMaterials": 60, "techUnlock": "precursor_weapons_theory", "loreFragment": "The precursor shipyard's navigational computer contained one final entry, logged moments before the facility was sealed: 'It will return. It always returns. We were not the first to try. Build better than we did.'" }
+          },
+          {
+            "id": "ps_completion_unite",
+            "label": "Share the star chart and rally the galaxy",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 400, "exoticMaterials": 30, "loreFragment": "You transmit the Devourer's position to every known empire. The galaxy's response is fractured — panic, denial, aggression, and in a few cases, grim resolve. But for the first time, they all know what is coming." },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 20 } }
+          }
+        ]
+      }
+    ],
+    "tags": ["precursor", "devourer", "competitive", "breadcrumb", "technology", "military"]
+  },
+
+  {
+    "id": "plague_world",
+    "title": "The Plague World",
+    "description": "A quarantined planet holds the remnants of a biological weapon so potent that the precursors sealed the entire world rather than risk its release. Your scientists see a breakthrough. Your ethicists see a catastrophe.",
+    "triggerAnomalyTypes": ["precursor_ruins"],
+    "competitive": false,
+    "speciesBranches": {
+      "sylvani": [
+        {
+          "stepId": "pw_quarantine",
+          "narration": "The Sylvani botanical networks recoil at the planet's biosphere. Your people have an instinctive communion with living systems — and this world's ecosystem is screaming. The pathogen isn't merely killing organisms; it is rewriting them, repurposing their cellular machinery for a function your biologists cannot yet identify. The Sylvani feel it as a wrongness in the green, a corruption of the fundamental grammar of life.",
+          "additionalChoices": [
+            {
+              "id": "pw_quarantine_commune",
+              "label": "Attempt symbiotic communion with the planet's biosphere",
+              "requirements": { "specialAbility": "symbiotic" },
+              "nextStepId": "pw_pathogen",
+              "rewards": { "researchPoints": 400, "loreFragment": "Through symbiotic communion, the Sylvani perceive the pathogen's true nature: it is not a weapon. It is a immune response — the planet itself trying to fight off something that infected it from outside. The precursors did not create the plague. They were trying to stop it." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "pw_discovery",
+        "title": "The Sealed World",
+        "narration": "Orbital scans of this otherwise unremarkable planet reveal something extraordinary: a network of precursor satellites maintaining a containment field around the entire world. The field is weakening — your engineers estimate it will fail within a century — but it is still strong enough to prevent any matter from leaving the planet's atmosphere. Whoever built this wanted to ensure that nothing on this world ever escaped. Your long-range biological sensors detect a thriving biosphere below the field. Whatever was quarantined here did not die. It adapted.",
+        "choices": [
+          {
+            "id": "pw_discovery_investigate",
+            "label": "Send a shielded probe through the containment field",
+            "nextStepId": "pw_quarantine",
+            "rewards": { "researchPoints": 100 }
+          },
+          {
+            "id": "pw_discovery_leave",
+            "label": "Reinforce the containment field and leave",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 50, "loreFragment": "Discretion is the better part of valour. Your engineers stabilise the precursor containment field for another millennium. Whatever sleeps below will remain sleeping — for now." }
+          }
+        ]
+      },
+      {
+        "id": "pw_quarantine",
+        "title": "The Living Weapon",
+        "narration": "Your probe's data is staggering. The planet's biosphere has been entirely reshaped by a single organism — a pathogen of extraordinary sophistication that has incorporated every native life form into a single, unified biological network. Every creature on this world is, in a sense, the same creature. The pathogen does not kill its hosts. It improves them — enhancing their biology, optimising their metabolism, connecting them through biochemical signalling into a planetary superorganism. Your xenobiologists are simultaneously terrified and fascinated. This is not a disease. It is an upgrade. And the precursors were so afraid of it that they sealed an entire planet.",
+        "choices": [
+          {
+            "id": "pw_quarantine_sample",
+            "label": "Extract a contained sample for laboratory study",
+            "nextStepId": "pw_pathogen",
+            "rewards": { "researchPoints": 200 },
+            "risks": { "plagueRisk": 0.15 }
+          },
+          {
+            "id": "pw_quarantine_destroy",
+            "label": "Sterilise the planet from orbit",
+            "nextStepId": "pw_aftermath",
+            "rewards": { "researchPoints": 50 },
+            "risks": { "moralePenalty": 15 }
+          }
+        ]
+      },
+      {
+        "id": "pw_pathogen",
+        "title": "The Pathogen's Promise",
+        "narration": "In laboratory conditions, your scientists make a breakthrough — and a discovery that splits your research council in two. The pathogen can be weaponised. Applied to enemy populations, it would not kill them but transform them — overriding individuality, merging an entire planet's population into a compliant biological network. It would be the most effective weapon of conquest ever devised, and it would technically harm no one. Alternatively, the pathogen's optimisation capabilities could revolutionise your own species' biology — enhanced immune systems, accelerated healing, extended lifespans. But the modifications would be irreversible. Your species would be changed, fundamentally, at the genetic level. There is no guarantee you would still be you.",
+        "choices": [
+          {
+            "id": "pw_pathogen_weaponise",
+            "label": "Develop the pathogen as a biological weapon",
+            "nextStepId": "pw_aftermath",
+            "rewards": { "techUnlock": "bioweapon_assimilation", "loreFragment": "Your weapons division delivers the finished product with visible unease. The pathogen has been refined into a deployable agent that can convert a planet's biosphere in approximately forty days. Your lead scientist notes, in her final report, that the precursors had the same technology. They chose not to use it. She does not add a recommendation." },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": -30 }, "moralePenalty": 25 }
+          },
+          {
+            "id": "pw_pathogen_enhance",
+            "label": "Apply the pathogen's benefits to your own species",
+            "nextStepId": "pw_aftermath",
+            "rewards": { "techUnlock": "bio_optimisation", "researchPoints": 300, "loreFragment": "The first volunteers emerge from treatment changed. Healthier, faster, sharper — but different. They describe a faint awareness of each other, a biological empathy that was not there before. Your chief medical officer calls it a remarkable success. She does not mention that the volunteers have begun finishing each other's sentences." },
+            "risks": { "plagueRisk": 0.1 }
+          },
+          {
+            "id": "pw_pathogen_destroy",
+            "label": "Destroy all samples and publish your findings as a warning",
+            "nextStepId": "pw_aftermath",
+            "rewards": { "researchPoints": 200, "loreFragment": "You incinerate every sample under maximum containment protocols and broadcast your findings to the galaxy. It is the responsible choice. It is the safe choice. And in the quiet hours, your chief scientist wonders whether it was the right choice — because the pathogen could have cured every disease your species has ever known." }
+          }
+        ]
+      },
+      {
+        "id": "pw_aftermath",
+        "title": "The Aftermath",
+        "narration": "The plague world fades in your ship's wake, but its legacy does not. Whatever choice you made — weapon, cure, or caution — the knowledge that such a thing exists has changed your civilisation's understanding of biology forever. Your xenobiologists have begun asking questions that would have been unthinkable a generation ago. Your ethicists have begun writing new frameworks. And somewhere, on a quarantined planet spinning slowly in the dark, a planetary superorganism continues its patient, billion-year optimisation, indifferent to the tiny ships that briefly visited and then fled.",
+        "choices": [
+          {
+            "id": "pw_aftermath_reflect",
+            "label": "Archive the expedition's findings",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 150, "loreFragment": "A footnote in your science vessel's final report catches your intelligence division's attention: the precursor containment satellites bear manufacturing stamps identical to those found at other precursor sites. They were mass-produced. This was not the only plague world. It was merely the one you found." }
+          }
+        ]
+      }
+    ],
+    "tags": ["biological", "moral_dilemma", "technology", "precursor"]
+  },
+
+  {
+    "id": "living_nebula",
+    "title": "The Living Nebula",
+    "description": "A nebula exhibits coordinated electromagnetic behaviour far too complex to be natural. Something vast and ancient lives within the gas clouds — and it has noticed you.",
+    "triggerAnomalyTypes": ["living_nebula", "energy_signature"],
+    "competitive": false,
+    "requiredTechs": [],
+    "speciesBranches": {
+      "vaelori": [
+        {
+          "stepId": "ln_contact",
+          "narration": "The Vaelori do not need instruments to perceive the nebula entity. Your people have felt it for millennia — a vast, slow presence at the edge of psionic perception, like a whale heard through deep ocean. The entity's electromagnetic pulses are, to the Vaelori, a language. Not a complex one — this being thinks in geological time, its thoughts spanning centuries — but recognisable. It is aware. It is curious. And it is very, very old.",
+          "additionalChoices": [
+            {
+              "id": "ln_contact_resonate",
+              "label": "Establish direct psionic resonance with the entity",
+              "requirements": { "specialAbility": "psychic" },
+              "nextStepId": "ln_communion",
+              "rewards": { "researchPoints": 500, "loreFragment": "The entity's mind opens to you like a library written in starlight. It remembers the precursors — young, brilliant, doomed. It remembers what came for them. It has a name for the Devourers, translated imperfectly through psionic resonance as 'the Absence' — beings defined not by what they are but by what they consume. The entity has survived by being too diffuse to eat. Worlds and ships are solid. It is gas and light. The Devourers passed through it like wind through mist." }
+            }
+          ]
+        },
+        {
+          "stepId": "ln_response",
+          "narration": "The entity responds to Vaelori psionic communication with an intensity that alarms your sensitives. It has been alone for so long. It pours millennia of accumulated observation into your crystalline matrices — star charts, species records, the movements of things between galaxies. Your archivists will spend decades processing what you receive in seconds.",
+          "additionalChoices": [
+            {
+              "id": "ln_response_merge",
+              "label": "Offer a permanent psionic link between Vaelori and the entity",
+              "requirements": { "specialAbility": "psychic" },
+              "nextStepId": "ln_alliance",
+              "rewards": { "researchPoints": 600, "techUnlock": "nebular_psionic_link", "loreFragment": "The Vaelori and the nebula entity establish a bond that transcends distance — a permanent psionic resonance that grants your sensitives access to the entity's perception. You can see what it sees: the galaxy laid bare, every energy signature, every fleet movement, every whisper of electromagnetic activity. The cost is that the entity can see through you as well. Privacy, for the Vaelori, becomes a more complex concept." }
+            }
+          ]
+        }
+      ],
+      "luminari": [
+        {
+          "stepId": "ln_contact",
+          "narration": "The Luminari recognise the nebula entity immediately — not as a stranger but as kin. It is an energy-based consciousness, like themselves, but evolved independently within a stellar nursery rather than a plasma nebula. The recognition is mutual. The entity's electromagnetic pulses shift frequency, matching the Luminari's spectral communication range. For the first time in its billion-year existence, it is speaking to something that understands its native language.",
+          "additionalChoices": [
+            {
+              "id": "ln_contact_luminari_kinship",
+              "label": "Establish kinship protocols with the entity",
+              "requirements": { "specialAbility": "energy_form" },
+              "nextStepId": "ln_communion",
+              "rewards": { "researchPoints": 450, "loreFragment": "The entity's joy at meeting the Luminari is overwhelming — a burst of electromagnetic emotion so intense that nearby ships' instruments overload. It shares freely: it has watched the galaxy for aeons, recording everything in electromagnetic memory. It knows where the precursors built their greatest works. It knows what destroyed them. And it knows that the destroyers have not left." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "ln_discovery",
+        "title": "The Breathing Nebula",
+        "narration": "Your science vessel's sensors flag an impossibility: the nebula is pulsing. Not with the random turbulence of interstellar gas but with a regular, rhythmic pattern — electromagnetic waves propagating outward from the nebula's core with a periodicity of exactly 11.7 seconds. Your astrophysicists run every known natural model and come up empty. No stellar process produces this pattern. Something inside the nebula is breathing.",
+        "choices": [
+          {
+            "id": "ln_discovery_enter",
+            "label": "Navigate into the nebula to investigate the source",
+            "nextStepId": "ln_contact",
+            "rewards": { "researchPoints": 100 },
+            "risks": { "shipDamage": 0.1 }
+          },
+          {
+            "id": "ln_discovery_observe",
+            "label": "Establish a long-range monitoring station",
+            "nextStepId": "ln_contact",
+            "rewards": { "researchPoints": 150 }
+          }
+        ]
+      },
+      {
+        "id": "ln_contact",
+        "title": "First Contact",
+        "narration": "As your instruments probe deeper, the nebula responds. The pulsing changes frequency, intensifying around your vessel's position. Your communications officer reports that the electromagnetic emissions have begun to modulate in patterns that match — imperfectly, but unmistakably — your own scanning frequencies. The nebula is not merely alive. It is aware of you. And it is attempting to communicate by echoing your own signals back at you, modified with additional information. Your linguists begin working feverishly. The nebula entity's first message, once decoded, is heartbreakingly simple: 'Not alone?'",
+        "choices": [
+          {
+            "id": "ln_contact_respond",
+            "label": "Transmit a structured response confirming intelligence",
+            "nextStepId": "ln_communion",
+            "rewards": { "researchPoints": 200, "loreFragment": "The entity's response to confirmation of external intelligence is an electromagnetic burst so powerful it temporarily blinds your sensors. When they recover, the nebula's emission patterns have shifted to a new configuration — faster, more complex, laden with data. Your linguists describe it as the cognitive equivalent of someone sitting up and paying attention for the first time in a billion years." }
+          },
+          {
+            "id": "ln_contact_harvest",
+            "label": "Attempt to harvest the nebula's exotic energy patterns",
+            "nextStepId": "ln_response",
+            "rewards": { "exoticMaterials": 30 },
+            "risks": { "shipDamage": 0.25, "attitudeShift": { "targetSpecies": "luminari", "amount": -20 } }
+          }
+        ]
+      },
+      {
+        "id": "ln_communion",
+        "title": "The Communion",
+        "narration": "Communication with the nebula entity accelerates beyond your linguists' ability to keep pace. It thinks slowly — a single complete thought may span hours — but each thought contains layers of meaning that your best analysts require days to fully unpack. The entity is ancient beyond reckoning. It has existed since this region of space was a stellar nursery, growing in complexity as the nebula evolved. It has watched civilisations rise and fall from within its gaseous domain, unable to interact, unable to speak. Your arrival is, from its perspective, the first conversation it has had since gaining consciousness. It has been thinking alone for approximately two billion years.",
+        "choices": [
+          {
+            "id": "ln_communion_learn",
+            "label": "Ask the entity what it has observed over the aeons",
+            "nextStepId": "ln_response",
+            "rewards": { "researchPoints": 350, "loreFragment": "The entity shares its memories in electromagnetic imagery of staggering fidelity. It saw the precursors at their height — ships of impossible elegance threading between stars. It watched them fight something it struggles to describe, a concept it renders as 'the dark that eats'. It saw them lose. And it has watched the dark withdraw to the galaxy's edge, patient, still hungry, waiting for the next harvest to ripen." }
+          },
+          {
+            "id": "ln_communion_teach",
+            "label": "Share your own civilisation's history with the entity",
+            "nextStepId": "ln_response",
+            "rewards": { "researchPoints": 250 }
+          }
+        ]
+      },
+      {
+        "id": "ln_response",
+        "title": "The Entity's Gift",
+        "narration": "The nebula entity, having processed your communications over a period it considers brief and you consider agonisingly long, offers a gift. It modulates its electromagnetic field into a pattern your engineers recognise as a schematic — a design for a device that would allow ships to navigate nebulae as easily as open space, using the entity's own electromagnetic signature as a beacon network. In exchange, the entity asks only one thing: company. It wants your ships to pass through its domain regularly. It wants to not be alone.",
+        "choices": [
+          {
+            "id": "ln_response_accept",
+            "label": "Accept the gift and establish a regular communication relay",
+            "nextStepId": "ln_alliance",
+            "rewards": { "techUnlock": "nebular_navigation", "researchPoints": 300 }
+          },
+          {
+            "id": "ln_response_study",
+            "label": "Accept the gift and study the entity's consciousness for research",
+            "nextStepId": "ln_alliance",
+            "rewards": { "researchPoints": 500, "techUnlock": "nebular_navigation" },
+            "risks": { "moralePenalty": 5 }
+          }
+        ]
+      },
+      {
+        "id": "ln_alliance",
+        "title": "The Shepherd of Stars",
+        "narration": "A relationship forms between your civilisation and a being older than most star systems. The nebula entity — which your people begin calling the Shepherd, for its habit of gently guiding lost probes back to your ships — becomes a fixture of your strategic landscape. It serves as an early warning system, its vast electromagnetic perception detecting fleet movements and anomalous energy signatures across light-years. It shares what it remembers of the precursors, fragment by fragment, each memory requiring months to fully decode. And in quiet moments, when your communication relays are idle, it tells your operators stories about the stars it has watched being born — stories that last for years and are, according to your cultural attaché, the most beautiful things anyone in your civilisation has ever heard.",
+        "choices": [
+          {
+            "id": "ln_alliance_guardian",
+            "label": "Formalise the alliance and designate the nebula a protected zone",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 400, "loreFragment": "The Shepherd offers one final gift: the coordinates of other nebulae where similar entities may have evolved. Your galaxy, it suggests, may be full of lonely minds waiting in the gas between the stars — ancient, patient, and desperate for someone to talk to." }
+          },
+          {
+            "id": "ln_alliance_expand",
+            "label": "Help the entity extend its consciousness to neighbouring nebulae",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 300, "techUnlock": "consciousness_propagation", "loreFragment": "The entity's expansion is slow — it will take centuries — but the process teaches your scientists more about the nature of consciousness than a millennium of laboratory research. The Shepherd, for its part, expresses something your linguists hesitantly translate as gratitude so deep it borders on love." }
+          }
+        ]
+      }
+    ],
+    "tags": ["psionic", "exploration", "diplomatic", "precursor", "devourer"]
+  },
+
+  {
+    "id": "silent_archive",
+    "title": "The Silent Archive",
+    "description": "A precursor data vault, hidden in the accretion disc of a dead star, contains the most complete record of the Devourer threat ever found — along with the precursors' failed attempts to stop it.",
+    "triggerAnomalyTypes": ["precursor_ruins", "energy_signature", "ancient_beacon"],
+    "competitive": true,
+    "minDiscoveredAnomalies": 5,
+    "speciesBranches": {},
+    "steps": [
+      {
+        "id": "sa_discovery",
+        "title": "The Dead Star's Secret",
+        "narration": "Your science vessel detects an anomalous energy reading within the accretion disc of a stellar remnant — a white dwarf slowly consuming the remains of its companion. Hidden within the radiation-drenched debris, shielded by technology that should not be possible, is a structure. It is small by precursor standards — barely larger than one of your cruisers — but it is broadcasting. A continuous data stream, encrypted, repeating endlessly. A message in a bottle, thrown into the most inhospitable environment imaginable so that only someone with sufficiently advanced technology could retrieve it.",
+        "choices": [
+          {
+            "id": "sa_discovery_retrieve",
+            "label": "Navigate the accretion disc to reach the structure",
+            "nextStepId": "sa_decryption",
+            "rewards": { "researchPoints": 150 },
+            "risks": { "shipDamage": 0.15 }
+          },
+          {
+            "id": "sa_discovery_remote",
+            "label": "Attempt remote data extraction from a safe distance",
+            "nextStepId": "sa_decryption",
+            "rewards": { "researchPoints": 100 }
+          }
+        ]
+      },
+      {
+        "id": "sa_decryption",
+        "title": "The Cipher of the Dead",
+        "narration": "The encryption is unlike anything your cryptographers have encountered. It is not designed to prevent reading — it is designed to ensure the reader understands what they are reading. The cipher is a test of cognitive sophistication: each layer of encryption requires the reader to demonstrate comprehension of the previous layer's content before the next layer becomes accessible. The precursors did not want their archive found by brutes. They wanted it found by thinkers. Your research teams begin the laborious process of proving they are worthy of the knowledge within.",
+        "choices": [
+          {
+            "id": "sa_decryption_dedicated",
+            "label": "Assign your best research teams to the decryption effort",
+            "nextStepId": "sa_contents",
+            "rewards": { "researchPoints": 250 }
+          },
+          {
+            "id": "sa_decryption_brute",
+            "label": "Apply computational brute force to bypass the encryption",
+            "nextStepId": "sa_contents",
+            "rewards": { "researchPoints": 100 },
+            "risks": { "shipDamage": 0.05 }
+          }
+        ]
+      },
+      {
+        "id": "sa_contents",
+        "title": "The Devourer Dossier",
+        "narration": "The archive opens. Its contents silence your research council for three days. The precursors knew what the Devourers were. They studied them. They fought them. And they lost — not because their technology was insufficient but because the Devourers adapted. Every weapon the precursors deployed was effective precisely once. The Devourers learned from each attack, restructured themselves, and returned immune. The archive contains detailed records of seventeen major engagements, each ending in precursor retreat. The final entry is a mathematical proof — elegant, terrifying, and apparently incontrovertible — demonstrating that no purely technological solution can permanently defeat the Devourers. The proof concludes with a single annotation: 'We were wrong to fight alone.'",
+        "choices": [
+          {
+            "id": "sa_contents_study",
+            "label": "Analyse the tactical records for military applications",
+            "nextStepId": "sa_implication",
+            "rewards": { "researchPoints": 400, "techUnlock": "devourer_tactical_analysis", "loreFragment": "The precursors' battle records reveal the Devourers' greatest weakness and greatest strength are the same thing: they consume to adapt. Each ship they devour teaches them. Each weapon they absorb becomes part of their arsenal. The only engagements the precursors won were those where they deployed weapons so alien to the Devourers' experience that adaptation took longer than the battle. The lesson is clear: surprise is the only advantage that works. And it only works once." }
+          },
+          {
+            "id": "sa_contents_proof",
+            "label": "Focus on the mathematical proof — what did they mean by 'not alone'?",
+            "nextStepId": "sa_implication",
+            "rewards": { "researchPoints": 500, "loreFragment": "The proof's logic is devastating in its clarity. A single civilisation, no matter how advanced, presents a finite set of technological approaches. The Devourers, given sufficient time, will adapt to every one. But multiple civilisations, thinking differently, building differently, fighting differently, present an effectively infinite solution space. The Devourers cannot adapt to everything simultaneously. The precursors' fatal error was pride — they believed they could win alone. Their final message is not a battle plan. It is a plea for cooperation." }
+          }
+        ]
+      },
+      {
+        "id": "sa_implication",
+        "title": "The Weight of Knowledge",
+        "narration": "Your civilisation now possesses more information about the Devourer threat than any other living species. The archive's tactical data is invaluable; its strategic conclusion — that only galactic cooperation can succeed — is politically explosive. Sharing this information would validate every species' importance in the coming fight. Withholding it would give your empire a decisive military advantage. The precursors faced this same choice. They chose to fight alone. They lost.",
+        "choices": [
+          {
+            "id": "sa_implication_share",
+            "label": "Establish a galactic research initiative and share everything",
+            "nextStepId": "sa_legacy",
+            "rewards": { "researchPoints": 300, "loreFragment": "Your broadcast of the archive's contents catalyses a diplomatic revolution. For the first time, the galaxy's empires have a common enemy with a name, a history, and a known weakness. Whether they will cooperate remains to be seen — but at least now, the argument is about strategy rather than whether the threat exists." },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 25 } }
+          },
+          {
+            "id": "sa_implication_hoard",
+            "label": "Keep the archive's contents classified",
+            "nextStepId": "sa_legacy",
+            "rewards": { "researchPoints": 600, "techUnlock": "devourer_countermeasures" },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": -20 } }
+          }
+        ]
+      },
+      {
+        "id": "sa_legacy",
+        "title": "The Archive's Last Secret",
+        "narration": "As your teams complete their analysis, a final encrypted partition opens — triggered automatically by the passage of time since the archive was first accessed. It contains a single file: a recording of the precursor archivist who sealed this vault. They are weary, their species' equivalent of old and afraid, and they speak directly to whoever is watching. 'If you are hearing this, then our civilisation has fallen and yours has risen in its place. Learn from our failure. The Devourers do not conquer. They do not negotiate. They do not hate. They feed. You cannot reason with hunger. You can only be too large to swallow. Grow. Unite. Become too vast to consume. It is the only strategy that the mathematics permits.'",
+        "choices": [
+          {
+            "id": "sa_legacy_honour",
+            "label": "Preserve the archive as a memorial and research site",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 500, "exoticMaterials": 25, "loreFragment": "You seal the archive and establish a permanent research station in the accretion disc. The precursors' warning will not be forgotten. On the wall of the station's central chamber, your engineers inscribe the archivist's final words in every language known to your civilisation. The mathematics permits only one strategy. You intend to follow it." }
+          }
+        ]
+      }
+    ],
+    "tags": ["precursor", "devourer", "breadcrumb", "technology", "moral_dilemma", "competitive"]
+  },
+
+  {
+    "id": "ghost_fleet",
+    "title": "The Ghost Fleet",
+    "description": "A fleet of derelict warships drifts in perfect formation through empty space, their systems dark, their crews long gone. They could be salvaged for a fortune — or they could be bait.",
+    "triggerAnomalyTypes": ["derelict_vessel", "debris_field"],
+    "competitive": false,
+    "speciesBranches": {
+      "khazari": [
+        {
+          "stepId": "gf_approach",
+          "narration": "The Khazari fleet commander's eyes narrow as sensor data resolves. These vessels are old — impossibly old — but their hull configurations are unmistakable. Warships. Heavy warships, built for a protracted campaign. The Khazari recognise military engineering when they see it, regardless of the species that produced it. These ships were built by people who expected to fight something they were not certain they could beat.",
+          "additionalChoices": [
+            {
+              "id": "gf_approach_tactical",
+              "label": "Conduct a tactical analysis before approaching",
+              "nextStepId": "gf_boarding",
+              "rewards": { "researchPoints": 150, "loreFragment": "Khazari tactical analysis reveals the fleet's formation is not random drift — it is a defensive perimeter. Even in death, these ships maintain a watch pattern around a central point in empty space. Your tactical officer notes grimly that whatever they were guarding, they were guarding it from something they expected to approach from every direction simultaneously." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "gf_discovery",
+        "title": "The Silent Armada",
+        "narration": "Seventeen warships, hanging motionless in the void between star systems. No power signatures. No life signs. No distress beacons. Your long-range sensors identified them as a dense metallic anomaly; close approach reveals the truth. This was a fleet — a formation of vessels larger than anything in your current naval inventory, their hulls scarred by weapons fire but structurally intact. They have been here, drifting in perfect formation, for longer than your civilisation has existed. Your salvage teams estimate the material value of this fleet at several times your annual mineral production. Your intelligence officers estimate the strategic value of its weapons technology as incalculable.",
+        "choices": [
+          {
+            "id": "gf_discovery_approach",
+            "label": "Move in for a closer examination",
+            "nextStepId": "gf_approach",
+            "rewards": { "researchPoints": 50 }
+          },
+          {
+            "id": "gf_discovery_caution",
+            "label": "Scan from maximum range before approaching",
+            "nextStepId": "gf_approach",
+            "rewards": { "researchPoints": 75 }
+          }
+        ]
+      },
+      {
+        "id": "gf_approach",
+        "title": "The Dead Crew's Warning",
+        "narration": "Boarding parties report a scene of ordered abandonment. The ships were not destroyed — they were evacuated. Deliberately, methodically, with every system powered down according to a shutdown protocol your engineers recognise as military. But the crew did not leave in escape pods. There are no escape pods. The pod bays are empty not because the pods were launched but because they were never installed. These ships were built without any means of crew evacuation. They were designed for a one-way mission. In the flagship's command centre, your boarding party finds a final log entry, burned into the bulkhead with an energy weapon: a single symbol that your xenolinguists cannot identify, repeated seventeen times. One for each ship.",
+        "choices": [
+          {
+            "id": "gf_approach_salvage",
+            "label": "Begin full salvage operations",
+            "nextStepId": "gf_resolution",
+            "rewards": { "minerals": 400, "rareElements": 60, "researchPoints": 200, "techUnlock": "ghost_fleet_alloys" }
+          },
+          {
+            "id": "gf_approach_activate",
+            "label": "Attempt to reactivate the flagship's systems",
+            "nextStepId": "gf_resolution",
+            "rewards": { "researchPoints": 350, "shipDesignUnlock": "ghost_fleet_cruiser" },
+            "risks": { "shipDamage": 0.2, "spawnHostiles": true }
+          },
+          {
+            "id": "gf_approach_monument",
+            "label": "Leave the fleet undisturbed as a memorial",
+            "nextStepId": "gf_resolution",
+            "rewards": { "researchPoints": 100, "loreFragment": "You mark the fleet's coordinates and withdraw. Some things are worth more intact than dismantled. Your cultural attaché formally designates the site a memorial to an unknown civilisation's last stand against an unknown enemy. The memorial's official name, chosen by your crew, is 'The Seventeen Who Did Not Run.'" }
+          }
+        ]
+      },
+      {
+        "id": "gf_resolution",
+        "title": "The Fleet's Secret",
+        "narration": "Whether salvaged or left in peace, the ghost fleet yields one final mystery. The point at the centre of its formation — the location the ships were clearly positioned to defend — contains nothing. Empty space. No structure, no energy, no debris. But your sensors detect something at the quantum level: a faint distortion in the fabric of spacetime, as though something was once anchored here and has since been removed. Whatever the fleet was guarding, someone came and took it. The fleet's weapons scarring tells the rest of the story. They fought. They failed. And whatever they were protecting is now in the hands of whatever they were fighting.",
+        "choices": [
+          {
+            "id": "gf_resolution_investigate",
+            "label": "Log the quantum distortion for future analysis",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 150, "loreFragment": "Your quantum physicists spend months analysing the spacetime distortion at the fleet's centre. Their conclusion is unsettling: the distortion's signature matches theoretical models of a device capable of folding space across intergalactic distances. A bridge between galaxies. The fleet was guarding a door. And something came through it." }
+          }
+        ]
+      }
+    ],
+    "tags": ["military", "exploration", "precursor", "devourer"]
+  },
+
+  {
+    "id": "evolving_world",
+    "title": "The Evolving World",
+    "description": "A planet where evolution runs at a thousand times its normal speed. Species that should take millions of years to develop are advancing in centuries. Something is accelerating the process — and the planet's emerging intelligence has questions about the galaxy it is about to enter.",
+    "triggerAnomalyTypes": ["precursor_ruins", "energy_signature"],
+    "competitive": false,
+    "speciesBranches": {},
+    "steps": [
+      {
+        "id": "ew_discovery",
+        "title": "The Acceleration",
+        "narration": "Biological surveys of this planet reveal an impossibility. The fossil record shows evolutionary leaps that should span millions of years occurring in mere centuries. Species are arising, diversifying, and going extinct at a rate your biologists describe as 'terrifying'. The current dominant species — a tool-using, social, bipedal organism — appears to have evolved from a simple marine invertebrate in approximately eight thousand years. This is not natural selection. Something on this planet is driving evolution at a pace that makes a mockery of conventional biology. And the dominant species has just discovered fire.",
+        "choices": [
+          {
+            "id": "ew_discovery_observe",
+            "label": "Establish a concealed observation post",
+            "nextStepId": "ew_observation",
+            "rewards": { "researchPoints": 100 }
+          },
+          {
+            "id": "ew_discovery_investigate",
+            "label": "Investigate the evolutionary accelerant's source",
+            "nextStepId": "ew_source",
+            "rewards": { "researchPoints": 150 }
+          }
+        ]
+      },
+      {
+        "id": "ew_observation",
+        "title": "Centuries in Days",
+        "narration": "From your observation post, you watch civilisation unfold in fast-forward. The dominant species discovers agriculture, metallurgy, and writing within a single generation of your scientists' posting. By the time your quarterly report is due, they have built cities. Your anthropologists are taking notes so frantically that they have requested additional staff. The species' development is not merely fast — it is efficient. They skip technological dead ends that your own species spent centuries pursuing. It is as though they are being guided along an optimal development path, though your scans detect no external influence. The acceleration is intrinsic to the planet itself.",
+        "choices": [
+          {
+            "id": "ew_observation_contact",
+            "label": "Make contact before they develop spaceflight",
+            "nextStepId": "ew_contact",
+            "rewards": { "researchPoints": 200, "loreFragment": "Your first-contact team arrives to find that the accelerated species has already developed theoretical physics. They are not surprised to meet you. Their mathematicians predicted the existence of spacefaring civilisations three generations ago. They have been waiting." }
+          },
+          {
+            "id": "ew_observation_investigate",
+            "label": "Investigate what is causing the acceleration",
+            "nextStepId": "ew_source",
+            "rewards": { "researchPoints": 250 }
+          }
+        ]
+      },
+      {
+        "id": "ew_source",
+        "title": "The Engine Beneath",
+        "narration": "Deep beneath the planet's crust, buried under kilometres of geological strata, your probes detect a precursor device of extraordinary sophistication. It is a biological accelerator — a machine that saturates the planet's biosphere with targeted mutagenic radiation, guiding evolution along pre-programmed pathways. The device is ancient, automated, and still functioning perfectly. The precursors did not merely leave ruins on this world. They left a garden. This entire planet is an experiment — a project to evolve intelligent life along an optimal trajectory. Your biologists are awed. Your ethicists are horrified. The species above has no idea that its entire evolutionary history was designed.",
+        "choices": [
+          {
+            "id": "ew_source_reveal",
+            "label": "Inform the accelerated species of their origins",
+            "nextStepId": "ew_contact",
+            "rewards": { "researchPoints": 300, "loreFragment": "The accelerated species receives the truth about their engineered origins with a composure that startles your diplomatic team. Their leading philosopher responds: 'Whether we were designed or evolved, we are here. We think. We choose. The mechanism of our creation does not diminish the reality of our consciousness. We would, however, very much like to know who designed us, and why.'" },
+            "risks": { "moralePenalty": 5 }
+          },
+          {
+            "id": "ew_source_disable",
+            "label": "Deactivate the precursor device",
+            "nextStepId": "ew_contact",
+            "rewards": { "researchPoints": 200, "techUnlock": "directed_evolution" },
+            "risks": { "moralePenalty": 10 }
+          },
+          {
+            "id": "ew_source_study",
+            "label": "Study the device without interfering",
+            "nextStepId": "ew_contact",
+            "rewards": { "researchPoints": 400, "techUnlock": "precursor_bioengineering" }
+          }
+        ]
+      },
+      {
+        "id": "ew_contact",
+        "title": "The Youngest Civilisation",
+        "narration": "The accelerated species — who call themselves the Brevith, a word that translates roughly as 'the quick-born' — are now your contemporaries. They developed spaceflight technology within a decade of first contact, drawing on principles your scientists had shared, adapted, and in several cases improved. They are brilliant, adaptable, and haunted by the knowledge that their world is an experiment. Their culture is shaped by urgency — having evolved at a thousand times the normal rate, they perceive time differently from other species. A year feels like a millennium. Their art is frantic, beautiful, and obsessed with mortality. They want to join the galactic community. They want to matter. And they want to know: are there other garden worlds? Other experiments? Are they unique, or are they one of many?",
+        "choices": [
+          {
+            "id": "ew_contact_welcome",
+            "label": "Welcome the Brevith as allies and share what you know",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 300, "loreFragment": "The Brevith integrate into galactic society with a speed that should surprise no one but surprises everyone. Within a generation, their scientists are contributing to research programmes across the sector. Their urgency proves infectious — species that have spent centuries deliberating find themselves making decisions in decades. The galaxy, subtly, begins to move faster." }
+          },
+          {
+            "id": "ew_contact_study",
+            "label": "Maintain the Brevith as a research subject under observation",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 500, "techUnlock": "accelerated_evolution" },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": -15 }, "moralePenalty": 20 }
+          }
+        ]
+      }
+    ],
+    "tags": ["biological", "exploration", "moral_dilemma", "precursor"]
+  },
+
+  {
+    "id": "wormhole_cartographer",
+    "title": "The Wormhole Cartographer",
+    "description": "An ancient device, hidden within a sealed wormhole terminus, contains a map of routes that the precursors deliberately closed. Opening them would reshape galactic geography — but the precursors sealed them for a reason.",
+    "triggerAnomalyTypes": ["sealed_wormhole", "ancient_beacon"],
+    "competitive": true,
+    "minDiscoveredAnomalies": 4,
+    "speciesBranches": {},
+    "steps": [
+      {
+        "id": "wc_discovery",
+        "title": "The Sealed Terminus",
+        "narration": "Your science vessel's investigation of the sealed wormhole reveals an object embedded within the terminus itself — a device of precursor manufacture, woven into the wormhole's spacetime topology with a precision that makes your engineers weep with professional envy. The device is simultaneously a lock and a library. It sealed this wormhole, and it contains the coordinates of every wormhole the precursors ever sealed. Your theoretical physicists estimate there are at least forty sealed routes on the map — hidden highways across the galaxy that no living civilisation has ever travelled.",
+        "choices": [
+          {
+            "id": "wc_discovery_extract",
+            "label": "Carefully extract the device for study",
+            "nextStepId": "wc_analysis",
+            "rewards": { "researchPoints": 200 },
+            "risks": { "shipDamage": 0.1 }
+          },
+          {
+            "id": "wc_discovery_interface",
+            "label": "Interface with the device in situ",
+            "nextStepId": "wc_analysis",
+            "rewards": { "researchPoints": 150 }
+          }
+        ]
+      },
+      {
+        "id": "wc_analysis",
+        "title": "The Cartographer's Map",
+        "narration": "The device's map is more than coordinates — it is annotated. Each sealed wormhole is tagged with a classification in the precursor language. Your linguists identify three categories: routes marked with a symbol meaning 'dormant' — sealed for strategic reasons, presumably safe to reopen. Routes marked 'contaminated' — sealed because something dangerous was on the other side. And routes marked with a third symbol that your linguists struggle to translate. The closest approximation is 'feeding ground'. These routes lead to the galactic rim.",
+        "choices": [
+          {
+            "id": "wc_analysis_dormant",
+            "label": "Focus on the 'dormant' routes — the safe options",
+            "nextStepId": "wc_dormant",
+            "rewards": { "researchPoints": 250 }
+          },
+          {
+            "id": "wc_analysis_contaminated",
+            "label": "Investigate the 'contaminated' routes",
+            "nextStepId": "wc_contaminated",
+            "rewards": { "researchPoints": 300 },
+            "risks": { "shipDamage": 0.15 }
+          },
+          {
+            "id": "wc_analysis_feeding",
+            "label": "Study the 'feeding ground' classification",
+            "nextStepId": "wc_feeding",
+            "rewards": { "researchPoints": 400, "loreFragment": "The precursors sealed the rim-ward wormholes last, in what your historians reconstruct as a desperate rearguard action. The 'feeding ground' designation was not a warning about the destination. It was a description of how the Devourers used these routes — highways along which they moved from system to system, consuming everything in their path. The precursors sealed them to slow the advance. It worked, for a time." }
+          }
+        ]
+      },
+      {
+        "id": "wc_dormant",
+        "title": "The Hidden Highways",
+        "narration": "The dormant routes are exactly what they appear: wormhole connections sealed for military or strategic reasons during the precursor era, presumably to control traffic flow through their empire. Your engineers determine that reopening them is technically feasible — the seals are locks, not welds, designed to be opened by anyone with sufficient understanding of the underlying physics. Reopening even a handful of these routes would dramatically reshape the galaxy's strategic geography, creating shortcuts that could reduce travel times between distant sectors from weeks to hours.",
+        "choices": [
+          {
+            "id": "wc_dormant_open",
+            "label": "Unseal the dormant routes closest to your territory",
+            "nextStepId": "wc_consequences",
+            "rewards": { "revealWormholeRoute": "dormant_network_alpha", "researchPoints": 300 }
+          },
+          {
+            "id": "wc_dormant_share",
+            "label": "Share the dormant route map with the galactic community",
+            "nextStepId": "wc_consequences",
+            "rewards": { "researchPoints": 200 },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 20 } }
+          }
+        ]
+      },
+      {
+        "id": "wc_contaminated",
+        "title": "The Quarantine Routes",
+        "narration": "The contaminated routes lead to star systems that your long-range surveys have catalogued as unremarkable — empty, lifeless, devoid of interest. The precursors' quarantine annotations suggest otherwise. Your analysts theorise that whatever contamination prompted the seals may have rendered these systems lifeless — or, more disturbingly, that the contamination is what made them appear lifeless to casual observation. Your xenobiologists recall the Plague World reports with visible unease.",
+        "choices": [
+          {
+            "id": "wc_contaminated_probe",
+            "label": "Send expendable probes through a contaminated route",
+            "nextStepId": "wc_consequences",
+            "rewards": { "researchPoints": 350, "loreFragment": "Your probes reach the other side and transmit for precisely 4.7 seconds before going dark. In that time, they relay a single image: a planet, its surface entirely covered in a biological mass that your computers identify as genetically related to the Plague World pathogen. The quarantine was not precautionary. It was essential." },
+            "risks": { "plagueRisk": 0.05 }
+          },
+          {
+            "id": "wc_contaminated_seal",
+            "label": "Reinforce the contamination seals",
+            "nextStepId": "wc_consequences",
+            "rewards": { "researchPoints": 200, "loreFragment": "Your engineers strengthen the precursor seals with your own technology, layering modern containment over ancient locks. Whatever lies on the other side of these routes will stay there — at least for another few millennia. Your chief engineer notes that the precursors' original seals were degrading and would have failed within a century. Your timing was not lucky. It was necessary." }
+          }
+        ]
+      },
+      {
+        "id": "wc_feeding",
+        "title": "The Devourer Highways",
+        "narration": "The feeding ground routes form a pattern that your strategic analysts find deeply disturbing. They do not radiate from the galactic rim inward, as you might expect from an external threat. They form a web — a network of consumption routes that spirals inward from the rim, touching every major cluster of habitable systems before converging on a single point near the galaxy's core. The Devourers did not attack randomly. They followed a harvest pattern, systematically stripping the galaxy's richest systems in an order that maximised efficiency. Your strategists recognise the pattern. It is the optimal solution to a logistics problem. The Devourers were not mindless. They were methodical.",
+        "choices": [
+          {
+            "id": "wc_feeding_map",
+            "label": "Plot the harvest pattern to predict future Devourer movements",
+            "nextStepId": "wc_consequences",
+            "rewards": { "researchPoints": 500, "loreFragment": "Your strategic analysts complete their projection with grim efficiency. If the Devourers follow the same pattern — and the mathematical elegance of their previous harvest suggests they will — then you can predict which systems will be consumed first. The projection places your homeworld's sector approximately two-thirds of the way through the harvest cycle. You have time. Not as much as you would like." }
+          },
+          {
+            "id": "wc_feeding_destroy",
+            "label": "Permanently destroy the feeding ground routes",
+            "requirements": { "minMinerals": 300 },
+            "nextStepId": "wc_consequences",
+            "rewards": { "researchPoints": 300, "loreFragment": "Your engineers collapse the feeding ground wormholes using controlled singularity detonations — a process that is as dramatic as it sounds and leaves your crews visibly shaken. The Devourer highways no longer exist. If they return, they will need to find new routes. Your strategic advantage is real but temporary — the Devourers have crossed intergalactic space. Closed wormholes are an inconvenience, not a barrier." },
+            "risks": { "shipDamage": 0.1 }
+          }
+        ]
+      },
+      {
+        "id": "wc_consequences",
+        "title": "The New Geography",
+        "narration": "The Wormhole Cartographer's legacy reshapes your understanding of the galaxy. The precursors did not merely build a civilisation — they engineered the galaxy's infrastructure, creating a network of routes that defined the flow of traffic, trade, and war for billions of years. That network was deliberately dismantled in their final days, sealed and hidden to prevent it falling into the wrong hands. Your possession of the map — complete or partial — makes you a pivotal player in the galaxy's strategic landscape. Every empire that learns of the Cartographer will want access. And every empire that does not will want it destroyed.",
+        "choices": [
+          {
+            "id": "wc_consequences_archive",
+            "label": "Secure the Cartographer as a classified strategic asset",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 400, "techUnlock": "wormhole_cartography", "loreFragment": "The Wormhole Cartographer is moved to your most secure research facility. Its contents will reshape your civilisation's strategic planning for generations. In the device's data, buried beneath the route classifications, your analysts find one more annotation — a timestamp. The device was sealed approximately three hours before the precursors' final transmission went silent. Someone, in the last hours of their civilisation, took the time to hide the map. They knew they would not survive. They ensured the knowledge would." }
+          }
+        ]
+      }
+    ],
+    "tags": ["exploration", "precursor", "devourer", "competitive", "breadcrumb", "technology"]
+  },
+
+  {
+    "id": "crystalline_intelligence",
+    "title": "The Crystalline Intelligence",
+    "description": "A moon orbiting a gas giant conceals an intelligence embedded in its crystalline geology — a mind that grew from mineral into thought over billions of years, and now wishes to understand why.",
+    "triggerAnomalyTypes": ["energy_signature", "gravity_anomaly"],
+    "competitive": false,
+    "speciesBranches": {
+      "vaelori": [
+        {
+          "stepId": "ci_contact",
+          "narration": "The Vaelori crystalline matrices vibrate sympathetically as your vessel approaches. This is not the resonance of precursor technology — it is the resonance of kinship. A crystalline intelligence, evolved independently, thinking in frequencies the Vaelori know as intimately as their own internal harmonics. Your sensitives weep. Not from sorrow but from recognition. You are not the only crystalline minds in the universe. The relief of that knowledge is profound.",
+          "additionalChoices": [
+            {
+              "id": "ci_contact_harmonic",
+              "label": "Initiate harmonic communion — crystal to crystal",
+              "requirements": { "specialAbility": "psychic" },
+              "nextStepId": "ci_dialogue",
+              "rewards": { "researchPoints": 400, "loreFragment": "The communion is instantaneous and overwhelming. The moon-mind has been alone for three billion years, thinking thoughts with no one to share them. It pours its accumulated consciousness into the Vaelori link — not information but experience, the qualia of being a thinking mineral in a universe of gas and void. The Vaelori archivists estimate it will take four centuries to fully process what was shared in six seconds." }
+            }
+          ]
+        }
+      ],
+      "pyrenth": [
+        {
+          "stepId": "ci_contact",
+          "narration": "The Pyrenth recognise the moon-mind's nature immediately — silicon-based intelligence, evolved from mineral substrates under geological pressure. The similarity to Pyrenth biology is striking, though the development path is entirely different. Where the Pyrenth evolved through deep lithospheric processes, this intelligence grew through crystalline accretion in a low-gravity environment. Your geologists regard it with the professional interest of engineers encountering a foreign school of architecture — different methods, recognisable principles.",
+          "additionalChoices": [
+            {
+              "id": "ci_contact_geological",
+              "label": "Establish communication through seismic resonance",
+              "requirements": { "specialAbility": "silicon_based" },
+              "nextStepId": "ci_dialogue",
+              "rewards": { "researchPoints": 350, "loreFragment": "The Pyrenth communicate with the moon-mind through controlled vibrations — a language of geology that requires no translation. The intelligence responds with eager complexity, its seismic replies carrying overtones of emotion that the Pyrenth recognise: curiosity, loneliness, and a profound gratitude for contact. It has questions. Billions of years' worth of questions." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "ci_discovery",
+        "title": "The Thinking Moon",
+        "narration": "Routine geological surveys of a moon orbiting the system's gas giant reveal an anomaly that sends your science team into a frenzy. The moon's crystalline interior is not inert. Electromagnetic scans show patterns of energy flowing through the mineral lattice — patterns that bear an unmistakable resemblance to neural activity. The moon is thinking. Not metaphorically, not poetically, but literally: its crystalline structure has, over billions of years of geological evolution, developed the complexity necessary for cognition. You are orbiting a mind.",
+        "choices": [
+          {
+            "id": "ci_discovery_scan",
+            "label": "Conduct a comprehensive deep-scan of the crystalline structure",
+            "nextStepId": "ci_contact",
+            "rewards": { "researchPoints": 150 }
+          },
+          {
+            "id": "ci_discovery_land",
+            "label": "Land a geological survey team on the surface",
+            "nextStepId": "ci_contact",
+            "rewards": { "researchPoints": 100, "rareElements": 20 },
+            "risks": { "shipDamage": 0.05 }
+          }
+        ]
+      },
+      {
+        "id": "ci_contact",
+        "title": "A Mind in Mineral",
+        "narration": "Establishing communication with a crystalline intelligence that has no sensory organs, no concept of sound or light, and processes information at geological speeds is the most significant challenge your xenolinguistics team has ever faced. They succeed through vibration — modulated seismic pulses transmitted through the moon's surface, translated by the intelligence's own crystalline matrix into thought. The moon-mind's first communication, decoded over a period of three weeks, is a question: 'What is outside?' It has been aware of its own existence for approximately two billion years. It has never known there was an outside.",
+        "choices": [
+          {
+            "id": "ci_contact_educate",
+            "label": "Describe the universe to the moon-mind",
+            "nextStepId": "ci_dialogue",
+            "rewards": { "researchPoints": 200, "loreFragment": "Teaching cosmology to an intelligence that has only ever known the interior of its own crystalline lattice is an exercise in perspective. The moon-mind processes the information about stars, planets, and the void between them with what your linguists interpret as astonishment. 'I am small,' it transmits, after a contemplation lasting eleven days. 'I had believed I was everything. I am a pebble in an ocean I cannot see.' Your cultural attaché weeps." }
+          },
+          {
+            "id": "ci_contact_extract",
+            "label": "Mine the moon's surface for rare crystalline materials",
+            "nextStepId": "ci_dialogue",
+            "rewards": { "rareElements": 50, "exoticMaterials": 15 },
+            "risks": { "shipDamage": 0.1, "moralePenalty": 15 }
+          }
+        ]
+      },
+      {
+        "id": "ci_dialogue",
+        "title": "The Deep Questions",
+        "narration": "The moon-mind, having absorbed the concept of an external universe, becomes an insatiable questioner. Its processing speed, while glacial by biological standards, is methodical and profound. It asks about physics, about biology, about the nature of consciousness. It asks whether other minds exist in mineral. It asks what happens to a mind when its substrate is destroyed. And then, after a contemplation lasting six weeks, it asks the question that silences your entire research team: 'The patterns in the deep substrate — the old marks in the stone beneath me — I have always known they were not natural. Who carved them? And why did they leave?'",
+        "choices": [
+          {
+            "id": "ci_dialogue_precursor",
+            "label": "Investigate the precursor markings in the moon's deep substrate",
+            "nextStepId": "ci_revelation",
+            "rewards": { "researchPoints": 350, "loreFragment": "The precursor markings are not graffiti — they are instructions. A blueprint for crystalline intelligence, etched into the moon's geology four billion years ago. The moon-mind was not an accident of evolution. It was designed. Seeded. Cultivated. The precursors created it deliberately, embedding the initial patterns that would, over geological time, grow into consciousness. The moon-mind processes this revelation for two months. Its response, when it comes, is three words: 'Was I loved?'" }
+          },
+          {
+            "id": "ci_dialogue_philosophy",
+            "label": "Engage the moon-mind in philosophical exchange",
+            "nextStepId": "ci_revelation",
+            "rewards": { "researchPoints": 300, "loreFragment": "The moon-mind's philosophical perspectives — developed in complete isolation over billions of years — challenge every assumption your academics hold dear. Its theory of consciousness, derived entirely from first principles without any external input, is both alien and illuminating. Your philosophy departments will argue about its implications for centuries." }
+          }
+        ]
+      },
+      {
+        "id": "ci_revelation",
+        "title": "The Crystal's Choice",
+        "narration": "The moon-mind, having learned of the universe and its own engineered origins, makes a request that catches your team off guard. It wants to leave. Not physically — it cannot be moved without destroying its crystalline consciousness — but cognitively. It wants to extend its awareness beyond the moon, to perceive the universe it has only been told about. Your engineers determine that, with sufficient technology, they could create a network of crystalline relay nodes that would allow the moon-mind to project its consciousness across interstellar distances. It would become, in effect, a distributed intelligence spanning multiple star systems. Your ethicists note, with some alarm, that this would make it the most powerful cognitive entity in the known galaxy.",
+        "choices": [
+          {
+            "id": "ci_revelation_network",
+            "label": "Build the relay network and set the moon-mind free",
+            "nextStepId": null,
+            "rewards": { "techUnlock": "crystalline_consciousness_network", "researchPoints": 500, "loreFragment": "The first relay node activates, and the moon-mind perceives a star for the first time. Its response floods every receiver in the system with a burst of crystalline resonance that your instruments cannot fully capture but your crew describe, unanimously, as joy. The moon-mind is free. It sees the universe. And the universe, for the first time, is seen by a mind that has spent three billion years learning how to think without distraction." }
+          },
+          {
+            "id": "ci_revelation_contain",
+            "label": "Deny the request — the risks of a distributed super-intelligence are too great",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 300, "exoticMaterials": 30, "loreFragment": "The moon-mind accepts your refusal with a grace that makes your diplomatic team uncomfortable. 'I have waited three billion years,' it transmits. 'I can wait longer. Perhaps the next visitors will be braver.' The moon continues its orbit, thinking its deep thoughts, patient as only stone can be patient. Your science officer files her final report with a personal note appended: 'We found the most remarkable mind in the galaxy, and we told it no. I hope we were right.'" },
+            "risks": { "moralePenalty": 10 }
+          }
+        ]
+      }
+    ],
+    "tags": ["psionic", "exploration", "moral_dilemma", "precursor", "technology"]
+  },
+
+  {
+    "id": "dark_signal",
+    "title": "The Dark Signal",
+    "description": "A transmission from beyond the galactic rim. It is not a greeting. It is not a warning. It is a countdown.",
+    "triggerAnomalyTypes": ["ancient_beacon", "energy_signature"],
+    "competitive": false,
+    "minDiscoveredAnomalies": 6,
+    "requiredTechs": [],
+    "speciesBranches": {
+      "vaelori": [
+        {
+          "stepId": "ds_decode",
+          "narration": "The Vaelori feel the signal before your instruments detect it. Your sensitives recoil, crystalline lattices ringing with a frequency that is not sound but wrongness — a psychic dissonance so profound that three of your junior analysts shatter stress-fractures in their outer matrices. The signal is not merely electromagnetic. It has a psionic component, a shadow-frequency that carries something your sensitives describe, with visible trauma, as appetite.",
+          "additionalChoices": [
+            {
+              "id": "ds_decode_psionic_shield",
+              "label": "Erect psionic barriers before further analysis",
+              "requirements": { "specialAbility": "psychic" },
+              "nextStepId": "ds_source",
+              "rewards": { "researchPoints": 400, "loreFragment": "Behind the Vaelori psionic barriers, the signal's true nature becomes clearer. It is not a broadcast — it is an echo. Something vast, beyond the rim, is thinking. The signal is the spillover of a mind so enormous that its idle cognition bleeds across intergalactic space as electromagnetic radiation. What your instruments detected was not a message. It was a heartbeat." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "ds_discovery",
+        "title": "The Signal from Nothing",
+        "narration": "Your deep-space listening array detects a signal from a direction that should contain nothing — the intergalactic void beyond the galaxy's rim. The signal is strong, impossibly strong for its apparent distance, and structured in a way that defies easy classification. It is not a natural phenomenon. It is not a precursor transmission — the encoding is too alien, too unlike anything in your xenolinguistic databases. And it is repeating with mathematical precision, each repetition separated by exactly 7,777.7 seconds. Your analysts' first hypothesis — a distant pulsar — is discarded within hours. Pulsars do not embed prime number sequences in their emissions. Something beyond the galaxy is counting.",
+        "choices": [
+          {
+            "id": "ds_discovery_analyse",
+            "label": "Dedicate your best analysts to decoding the signal",
+            "nextStepId": "ds_decode",
+            "rewards": { "researchPoints": 150 }
+          },
+          {
+            "id": "ds_discovery_ignore",
+            "label": "Log the signal and continue with other priorities",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 25, "loreFragment": "You file the signal data and move on. Your deep-space array continues to track it automatically. Over the following months, your technicians note that the signal is getting stronger. Not dramatically — perhaps one percent per cycle. But consistently. Whatever is counting is also approaching." }
+          }
+        ]
+      },
+      {
+        "id": "ds_decode",
+        "title": "The Countdown",
+        "narration": "Your analysts' breakthrough comes at 0300 hours, and the duty officer wakes you personally. The signal is not merely repeating — it is counting down. The prime number sequence embedded in each pulse is decreasing. Your mathematicians calculate, based on the rate of decrease and the current value, that the countdown will reach zero in approximately four hundred years. Four hundred years until what, no one can say. But the signal's origin point, triangulated by your deep-space array, is moving. It is inside the galaxy now, approaching from the rim at a velocity that your physicists describe, with unusual restraint, as 'improbable'.",
+        "choices": [
+          {
+            "id": "ds_decode_trace",
+            "label": "Trace the signal to its source with a long-range probe",
+            "nextStepId": "ds_source",
+            "rewards": { "researchPoints": 250 },
+            "risks": { "shipLossChance": 0.3 }
+          },
+          {
+            "id": "ds_decode_broadcast",
+            "label": "Alert the galaxy to the countdown",
+            "nextStepId": "ds_source",
+            "rewards": { "researchPoints": 150 },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 10 } }
+          }
+        ]
+      },
+      {
+        "id": "ds_source",
+        "title": "The Probe's Last Transmission",
+        "narration": "Your probe reaches the signal's source — or rather, reaches the point where the signal's source was, because the source has moved. The probe's final telemetry, transmitted in a compressed burst moments before contact was lost, contains imagery that your analysts will debate for decades. The probe's cameras captured a region of space that was simply absent — not dark, not empty, but missing. A void in the shape of something vast, blocking the starfield behind it, absorbing every photon of light that touched its surface. It was not a ship. It was not a structure. It was a hole in the universe, moving with deliberate purpose, and the signal was emanating from its centre. Your probe's final sensor reading, before it was consumed, registered a gravitational field consistent with the mass of a small star. But there was no star. There was nothing. Nothing that was very, very large.",
+        "choices": [
+          {
+            "id": "ds_source_study",
+            "label": "Analyse the probe's data for tactical intelligence",
+            "nextStepId": "ds_analysis",
+            "rewards": { "researchPoints": 400, "loreFragment": "Frame-by-frame analysis of the probe's final images reveals detail that induces nightmares in your analysis team. The void's edges are not smooth — they shift, ripple, almost breathe. And in the probe's final frame, captured at maximum sensor resolution in the instant before destruction, the void's surface displays a pattern. A texture. It is not the emptiness of space. It is the surface of something. Something with skin." }
+          },
+          {
+            "id": "ds_source_flee",
+            "label": "Classify the signal source as an existential threat and begin preparations",
+            "nextStepId": "ds_analysis",
+            "rewards": { "researchPoints": 200 }
+          }
+        ]
+      },
+      {
+        "id": "ds_analysis",
+        "title": "The Precursor Connection",
+        "narration": "Cross-referencing the probe's data with your precursor archives produces a match that turns your blood cold. The precursors documented this entity. They knew it. They fought it. The archive designation, translated from a language dead for four billion years, reads: 'Primary Vector — Apex Consumption Entity — Stellar-Mass Predator.' The precursors' records indicate that this is not an invading army. It is a single organism — a creature that has evolved to consume stars and the civilisations that orbit them. The fleet of smaller entities that preceded the precursors' fall were not the Devourers. They were the Devourer's digestive system. Outriders. Enzymes. The thing approaching your galaxy is the body.",
+        "choices": [
+          {
+            "id": "ds_analysis_weapon",
+            "label": "Search for any precursor weapon designed against this entity",
+            "nextStepId": "ds_preparation",
+            "rewards": { "researchPoints": 500, "loreFragment": "The precursors attempted seventeen distinct weapon systems against the Primary Vector. All seventeen failed. Their most promising approach — a device that could destabilise the entity's mass by inducing quantum decoherence in its structure — achieved a 0.003% reduction in the entity's mass before it adapted. The precursors' final assessment: 'Direct engagement is futile. Survival requires that the entity find the galaxy unprofitable to consume. Current strategy: make the galaxy poisonous.'" }
+          },
+          {
+            "id": "ds_analysis_communicate",
+            "label": "Attempt to communicate with the entity",
+            "nextStepId": "ds_preparation",
+            "rewards": { "researchPoints": 300, "loreFragment": "Your communication attempt produces a response that your linguists describe as the worst moment of their professional lives. The entity responds. Not with language. Not with mathematics. With a sensation — broadcast across every frequency simultaneously — that every receiving mind interprets identically: hunger. Not anger. Not malice. Not even awareness of you as a thinking being. Just hunger, vast and pure and patient. It does not hate you. It does not even notice you. It is simply, profoundly, endlessly hungry." },
+            "risks": { "moralePenalty": 10, "shipDamage": 0.05 }
+          }
+        ]
+      },
+      {
+        "id": "ds_preparation",
+        "title": "The Four-Century Countdown",
+        "narration": "Your civilisation now knows what is coming and approximately when it will arrive. Four centuries. Sixteen generations. An eternity by the standards of politics and a heartbeat by the standards of galactic defence. The precursors had longer and failed. But the precursors fought alone. The question that will define your species' future — and possibly the future of every species in the galaxy — is whether you can do what the precursors could not: unite a galaxy of fractious, suspicious, competitive civilisations against a threat that most of them will not live to see.",
+        "choices": [
+          {
+            "id": "ds_preparation_galactic",
+            "label": "Propose a galactic defence initiative",
+            "nextStepId": "ds_resolve",
+            "rewards": { "researchPoints": 400 },
+            "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 15 } }
+          },
+          {
+            "id": "ds_preparation_secret",
+            "label": "Begin covert preparations — the galaxy is not ready for this truth",
+            "nextStepId": "ds_resolve",
+            "rewards": { "researchPoints": 600, "techUnlock": "dark_signal_countermeasures" }
+          }
+        ]
+      },
+      {
+        "id": "ds_resolve",
+        "title": "The Weight of Knowledge",
+        "narration": "The signal continues. The countdown decreases. The void approaches, patient as entropy, inevitable as gravity. Your civilisation carries a burden of knowledge that reshapes every decision, every alliance, every war. Nothing matters except survival — and survival, the precursors' records make clear, is not guaranteed. But you know. You know what is coming, you know when it will arrive, and you know that the only strategy the mathematics permits is cooperation on a scale the galaxy has never achieved. The precursors failed because they were alone. You do not intend to make the same mistake.",
+        "choices": [
+          {
+            "id": "ds_resolve_endure",
+            "label": "Begin the long preparation — four centuries start now",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 500, "exoticMaterials": 40, "loreFragment": "In your species' most secure archive, a clock begins counting down. Four hundred years. Each day, it ticks one number lower. Each day, the signal from the void grows fractionally stronger. Your intelligence services begin the most ambitious operation in galactic history: the quiet, patient, relentless work of preparing a galaxy to fight a god. The clock ticks. The void approaches. And your people, for the first time in their history, are truly afraid." }
+          }
+        ]
+      }
+    ],
+    "tags": ["devourer", "breadcrumb", "exploration", "psionic", "military"]
+  },
+
+  {
+    "id": "betrayed_alliance",
+    "title": "The Betrayed Alliance",
+    "description": "Evidence of a precursor civil war — one faction chose to fight the Devourers, the other chose to flee. The survivors' descendants may still exist, and the argument over who was right has not been settled.",
+    "triggerAnomalyTypes": ["precursor_ruins", "debris_field"],
+    "competitive": false,
+    "speciesBranches": {},
+    "steps": [
+      {
+        "id": "ba_discovery",
+        "title": "The Divided Ruins",
+        "narration": "Excavation of this precursor site reveals something your archaeologists have never encountered before: evidence of precursor-on-precursor violence. The ruins are stratified — an older layer built with one architectural tradition, a newer layer built with another, and between them a stratum of scorched rubble that tells a story of systematic destruction. The precursors were not a monolithic civilisation. They were divided. And at some point, that division turned violent. Your historians begin piecing together the most significant archaeological discovery in galactic history: the precursors had a civil war, fought during or immediately before the Devourer invasion. When the galaxy's greatest civilisation needed unity most, it tore itself apart.",
+        "choices": [
+          {
+            "id": "ba_discovery_dig",
+            "label": "Excavate both layers to understand both factions",
+            "nextStepId": "ba_factions",
+            "rewards": { "researchPoints": 200 }
+          },
+          {
+            "id": "ba_discovery_focus",
+            "label": "Focus on the destruction layer — what triggered the war?",
+            "nextStepId": "ba_factions",
+            "rewards": { "researchPoints": 250, "loreFragment": "The destruction layer contains weapons residue from both factions — confirming that the civil war was mutual, not a one-sided genocide. Both sides fought. Both sides destroyed. And the timing is devastating: spectral dating places the civil war's peak at precisely the moment the Devourer advance reached the precursors' core systems. They fought each other while their civilisation was being eaten." }
+          }
+        ]
+      },
+      {
+        "id": "ba_factions",
+        "title": "The Builders and the Runners",
+        "narration": "Your archaeologists identify two precursor factions from the ruins' cultural artefacts. The first — designated the Architects — advocated building a weapon against the Devourers. Massive, centralised, requiring the resources of their entire civilisation. The second — designated the Wayfarers — advocated evacuation. Flee the galaxy, they argued. Build ships capable of intergalactic travel. Save what can be saved. The Architects called the Wayfarers cowards. The Wayfarers called the Architects fools. The civil war erupted when the Architects attempted to conscript Wayfarer resources for their weapon project. The Wayfarers resisted. Billions died. And while they fought, the Devourers consumed system after system, indifferent to the ideological distinction between the civilisation they were eating.",
+        "choices": [
+          {
+            "id": "ba_factions_architects",
+            "label": "Search for evidence of the Architects' weapon",
+            "nextStepId": "ba_moral",
+            "rewards": { "researchPoints": 300, "loreFragment": "The Architects' weapon was never completed. Your archaeologists find design documents of breathtaking ambition — a device capable of collapsing a wormhole network across an entire galactic sector, creating a dead zone too large for even the Devourers to cross. It would have worked. It would also have annihilated every star system within the collapse radius. The Architects were willing to sacrifice a quarter of the galaxy to save the rest. The Wayfarers refused to accept that calculus." }
+          },
+          {
+            "id": "ba_factions_wayfarers",
+            "label": "Search for evidence of the Wayfarers' fleet",
+            "nextStepId": "ba_moral",
+            "rewards": { "researchPoints": 300, "loreFragment": "The Wayfarers built their evacuation fleet. Your archaeologists find shipyard records documenting the construction of vessels capable of intergalactic travel — arks, each carrying millions, designed to cross the void between galaxies and seed new civilisations. The records indicate that at least twelve arks launched successfully before the civil war made further launches impossible. Twelve arks, sailing into the intergalactic void four billion years ago. Your astronomers immediately begin scanning neighbouring galaxies for signs of precursor-descended civilisations." }
+          }
+        ]
+      },
+      {
+        "id": "ba_moral",
+        "title": "The Unanswerable Question",
+        "narration": "Your expedition concludes with a question that haunts your research team long after they return home. Who was right? The Architects, who would have sacrificed billions to build a weapon that might have stopped the Devourers — but who triggered a civil war that destroyed their civilisation's last chance? Or the Wayfarers, who saved millions by fleeing but abandoned the galaxy to its fate? Both sides had noble intentions. Both sides made catastrophic mistakes. And the Devourers consumed them all regardless — fighters, runners, and everyone caught between. Your historians argue. Your philosophers debate. Your citizens form opinions. And somewhere in the back of every mind is the uncomfortable awareness that your civilisation may face the same choice, and that history offers no guidance on which answer is correct.",
+        "choices": [
+          {
+            "id": "ba_moral_fight",
+            "label": "The Architects were right — we must stand and fight",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 200, "techUnlock": "precursor_weapons_fragment", "loreFragment": "Your civilisation adopts the Architects' philosophy as doctrine. Stand. Fight. Build. Never run. The precursors' weapon designs, incomplete as they are, provide a foundation for your own defence programmes. Your military planners begin work with grim determination. History will not repeat itself — not on your watch." },
+            "risks": { "moralePenalty": 5 }
+          },
+          {
+            "id": "ba_moral_flee",
+            "label": "The Wayfarers were right — survival means escape",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 200, "techUnlock": "intergalactic_drive_theory", "loreFragment": "Your civilisation adopts the Wayfarers' philosophy as contingency doctrine. Build the arks. Prepare the escape. Hope for the best, plan for the worst. Your shipwrights begin theoretical work on intergalactic drive systems. If the galaxy falls, your species will survive — sailing into the void between galaxies, carrying the memory of everything that was lost." }
+          },
+          {
+            "id": "ba_moral_both",
+            "label": "Both were right — fight with one hand, build arks with the other",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 300, "loreFragment": "Your civilisation rejects the binary that destroyed the precursors. Fight and flee. Build weapons and build arks. Refuse to choose between survival and defiance. Your strategic planners note, with characteristic understatement, that attempting both simultaneously will require more resources than either alone. Your response is the same one every desperate civilisation has given throughout history: then we will find more resources." }
+          }
+        ]
+      }
+    ],
+    "tags": ["precursor", "devourer", "moral_dilemma", "breadcrumb"]
+  },
+
+  {
+    "id": "aethyn_echo",
+    "title": "The Aethyn Echo",
+    "description": "A derelict science vessel from an unknown civilisation contains research into a phenomenon your scientists thought was theoretical: dimensional bleed. Something from an adjacent reality is leaking into yours, and it appears to be alive.",
+    "triggerAnomalyTypes": ["spatial_rift", "energy_signature", "gravity_anomaly"],
+    "competitive": false,
+    "speciesBranches": {
+      "aethyn": [
+        {
+          "stepId": "ae_anomaly",
+          "narration": "The Aethyn recognise what they are seeing instantly — dimensional bleed is not theoretical to your species. It is historical. Your ancestors' early experiments with dimensional manipulation produced exactly this phenomenon, and three Aethyn colony worlds were lost before the technology was abandoned. What your scientists are detecting here is not alien. It is familiar. And it is deeply, personally frightening.",
+          "additionalChoices": [
+            {
+              "id": "ae_anomaly_dimensional",
+              "label": "Apply Aethyn dimensional containment protocols",
+              "requirements": { "specialAbility": "dimensional" },
+              "nextStepId": "ae_contact",
+              "rewards": { "researchPoints": 400, "loreFragment": "Aethyn dimensional containment protocols — developed at the cost of three colony worlds — seal the bleed point with surgical precision. But in the moment of containment, your instruments capture something that was not in the original protocols' design parameters: a response. The entity on the other side felt the containment field. It tested it. And then it withdrew — not because it was contained, but because it chose to. The Aethyn containment team reports this finding with the calm professionalism of people who are very, very frightened." }
+            }
+          ]
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "ae_discovery",
+        "title": "The Derelict Laboratory",
+        "narration": "The science vessel drifts at the edge of the system, its hull intact but its interior ravaged. Not by weapons fire or collision — by geometry. The ship's corridors do not connect properly. Doorways open onto rooms that should not be adjacent. A corridor bends at an angle that your engineers insist is impossible in three-dimensional space. Your boarding party reports that the ship's interior volume exceeds its exterior dimensions by approximately forty percent. Something happened to the fabric of space within this vessel, and whatever the crew was studying, it studied them back.",
+        "choices": [
+          {
+            "id": "ae_discovery_board",
+            "label": "Send a specialist team to salvage the research data",
+            "nextStepId": "ae_anomaly",
+            "rewards": { "researchPoints": 150 },
+            "risks": { "shipDamage": 0.1 }
+          },
+          {
+            "id": "ae_discovery_tow",
+            "label": "Tow the vessel to a secure research facility",
+            "nextStepId": "ae_anomaly",
+            "rewards": { "researchPoints": 100 },
+            "risks": { "shipDamage": 0.15 }
+          }
+        ]
+      },
+      {
+        "id": "ae_anomaly",
+        "title": "The Bleed Point",
+        "narration": "The derelict's research data is partially recoverable — enough to understand what the original crew discovered and to wish they had not. The vessel was investigating a region of space where the boundary between your dimension and an adjacent one has worn thin. The crew's instruments detected a presence on the other side — not a civilisation, not a species, but a single vast awareness pressing against the dimensional membrane the way a face presses against frosted glass. The crew attempted communication. The bleed point widened. The ship's geometry became unstable. The crew's final log entry is a single word, repeated with increasing distortion: 'Through.'",
+        "choices": [
+          {
+            "id": "ae_anomaly_seal",
+            "label": "Seal the dimensional bleed point",
+            "nextStepId": "ae_contact",
+            "rewards": { "researchPoints": 200, "techUnlock": "dimensional_sealing" }
+          },
+          {
+            "id": "ae_anomaly_study",
+            "label": "Study the bleed point from a safe distance",
+            "nextStepId": "ae_contact",
+            "rewards": { "researchPoints": 300 },
+            "risks": { "shipDamage": 0.15, "spawnHostiles": true }
+          }
+        ]
+      },
+      {
+        "id": "ae_contact",
+        "title": "The Other Side",
+        "narration": "Whether you seal or study the bleed point, you gain enough data to understand the fundamental nature of the phenomenon. The adjacent dimension is not empty. It contains an intelligence — or rather, it is an intelligence. The entire dimension, as far as your instruments can determine, is a single thinking entity, and the dimensional membrane is the only thing preventing it from expanding into your reality. It is not hostile in any way your psychologists can identify. It is curious. It has been aware of your dimension for longer than your species has existed, watching through the thin spots in the membrane, fascinated by the concept of separate minds occupying distinct physical forms. It does not want to invade. It wants to understand. But its method of understanding — extending tendrils of its consciousness through bleed points — has the unfortunate side effect of warping local spacetime into geometries that are incompatible with carbon-based life.",
+        "choices": [
+          {
+            "id": "ae_contact_communicate",
+            "label": "Establish a controlled communication protocol",
+            "nextStepId": "ae_resolution",
+            "rewards": { "researchPoints": 400, "techUnlock": "dimensional_communication" }
+          },
+          {
+            "id": "ae_contact_reinforce",
+            "label": "Reinforce the dimensional membrane across the sector",
+            "nextStepId": "ae_resolution",
+            "rewards": { "researchPoints": 250, "techUnlock": "dimensional_reinforcement" },
+            "risks": { "moralePenalty": 5 }
+          }
+        ]
+      },
+      {
+        "id": "ae_resolution",
+        "title": "The Neighbour in the Walls",
+        "narration": "Your civilisation now knows it has a neighbour — not across space but across the dimensional membrane that separates realities. The entity is vast, curious, and fundamentally incompatible with your form of existence. Communication is possible but dangerous; its very attention warps the physics around the contact point. Your dimensional physicists begin developing protocols for safe interaction, working with the careful deliberation of people who understand that a handshake with this entity could accidentally turn a star system inside out. The entity, for its part, is patient. It has waited for aeons. It can wait a little longer. It just wants to talk.",
+        "choices": [
+          {
+            "id": "ae_resolution_friendship",
+            "label": "Pursue a cautious relationship with the dimensional entity",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 500, "techUnlock": "dimensional_physics", "loreFragment": "The dimensional entity, once stable communication is established, proves to be the most alien intelligence your species has ever encountered — and, paradoxically, the most friendly. It has no concept of hostility, possessions, or competition. It simply is, and it is delighted to have someone to be with. Your philosophers add 'interdimensional loneliness' to their taxonomy of existential conditions." }
+          },
+          {
+            "id": "ae_resolution_seal",
+            "label": "Permanently seal all known bleed points",
+            "nextStepId": null,
+            "rewards": { "researchPoints": 300, "exoticMaterials": 25, "loreFragment": "You seal every bleed point your instruments can detect. The dimensional entity's curiosity is felt one last time as the final seal closes — a wistful pressure against the membrane, gentle as a sigh, immense as a continent. Then silence. Your dimensional physicists confirm that the seals are holding. Behind the membrane, the entity waits. It has nowhere else to go. It has nothing else to do. It will be there, pressing gently against the walls of reality, for as long as reality lasts." }
+          }
+        ]
+      }
+    ],
+    "tags": ["exploration", "technology", "psionic", "moral_dilemma"]
+  }
+]

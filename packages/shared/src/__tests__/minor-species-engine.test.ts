@@ -18,10 +18,13 @@ import type { MinorSpecies, IntegrationProgress } from '../types/minor-species.j
 
 function makeRng(initialSeed = 42) {
   let seed = initialSeed;
-  return () => {
+  const rng = () => {
     seed = (seed * 16807 + 0) % 2147483647;
     return seed / 2147483647;
   };
+  // Warm up to avoid correlated first outputs from sequential seeds
+  rng(); rng(); rng();
+  return rng;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,18 +195,14 @@ describe('Minor species engine', () => {
 
   describe('checkRevolt', () => {
     it('uses escalating probability — higher unhappiness means higher revolt chance', () => {
-      // Analytical check: confirm that the formula gives higher probability
-      // to species with lower loyalty
+      // Use low aggression (1) so the base chance without unhappiness is very small:
+      //   high loyalty (80): unhappiness = 0, revoltChance ≈ 0.01 + 0 + 0.01 = 0.02
+      //   low loyalty (5):   unhappiness = 25, revoltChance ≈ 0.01 + 0.25 + 0.01 = 0.27
+      const lowAggressionTraits = { aggression: 1, curiosity: 5, industriousness: 5, adaptability: 5 };
 
-      const highLoyaltySpecies = makeIntegratedSpecies(80); // Above threshold, no revolt possible
-      const lowLoyaltySpecies = makeIntegratedSpecies(10);  // Far below threshold
+      const highLoyaltySpecies = makeIntegratedSpecies(80, { traits: lowAggressionTraits });
+      const lowLoyaltySpecies = makeIntegratedSpecies(5, { traits: lowAggressionTraits });
 
-      // With loyalty 80 (above threshold 30), unhappiness = 0
-      // revoltChance ≈ BASE (0.01) + 0 + aggression/100 (0.05) = 0.06
-      // With loyalty 10, unhappiness = 20
-      // revoltChance ≈ 0.01 + (20 * 0.01) + 0.05 = 0.26
-
-      // Run many trials
       let highLoyaltyRevolts = 0;
       let lowLoyaltyRevolts = 0;
       const trials = 1000;
@@ -221,8 +220,18 @@ describe('Minor species engine', () => {
     });
 
     it('enslaved species have an additional revolt probability bonus', () => {
-      const integrated = makeIntegratedSpecies(20, { status: 'integrated' });
-      const enslaved = makeIntegratedSpecies(20, { status: 'enslaved' });
+      // Use high loyalty (28, just below threshold) and low aggression so
+      // the base revolt chance is small enough to show a statistical difference
+      const lowAggressionTraits = { aggression: 1, curiosity: 5, industriousness: 5, adaptability: 5 };
+
+      const integrated = makeIntegratedSpecies(28, {
+        status: 'integrated',
+        traits: lowAggressionTraits,
+      });
+      const enslaved = makeIntegratedSpecies(28, {
+        status: 'enslaved',
+        traits: lowAggressionTraits,
+      });
 
       let integratedRevolts = 0;
       let enslavedRevolts = 0;
