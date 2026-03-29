@@ -12,8 +12,11 @@ This session covered: 7 bug fixes, Space Battle skirmish mode, full ship system 
 |-----|----------|--------|
 | AI colonise decisions filtered out — empires stuck on 1 planet | Critical | **FIXED** |
 | No starting shipyard — AI can't build ships | Major | **FIXED** |
-| AI doesn't react to food crises | Major | **FIXED** (reactive hydroponics) |
-| AI doesn't react to energy crises | Major | **FIXED** (reactive power plants) |
+| AI doesn't react to food crises | Major | **FIXED** (reactive hydroponics, max 3) |
+| AI doesn't react to energy crises | Major | **FIXED** (reactive power plants, max 3) |
+| AI ship production spam — 40+ orders per planet per tick | Critical | **FIXED** (max 2 pending) |
+| AI research starvation — colonise decisions consume all slots | Critical | **FIXED** (1 guaranteed research slot) |
+| AI duplicate building spam — 7 hydroponics on 1 planet | Moderate | **FIXED** (caps + queue checks) |
 
 ### Bugs Found — Still Open
 
