@@ -1,0 +1,354 @@
+[
+  {
+    "id": "ferro_steel",
+    "name": "Ferro-Steel",
+    "category": "common",
+    "description": "A ubiquitous structural alloy smelted from iron-rich ores. The backbone of every colony's construction industry.",
+    "basePrice": 12,
+    "volatility": 0.1,
+    "techAge": "nano_atomic",
+    "usedFor": ["buildings", "ships"]
+  },
+  {
+    "id": "copper_composite",
+    "name": "Copper Composite",
+    "category": "common",
+    "description": "Refined copper blended with trace conductors. Essential for wiring, circuitry, and low-grade energy conduits.",
+    "basePrice": 14,
+    "volatility": 0.12,
+    "techAge": "nano_atomic",
+    "usedFor": ["buildings", "ships", "energy"]
+  },
+  {
+    "id": "titanium_plate",
+    "name": "Titanium Plate",
+    "category": "common",
+    "description": "Cold-rolled titanium sheeting favoured for lightweight hull plating and orbital habitat panels.",
+    "basePrice": 22,
+    "volatility": 0.15,
+    "techAge": "nano_atomic",
+    "usedFor": ["ships", "armour", "buildings"]
+  },
+  {
+    "id": "silicon_wafers",
+    "name": "Silicon Wafers",
+    "category": "common",
+    "description": "Ultra-pure semiconductor blanks used in every computing device from handheld terminals to shipboard AI cores.",
+    "basePrice": 18,
+    "volatility": 0.13,
+    "techAge": "nano_atomic",
+    "usedFor": ["research", "ships", "buildings"]
+  },
+  {
+    "id": "carbon_fibre",
+    "name": "Carbon Fibre",
+    "category": "common",
+    "description": "High-tensile woven carbon lattice. Lighter than steel and nearly as strong, ideal for ship spars and armour underlays.",
+    "basePrice": 20,
+    "volatility": 0.11,
+    "techAge": "nano_atomic",
+    "usedFor": ["ships", "armour"]
+  },
+  {
+    "id": "polymer_resin",
+    "name": "Polymer Resin",
+    "category": "common",
+    "description": "Versatile synthetic polymer used in seals, insulation, medical equipment, and consumer goods.",
+    "basePrice": 8,
+    "volatility": 0.08,
+    "techAge": "nano_atomic",
+    "usedFor": ["buildings", "medicine", "luxury"]
+  },
+  {
+    "id": "grain_stocks",
+    "name": "Grain Stocks",
+    "category": "common",
+    "description": "Bulk staple cereals and legumes. Every colony needs a steady supply to keep its population fed and productive.",
+    "basePrice": 6,
+    "volatility": 0.18,
+    "techAge": "nano_atomic",
+    "usedFor": ["food"]
+  },
+  {
+    "id": "synth_protein",
+    "name": "Synth-Protein",
+    "category": "common",
+    "description": "Vat-grown protein cultures that supplement natural agriculture. Nutritious, bland, and cheap to produce.",
+    "basePrice": 9,
+    "volatility": 0.14,
+    "techAge": "nano_atomic",
+    "usedFor": ["food", "medicine"]
+  },
+  {
+    "id": "hydroponic_produce",
+    "name": "Hydroponic Produce",
+    "category": "common",
+    "description": "Fresh fruit and vegetables cultivated under artificial light. A morale booster on any station or colony world.",
+    "basePrice": 11,
+    "volatility": 0.16,
+    "techAge": "nano_atomic",
+    "usedFor": ["food", "luxury"]
+  },
+  {
+    "id": "chemical_reagents",
+    "name": "Chemical Reagents",
+    "category": "common",
+    "description": "A standardised palette of industrial chemicals: acids, bases, solvents, and catalysts for manufacturing.",
+    "basePrice": 10,
+    "volatility": 0.09,
+    "techAge": "nano_atomic",
+    "usedFor": ["research", "medicine", "buildings"]
+  },
+  {
+    "id": "power_cells",
+    "name": "Power Cells",
+    "category": "common",
+    "description": "Compact energy storage units rated for civilian and military use. The standard currency of portable power.",
+    "basePrice": 15,
+    "volatility": 0.12,
+    "techAge": "nano_atomic",
+    "usedFor": ["energy", "ships", "weapons"]
+  },
+  {
+    "id": "hydrogen_fuel",
+    "name": "Hydrogen Fuel",
+    "category": "common",
+    "description": "Compressed deuterium-enriched hydrogen harvested from gas giants and ice worlds. Powers most sublight drives.",
+    "basePrice": 13,
+    "volatility": 0.2,
+    "techAge": "nano_atomic",
+    "usedFor": ["energy", "ships"]
+  },
+  {
+    "id": "ceramic_composites",
+    "name": "Ceramic Composites",
+    "category": "common",
+    "description": "Heat-resistant layered ceramics used in re-entry shielding, reactor linings, and thermal armour.",
+    "basePrice": 16,
+    "volatility": 0.1,
+    "techAge": "nano_atomic",
+    "usedFor": ["armour", "buildings", "ships"]
+  },
+  {
+    "id": "optical_glass",
+    "name": "Optical Glass",
+    "category": "common",
+    "description": "Precision-ground crystalline glass for sensor arrays, telescope lenses, and laser focusing assemblies.",
+    "basePrice": 17,
+    "volatility": 0.11,
+    "techAge": "nano_atomic",
+    "usedFor": ["weapons", "research", "ships"]
+  },
+  {
+    "id": "textiles",
+    "name": "Textiles",
+    "category": "common",
+    "description": "Woven fabrics ranging from durable workwear to fine silks. Colonists care about more than survival.",
+    "basePrice": 7,
+    "volatility": 0.07,
+    "techAge": "nano_atomic",
+    "usedFor": ["luxury"]
+  },
+  {
+    "id": "medical_supplies",
+    "name": "Medical Supplies",
+    "category": "common",
+    "description": "Sterile instruments, bandages, anaesthetics, and broad-spectrum antibiotics. Always in demand.",
+    "basePrice": 19,
+    "volatility": 0.15,
+    "techAge": "nano_atomic",
+    "usedFor": ["medicine"]
+  },
+  {
+    "id": "superconductors",
+    "name": "Superconductors",
+    "category": "common",
+    "description": "Room-temperature superconducting wire essential for maglev systems, shield emitters, and power distribution.",
+    "basePrice": 24,
+    "volatility": 0.14,
+    "techAge": "fusion",
+    "usedFor": ["shields", "energy", "buildings"]
+  },
+  {
+    "id": "nano_assemblers",
+    "name": "Nano-Assemblers",
+    "category": "common",
+    "description": "Programmable molecular machines that can fabricate complex structures atom by atom. Fragile and expendable.",
+    "basePrice": 28,
+    "volatility": 0.18,
+    "techAge": "fusion",
+    "usedFor": ["research", "ships", "buildings"]
+  },
+  {
+    "id": "consumer_electronics",
+    "name": "Consumer Electronics",
+    "category": "common",
+    "description": "Personal devices, entertainment systems, and domestic appliances. Empires with happy citizens are stable empires.",
+    "basePrice": 14,
+    "volatility": 0.1,
+    "techAge": "nano_atomic",
+    "usedFor": ["luxury"]
+  },
+  {
+    "id": "construction_materials",
+    "name": "Construction Materials",
+    "category": "common",
+    "description": "Pre-fabricated structural sections, insulation, and sealant kits for rapid colony expansion.",
+    "basePrice": 10,
+    "volatility": 0.08,
+    "techAge": "nano_atomic",
+    "usedFor": ["buildings"]
+  },
+
+  {
+    "id": "duranium_alloy",
+    "name": "Duranium Alloy",
+    "category": "rare",
+    "description": "A dense, impact-resistant alloy forged under extreme pressure. Required for cruiser-weight and heavier hull plating.",
+    "basePrice": 85,
+    "volatility": 0.3,
+    "techAge": "fusion",
+    "usedFor": ["ships", "armour"]
+  },
+  {
+    "id": "neutronium_threads",
+    "name": "Neutronium Threads",
+    "category": "rare",
+    "description": "Impossibly thin filaments of degenerate matter, woven into composite armour. Produced only near neutron stars.",
+    "basePrice": 120,
+    "volatility": 0.35,
+    "techAge": "nano_fusion",
+    "usedFor": ["armour", "ships"]
+  },
+  {
+    "id": "rare_earth_concentrate",
+    "name": "Rare Earth Concentrate",
+    "category": "rare",
+    "description": "Refined lanthanides and actinides critical for advanced sensor arrays, targeting computers, and quantum processors.",
+    "basePrice": 65,
+    "volatility": 0.28,
+    "techAge": "fusion",
+    "usedFor": ["research", "weapons", "ships"]
+  },
+  {
+    "id": "bio_enzymes",
+    "name": "Bio-Enzymes",
+    "category": "rare",
+    "description": "Complex biological catalysts harvested from exotic ecosystems. Vital for gene therapy, bio-weapons, and longevity treatments.",
+    "basePrice": 75,
+    "volatility": 0.32,
+    "techAge": "fusion",
+    "usedFor": ["medicine", "research"]
+  },
+  {
+    "id": "helium_3_refined",
+    "name": "Helium-3 Refined",
+    "category": "rare",
+    "description": "Purified helium-3 isotope, the premium fuel for aneutronic fusion reactors. Scarce outside gas giant atmospheres.",
+    "basePrice": 90,
+    "volatility": 0.4,
+    "techAge": "fusion",
+    "usedFor": ["energy", "ships"]
+  },
+  {
+    "id": "psionic_crystals",
+    "name": "Psionic Crystals",
+    "category": "rare",
+    "description": "Naturally resonant crystals attuned to psionic frequencies. The Vaelori consider them sacred; everyone else considers them strategic.",
+    "basePrice": 110,
+    "volatility": 0.45,
+    "techAge": "nano_fusion",
+    "usedFor": ["research", "weapons", "shields"]
+  },
+  {
+    "id": "plasma_conduit_gel",
+    "name": "Plasma Conduit Gel",
+    "category": "rare",
+    "description": "A magnetically responsive gel used to line plasma weapon barrels and reactor containment vessels. Volatile if mishandled.",
+    "basePrice": 70,
+    "volatility": 0.33,
+    "techAge": "fusion",
+    "usedFor": ["weapons", "energy"]
+  },
+  {
+    "id": "graviton_lenses",
+    "name": "Graviton Lenses",
+    "category": "rare",
+    "description": "Precision-machined exotic-matter optics that bend gravity itself. Used in tractor beams, jump drives, and heavy weapons.",
+    "basePrice": 100,
+    "volatility": 0.38,
+    "techAge": "nano_fusion",
+    "usedFor": ["weapons", "ships", "research"]
+  },
+  {
+    "id": "cryo_stasis_compound",
+    "name": "Cryo-Stasis Compound",
+    "category": "rare",
+    "description": "A biochemical mixture that enables safe long-duration hibernation. Prized for colony ships and elite medical facilities.",
+    "basePrice": 80,
+    "volatility": 0.3,
+    "techAge": "fusion",
+    "usedFor": ["medicine", "ships"]
+  },
+  {
+    "id": "quantum_processors",
+    "name": "Quantum Processors",
+    "category": "rare",
+    "description": "Error-corrected qubit arrays operating at near-absolute zero. The computational backbone of late-era research and targeting systems.",
+    "basePrice": 95,
+    "volatility": 0.35,
+    "techAge": "nano_fusion",
+    "usedFor": ["research", "weapons", "ships"]
+  },
+
+  {
+    "id": "antimatter_substrate",
+    "name": "Anti-Matter Containment Substrate",
+    "category": "ultra_rare",
+    "description": "A lattice of exotic meta-materials capable of suspending anti-matter particles without annihilation. The foundation of anti-matter age weaponry.",
+    "basePrice": 500,
+    "volatility": 0.7,
+    "techAge": "anti_matter",
+    "usedFor": ["weapons", "energy", "ships"]
+  },
+  {
+    "id": "quantum_entanglement_medium",
+    "name": "Quantum Entanglement Medium",
+    "category": "ultra_rare",
+    "description": "A crystalline medium pre-seeded with entangled particle pairs, enabling instantaneous communication across any distance. Singularity-age technology.",
+    "basePrice": 750,
+    "volatility": 0.8,
+    "techAge": "singularity",
+    "usedFor": ["research", "ships"]
+  },
+  {
+    "id": "precursor_alloy",
+    "name": "Precursor Alloy",
+    "category": "ultra_rare",
+    "description": "An impossibly resilient metal recovered from ancient alien ruins. No known forge can replicate it; the supply is finite and irreplaceable.",
+    "basePrice": 1000,
+    "volatility": 0.9,
+    "techAge": "nano_fusion",
+    "usedFor": ["armour", "ships"]
+  },
+  {
+    "id": "dark_energy_conduit",
+    "name": "Dark Energy Conduit",
+    "category": "ultra_rare",
+    "description": "A self-sustaining loop of harnessed dark energy, capable of powering shields that warp spacetime. Only singularity-age civilisations can manufacture them.",
+    "basePrice": 800,
+    "volatility": 0.85,
+    "techAge": "singularity",
+    "usedFor": ["shields", "energy"]
+  },
+  {
+    "id": "neural_lattice_compound",
+    "name": "Neural Lattice Compound",
+    "category": "ultra_rare",
+    "description": "A bio-synthetic mesh that interfaces directly with neural tissue, amplifying psionic ability a thousandfold. The key to singularity-age psionic technology.",
+    "basePrice": 900,
+    "volatility": 0.85,
+    "techAge": "singularity",
+    "usedFor": ["research", "weapons", "luxury"]
+  }
+]
