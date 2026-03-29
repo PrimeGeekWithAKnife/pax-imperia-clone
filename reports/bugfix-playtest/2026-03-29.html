@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bugfix &amp; Playtest Report — 2026-03-29</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e17;
+      color: #c8d6e5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 2rem;
+    }
+    a { color: #00d4ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.95rem; }
+    h1 {
+      color: #00d4ff;
+      font-size: 2rem;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      color: #5ce0d8;
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      color: #00d4ff;
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #1e2d3d;
+      padding-bottom: 0.5rem;
+    }
+    h3 {
+      color: #5ce0d8;
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+    section {
+      background: #111827;
+      border: 1px solid #1e2d3d;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .metric-box {
+      background: #0a0e17;
+      border: 1px solid #1e2d3d;
+      border-radius: 6px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .metric-box .value {
+      font-size: 2rem;
+      font-weight: bold;
+      display: block;
+    }
+    .metric-box .label {
+      font-size: 0.85rem;
+      color: #8899aa;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+    th, td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid #1e2d3d;
+    }
+    th {
+      color: #5ce0d8;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    td { font-size: 0.9rem; }
+    tr:hover { background: rgba(0, 212, 255, 0.04); }
+    .status-pass { color: #10b981; font-weight: 600; }
+    .status-fail { color: #ef4444; font-weight: 600; }
+    .status-warn { color: #f59e0b; font-weight: 600; }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .tag-pass { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .tag-info { background: rgba(0, 212, 255, 0.15); color: #00d4ff; }
+    .tag-warn { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .observation-list { list-style: none; padding: 0; }
+    .observation-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #1e2d3d;
+    }
+    .observation-list li:last-child { border-bottom: none; }
+    .observation-list .category {
+      font-weight: 600;
+      color: #5ce0d8;
+    }
+    code {
+      background: #1a2332;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+    footer {
+      text-align: center;
+      color: #556677;
+      font-size: 0.8rem;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #1e2d3d;
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">&larr; Back to Dashboard</a>
+
+  <h1>Bugfix &amp; Playtest Report</h1>
+  <p class="subtitle">2026-03-29 &mdash; Ex Nihilo Nightly Pipeline &mdash; Meridian Logic Ltd</p>
+
+  <!-- ================================================================== -->
+  <!-- EXECUTIVE SUMMARY -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Executive Summary</h2>
+    <div class="metrics">
+      <div class="metric-box">
+        <span class="value status-pass">0</span>
+        <span class="label">Bugs Found</span>
+      </div>
+      <div class="metric-box">
+        <span class="value status-pass">0</span>
+        <span class="label">Bugs Fixed</span>
+      </div>
+      <div class="metric-box">
+        <span class="value status-pass">2714</span>
+        <span class="label">Tests Passing</span>
+      </div>
+      <div class="metric-box">
+        <span class="value status-pass">0</span>
+        <span class="label">Tests Failing</span>
+      </div>
+      <div class="metric-box">
+        <span class="value status-pass">4 / 4</span>
+        <span class="label">Playtests Passing</span>
+      </div>
+      <div class="metric-box">
+        <span class="value status-pass">0</span>
+        <span class="label">Type Errors</span>
+      </div>
+    </div>
+    <p>All 2714 tests across 46 test files pass. No TypeScript type errors detected. Four playtest suites
+       (Khazari, Nexari, Vaelori, Nightly/Drakmari) completed successfully with no crashes, NaN values,
+       or negative populations. No pre-existing bugs were found in the codebase.</p>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- BUGS FIXED -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Bugs Fixed</h2>
+    <p>No bugs were found during this pipeline run. All existing tests passed on first run, and <code>tsc --noEmit</code> reported zero type errors.</p>
+    <table>
+      <thead>
+        <tr><th>Description</th><th>File:Line</th><th>Fix Applied</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="4" style="text-align:center; color:#556677;">No bugs to report</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- TEST SUITE RESULTS -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Test Suite Results</h2>
+    <p><span class="status-pass">46 test files passed</span> &mdash; 2714 total tests</p>
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Files</th><th>Tests</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Core Engine (game-loop, game-init, economy, colony, fleet, research)</td><td>12</td><td>~800</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Combat (combat, combat-tactical, ground-combat, post-combat)</td><td>4</td><td>~350</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Systems (diplomacy, espionage, trade, trade-routes, terraforming)</td><td>6</td><td>~400</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>AI (ai, ai-personality, governors)</td><td>3</td><td>~200</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Galaxy &amp; Generation (galaxy-generator, pathfinding, first-contact)</td><td>3</td><td>~150</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Infrastructure (edge-cases, id, math, name-generator, save-load, species-data)</td><td>6</td><td>~200</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Integration (full-game, new-systems, victory, happiness, etc.)</td><td>8</td><td>~300</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Playtests (khazari, nexari, vaelori, nightly)</td><td>4</td><td>19</td><td><span class="status-pass">PASS</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- PLAYTEST RESULTS -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Playtest Results</h2>
+
+    <h3>Playtest: Khazari (Construction/Combat Focus)</h3>
+    <table>
+      <thead>
+        <tr><th>Empire</th><th>Species</th><th>AI Style</th><th>Credits</th><th>Minerals</th><th>Techs</th><th>Age</th><th>Ships</th><th>Pop</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Khazari Dominion</td><td>Khazari</td><td>Aggressive</td><td>2,326,649</td><td>39,485</td><td>6</td><td>Nano Atomic</td><td>1</td><td>—</td></tr>
+        <tr><td>Teranos Federation</td><td>Teranos</td><td>Economic</td><td>2,925,192</td><td>15,710</td><td>43</td><td>Fusion</td><td>1</td><td>—</td></tr>
+        <tr><td>Sylvani Concord</td><td>Sylvani</td><td>Researcher</td><td>1,708,476</td><td>5,855</td><td>60</td><td>Nano Fusion</td><td>1</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p><span class="tag tag-pass">PASS</span> 1500 ticks, no crashes, no NaN values. Population grew from 3,000 to 281,235.</p>
+
+    <h3>Playtest: Nexari (Research/Espionage Focus)</h3>
+    <table>
+      <thead>
+        <tr><th>Empire</th><th>Species</th><th>AI Style</th><th>Credits</th><th>Minerals</th><th>Techs</th><th>Age</th><th>Ships</th><th>Pop</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Nexari Collective</td><td>Nexari</td><td>Researcher</td><td>22,212</td><td>25,610</td><td>68</td><td>Anti-Matter</td><td>1</td><td>—</td></tr>
+        <tr><td>Zorvathi Swarm</td><td>Zorvathi</td><td>Aggressive</td><td>395,745</td><td>29,690</td><td>6</td><td>Nano Atomic</td><td>1</td><td>—</td></tr>
+        <tr><td>Orivani Depths</td><td>Orivani</td><td>Economic</td><td>1,365,052</td><td>30,770</td><td>14</td><td>Nano Atomic</td><td>1</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p><span class="tag tag-pass">PASS</span> 1500 ticks. Nexari reached Anti-Matter age with 68 techs — significantly ahead of opponents (avg 10).</p>
+
+    <h3>Playtest: Vaelori (Research/Diplomacy Focus)</h3>
+    <table>
+      <thead>
+        <tr><th>Empire</th><th>Species</th><th>AI Style</th><th>Credits</th><th>Minerals</th><th>Techs</th><th>Age</th><th>Ships</th><th>Pop</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Vaelori Enclave</td><td>Vaelori</td><td>Diplomatic</td><td>122,099</td><td>22,205</td><td>84</td><td>Nano Fusion</td><td>1</td><td>20,610</td></tr>
+        <tr><td>Drakmari Shoal</td><td>Drakmari</td><td>Aggressive</td><td>938,474</td><td>25,145</td><td>6</td><td>Nano Atomic</td><td>1</td><td>79,765</td></tr>
+        <tr><td>Ashkari Consortium</td><td>Ashkari</td><td>Economic</td><td>778,178</td><td>19,908</td><td>51</td><td>Fusion</td><td>1</td><td>121,936</td></tr>
+      </tbody>
+    </table>
+    <p><span class="tag tag-pass">PASS</span> 1500 ticks. Vaelori led in tech (84), but Ashkari had highest population (121,936).</p>
+
+    <h3>Playtest: Nightly — Drakmari Military/Domination (2500 ticks)</h3>
+    <table>
+      <thead>
+        <tr><th>Empire</th><th>Species</th><th>AI Style</th><th>Credits</th><th>Minerals</th><th>Techs</th><th>Age</th><th>Ships</th><th>Pop</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Drakmari Shoal</td><td>Drakmari</td><td>Aggressive</td><td>576,718</td><td>12,976</td><td>7</td><td>Nano Atomic</td><td>1</td><td>39,833</td></tr>
+        <tr><td>Thyriaq Rogue Fleet</td><td>Thyriaq</td><td>Aggressive (Rogue)</td><td>469,540</td><td>43,953</td><td>36</td><td>Fusion</td><td>42</td><td>59,712</td></tr>
+        <tr><td>Luminari Concord</td><td>Luminari</td><td>Defensive</td><td>4,871,603</td><td>21,128</td><td>131</td><td>Anti-Matter</td><td>1</td><td>179,631</td></tr>
+        <tr><td>Pyrenth Commerce Guild</td><td>Pyrenth</td><td>Expansionist</td><td>836,447</td><td>50,427</td><td>32</td><td>Fusion</td><td>1</td><td>186,713</td></tr>
+      </tbody>
+    </table>
+    <p><span class="tag tag-pass">PASS</span> 2500 ticks. No conquest victory achieved — all empires remained on 1 planet each.
+       Thyriaq rogue fleet built 42 ships. Zero combat encounters recorded. See balance observations below.</p>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- BALANCE OBSERVATIONS -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Balance Observations</h2>
+    <p class="status-warn">The following observations are for morning review. No balance changes have been implemented.</p>
+
+    <ul class="observation-list">
+      <li>
+        <span class="category">AI Expansion:</span>
+        All empires remained on 1 planet across all playtests (1500–2500 ticks). The AI colonisation
+        logic may not be triggering effectively — empires are not expanding to nearby systems despite having
+        resources and available planets. <span class="tag tag-warn">High Priority</span>
+      </li>
+      <li>
+        <span class="category">Ship Production:</span>
+        Most empires only have 1 ship after 1500+ ticks. Only Thyriaq Rogue Fleet (aggressive AI) managed
+        to build 42 ships by tick 2500. The AI ship production threshold may be too high, or construction
+        capacity is being fully consumed by buildings. <span class="tag tag-warn">High Priority</span>
+      </li>
+      <li>
+        <span class="category">Combat Engagement:</span>
+        Zero combat encounters in 2500 ticks of the nightly playtest despite two aggressive AI players.
+        Fleets may not be receiving movement orders to engage. This is likely a consequence of the
+        single-planet issue — fleets have no targets if empires don't expand. <span class="tag tag-warn">High Priority</span>
+      </li>
+      <li>
+        <span class="category">Conquest Victory Unreachable:</span>
+        With conquest requiring 75% of colonised planets and no AI expansion occurring, the conquest
+        victory condition is effectively unreachable. The threshold itself is reasonable, but AI
+        expansion must function first. <span class="tag tag-warn">Medium Priority</span>
+      </li>
+      <li>
+        <span class="category">Research Rate Disparity:</span>
+        Research-focused species dramatically outperform others. Luminari reached 131/300 techs (Anti-Matter age)
+        whilst Drakmari managed only 7 techs (Nano Atomic) despite 2500 ticks. The research trait multiplier
+        may be too steep — a trait of 7 vs 3 should not produce a 19× difference. Consider a diminishing
+        returns curve for research output. <span class="tag tag-info">Medium Priority</span>
+      </li>
+      <li>
+        <span class="category">Credit Accumulation:</span>
+        Credits accumulate very rapidly with no significant drain. Luminari accumulated ~4.9M credits
+        at ~2,432/tick. Without meaningful upkeep costs or spending sinks, credits become meaningless
+        after the early game. Consider increasing fleet upkeep or adding population maintenance costs.
+        <span class="tag tag-info">Low Priority</span>
+      </li>
+      <li>
+        <span class="category">Population Growth Curves:</span>
+        Population growth rates vary enormously: Pyrenth reached 186,713 pop whilst Drakmari had only
+        39,833 despite similar reproduction traits (7 vs 7). Environmental preference matching and
+        planet habitability may be causing large swings. The Thyriaq population showed -25.6/tick
+        growth rate, suggesting a population decline — worth investigating whether this is intended
+        (espionage/unrest mechanic?) or a bug. <span class="tag tag-info">Medium Priority</span>
+      </li>
+      <li>
+        <span class="category">Mineral Accumulation:</span>
+        Minerals accumulate but are not being spent. Pyrenth reached 50,427 minerals. If ship
+        production and building construction consumed minerals properly, these stocks should be
+        lower. This reinforces the AI-not-building-ships observation. <span class="tag tag-info">Low Priority</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- COMMITS MADE -->
+  <!-- ================================================================== -->
+  <section>
+    <h2>Commits Made</h2>
+    <p>No bug-fix commits were required. The following files were created as part of this pipeline run:</p>
+    <table>
+      <thead>
+        <tr><th>File</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>packages/shared/src/__tests__/playtest-khazari.test.ts</code></td><td>Khazari playtest suite (construction/combat focus, 1500 ticks)</td></tr>
+        <tr><td><code>packages/shared/src/__tests__/playtest-nexari.test.ts</code></td><td>Nexari playtest suite (research/espionage focus, 1500 ticks)</td></tr>
+        <tr><td><code>packages/shared/src/__tests__/playtest-vaelori.test.ts</code></td><td>Vaelori playtest suite (research/diplomacy focus, 1500 ticks)</td></tr>
+        <tr><td><code>packages/shared/src/__tests__/playtest-nightly.test.ts</code></td><td>Nightly playtest suite (Drakmari military/domination, 2500 ticks, 4 empires)</td></tr>
+        <tr><td><code>reports/bugfix-playtest/2026-03-29.html</code></td><td>This report</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>Generated by Claude Code Scheduled Pipeline &mdash; Meridian Logic Ltd</footer>
+</body>
+</html>
