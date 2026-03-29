@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit Report - 2026-03-29</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #c8d6e5;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .back { display: inline-block; margin-bottom: 1.5rem; color: #5a7a94; text-decoration: none; }
+  .back:hover { color: #00d4ff; }
+  h1 { color: #00d4ff; font-size: 2rem; margin-bottom: 0.3rem; }
+  .report-meta { color: #5a7a94; font-size: 0.9rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #1e2d3d; }
+  .report-meta .pipeline-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #ef444422;
+    color: #ef4444;
+    margin-right: 0.5rem;
+  }
+  h2 {
+    color: #5ce0d8;
+    font-size: 1.4rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e2d3d;
+  }
+  h3 { color: #a8c4db; font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+  .section {
+    background: #111827;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 1px solid #1e2d3d;
+  }
+  .status-pass { color: #10b981; font-weight: 600; }
+  .status-fail { color: #ef4444; font-weight: 600; }
+  .status-warn { color: #f59e0b; font-weight: 600; }
+  .status-info { color: #3b82f6; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #1e2d3d; }
+  th { color: #5ce0d8; font-weight: 600; }
+  code { background: #1a2332; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1a2332; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
+  pre code { padding: 0; background: none; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #7f1d1d; color: #fca5a5; }
+  .badge-medium { background: #78350f; color: #fcd34d; }
+  .badge-low { background: #064e3b; color: #6ee7b7; }
+  .badge-info { background: #1e3a5f; color: #93c5fd; }
+  .summary-box {
+    background: linear-gradient(135deg, #0f1729, #1a1f3a);
+    border: 1px solid #1e2d3d;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .summary-box h3 { margin-top: 0; }
+  .metric {
+    display: inline-block;
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: #0d1117;
+    border-radius: 8px;
+    margin: 0.5rem;
+    min-width: 120px;
+  }
+  .metric .value { font-size: 2rem; font-weight: 700; color: #00d4ff; display: block; }
+  .metric .label { font-size: 0.8rem; color: #5a7a94; }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1e2d3d;
+    color: #3a4a5a;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="/">&larr; Back to Dashboard</a>
+  <h1>Security Audit Report</h1>
+  <div class="report-meta">
+    <span class="pipeline-badge">Security</span>
+    Generated: 2026-03-29 &mdash; Ex Nihilo by Meridian Logic Ltd
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- EXECUTIVE SUMMARY                                                  -->
+  <!-- ================================================================== -->
+  <h2>Executive Summary</h2>
+  <div class="summary-box">
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem;">
+      <div class="metric">
+        <span class="value">1</span>
+        <span class="label">Critical</span>
+      </div>
+      <div class="metric">
+        <span class="value">5</span>
+        <span class="label">High</span>
+      </div>
+      <div class="metric">
+        <span class="value">6</span>
+        <span class="label">Medium</span>
+      </div>
+      <div class="metric">
+        <span class="value">2</span>
+        <span class="label">Low</span>
+      </div>
+      <div class="metric">
+        <span class="value">1</span>
+        <span class="label">Info</span>
+      </div>
+    </div>
+    <div style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem;">
+      <div class="metric">
+        <span class="value" style="color: #10b981;">9</span>
+        <span class="label">Fixed</span>
+      </div>
+      <div class="metric">
+        <span class="value" style="color: #f59e0b;">6</span>
+        <span class="label">Remaining / Accepted</span>
+      </div>
+    </div>
+    <p style="margin-top: 1rem;">
+      A comprehensive security audit was performed across all three packages (server, client, shared).
+      The server package (<code>packages/server/src/</code>) was the primary focus as it handles external input.
+      No critical vulnerabilities such as <code>eval()</code>, SQL injection, command injection, or XSS via
+      <code>innerHTML</code> were found in the TypeScript source. The main findings were: missing security
+      headers, insufficient input validation on Socket.io event handlers, no WebSocket rate limiting,
+      prototype pollution risk in the <code>game:action</code> payload, and hardcoded credentials in
+      <code>CLAUDE.md</code>. All high-severity code issues have been fixed.
+      Three npm dependency vulnerabilities were auto-fixed; five moderate dev-only vulnerabilities remain
+      (esbuild/vite chain requiring a breaking major version upgrade).
+    </p>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- DEPENDENCY AUDIT RESULTS                                           -->
+  <!-- ================================================================== -->
+  <h2>Dependency Audit Results</h2>
+  <div class="section">
+    <h3>Production Dependencies</h3>
+    <p>After running <code>npm audit fix</code>, one production vulnerability was resolved:</p>
+    <table>
+      <thead>
+        <tr><th>Package</th><th>CVE / Advisory</th><th>Severity</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>fastify &lt;=5.8.2</code></td>
+          <td><a href="https://github.com/advisories/GHSA-444r-cwp2-x5xf" style="color:#3b82f6;">GHSA-444r-cwp2-x5xf</a></td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>request.protocol and request.host spoofable via X-Forwarded-Proto/Host from untrusted connections</td>
+          <td class="status-pass">Fixed (auto)</td>
+        </tr>
+        <tr>
+          <td><code>picomatch 4.0.0&ndash;4.0.3</code></td>
+          <td><a href="https://github.com/advisories/GHSA-3v7f-55p6-f55p" style="color:#3b82f6;">GHSA-3v7f-55p6-f55p</a>,
+              <a href="https://github.com/advisories/GHSA-c2c7-rcm5-vvqj" style="color:#3b82f6;">GHSA-c2c7-rcm5-vvqj</a></td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>Method Injection via POSIX Character Classes + ReDoS via extglob quantifiers</td>
+          <td class="status-pass">Fixed (auto)</td>
+        </tr>
+        <tr>
+          <td><code>brace-expansion &lt;1.1.13</code></td>
+          <td><a href="https://github.com/advisories/GHSA-f886-m6hf-6m8v" style="color:#3b82f6;">GHSA-f886-m6hf-6m8v</a></td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Zero-step sequence causes process hang and memory exhaustion</td>
+          <td class="status-pass">Fixed (auto)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Dev Dependencies (remaining)</h3>
+    <p>Five moderate vulnerabilities remain in the <code>esbuild &rarr; vite &rarr; vitest</code> chain. These are
+       dev-only tools and do not ship with the production build. Fixing them requires upgrading to
+       <code>vite@8.x</code>, which is a breaking change.</p>
+    <table>
+      <thead>
+        <tr><th>Package</th><th>CVE / Advisory</th><th>Severity</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>esbuild &lt;=0.24.2</code></td>
+          <td><a href="https://github.com/advisories/GHSA-67mh-4wv8-2f99" style="color:#3b82f6;">GHSA-67mh-4wv8-2f99</a></td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Dev server allows any website to send requests and read responses</td>
+          <td class="status-warn">Remaining (dev-only)</td>
+        </tr>
+        <tr>
+          <td><code>vite 0.11.0&ndash;6.1.6</code></td>
+          <td>(transitive)</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Depends on vulnerable esbuild</td>
+          <td class="status-warn">Remaining (dev-only)</td>
+        </tr>
+        <tr>
+          <td><code>vite-node &lt;=2.2.0-beta.2</code></td>
+          <td>(transitive)</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Depends on vulnerable vite</td>
+          <td class="status-warn">Remaining (dev-only)</td>
+        </tr>
+        <tr>
+          <td><code>@vitest/mocker &lt;=3.0.0-beta.4</code></td>
+          <td>(transitive)</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Depends on vulnerable vite</td>
+          <td class="status-warn">Remaining (dev-only)</td>
+        </tr>
+        <tr>
+          <td><code>vitest 0.3.3&ndash;3.0.0-beta.4</code></td>
+          <td>(transitive)</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Depends on vulnerable vite and @vitest/mocker</td>
+          <td class="status-warn">Remaining (dev-only)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- STATIC ANALYSIS FINDINGS                                           -->
+  <!-- ================================================================== -->
+  <h2>Static Analysis Findings</h2>
+  <div class="section">
+    <table>
+      <thead>
+        <tr><th>Location</th><th>Category</th><th>Severity</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>CLAUDE.md:26,29</code></td>
+          <td>Hardcoded Credentials</td>
+          <td><span class="badge badge-critical">CRITICAL</span></td>
+          <td>Proxmox host root password (<code>Roarsome</code>) and IP addresses are stored in plain text in the checked-in <code>CLAUDE.md</code> file. This file is visible to anyone with repository access.</td>
+          <td class="status-warn">Remaining &mdash; requires manual remediation (move to secrets manager or environment variables)</td>
+        </tr>
+        <tr>
+          <td><code>server/src/main.ts</code></td>
+          <td>Missing Security Headers</td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>No Content-Security-Policy, X-Content-Type-Options, X-Frame-Options, or HSTS headers were configured on the Fastify server.</td>
+          <td class="status-pass">Fixed &mdash; added <code>@fastify/helmet</code> with strict CSP directives</td>
+        </tr>
+        <tr>
+          <td><code>server/src/network/socketManager.ts</code></td>
+          <td>Missing Rate Limiting</td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>Socket.io event handlers had no rate limiting, allowing a malicious client to flood the server with events and cause denial of service.</td>
+          <td class="status-pass">Fixed &mdash; added per-socket rate limiter (60 events/10s window)</td>
+        </tr>
+        <tr>
+          <td><code>server/src/network/socketManager.ts:222</code></td>
+          <td>Prototype Pollution</td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>The <code>game:action</code> handler accepted <code>Record&lt;string, any&gt;</code> data payloads without sanitising dangerous keys (<code>__proto__</code>, <code>constructor</code>, <code>prototype</code>).</td>
+          <td class="status-pass">Fixed &mdash; added <code>sanitiseObject()</code> that recursively strips dangerous keys up to depth 10</td>
+        </tr>
+        <tr>
+          <td><code>server/src/network/socketManager.ts:493</code></td>
+          <td>Missing Input Validation</td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>The <code>lobby:species</code> handler passed <code>speciesId</code> directly without type checking or length validation.</td>
+          <td class="status-pass">Fixed &mdash; added <code>sanitiseSpeciesId()</code> with type and length validation</td>
+        </tr>
+        <tr>
+          <td><code>server/src/network/socketManager.ts:286</code></td>
+          <td>Missing Input Validation</td>
+          <td><span class="badge badge-high">HIGH</span></td>
+          <td>Galaxy configuration <code>size</code> and <code>shape</code> fields were not validated against allowed enum values, allowing arbitrary strings to be stored and broadcast.</td>
+          <td class="status-pass">Fixed &mdash; added <code>sanitiseGalaxyConfig()</code> with enum validation</td>
+        </tr>
+        <tr>
+          <td><code>server/src/game/GameSessionManager.ts:55</code></td>
+          <td>Insecure Storage</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Lobby passwords are stored and compared in plain text. While acceptable for development, this should use hashing (e.g. bcrypt) before production use.</td>
+          <td class="status-warn">Remaining &mdash; accepted risk for dev; needs hashing before production</td>
+        </tr>
+        <tr>
+          <td><code>server/src/game/GameSessionManager.ts:360</code></td>
+          <td>Timing Attack</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Password comparison uses <code>!==</code> operator, which is vulnerable to timing-based side-channel attacks. Should use constant-time comparison.</td>
+          <td class="status-warn">Remaining &mdash; low practical risk for game lobby passwords; recommended for future hardening</td>
+        </tr>
+        <tr>
+          <td><code>shared/src/utils/id.ts:15,29</code></td>
+          <td>Insecure Randomness</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td><code>Math.random()</code> is used as a fallback for ID generation when <code>crypto.randomUUID()</code> is unavailable. Not cryptographically secure.</td>
+          <td class="status-warn">Remaining &mdash; fallback only; server always has <code>crypto</code> available</td>
+        </tr>
+        <tr>
+          <td><code>shared/src/engine/*.ts</code> (multiple)</td>
+          <td>Insecure Randomness</td>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td><code>Math.random()</code> used throughout game engine for combat rolls, AI decisions, visual effects, and audio. This is game logic, not security-sensitive.</td>
+          <td class="status-info">Accepted &mdash; game balance randomness, not security-relevant</td>
+        </tr>
+        <tr>
+          <td><code>server/src/main.ts:55</code></td>
+          <td>Permissive CORS</td>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td>In development mode (<code>NODE_ENV !== 'production'</code>), CORS allows all origins (<code>origin: true</code>). This is standard for development but should be verified locked down in production deployments.</td>
+          <td class="status-info">Accepted &mdash; correctly restricts in production via <code>CORS_ORIGIN</code> env var</td>
+        </tr>
+        <tr>
+          <td>All source</td>
+          <td>eval / new Function</td>
+          <td><span class="badge badge-info">INFO</span></td>
+          <td>No instances of <code>eval()</code> or <code>new Function()</code> found in any TypeScript source.</td>
+          <td class="status-pass">Clean</td>
+        </tr>
+        <tr>
+          <td>All source</td>
+          <td>innerHTML / XSS</td>
+          <td><span class="badge badge-info">INFO</span></td>
+          <td>No instances of <code>innerHTML</code> or <code>dangerouslySetInnerHTML</code> found. Phaser + React rendering pipeline is safe.</td>
+          <td class="status-pass">Clean</td>
+        </tr>
+        <tr>
+          <td>All source</td>
+          <td>SQL Injection</td>
+          <td><span class="badge badge-info">INFO</span></td>
+          <td>No SQL queries found in the codebase. Game state is managed in-memory. PostgreSQL is listed as a tech stack item but not yet implemented.</td>
+          <td class="status-pass">Clean</td>
+        </tr>
+        <tr>
+          <td>All source</td>
+          <td>Command Injection</td>
+          <td><span class="badge badge-info">INFO</span></td>
+          <td>No usage of <code>child_process</code>, <code>exec()</code>, or <code>spawn()</code> found in any package source.</td>
+          <td class="status-pass">Clean</td>
+        </tr>
+        <tr>
+          <td>All source</td>
+          <td>Insecure Deserialisation</td>
+          <td><span class="badge badge-info">INFO</span></td>
+          <td>No <code>JSON.parse()</code> on user-supplied strings found in server source. Socket.io handles deserialisation internally with schema validation.</td>
+          <td class="status-pass">Clean</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- FIXES APPLIED                                                      -->
+  <!-- ================================================================== -->
+  <h2>Fixes Applied</h2>
+  <div class="section">
+    <h3>1. Security Headers via @fastify/helmet</h3>
+    <p><strong>Vulnerability:</strong> Missing Content-Security-Policy, X-Content-Type-Options, X-Frame-Options, and other standard security headers.</p>
+    <p><strong>Change:</strong> Installed <code>@fastify/helmet</code> and registered it with strict CSP directives
+       (default-src &lsquo;self&rsquo;, no frames, WebSocket connections allowed, inline styles allowed for Phaser).</p>
+    <p><strong>Files:</strong> <code>packages/server/package.json</code>, <code>packages/server/src/main.ts</code></p>
+
+    <h3>2. Socket.io Per-Socket Rate Limiting</h3>
+    <p><strong>Vulnerability:</strong> No rate limiting on WebSocket events allowed unlimited event flooding (DoS vector).</p>
+    <p><strong>Change:</strong> Implemented a lightweight per-socket rate limiter using <code>WeakMap</code> with 60 events
+       per 10-second sliding window. All Socket.io event handlers are wrapped via <code>withRateLimit()</code>.
+       Throttled clients receive a structured error callback.</p>
+    <p><strong>Files:</strong> <code>packages/server/src/network/socketManager.ts</code></p>
+
+    <h3>3. Prototype Pollution Protection for game:action</h3>
+    <p><strong>Vulnerability:</strong> The <code>game:action</code> handler accepted arbitrary nested objects that could contain
+       <code>__proto__</code>, <code>constructor</code>, or <code>prototype</code> keys, enabling prototype pollution.</p>
+    <p><strong>Change:</strong> Added <code>sanitiseObject()</code> function that recursively strips dangerous keys from
+       arbitrary objects, with a maximum depth of 10 to prevent stack exhaustion.</p>
+    <p><strong>Files:</strong> <code>packages/server/src/network/sanitise.ts</code>, <code>packages/server/src/network/socketManager.ts</code></p>
+
+    <h3>4. Species ID Validation</h3>
+    <p><strong>Vulnerability:</strong> The <code>lobby:species</code> handler passed <code>speciesId</code> directly without
+       any type checking or length validation.</p>
+    <p><strong>Change:</strong> Added <code>sanitiseSpeciesId()</code> with type checking, control character stripping,
+       and 60-character length limit.</p>
+    <p><strong>Files:</strong> <code>packages/server/src/network/sanitise.ts</code>, <code>packages/server/src/network/socketManager.ts</code></p>
+
+    <h3>5. Galaxy Config Enum Validation</h3>
+    <p><strong>Vulnerability:</strong> <code>galaxyConfig.size</code> and <code>galaxyConfig.shape</code> were not validated
+       against their allowed enum values, allowing arbitrary strings to propagate through the system.</p>
+    <p><strong>Change:</strong> Added <code>sanitiseGalaxyConfig()</code> that validates <code>size</code> against
+       <code>{small, medium, large, huge}</code> and <code>shape</code> against
+       <code>{spiral, elliptical, irregular, ring}</code>, falling back to defaults for invalid values.</p>
+    <p><strong>Files:</strong> <code>packages/server/src/network/sanitise.ts</code>, <code>packages/server/src/network/socketManager.ts</code></p>
+
+    <h3>6. Action Type Validation</h3>
+    <p><strong>Vulnerability:</strong> The <code>actionType</code> field in <code>game:action</code> was not validated for
+       type or length.</p>
+    <p><strong>Change:</strong> Added type checking and 100-character length limit for <code>actionType</code> strings.</p>
+    <p><strong>Files:</strong> <code>packages/server/src/network/socketManager.ts</code></p>
+
+    <h3>7. Dependency Vulnerability Fixes</h3>
+    <p><strong>Vulnerability:</strong> <code>npm audit</code> identified 8 vulnerabilities (1 high, 7 moderate).</p>
+    <p><strong>Change:</strong> Ran <code>npm audit fix</code> which resolved 3 vulnerabilities (fastify, picomatch,
+       brace-expansion). The remaining 5 moderate vulnerabilities are dev-only (esbuild/vite/vitest) and
+       require a breaking <code>vite@8.x</code> upgrade.</p>
+    <p><strong>Files:</strong> <code>package-lock.json</code></p>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- REMAINING ISSUES                                                   -->
+  <!-- ================================================================== -->
+  <h2>Remaining Issues</h2>
+  <div class="section">
+    <table>
+      <thead>
+        <tr><th>Issue</th><th>Severity</th><th>Risk Assessment</th><th>Recommendation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hardcoded credentials in <code>CLAUDE.md</code></td>
+          <td><span class="badge badge-critical">CRITICAL</span></td>
+          <td>Root password for Proxmox hosts visible to all repository users. Exploitation could lead to full infrastructure compromise.</td>
+          <td>Remove credentials from <code>CLAUDE.md</code> immediately. Store in a secrets manager (e.g. Vault, 1Password) or environment variables. Rotate the password.</td>
+        </tr>
+        <tr>
+          <td>Plain-text lobby passwords</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Lobby passwords are stored and compared in plain text in memory. Low risk in current dev context (passwords are transient, in-memory only, game lobby scope).</td>
+          <td>Hash passwords with bcrypt or scrypt before storing. Use <code>crypto.timingSafeEqual()</code> for comparison.</td>
+        </tr>
+        <tr>
+          <td>Timing-safe password comparison</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>String <code>!==</code> comparison leaks password length via timing. Very low practical risk for game lobby passwords.</td>
+          <td>Replace with <code>crypto.timingSafeEqual()</code> when implementing password hashing.</td>
+        </tr>
+        <tr>
+          <td>Math.random fallback in ID generation</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Fallback only triggers if <code>crypto.randomUUID()</code> is unavailable. Node.js (server) always has it. Client browsers may vary.</td>
+          <td>Consider removing the fallback entirely or using a polyfill that delegates to <code>crypto.getRandomValues()</code>.</td>
+        </tr>
+        <tr>
+          <td>Dev-only esbuild/vite vulnerabilities (5)</td>
+          <td><span class="badge badge-medium">MEDIUM</span></td>
+          <td>Only affect the development server (Vite dev mode). Not present in production builds. Upgrading to <code>vite@8.x</code> is a breaking change.</td>
+          <td>Plan upgrade to <code>vite@8.x</code> and <code>vitest@4.x</code> when time permits. Ensure dev servers are not exposed to untrusted networks.</td>
+        </tr>
+        <tr>
+          <td>Permissive CORS in dev mode</td>
+          <td><span class="badge badge-low">LOW</span></td>
+          <td>Standard development pattern. Production correctly restricts via <code>CORS_ORIGIN</code> environment variable.</td>
+          <td>Verify <code>NODE_ENV=production</code> and <code>CORS_ORIGIN</code> are set in all production deployments.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- FINAL VERIFICATION                                                 -->
+  <!-- ================================================================== -->
+  <h2>Final Verification</h2>
+  <div class="section">
+    <h3>npm audit (post-fix)</h3>
+    <p><span class="status-pass">3 vulnerabilities fixed</span> via <code>npm audit fix</code> (fastify, picomatch, brace-expansion).</p>
+    <p><span class="status-warn">5 moderate vulnerabilities remaining</span> &mdash; all dev-only (esbuild/vite/vitest chain), requiring breaking <code>vite@8.x</code> upgrade.</p>
+    <p>Production dependency audit: <span class="status-pass">0 vulnerabilities</span></p>
+
+    <h3>Static Analysis Re-scan</h3>
+    <ul>
+      <li><code>eval() / new Function()</code>: <span class="status-pass">Clean</span></li>
+      <li><code>innerHTML / dangerouslySetInnerHTML</code>: <span class="status-pass">Clean</span></li>
+      <li>SQL injection patterns: <span class="status-pass">Clean</span></li>
+      <li>Command injection: <span class="status-pass">Clean</span></li>
+      <li>Prototype pollution vectors: <span class="status-pass">Fixed &mdash; sanitiseObject() in place</span></li>
+      <li>Security headers: <span class="status-pass">Fixed &mdash; @fastify/helmet registered</span></li>
+      <li>Socket.io rate limiting: <span class="status-pass">Fixed &mdash; per-socket limiter active</span></li>
+      <li>Input validation (speciesId, galaxyConfig, actionType): <span class="status-pass">Fixed &mdash; sanitisation functions added</span></li>
+    </ul>
+
+    <h3>TypeScript Type Checking</h3>
+    <p><code>npx tsc --noEmit</code>: <span class="status-pass">Pass &mdash; zero errors</span></p>
+
+    <h3>Test Suite</h3>
+    <p><code>npx vitest run</code>: 2786 passed, 21 failed (4 test files)</p>
+    <p>All 21 failures are <strong>pre-existing</strong> (confirmed identical results on the base <code>main</code> branch before any security changes). Zero regressions introduced.</p>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- RECOMMENDATIONS                                                    -->
+  <!-- ================================================================== -->
+  <h2>Recommendations</h2>
+  <div class="section">
+    <ol>
+      <li><strong>[CRITICAL] Remove hardcoded credentials from <code>CLAUDE.md</code></strong> &mdash; Move Proxmox host passwords to a secrets manager or environment variables. Rotate the <code>Roarsome</code> password immediately. Consider adding <code>CLAUDE.md</code> deployment sections to <code>.gitignore</code> or using a separate non-committed configuration file.</li>
+      <li><strong>[HIGH] Hash lobby passwords</strong> &mdash; When moving towards production, hash passwords using <code>bcrypt</code> or <code>scrypt</code> and compare with <code>crypto.timingSafeEqual()</code>.</li>
+      <li><strong>[MEDIUM] Upgrade Vite to 8.x</strong> &mdash; Schedule a migration to resolve the 5 moderate dev-only vulnerabilities in the esbuild/vite/vitest chain.</li>
+      <li><strong>[MEDIUM] Add Zod schema validation for Socket.io payloads</strong> &mdash; The project already uses Zod. Consider defining Zod schemas for all <code>ClientToServerEvents</code> payloads to replace ad-hoc validation.</li>
+      <li><strong>[MEDIUM] Remove Math.random fallback from ID generators</strong> &mdash; All modern browsers and Node.js support <code>crypto.randomUUID()</code>. The fallback creates unnecessary risk.</li>
+      <li><strong>[LOW] Add authentication to WebSocket connections</strong> &mdash; Currently, any client can connect and interact with the server. Consider adding JWT or session-based authentication middleware.</li>
+      <li><strong>[LOW] Configure connection limits</strong> &mdash; Socket.io supports <code>maxHttpBufferSize</code> and connection limits to prevent resource exhaustion at the transport level.</li>
+      <li><strong>[LOW] Verify production CORS and NODE_ENV</strong> &mdash; Ensure all production deployments set <code>NODE_ENV=production</code> and an explicit <code>CORS_ORIGIN</code> value.</li>
+      <li><strong>[INFO] Consider dependency scanning in CI</strong> &mdash; Add <code>npm audit --production</code> to the CI pipeline to catch new vulnerabilities early.</li>
+    </ol>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- COMMITS                                                            -->
+  <!-- ================================================================== -->
+  <h2>Commits</h2>
+  <div class="section">
+    <table>
+      <thead>
+        <tr><th>Hash</th><th>Message</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>e435072</code></td>
+          <td>fix: security hardening &mdash; headers, input validation, rate limiting, prototype pollution</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    Generated by Claude Code Scheduled Pipeline &mdash; Meridian Logic Ltd
+  </div>
+</div>
+</body>
+</html>
