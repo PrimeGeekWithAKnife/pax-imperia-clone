@@ -64,7 +64,8 @@ export type ComponentType =
   | 'targeting_computer'
   | 'advanced_sensors'
   | 'damage_control'
-  | 'ecm_suite';
+  | 'ecm_suite'
+  | 'scanner';
 
 /** Component types that belong to each slot category. */
 export const SLOT_CATEGORY_TYPES: Record<SlotCategory, ComponentType[]> = {
@@ -72,7 +73,7 @@ export const SLOT_CATEGORY_TYPES: Record<SlotCategory, ComponentType[]> = {
   defence: ['shield', 'armor'],
   engine: ['engine'],
   warp_drive: ['warp_drive'],
-  internal: ['sensor', 'repair_drone', 'special', 'life_support', 'targeting_computer', 'advanced_sensors', 'damage_control', 'ecm_suite'],
+  internal: ['sensor', 'repair_drone', 'special', 'life_support', 'targeting_computer', 'advanced_sensors', 'damage_control', 'ecm_suite', 'scanner'],
 };
 
 export type WeaponCategory =

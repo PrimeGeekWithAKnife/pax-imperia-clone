@@ -838,5 +838,129 @@
     "cost": 500,
     "requiredTech": "zero_point_energy",
     "minAge": "singularity"
+  },
+  {
+    "id": "basic_scanner",
+    "name": "Basic Scanner",
+    "type": "scanner",
+    "description": "Rudimentary sensor sweep module — provides rough planetary data at a glance. Standard fit on all vessels.",
+    "stats": {
+      "scanLevel": 1,
+      "scanAccuracy": 40,
+      "sensorRange": 1,
+      "powerDraw": 1
+    },
+    "cost": 25,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "geological_scanner",
+    "name": "Geological Scanner",
+    "type": "scanner",
+    "description": "Subsurface resonance imager — reveals exact mineral concentrations, tectonic activity and core composition.",
+    "stats": {
+      "scanLevel": 2,
+      "scanAccuracy": 70,
+      "mineralDetailBonus": 30,
+      "sensorRange": 1,
+      "powerDraw": 3
+    },
+    "cost": 110,
+    "requiredTech": "planetary_geology",
+    "minAge": "fusion"
+  },
+  {
+    "id": "biological_scanner",
+    "name": "Biological Scanner",
+    "type": "scanner",
+    "description": "Atmospheric spectrograph and bio-resonance array — identifies native life, habitability indices and pathogenic threats.",
+    "stats": {
+      "scanLevel": 2,
+      "scanAccuracy": 70,
+      "bioDetailBonus": 30,
+      "sensorRange": 1,
+      "powerDraw": 3
+    },
+    "cost": 110,
+    "requiredTech": "xenobiology",
+    "minAge": "fusion"
+  },
+  {
+    "id": "anomaly_detector",
+    "name": "Anomaly Detector",
+    "type": "scanner",
+    "description": "Subspace frequency analyser tuned to precursor energy signatures — detects hidden anomalies and ancient artefacts that conventional sensors miss.",
+    "stats": {
+      "scanLevel": 3,
+      "scanAccuracy": 85,
+      "anomalyDetectionBonus": 40,
+      "sensorRange": 2,
+      "powerDraw": 5
+    },
+    "cost": 220,
+    "requiredTech": "anomaly_detection",
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "deep_space_telescope",
+    "name": "Deep Space Telescope",
+    "type": "scanner",
+    "description": "Long-baseline interferometric telescope — extends sensor range by two systems, enabling reconnaissance without entering hostile territory.",
+    "stats": {
+      "sensorRangeBonus": 2,
+      "detectionBonus": 10,
+      "scanAccuracy": 50,
+      "powerDraw": 4
+    },
+    "cost": 150,
+    "requiredTech": "advanced_optics",
+    "minAge": "fusion"
+  },
+  {
+    "id": "medical_bay",
+    "name": "Medical Bay",
+    "type": "special",
+    "description": "Fully equipped sickbay with surgical suites and quarantine wards — tends wounded crew and reduces combat casualties.",
+    "stats": {
+      "casualtyReduction": 25,
+      "moraleRecovery": 3,
+      "crewHealRate": 5,
+      "powerDraw": 2
+    },
+    "cost": 60,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "electronic_warfare_suite",
+    "name": "Electronic Warfare Suite",
+    "type": "ecm_suite",
+    "description": "Broadband jammer and spoofing transmitter — disrupts enemy targeting solutions and falsifies sensor returns.",
+    "stats": {
+      "evasionBonus": 15,
+      "missileDeflection": 20,
+      "sensorJamming": 25,
+      "scanSpoofing": 20,
+      "powerDraw": 5
+    },
+    "cost": 180,
+    "requiredTech": "electronic_warfare",
+    "minAge": "fusion"
+  },
+  {
+    "id": "repair_drone_bay",
+    "name": "Repair Drone Bay",
+    "type": "repair_drone",
+    "description": "Autonomous nano-fabricator drones — perform field repairs on allied vessels during and after combat.",
+    "stats": {
+      "repairRate": 8,
+      "repairRange": 3,
+      "fleetRepairBonus": 15,
+      "powerDraw": 4
+    },
+    "cost": 200,
+    "requiredTech": "autonomous_repair_systems",
+    "minAge": "nano_fusion"
   }
 ]
