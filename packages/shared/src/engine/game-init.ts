@@ -285,6 +285,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       'mining_facility',
       'power_plant',
       'hydroponics_bay',
+      'shipyard',
     ];
 
     const startingBuildings: Building[] = startingBuildingTypes.map(type => ({

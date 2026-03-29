@@ -681,6 +681,48 @@ export function evaluateBuildingPriority(
       });
     }
 
+    // Universal: ensure shipyard exists for ship production
+    if (
+      !builtTypes.has('shipyard') &&
+      !queuedTypes.has('shipyard') &&
+      builtTypes.has('spaceport')
+    ) {
+      decisions.push({
+        type: 'build',
+        priority: applyWeight(60, 'build', personality),
+        params: { planetId: planet.id, buildingType: 'shipyard' as BuildingType },
+        reasoning: `Build shipyard on ${planet.name} (needed for ship production)`,
+      });
+    }
+
+    // Reactive: build hydroponics if population is high relative to food production
+    const hydroCount = planet.buildings.filter(b => b.type === 'hydroponics_bay').length;
+    if (
+      planet.currentPopulation > 20000 * (hydroCount + 1) &&
+      !queuedTypes.has('hydroponics_bay')
+    ) {
+      decisions.push({
+        type: 'build',
+        priority: applyWeight(65, 'build', personality),
+        params: { planetId: planet.id, buildingType: 'hydroponics_bay' as BuildingType },
+        reasoning: `Build hydroponics on ${planet.name} (population ${planet.currentPopulation} needs more food)`,
+      });
+    }
+
+    // Reactive: build power plant if buildings exceed power capacity
+    const powerPlants = planet.buildings.filter(b => b.type === 'power_plant').length;
+    if (
+      planet.buildings.length > 5 * (powerPlants + 1) &&
+      !queuedTypes.has('power_plant')
+    ) {
+      decisions.push({
+        type: 'build',
+        priority: applyWeight(55, 'build', personality),
+        params: { planetId: planet.id, buildingType: 'power_plant' as BuildingType },
+        reasoning: `Build power plant on ${planet.name} (${planet.buildings.length} buildings need power)`,
+      });
+    }
+
     // Evaluate upgrading existing buildings
     for (const building of planet.buildings) {
       const bDef = BUILDING_DEFINITIONS[building.type];

@@ -2145,7 +2145,7 @@ function stepAIDecisions(
 
     // 3. Filter out unimplemented decision types that would waste slots, then pick top N
     const executableDecisions = allDecisions.filter(d =>
-      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy'].includes(d.type)
+      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war'].includes(d.type)
     );
     const topDecisions = selectTopDecisions(executableDecisions, AI_DECISIONS_PER_TICK);
 
@@ -2187,10 +2187,51 @@ function executeAIDecision(
     case 'assign_spy':
       return executeAIAssignSpy(state, empireId, decision);
 
-    // colonize, diplomacy, and war are not yet wired — skip silently
+    case 'colonize':
+      return executeAIColonize(state, empireId, decision);
+
+    // diplomacy and war are not yet wired — skip silently
     default:
       return state;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Colonize: AI colonises an unowned planet in a system it has presence in
+// ---------------------------------------------------------------------------
+
+function executeAIColonize(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { planetId, systemId } = decision.params as { planetId: string; systemId: string };
+  if (!planetId || !systemId) return state;
+
+  const system = state.gameState.galaxy.systems.find(s => s.id === systemId);
+  if (!system) return state;
+
+  const planet = system.planets.find(p => p.id === planetId);
+  if (!planet || planet.ownerId) return state; // Already owned
+
+  // Check the empire has presence in this system (owns another planet or has a fleet)
+  const hasPresence = system.planets.some(p => p.ownerId === empireId) ||
+    state.gameState.fleets.some(f => f.empireId === empireId && f.position.systemId === systemId);
+  if (!hasPresence) return state;
+
+  // Check the empire has a source planet with enough population to transfer
+  const sourcePlanet = state.gameState.galaxy.systems
+    .flatMap(s => s.planets)
+    .filter(p => p.ownerId === empireId && p.currentPopulation >= 10000)
+    .sort((a, b) => b.currentPopulation - a.currentPopulation)[0];
+  if (!sourcePlanet) return state;
+
+  const empire = state.gameState.empires.find(e => e.id === empireId);
+  if (!empire) return state;
+
+  // Use startMigration to set up colonisation
+  const migrationOrder = startMigration(system, sourcePlanet.id, planetId, empireId, empire.species);
+  return { ...state, migrationOrders: [...state.migrationOrders, migrationOrder] };
 }
 
 // ---------------------------------------------------------------------------
