@@ -32,3 +32,4 @@ export * from './galactic-council.js';
 export * from './galactic-bank.js';
 export * from './grievance.js';
 export * from './diplomat.js';
+export * from './healthcare.js';
