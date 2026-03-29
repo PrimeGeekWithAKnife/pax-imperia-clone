@@ -695,11 +695,13 @@ export function evaluateBuildingPriority(
       });
     }
 
-    // Reactive: build hydroponics if population is high relative to food production
+    // Reactive: build hydroponics if population is high relative to food production (max 3)
     const hydroCount = planet.buildings.filter(b => b.type === 'hydroponics_bay').length;
+    const hydroQueued = planet.productionQueue.filter(q => q.templateId === 'hydroponics_bay').length;
     if (
-      planet.currentPopulation > 20000 * (hydroCount + 1) &&
-      !queuedTypes.has('hydroponics_bay')
+      hydroCount < 3 &&
+      hydroQueued === 0 &&
+      planet.currentPopulation > 20000 * (hydroCount + 1)
     ) {
       decisions.push({
         type: 'build',
@@ -709,11 +711,13 @@ export function evaluateBuildingPriority(
       });
     }
 
-    // Reactive: build power plant if buildings exceed power capacity
+    // Reactive: build power plant if buildings exceed power capacity (max 3)
     const powerPlants = planet.buildings.filter(b => b.type === 'power_plant').length;
+    const powerQueued = planet.productionQueue.filter(q => q.templateId === 'power_plant').length;
     if (
-      planet.buildings.length > 5 * (powerPlants + 1) &&
-      !queuedTypes.has('power_plant')
+      powerPlants < 3 &&
+      powerQueued === 0 &&
+      planet.buildings.length > 5 * (powerPlants + 1)
     ) {
       decisions.push({
         type: 'build',

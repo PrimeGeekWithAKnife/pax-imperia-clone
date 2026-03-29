@@ -2147,7 +2147,15 @@ function stepAIDecisions(
     const executableDecisions = allDecisions.filter(d =>
       ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war'].includes(d.type)
     );
-    const topDecisions = selectTopDecisions(executableDecisions, AI_DECISIONS_PER_TICK);
+
+    // Guarantee at least 1 research decision per tick to prevent starvation from
+    // high-priority colonise/build decisions consuming all slots
+    const researchDecisions = executableDecisions.filter(d => d.type === 'research');
+    const nonResearchDecisions = executableDecisions.filter(d => d.type !== 'research');
+    const guaranteedResearch = researchDecisions.length > 0 ? [researchDecisions[0]] : [];
+    const remainingSlots = AI_DECISIONS_PER_TICK - guaranteedResearch.length;
+    const topOther = selectTopDecisions(nonResearchDecisions, remainingSlots);
+    const topDecisions = [...guaranteedResearch, ...topOther];
 
     // 4. Execute each decision
     for (const decision of topDecisions) {
@@ -2457,6 +2465,10 @@ function executeAIBuildShip(
 
   const hasShipyard = targetPlanet.buildings.some(b => b.type === 'shipyard');
   if (!hasShipyard) return state;
+
+  // Don't queue more ships if there are already 2+ orders for this planet
+  const pendingForPlanet = state.productionOrders.filter(o => o.planetId === planetId).length;
+  if (pendingForPlanet >= 2) return state;
 
   // Find an available design for this empire
   const empire = state.gameState.empires.find(e => e.id === empireId);
