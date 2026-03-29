@@ -90,6 +90,8 @@ export interface ShipComponent {
   stats: Record<string, number>;
   cost: number;
   requiredTech: string | null;
+  /** Minimum tech age required for this component (for skirmish/design filtering). */
+  minAge?: string;
 }
 
 export interface ShipDesign {

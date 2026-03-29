@@ -612,8 +612,13 @@ export function App(): React.ReactElement {
     const playerFleetId = generateId();
     const aiFleetId = generateId();
 
-    // Use all components for skirmish — tech age only gates which hulls are available
-    const availableComponents = SHIP_COMPONENTS;
+    // Filter components by selected tech age — earlier ages get weaker loadouts
+    const ageOrder = ['nano_atomic', 'fusion', 'nano_fusion', 'anti_matter', 'singularity'];
+    const ageIdx = ageOrder.indexOf(config.techAge);
+    const availableComponents = SHIP_COMPONENTS.filter(c => {
+      const compIdx = ageOrder.indexOf(c.minAge ?? 'nano_atomic');
+      return compIdx <= ageIdx;
+    });
     const designs = new Map<string, ShipDesign>();
 
     const makeDesign = (hull: HullClass, empireId: string): ShipDesign => {
