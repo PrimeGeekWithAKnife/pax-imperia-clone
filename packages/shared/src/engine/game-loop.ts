@@ -12,6 +12,7 @@
  *  3.  Population Growth    (applies happiness growth bonus/revolt loss)
  *  3b. Migration Processing (wave departures, arrivals, colony establishment)
  *  3c. Happiness Processing (unrest/revolt effects, production multipliers)
+ *  3e. Corruption           (wealth, employment, crime — after happiness)
  *  4.  Resource Production  (energy deficit penalties applied here)
  *  4b. Food Consumption     (organics deducted; starvation population loss)
  *  5.  Construction Queues
@@ -19,8 +20,12 @@
  *  6.  Ship Production
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
+ *  8b. Espionage            (spy infiltration, mission rolls, counter-intel)
+ *  8c. Minor Species        (integration, uplift, revolt, natural advancement)
+ *  8d. Anomaly Investigations (progress active excavation sites)
  *  9.  AI Decisions
  *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
+ *  9d. Marketplace          (commodity prices, trade orders, sanctions)
  *  9c. Building Condition   (maintenance-based decay, functionality checks)
  *  10. Victory Check        (conquest / economic / technological / diplomatic)
  *  11. Advance Tick
@@ -159,6 +164,31 @@ import {
   type EspionageEvent,
   type SpyMission,
 } from './espionage.js';
+import {
+  processCorruptionTick,
+  processWealthDistribution,
+  processEmployment,
+  processCrime,
+  checkEconomicCrisis,
+  type EmpireCorruptionState,
+  type CorruptionEvent,
+} from './corruption.js';
+import {
+  progressExcavation,
+  type AnomalyEvent as AnomalyEngineEvent,
+  type ExcavationSite,
+} from './anomaly.js';
+import {
+  processMinorSpeciesTick,
+  type MinorSpeciesEvent,
+} from './minor-species.js';
+import {
+  processMarketTick,
+  type MarketState,
+  type MarketEmpireView,
+  type MarketTradeRouteView,
+  type MarketEvent,
+} from './marketplace.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -2763,6 +2793,257 @@ export function isGameOver(
 }
 
 // ---------------------------------------------------------------------------
+// Step 3e: Corruption, Wealth, Employment, Crime
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of corruption, wealth distribution, employment, and crime
+ * for every empire.
+ *
+ * This step is safe with older saves: if the state does not yet contain
+ * corruptionStates or if planets lack demographics data, it no-ops gracefully.
+ *
+ * Side-effect: produces CorruptionEvent entries which are currently logged
+ * internally (the corruption event type is not part of GameEvent yet, so
+ * they are not pushed to the main events array).
+ */
+function stepCorruption(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no corruption data structures yet (old saves)
+  const corruptionStates = (state as unknown as Record<string, unknown>).corruptionStates as
+    | Map<string, EmpireCorruptionState>
+    | undefined;
+  if (!corruptionStates) return state;
+
+  const updatedCorruptionStates = new Map(corruptionStates);
+  const tick = state.gameState.currentTick;
+
+  for (const empire of state.gameState.empires) {
+    const empireCorruption = updatedCorruptionStates.get(empire.id) ?? {
+      planets: {},
+      governors: {},
+      averageCorruption: 0,
+    };
+
+    // Build planet data for corruption engine — requires demographics
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    // If no planets have demographics, skip corruption for this empire
+    const planetsWithDemographics: Record<
+      string,
+      {
+        buildings: import('../types/galaxy.js').Building[];
+        demographics: import('../types/demographics.js').PlanetDemographics;
+        governmentType: import('../types/government.js').GovernmentType;
+        distanceFromCapital: number;
+      }
+    > = {};
+
+    let hasDemographics = false;
+    for (const planet of ownedPlanets) {
+      const demographics = (planet as unknown as Record<string, unknown>).demographics as
+        | import('../types/demographics.js').PlanetDemographics
+        | undefined;
+      if (!demographics) continue;
+      hasDemographics = true;
+      planetsWithDemographics[planet.id] = {
+        buildings: planet.buildings,
+        demographics,
+        governmentType: empire.government,
+        distanceFromCapital: 0, // TODO: calculate once system graph distances are available
+      };
+    }
+
+    if (!hasDemographics) continue;
+
+    // Build governors lookup keyed by planet ID
+    const governorsMap: Record<string, Governor> = {};
+    for (const gov of state.governors) {
+      if (gov.planetId && planetsWithDemographics[gov.planetId]) {
+        governorsMap[gov.planetId] = gov;
+      }
+    }
+
+    const result = processCorruptionTick(
+      empireCorruption,
+      planetsWithDemographics,
+      governorsMap,
+      tick,
+      Math.random,
+    );
+
+    updatedCorruptionStates.set(empire.id, result.corruption);
+    // Corruption events are engine-internal for now; they will be surfaced
+    // as GameEvent variants once the notification system is extended.
+  }
+
+  return {
+    ...state,
+    corruptionStates: updatedCorruptionStates,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8c: Minor Species
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of minor species interactions for all known species.
+ *
+ * Safe no-op if the state does not contain a minorSpecies array (old saves).
+ */
+function stepMinorSpecies(state: GameTickState, _events: GameEvent[]): GameTickState {
+  const minorSpeciesList = (state as unknown as Record<string, unknown>).minorSpecies as
+    | import('../types/minor-species.js').MinorSpecies[]
+    | undefined;
+  if (!minorSpeciesList || minorSpeciesList.length === 0) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedSpecies: import('../types/minor-species.js').MinorSpecies[] = [];
+
+  for (const species of minorSpeciesList) {
+    // Determine which empire (if any) currently owns the planet this species resides on
+    let ownerEmpireId: string | null = null;
+    for (const system of state.gameState.galaxy.systems) {
+      for (const planet of system.planets) {
+        if (planet.id === species.planetId) {
+          ownerEmpireId = planet.ownerId;
+        }
+      }
+    }
+
+    const result = processMinorSpeciesTick(species, ownerEmpireId, tick, Math.random);
+    updatedSpecies.push(result.species);
+    // Minor species events are engine-internal for now.
+  }
+
+  return {
+    ...state,
+    minorSpecies: updatedSpecies,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8d: Anomaly Investigations
+// ---------------------------------------------------------------------------
+
+/**
+ * Progress all active excavation sites by one tick.
+ *
+ * Safe no-op if the state does not contain an excavationSites array (old saves).
+ */
+function stepAnomalies(state: GameTickState, _events: GameEvent[]): GameTickState {
+  const excavationSites = (state as unknown as Record<string, unknown>).excavationSites as
+    | ExcavationSite[]
+    | undefined;
+  if (!excavationSites || excavationSites.length === 0) return state;
+
+  const updatedSites: ExcavationSite[] = [];
+
+  for (const site of excavationSites) {
+    const result = progressExcavation(site, Math.random);
+    updatedSites.push(result.site);
+    // Anomaly events are engine-internal for now.
+  }
+
+  return {
+    ...state,
+    excavationSites: updatedSites,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 9d: Marketplace
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of the commodity marketplace (local + galactic).
+ *
+ * Safe no-op if the state does not contain a marketState (old saves).
+ */
+function stepMarketplace(state: GameTickState, _events: GameEvent[]): GameTickState {
+  const marketState = (state as unknown as Record<string, unknown>).marketState as
+    | MarketState
+    | undefined;
+  if (!marketState) return state;
+
+  const tick = state.gameState.currentTick;
+
+  // Build empire views for the marketplace engine
+  const empireViews: MarketEmpireView[] = state.gameState.empires.map(empire => {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    const resources = getEmpireResources(state, empire.id);
+
+    let tradeHubCount = 0;
+    let factoryCount = 0;
+    let miningFacilityCount = 0;
+    let researchLabCount = 0;
+    let shipyardCount = 0;
+    let totalPopulation = 0;
+
+    for (const planet of ownedPlanets) {
+      totalPopulation += planet.currentPopulation;
+      for (const building of planet.buildings) {
+        switch (building.type) {
+          case 'trade_hub':       tradeHubCount++;       break;
+          case 'factory':         factoryCount++;        break;
+          case 'mining_facility': miningFacilityCount++; break;
+          case 'research_lab':    researchLabCount++;    break;
+          case 'shipyard':        shipyardCount++;       break;
+        }
+      }
+    }
+
+    return {
+      id: empire.id,
+      credits: resources.credits,
+      totalPopulation,
+      tradeHubCount,
+      factoryCount,
+      miningFacilityCount,
+      researchLabCount,
+      shipyardCount,
+      isBlockaded: false, // TODO: derive from fleet blockade state once available
+    };
+  });
+
+  // Build trade route views from existing trade routes.
+  // BasicTradeRoute uses origin/destination system IDs rather than a partner
+  // empire ID, so we resolve the partner by looking up system ownership.
+  const tradeRouteViews: MarketTradeRouteView[] = state.tradeRoutes.map(route => {
+    // Find the empire that owns the destination system (approximation)
+    let partnerEmpireId = route.empireId;
+    for (const system of state.gameState.galaxy.systems) {
+      if (system.id === route.destinationSystemId) {
+        for (const planet of system.planets) {
+          if (planet.ownerId && planet.ownerId !== route.empireId) {
+            partnerEmpireId = planet.ownerId;
+            break;
+          }
+        }
+        break;
+      }
+    }
+    return {
+      empireId: route.empireId,
+      partnerEmpireId,
+      status: 'active' as const, // TODO: derive disrupted/blockaded status once available
+    };
+  });
+
+  const result = processMarketTick(
+    marketState,
+    empireViews,
+    tradeRouteViews,
+    tick,
+    Math.random,
+  );
+
+  return {
+    ...state,
+    marketState: result.state,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
 // Main tick processor
 // ---------------------------------------------------------------------------
 
@@ -2810,6 +3091,9 @@ export function processGameTick(
   // 3c. Happiness Processing (revolt population loss; production multipliers collected next step)
   s = stepHappiness(s);
 
+  // 3e. Corruption, Wealth, Employment, Crime (after happiness so unrest data is current)
+  s = stepCorruption(s, events);
+
   // 3d. Governor ageing (age all governors; emit GovernorDied for those that expire)
   s = stepGovernors(s, events);
 
@@ -2837,11 +3121,20 @@ export function processGameTick(
   // 8b. Espionage Tick (spy infiltration, mission rolls, counter-intel)
   s = stepEspionage(s, events);
 
+  // 8c. Minor Species (integration, uplift, revolt, natural advancement)
+  s = stepMinorSpecies(s, events);
+
+  // 8d. Anomaly Investigations (progress active excavation sites)
+  s = stepAnomalies(s, events);
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
   // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
   s = stepWaste(s);
+
+  // 9d. Marketplace (local + galactic commodity price discovery, trade orders)
+  s = stepMarketplace(s, events);
 
   // 9c. Building Condition (decay unpaid buildings, update condition values)
   s = stepBuildingCondition(s);
