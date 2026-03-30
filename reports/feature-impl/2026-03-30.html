@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature Implementation Sprint — 2026-03-30</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #c8d6e5;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .back { display: inline-block; margin-bottom: 1.5rem; color: #5a7a94; text-decoration: none; }
+  .back:hover { color: #00d4ff; }
+  h1 { color: #00d4ff; font-size: 2rem; margin-bottom: 0.3rem; }
+  .report-meta { color: #5a7a94; font-size: 0.9rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #1e2d3d; }
+  .report-meta .pipeline-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #3b82f622;
+    color: #3b82f6;
+    margin-right: 0.5rem;
+  }
+  h2 {
+    color: #5ce0d8;
+    font-size: 1.4rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e2d3d;
+  }
+  h3 { color: #a8c4db; font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+  .section {
+    background: #111827;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 1px solid #1e2d3d;
+  }
+  .status-pass { color: #10b981; font-weight: 600; }
+  .status-fail { color: #ef4444; font-weight: 600; }
+  .status-warn { color: #f59e0b; font-weight: 600; }
+  .status-info { color: #3b82f6; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #1e2d3d; }
+  th { color: #5ce0d8; font-weight: 600; }
+  code { background: #1a2332; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1a2332; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
+  pre code { padding: 0; background: none; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #7f1d1d; color: #fca5a5; }
+  .badge-medium { background: #78350f; color: #fcd34d; }
+  .badge-low { background: #064e3b; color: #6ee7b7; }
+  .badge-info { background: #1e3a5f; color: #93c5fd; }
+  .summary-box {
+    background: linear-gradient(135deg, #0f1729, #1a1f3a);
+    border: 1px solid #1e2d3d;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .summary-box h3 { margin-top: 0; }
+  .metric {
+    display: inline-block;
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: #0d1117;
+    border-radius: 8px;
+    margin: 0.5rem;
+    min-width: 120px;
+  }
+  .metric .value { font-size: 2rem; font-weight: 700; color: #00d4ff; display: block; }
+  .metric .label { font-size: 0.8rem; color: #5a7a94; }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1e2d3d;
+    color: #3a4a5a;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="back">&larr; Back to Dashboard</a>
+
+  <h1>Feature Implementation Sprint &mdash; Director Design Decisions</h1>
+
+  <div class="report-meta">
+    <span class="pipeline-badge">FEATURE IMPL</span>
+    Generated: 2026-03-30 &mdash; Ex Nihilo by Meridian Logic Ltd
+  </div>
+
+  <!-- ── Summary ─────────────────────────────────────────────────────── -->
+
+  <div class="summary-box">
+    <h3>Sprint Metrics</h3>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem;">
+      <div class="metric"><span class="value">17,920</span><span class="label">Lines Added</span></div>
+      <div class="metric"><span class="value">71</span><span class="label">Files Changed</span></div>
+      <div class="metric"><span class="value">11</span><span class="label">New Engines</span></div>
+      <div class="metric"><span class="value">77</span><span class="label">New Tests</span></div>
+      <div class="metric"><span class="value">8</span><span class="label">Commits</span></div>
+      <div class="metric"><span class="value">0</span><span class="label">New Failures</span></div>
+    </div>
+  </div>
+
+  <!-- ── Phase 1: Interview ──────────────────────────────────────────── -->
+
+  <h2>Phase 1: Director Design Interview</h2>
+
+  <div class="section">
+    <p>Conducted a full 10-domain design interview following the <strong>4X Space Strategy Genre Deep Analysis</strong> report. <strong>43 design decisions</strong> captured across all game system domains, plus 6 cross-domain synergies.</p>
+
+    <h3>Domains Covered</h3>
+    <table>
+      <thead><tr><th>Domain</th><th>Specialist Agent</th><th>Key Decisions</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Political System</td><td>Political Scientist</td><td>5 (factions, elections, revolutions, propaganda, policy)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Financial System</td><td>Economist</td><td>6 (markets, corruption, inflation, debt, corporations, warfare)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Ground Combat</td><td>Ground Tactician</td><td>5 (XCOM grid, supply, terrain, war crimes, morale)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Exploration</td><td>Exploration Director</td><td>5 (scanning, archaeology, phenomena, event chains)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Population</td><td>Population Analyst</td><td>6 (wealth, employment, healthcare, crime, demographics, integration)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Diplomacy</td><td>Chief Diplomat</td><td>6 (dual-channel, grievances, diplomats, council, treaties, espionage)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Espionage</td><td>Spymaster</td><td>3 (secret budget, counter-intelligence, modular ops)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Colony Management</td><td>Colony Planner</td><td>3 (settlement tiers, governors, emergent specialisation)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Ship Combat</td><td>Ship Combat Director</td><td>3 (fleet strategies, asymmetric triangle, combined arms)</td><td class="status-pass">COMPLETE</td></tr>
+        <tr><td>Technology</td><td>Tech Researcher</td><td>3 (flavoured research, xenoresearch, risky discoveries)</td><td class="status-pass">COMPLETE</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Cross-Domain Synergies</h3>
+    <ol>
+      <li><strong>Demographics Drive Everything</strong> &mdash; single simulation core, advisor-mediated visibility</li>
+      <li><strong>Trade Routes as Strategic Arteries</strong> &mdash; economy, military supply, migration all share routes</li>
+      <li><strong>War Crimes Cascade</strong> &mdash; contextual cascades across 4 systems, healable galactic scars</li>
+      <li><strong>Exploration Fuels Everything</strong> &mdash; discoveries create gold rushes, belief challenges, exploration eras</li>
+      <li><strong>Corruption as Universal Entropy</strong> &mdash; conditions-driven, hidden dimension, tolerable band</li>
+      <li><strong>Three-Source Information Model</strong> (Director-originated) &mdash; systems, advisors, and reality can all diverge; truth must be earned through good governance</li>
+    </ol>
+  </div>
+
+  <!-- ── Phase 2: Implementation ─────────────────────────────────────── -->
+
+  <h2>Phase 2: Implementation Sprint</h2>
+
+  <div class="section">
+    <h3>New Game Engines (11)</h3>
+    <table>
+      <thead><tr><th>Engine</th><th>File</th><th>Lines</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Anomaly</td><td><code>engine/anomaly.ts</code></td><td>904</td><td>Multi-stage excavation, planet scanning, 15 precursor lore fragments</td></tr>
+        <tr><td>Minor Species</td><td><code>engine/minor-species.ts</code></td><td>1,174</td><td>Observe, integrate, uplift, exploit, enslave + revolt mechanics</td></tr>
+        <tr><td>Marketplace</td><td><code>engine/marketplace.ts</code></td><td>1,223</td><td>Two-tier local/galactic market, supply/demand, sanctions, manipulation</td></tr>
+        <tr><td>Corruption</td><td><code>engine/corruption.ts</code></td><td>758</td><td>Per-planet/governor corruption, wealth distribution, employment, crime</td></tr>
+        <tr><td>Politics</td><td><code>engine/politics.ts</code></td><td>1,845</td><td>Demographics-driven factions, elections, revolution, escalation ladder</td></tr>
+        <tr><td>Grievance</td><td><code>engine/grievance.ts</code></td><td>396</td><td>Tiered decay, casus belli, coalition pooling, fabrication</td></tr>
+        <tr><td>Diplomat</td><td><code>engine/diplomat.ts</code></td><td>696</td><td>Character skills, 30 meeting summary templates, compromise detection</td></tr>
+        <tr><td>Galactic Council</td><td><code>engine/galactic-council.ts</code></td><td>694</td><td>Weighted voting, advisory + binding resolutions, rival blocs</td></tr>
+        <tr><td>Galactic Bank</td><td><code>engine/galactic-bank.ts</code></td><td>485</td><td>Reputation lending, war loans to both sides, reserve currency</td></tr>
+        <tr><td>Healthcare</td><td><code>engine/healthcare.ts</code></td><td>827</td><td>Species-specific disease, trade route spread, pandemic quarantine</td></tr>
+        <tr><td>Narrative</td><td><code>engine/narrative.ts</code></td><td>501</td><td>Event chain resolution, species branching, competitive chains</td></tr>
+      </tbody>
+    </table>
+
+    <h3>New Type Systems (8)</h3>
+    <table>
+      <thead><tr><th>Type File</th><th>Lines</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td><code>types/commodities.ts</code></td><td>71</td><td>35 commodity definitions, market listings, market state</td></tr>
+        <tr><td><code>types/diplomacy.ts</code></td><td>363</td><td>Dual-channel stances, grievances, diplomat characters, treaties, council, bank</td></tr>
+        <tr><td><code>types/politics.ts</code></td><td>171</td><td>Factions, elections, revolution, 7 policy domains</td></tr>
+        <tr><td><code>types/fleet-strategy.ts</code></td><td>208</td><td>8 manoeuvres, 6 stances, 9 ship roles, shield sharing</td></tr>
+        <tr><td><code>types/ground-combat-expanded.ts</code></td><td>412</td><td>XCOM grid, unit designer, POWs, insurgency, 8 settlement tiers</td></tr>
+        <tr><td><code>types/narrative.ts</code></td><td>162</td><td>Event chains, steps, choices, species branching</td></tr>
+        <tr><td><code>types/anomaly.ts</code></td><td>+62</td><td>Excavation sites, scan results, danger types</td></tr>
+        <tr><td><code>types/demographics.ts</code></td><td>+44</td><td>Wealth distribution, employment, crime</td></tr>
+      </tbody>
+    </table>
+
+    <h3>New Game Data</h3>
+    <table>
+      <thead><tr><th>Data File</th><th>Lines</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td><code>commodities/commodities.json</code></td><td>354</td><td>20 common, 10 rare, 5 ultra-rare commodities</td></tr>
+        <tr><td><code>factions/starter-factions.json</code></td><td>651</td><td>45 starter factions (3 per species, all 15 species)</td></tr>
+        <tr><td><code>narrative-chains.json</code></td><td>1,323</td><td>11 hand-crafted event chains with species branching</td></tr>
+        <tr><td><code>ships/components.json</code></td><td>+124</td><td>8 new scanner/support utility modules</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Espionage Expansion</h3>
+    <p>6 new mission types added to the existing espionage engine (+575 lines):</p>
+    <ul>
+      <li><strong>fabricate_grievance</strong> &mdash; creates fake casus belli against a third party</li>
+      <li><strong>reveal_private_stance</strong> &mdash; uncovers true diplomatic position with confidence levels</li>
+      <li><strong>sabotage_negotiations</strong> &mdash; disrupts ongoing treaty negotiations</li>
+      <li><strong>plant_evidence</strong> &mdash; frames a third-party empire for transgressions</li>
+      <li><strong>recruit_asset</strong> &mdash; turns enemy governors, admirals, diplomats via vulnerabilities</li>
+      <li><strong>false_flag</strong> &mdash; operations disguised as another empire's actions (1.5x detection risk)</li>
+    </ul>
+
+    <h3>Narrative Event Chains (11)</h3>
+    <table>
+      <thead><tr><th>Chain</th><th>Steps</th><th>Competitive</th><th>Theme</th></tr></thead>
+      <tbody>
+        <tr><td>The Precursor Signal</td><td>8</td><td>Yes</td><td>Ancient shipyard discovery, Devourer breadcrumb</td></tr>
+        <tr><td>The Plague World</td><td>4</td><td>No</td><td>Quarantined planet, bioweapon risk. Sylvani branch.</td></tr>
+        <tr><td>The Living Nebula</td><td>6</td><td>No</td><td>Billion-year-old nebula organism. Vaelori/Luminari branches.</td></tr>
+        <tr><td>The Silent Archive</td><td>5</td><td>Yes</td><td>Precursor data vault, Devourer dossier</td></tr>
+        <tr><td>The Ghost Fleet</td><td>3</td><td>No</td><td>Derelict armada, salvage or trap. Khazari branch.</td></tr>
+        <tr><td>The Evolving World</td><td>4</td><td>No</td><td>Accelerated evolution, rapid minor species advancement</td></tr>
+        <tr><td>The Wormhole Cartographer</td><td>6</td><td>Yes</td><td>Ancient mapping device, sealed wormhole routes</td></tr>
+        <tr><td>The Crystalline Intelligence</td><td>5</td><td>No</td><td>Moon-mind thinking alone for 3 billion years. Vaelori/Pyrenth branches.</td></tr>
+        <tr><td>The Dark Signal</td><td>7</td><td>No</td><td>Countdown from beyond the rim. Devourer foreshadowing.</td></tr>
+        <tr><td>The Betrayed Alliance</td><td>3</td><td>No</td><td>Precursor civil war moral dilemma</td></tr>
+        <tr><td>The Aethyn Echo</td><td>4</td><td>No</td><td>Dimensional bleed from adjacent reality. Aethyn branch.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Tests ───────────────────────────────────────────────────────── -->
+
+  <h2>Test Results</h2>
+
+  <div class="section">
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+      <div class="metric"><span class="value" style="color: #10b981;">3,272</span><span class="label">Tests Passing</span></div>
+      <div class="metric"><span class="value" style="color: #f59e0b;">33</span><span class="label">Pre-existing Failures</span></div>
+      <div class="metric"><span class="value" style="color: #10b981;">77</span><span class="label">New Tests Added</span></div>
+      <div class="metric"><span class="value" style="color: #10b981;">0</span><span class="label">New Regressions</span></div>
+    </div>
+
+    <h3>New Test Files</h3>
+    <table>
+      <thead><tr><th>Test File</th><th>Tests</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><code>politics.test.ts</code></td><td>13</td><td class="status-pass">PASS</td></tr>
+        <tr><td><code>marketplace.test.ts</code></td><td>16</td><td class="status-pass">PASS</td></tr>
+        <tr><td><code>grievance.test.ts</code></td><td>17</td><td class="status-pass">PASS</td></tr>
+        <tr><td><code>anomaly-engine.test.ts</code></td><td>14</td><td class="status-pass">PASS</td></tr>
+        <tr><td><code>minor-species-engine.test.ts</code></td><td>17</td><td class="status-pass">PASS</td></tr>
+      </tbody>
+    </table>
+
+    <p>TypeScript typecheck: <span class="status-pass">CLEAN</span> (zero errors in new code)</p>
+  </div>
+
+  <!-- ── Questions ───────────────────────────────────────────────────── -->
+
+  <h2>Outstanding &mdash; Questions for the Director</h2>
+
+  <div class="section">
+    <ol>
+      <li><strong>Tick-to-time mapping:</strong> How many ticks represent a year in-game? Affects demographic aging, election intervals, treaty durations, and economic cycles.</li>
+      <li><strong>UI priority:</strong> Which new systems should get UI screens first? Suggestions: Economy/Market screen, Political factions panel, Espionage expanded missions, Planet demographics dashboard.</li>
+      <li><strong>Galactic Council trigger:</strong> Is 50% mutual contact the right threshold, or should it be configurable per galaxy size?</li>
+      <li><strong>Settlement tier visuals:</strong> How should the 8 tiers (habitat &rarr; planetary) be represented visually? Building density? City lights from space?</li>
+      <li><strong>Auto-resolve battle count:</strong> Confirmed 10 fights before auto-resolve. Should &ldquo;similar&rdquo; mean same unit composition, same opponent species, or same planet type?</li>
+    </ol>
+  </div>
+
+  <!-- ── Key Principles ──────────────────────────────────────────────── -->
+
+  <h2>Key Design Principles Established</h2>
+
+  <div class="section">
+    <ol>
+      <li><strong>No objective truth</strong> &mdash; morality, propaganda, war crimes all judged contextually</li>
+      <li><strong>Maslow&rsquo;s Hierarchy</strong> as population behaviour foundation</li>
+      <li><strong>Three-Source Information Model</strong> &mdash; systems, advisors, reality can all diverge</li>
+      <li><strong>Plausible deniability</strong> &mdash; shadow buildings, compartmentalised ops, white-label merchants</li>
+      <li><strong>Characters at every level</strong> &mdash; all trainable, all corruptible</li>
+      <li><strong>Emergent over designed</strong> &mdash; specialisation, politics, culture emerge from systems</li>
+      <li><strong>Galactic Bank vs Council</strong> &mdash; separate institutions with conflicting agendas</li>
+      <li><strong>Cuba model</strong> &mdash; sanctions weaken but cannot alone defeat</li>
+    </ol>
+  </div>
+
+  <!-- ── Branch Status ───────────────────────────────────────────────── -->
+
+  <h2>Branch Status</h2>
+
+  <div class="section">
+    <p>All changes on branch <code>worktree-polished-drifting-quail</code> (8 commits ahead of main).</p>
+    <p>Ready for merge to <code>main</code> and DEV deployment on Director approval.</p>
+
+    <h3>Commits</h3>
+    <pre><code>f1dda7d feat: v0.2.0 build 5 — narrative event chain engine
+86c5624 feat: v0.2.0 build 4b — 10 narrative chains, 77 tests all passing
+f9c4ddb feat: v0.2.0 build 4 — healthcare engine, narrative types, 59 new tests
+b4d3c75 feat: v0.2.0 build 3 — grievances, diplomats, galactic council/bank, scanners
+db988d2 feat: v0.2.0 build 2 — politics engine, espionage expansion, game loop wiring
+6a5af24 feat: v0.2.0 — new game systems from director design decisions
+77ab70f docs: 10 specialist agents + 43 director design decisions from research review</code></pre>
+  </div>
+
+  <div class="footer">
+    Meridian Logic Ltd &mdash; Ex Nihilo Feature Implementation Report &mdash; 2026-03-30
+  </div>
+</div>
+</body>
+</html>
