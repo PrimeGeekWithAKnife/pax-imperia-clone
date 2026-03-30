@@ -393,6 +393,13 @@ export function autoEquipDesign(
 ): ShipDesign {
   const assignments: { slotId: string; componentId: string }[] = [];
 
+  // Track weapon slot index to vary weapon types for a diverse loadout
+  let weaponSlotIdx = 0;
+  const WEAPON_TYPE_ROTATION: ComponentType[] = [
+    'weapon_beam', 'weapon_projectile', 'weapon_missile',
+    'weapon_beam', 'weapon_projectile', 'weapon_missile',
+  ];
+
   for (const slot of hull.slotLayout) {
     // Collect components that are allowed in this slot and physically fit
     const candidates = availableComponents.filter((c) => {
@@ -402,8 +409,16 @@ export function autoEquipDesign(
 
     if (candidates.length === 0) continue;
 
-    // Determine the priority type from the slot's allowed types
-    const priorityType = slot.allowedTypes[0] as ComponentType;
+    // For weapon slots: rotate through beam → projectile → missile for variety
+    let priorityType = slot.allowedTypes[0] as ComponentType;
+    if (slot.category === 'weapon') {
+      const preferred = WEAPON_TYPE_ROTATION[weaponSlotIdx % WEAPON_TYPE_ROTATION.length]!;
+      // Only use preferred if the slot accepts it
+      if ((slot.allowedTypes as ComponentType[]).includes(preferred)) {
+        priorityType = preferred;
+      }
+      weaponSlotIdx++;
+    }
 
     // Pick best component by priority type, then fall back to any candidate
     const best = pickBestComponent(candidates, priorityType);
