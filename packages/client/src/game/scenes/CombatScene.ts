@@ -11,6 +11,7 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
+import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
@@ -52,6 +53,14 @@ function shipSizeFromHull(maxHull: number): { base: number; height: number } {
   if (maxHull < 200) return SHIP_SIZE_SMALL;
   if (maxHull < 400) return SHIP_SIZE_MED;
   return SHIP_SIZE_LARGE;
+}
+
+/** Icon render size per hull category (pixels). */
+function iconSizeFromHull(maxHull: number): number {
+  if (maxHull < 60) return 28;
+  if (maxHull < 200) return 40;
+  if (maxHull < 400) return 56;
+  return 72;
 }
 
 const SELECTION_RING_RADIUS = 24;
@@ -507,11 +516,33 @@ export class CombatScene extends Phaser.Scene {
   // Ship containers
   // =========================================================================
 
+  /**
+   * Look up the hull class for a tactical ship by tracing back through
+   * the source ship's design. Falls back to a size-based guess.
+   */
+  private _getHullClass(ship: TacticalShip): HullClass {
+    // Find the canonical ship in the scene data
+    const allShips = [...this.sceneData.attackerShips, ...this.sceneData.defenderShips];
+    const sourceShip = allShips.find(s => s.id === ship.sourceShipId);
+    if (sourceShip) {
+      const design = this.sceneData.designs.get(sourceShip.designId);
+      if (design) return design.hull;
+    }
+    // Fallback: guess from hull points
+    if (ship.maxHull < 30) return 'deep_space_probe';
+    if (ship.maxHull < 60) return 'scout';
+    if (ship.maxHull < 120) return 'destroyer';
+    if (ship.maxHull < 250) return 'cruiser';
+    if (ship.maxHull < 450) return 'battleship';
+    return 'dreadnought';
+  }
+
   private _createShipContainers(): void {
     for (const ship of this.tacticalState.ships) {
       const size = shipSizeFromHull(ship.maxHull);
       this.shipSizes.set(ship.id, size);
       const { base, height } = size;
+      const iconPx = iconSizeFromHull(ship.maxHull);
 
       const container = this.add.container(ship.position.x, ship.position.y);
       container.setDepth(8);
@@ -524,30 +555,85 @@ export class CombatScene extends Phaser.Scene {
       glow.fillCircle(-height / 2, 0, base * 0.6);
       container.add(glow);
 
-      // Triangle graphic — size based on hull class
-      const color = this._shipColor(ship);
-      const gfx = this.add.graphics();
-      gfx.fillStyle(color, 1);
-      gfx.beginPath();
-      // Triangle pointing right (+x) so rotation 0 = facing right
-      gfx.moveTo(height / 2, 0);               // nose
-      gfx.lineTo(-height / 2, -base / 2);      // bottom-left
-      gfx.lineTo(-height / 2, base / 2);       // top-left
-      gfx.closePath();
-      gfx.fillPath();
-      // Bright outline for visibility
-      gfx.lineStyle(1.5, 0xffffff, 0.7);
-      gfx.beginPath();
-      gfx.moveTo(height / 2, 0);
-      gfx.lineTo(-height / 2, -base / 2);
-      gfx.lineTo(-height / 2, base / 2);
-      gfx.closePath();
-      gfx.strokePath();
+      // ── Ship icon from ShipGraphics (hull-class silhouette) ──────────
+      const hullClass = this._getHullClass(ship);
+      const colorHex = ship.side === 'attacker'
+        ? this.sceneData.attackerColor
+        : this.sceneData.defenderColor;
+      const texKey = `ship_${hullClass}_${ship.side}_${iconPx}`;
 
-      container.add(gfx);
+      if (!this.textures.exists(texKey)) {
+        const dataUrl = renderShipIcon(hullClass, iconPx, colorHex);
+        if (dataUrl && dataUrl.startsWith('data:')) {
+          // Load as texture from data URL
+          const img = new Image();
+          img.src = dataUrl;
+          img.onload = () => {
+            if (!this.textures.exists(texKey)) {
+              this.textures.addImage(texKey, img);
+            }
+            // Update the sprite once loaded
+            const existing = container.getByName('shipSprite') as Phaser.GameObjects.Sprite | null;
+            if (existing) {
+              existing.setTexture(texKey);
+              existing.setVisible(true);
+            }
+          };
+        }
+      }
 
-      // Name label below the triangle
-      const label = this.add.text(0, base / 2 + 4, ship.name, {
+      // Create sprite (may show immediately if texture cached, or after load)
+      if (this.textures.exists(texKey)) {
+        const sprite = this.add.sprite(0, 0, texKey);
+        sprite.setName('shipSprite');
+        // ShipGraphics renders nose-up; combat scene faces right (+x)
+        // Rotate the sprite -90deg so nose points in the +x direction
+        sprite.setAngle(-90);
+        sprite.setDisplaySize(iconPx, iconPx);
+        container.add(sprite);
+      } else {
+        // Placeholder triangle until icon loads
+        const gfx = this.add.graphics();
+        const color = this._shipColor(ship);
+        gfx.fillStyle(color, 1);
+        gfx.beginPath();
+        gfx.moveTo(height / 2, 0);
+        gfx.lineTo(-height / 2, -base / 2);
+        gfx.lineTo(-height / 2, base / 2);
+        gfx.closePath();
+        gfx.fillPath();
+        gfx.lineStyle(1.5, 0xffffff, 0.5);
+        gfx.beginPath();
+        gfx.moveTo(height / 2, 0);
+        gfx.lineTo(-height / 2, -base / 2);
+        gfx.lineTo(-height / 2, base / 2);
+        gfx.closePath();
+        gfx.strokePath();
+        container.add(gfx);
+
+        // Create a hidden sprite that will show when texture loads
+        const placeholder = this.add.sprite(0, 0, '__DEFAULT');
+        placeholder.setName('shipSprite');
+        placeholder.setAngle(-90);
+        placeholder.setDisplaySize(iconPx, iconPx);
+        placeholder.setVisible(false);
+        container.add(placeholder);
+      }
+
+      // Hull class label above the ship
+      const classLabel = this.add.text(0, -iconPx / 2 - 6, hullClass.replace(/_/g, ' ').toUpperCase(), {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#88aaccaa',
+        align: 'center',
+        stroke: '#000000',
+        strokeThickness: 1,
+      });
+      classLabel.setOrigin(0.5, 1).setAngle(-Phaser.Math.RadToDeg(ship.facing));
+      container.add(classLabel);
+
+      // Name label below the ship
+      const label = this.add.text(0, iconPx / 2 + 4, ship.name, {
         fontFamily: 'monospace',
         fontSize: '10px',
         color: '#ccddeeff',
@@ -559,10 +645,9 @@ export class CombatScene extends Phaser.Scene {
       container.add(label);
 
       // Make the container interactive for click targeting
-      container.setSize(height + 8, base + 12);
+      container.setSize(iconPx + 8, iconPx + 12);
       container.setInteractive();
 
-      // Store data on the container for click handlers
       container.setData('shipId', ship.id);
       container.setData('side', ship.side);
 
