@@ -18,7 +18,7 @@ import type {
   SocketData,
   LobbyConfig,
 } from './types.js';
-import { GameSessionManager } from '../game/GameSessionManager.js';
+import { GameSessionManager, verifyPassword } from '../game/GameSessionManager.js';
 import type { GameSession } from '../game/GameSessionManager.js';
 import {
   sanitisePlayerName,
@@ -434,8 +434,8 @@ export class SocketManager {
       return;
     }
 
-    // Password check.
-    if (session.password !== null && session.password !== (password ?? '')) {
+    // Password check — compare against hashed password using timing-safe comparison.
+    if (session.password !== null && !verifyPassword(password ?? '', session.password)) {
       callback({ success: false, error: 'Incorrect password.' });
       return;
     }

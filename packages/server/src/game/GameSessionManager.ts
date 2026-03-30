@@ -7,8 +7,31 @@
  * The manager is the single source of truth for active sessions on the server.
  */
 
-import { randomUUID } from 'crypto';
+import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'crypto';
 import type { LobbyConfig, LobbyGalaxyConfig, LobbyPlayer, LobbyState, LobbySummary } from '../network/types.js';
+
+// ---------------------------------------------------------------------------
+// Password hashing helpers
+// ---------------------------------------------------------------------------
+
+const SCRYPT_KEYLEN = 64;
+
+/** Hash a plain-text password using scrypt with a random salt. */
+export function hashPassword(plain: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(plain, salt, SCRYPT_KEYLEN).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+/** Verify a plain-text password against a stored salt:hash string. */
+export function verifyPassword(plain: string, stored: string): boolean {
+  const [salt, hash] = stored.split(':');
+  if (!salt || !hash) return false;
+  const derived = scryptSync(plain, salt, SCRYPT_KEYLEN);
+  const expected = Buffer.from(hash, 'hex');
+  if (derived.length !== expected.length) return false;
+  return timingSafeEqual(derived, expected);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,7 +75,7 @@ export class GameSession {
   /** Display name of the game, shown in the lobby list. */
   gameName: string = 'Unnamed Game';
 
-  /** Optional password hash (plain-text for now, good enough for dev). */
+  /** Hashed password (scrypt salt:hash) or null for open lobbies. */
   password: string | null = null;
 
   /** Galaxy configuration chosen by the host. */
@@ -282,7 +305,7 @@ export class GameSessionManager {
   createLobbySession(config: LobbyConfig): GameSession {
     const session = this.createSession({ maxPlayers: config.maxPlayers });
     session.gameName = config.gameName;
-    session.password = config.password ?? null;
+    session.password = config.password ? hashPassword(config.password) : null;
     session.galaxyConfig = config.galaxyConfig;
     return session;
   }
