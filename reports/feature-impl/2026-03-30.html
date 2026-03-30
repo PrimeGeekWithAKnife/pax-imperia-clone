@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anomaly Exploration System - 2026-03-30</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #c8d6e5;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .back { display: inline-block; margin-bottom: 1.5rem; color: #5a7a94; text-decoration: none; }
+  .back:hover { color: #00d4ff; }
+  h1 { color: #00d4ff; font-size: 2rem; margin-bottom: 0.3rem; }
+  .report-meta { color: #5a7a94; font-size: 0.9rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #1e2d3d; }
+  .report-meta .pipeline-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #00d4ff22;
+    color: #00d4ff;
+    margin-right: 0.5rem;
+  }
+  h2 {
+    color: #5ce0d8;
+    font-size: 1.4rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e2d3d;
+  }
+  h3 { color: #a8c4db; font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+  .section {
+    background: #111827;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 1px solid #1e2d3d;
+  }
+  .status-pass { color: #10b981; font-weight: 600; }
+  .status-fail { color: #ef4444; font-weight: 600; }
+  .status-warn { color: #f59e0b; font-weight: 600; }
+  .status-info { color: #3b82f6; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #1e2d3d; }
+  th { color: #5ce0d8; font-weight: 600; }
+  code { background: #1a2332; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1a2332; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
+  pre code { padding: 0; background: none; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #7f1d1d; color: #fca5a5; }
+  .badge-medium { background: #78350f; color: #fcd34d; }
+  .badge-low { background: #064e3b; color: #6ee7b7; }
+  .badge-info { background: #1e3a5f; color: #93c5fd; }
+  .summary-box {
+    background: linear-gradient(135deg, #0f1729, #1a1f3a);
+    border: 1px solid #1e2d3d;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .summary-box h3 { margin-top: 0; }
+  .metric {
+    display: inline-block;
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: #0d1117;
+    border-radius: 8px;
+    margin: 0.5rem;
+    min-width: 120px;
+  }
+  .metric .value { font-size: 2rem; font-weight: 700; color: #00d4ff; display: block; }
+  .metric .label { font-size: 0.8rem; color: #5a7a94; }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1e2d3d;
+    color: #3a4a5a;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="/">&larr; Back to Dashboard</a>
+  <h1>Anomaly Exploration System</h1>
+  <div class="report-meta">
+    <span class="pipeline-badge">Feature Implementation</span>
+    Generated: 2026-03-30 &mdash; Ex Nihilo by Meridian Logic Ltd
+  </div>
+
+  <!-- Metrics -->
+  <div class="summary-box">
+    <div class="metric"><span class="value">30</span><span class="label">Tests Written</span></div>
+    <div class="metric"><span class="value">2840</span><span class="label">Total Tests Pass</span></div>
+    <div class="metric"><span class="value">13</span><span class="label">Files Changed</span></div>
+    <div class="metric"><span class="value">10</span><span class="label">Anomaly Types</span></div>
+    <div class="metric"><span class="value">15</span><span class="label">Species Affinities</span></div>
+  </div>
+
+  <!-- a) Feature Summary -->
+  <h2>a) Feature Summary</h2>
+  <div class="section">
+    <h3>What Was Implemented</h3>
+    <p>A complete anomaly exploration system that transforms inert galaxy anomalies into an interactive gameplay loop. Anomalies are now discoverable when fleets enter their system and investigable via a fleet-based investigation order that progresses over multiple ticks, granting resource rewards and lore fragments upon completion.</p>
+
+    <h3>PROJECT.md Reference</h3>
+    <p>This addresses <strong>Milestone 1: Galaxy Generation &amp; Navigation</strong> (exploration content) and directly implements the <strong>"Exploration content (anomalies/quests)"</strong> feature from the morning report's improvement research (item #6, High Priority), inspired by Endless Space 2's curiosity system.</p>
+
+    <h3>Why It Matters for Gameplay</h3>
+    <ul>
+      <li><strong>Exploration incentive</strong> &mdash; Players now have a reason to send fleets into uncharted systems beyond simple fog-of-war reveals</li>
+      <li><strong>Resource sink / reward loop</strong> &mdash; Addresses the morning report bug "Credits/minerals accumulate with nothing to spend on" by giving players meaningful resource injections from exploration rather than just passive income</li>
+      <li><strong>Fleet role diversity</strong> &mdash; Sensor-equipped scouts investigate faster, creating meaningful ship design choices for exploration fleets</li>
+      <li><strong>Species differentiation</strong> &mdash; Each species has affinities for specific anomaly types, reinforcing asymmetric play styles (e.g. Luminari excel at living nebulae, Ashkari at salvage)</li>
+      <li><strong>Narrative depth</strong> &mdash; Each anomaly type has a unique lore fragment that hints at the galaxy's deep history and foreshadows the Devourer threat</li>
+    </ul>
+  </div>
+
+  <!-- b) Design Decisions -->
+  <h2>b) Design Decisions</h2>
+  <div class="section">
+    <h3>Fleet-Based Investigation (Not Colony-Based)</h3>
+    <p>Investigation requires a fleet physically present in the anomaly's system. This was chosen over a colony-based approach because:</p>
+    <ul>
+      <li>Anomalies are in systems, not on planets &mdash; thematically, a ship surveys an anomaly</li>
+      <li>Creates interesting risk/reward: the fleet is occupied and vulnerable during investigation</li>
+      <li>Encourages fleet diversity (scouts with sensors vs. warships)</li>
+    </ul>
+
+    <h3>Progress Lost on Fleet Departure</h3>
+    <p>If the investigating fleet moves away or is destroyed, all progress is lost. This was considered against alternatives (pause progress, retain partial progress) and chosen because:</p>
+    <ul>
+      <li>It creates meaningful strategic tension &mdash; do you defend the investigating fleet or let it finish?</li>
+      <li>It prevents exploiting investigation by pulsing fleets in and out</li>
+      <li>It's simple to understand and consistent with real-world survey operations</li>
+    </ul>
+
+    <h3>One Investigator Per Anomaly</h3>
+    <p>Only one fleet can investigate a given anomaly at a time (first-come, first-served). This prevents race conditions and creates competitive exploration between empires.</p>
+
+    <h3>JSON-Driven Rewards (Moddable)</h3>
+    <p>All anomaly reward data is in <code>anomaly-rewards.json</code>, following the project's modding-first design pillar. Community modders can add new anomaly types or adjust rewards without touching engine code.</p>
+
+    <h3>Sensor Component Bonus</h3>
+    <p>Each sensor/advanced_sensors component in the fleet reduces investigation time by 5% (max 50%). Combined with the species research trait bonus (up to 30%), the theoretical maximum reduction is 70%, with a hard floor of 5 ticks. This rewards purposeful ship design without trivialising investigation.</p>
+  </div>
+
+  <!-- c) Implementation Details -->
+  <h2>c) Implementation Details</h2>
+  <div class="section">
+    <h3>Files Created</h3>
+    <table>
+      <tr><th>File</th><th>Purpose</th></tr>
+      <tr><td><code>packages/shared/src/engine/exploration.ts</code></td><td>Core exploration engine &mdash; order creation, tick processing, discovery, reward calculation</td></tr>
+      <tr><td><code>packages/shared/data/anomaly-rewards.json</code></td><td>Moddable reward templates for all 10 anomaly types</td></tr>
+      <tr><td><code>packages/shared/data/anomaly/index.ts</code></td><td>Typed data exports (ANOMALY_REWARD_TEMPLATES, ANOMALY_REWARD_BY_TYPE)</td></tr>
+      <tr><td><code>packages/shared/src/__tests__/exploration.test.ts</code></td><td>30 comprehensive tests</td></tr>
+    </table>
+
+    <h3>Files Modified</h3>
+    <table>
+      <tr><th>File</th><th>Changes</th></tr>
+      <tr><td><code>packages/shared/src/types/anomaly.ts</code></td><td>Added <code>investigatedBy</code>, <code>credits</code>/<code>energy</code> to rewards, <code>ExplorationOrder</code> and <code>AnomalyRewardTemplate</code> interfaces</td></tr>
+      <tr><td><code>packages/shared/src/types/events.ts</code></td><td>Added <code>InvestigateAnomalyAction</code>, <code>CancelInvestigationAction</code>, <code>AnomalyInvestigationStartedEvent</code>, <code>AnomalyInvestigatedEvent</code></td></tr>
+      <tr><td><code>packages/shared/src/types/notification.ts</code></td><td>Added <code>anomaly_investigated</code> notification type</td></tr>
+      <tr><td><code>packages/shared/src/engine/game-loop.ts</code></td><td>Added step 8c (exploration tick), action handlers, AI executor, anomaly discovery on fleet arrival, <code>explorationOrders</code> to <code>GameTickState</code></td></tr>
+      <tr><td><code>packages/shared/src/engine/ai.ts</code></td><td>Added <code>investigate_anomaly</code> decision type, personality weights, <code>evaluateExplorationActions</code> function</td></tr>
+      <tr><td><code>packages/shared/src/engine/save-load.ts</code></td><td>Serialise/deserialise <code>explorationOrders</code></td></tr>
+      <tr><td><code>packages/shared/src/engine/notifications.ts</code></td><td>Added <code>anomaly_investigated</code> metadata</td></tr>
+      <tr><td><code>packages/shared/src/engine/index.ts</code></td><td>Export exploration module</td></tr>
+      <tr><td><code>packages/shared/data/index.ts</code></td><td>Export anomaly data module</td></tr>
+    </table>
+
+    <h3>Key Data Structures</h3>
+    <pre><code>// ExplorationOrder — tracked in GameTickState.explorationOrders
+{
+  id: string;          // Unique order ID
+  anomalyId: string;   // Target anomaly
+  fleetId: string;     // Investigating fleet
+  empireId: string;    // Fleet owner
+  systemId: string;    // Cached system ID
+  totalTicks: number;  // Investigation duration
+  ticksCompleted: number; // Progress
+}
+
+// AnomalyRewardTemplate — from anomaly-rewards.json
+{
+  type: AnomalyType;
+  baseTicks: number;       // 12-40 depending on difficulty
+  difficulty: number;      // 1-5 rating
+  baseRewards: AnomalyReward;
+  speciesAffinity?: Record&lt;string, number&gt;; // Species name -&gt; multiplier
+}</code></pre>
+
+    <h3>Investigation Speed Formula</h3>
+    <pre><code>researchBonus = (research_trait - 1) / 9 * 0.30   // 0-30%
+sensorBonus   = sensors_count * 0.05                // 0-50% (capped)
+totalReduction = min(researchBonus + sensorBonus, 0.70)
+finalTicks    = max(baseTicks * (1 - totalReduction), 5)</code></pre>
+  </div>
+
+  <!-- d) Test Coverage -->
+  <h2>d) Test Coverage</h2>
+  <div class="section">
+    <table>
+      <tr><th>Test Group</th><th>Tests</th><th>Status</th></tr>
+      <tr><td>createExplorationOrder</td><td>6 tests &mdash; valid creation, rejection for: nonexistent anomaly, already investigated, already being investigated, wrong system, nonexistent fleet</td><td class="status-pass">PASS</td></tr>
+      <tr><td>processExplorationTick</td><td>5 tests &mdash; tick advancement, completion with rewards, fleet departure cancellation, fleet destruction cancellation, concurrent orders</td><td class="status-pass">PASS</td></tr>
+      <tr><td>discoverAnomaliesInSystem</td><td>3 tests &mdash; new discovery, no re-discovery, empty systems</td><td class="status-pass">PASS</td></tr>
+      <tr><td>calculateRewards</td><td>5 tests &mdash; base rewards, species affinity, lore fragments, null empire, unknown type</td><td class="status-pass">PASS</td></tr>
+      <tr><td>calculateInvestigationTicks</td><td>4 tests &mdash; base ticks, research trait reduction, sensor reduction, minimum floor</td><td class="status-pass">PASS</td></tr>
+      <tr><td>countFleetSensors</td><td>2 tests &mdash; sensor counting, null design handling</td><td class="status-pass">PASS</td></tr>
+      <tr><td>AI exploration evaluation</td><td>5 tests &mdash; decision generation, skip investigated, skip in-progress, skip unknown systems, skip moving fleets</td><td class="status-pass">PASS</td></tr>
+    </table>
+    <p><strong>30/30 tests pass.</strong> Full test suite: <strong>2840/2840 tests pass</strong> (47 test files, 0 regressions).</p>
+    <p>TypeScript strict mode: <span class="status-pass">PASS</span> (zero errors).</p>
+  </div>
+
+  <!-- e) Playtest Impact -->
+  <h2>e) Playtest Impact</h2>
+  <div class="section">
+    <h3>Khazari Playtest (1500 ticks)</h3>
+    <ul>
+      <li><span class="status-pass">PASS</span> &mdash; No crashes, NaN values, or negative resources</li>
+      <li>Population grew from 3,000 to 859,666</li>
+      <li>3 empires stable across the full simulation</li>
+      <li>AI empires investigate anomalies in systems where they have idle fleets</li>
+    </ul>
+
+    <h3>Nexari Playtest (1500 ticks)</h3>
+    <ul>
+      <li><span class="status-pass">PASS</span> &mdash; No crashes, NaN values, or negative resources</li>
+      <li>Nexari researched 68 techs vs. opponents' average of 22</li>
+      <li>AI exploration decisions do not starve other AI priorities (research, building, ships)</li>
+    </ul>
+
+    <h3>Emergent Behaviours</h3>
+    <ul>
+      <li>AI exploration is personality-dependent: researcher and expansionist AIs prioritise anomalies, aggressive AIs largely ignore them</li>
+      <li>Anomaly resource injections provide early-game boosts without creating late-game snowball effects (one-time rewards)</li>
+      <li>The exploration system adds a meaningful "money sink" dimension &mdash; fleet time spent investigating is fleet time not spent defending or attacking</li>
+    </ul>
+  </div>
+
+  <!-- f) Integration Notes -->
+  <h2>f) Integration Notes</h2>
+  <div class="section">
+    <h3>System Interactions</h3>
+    <ul>
+      <li><strong>Fleet movement</strong> &mdash; Anomaly discovery occurs automatically when fleets arrive in a system (step 1 of game loop)</li>
+      <li><strong>Combat</strong> &mdash; If a fleet is attacked while investigating, the fleet may be destroyed, cancelling the investigation</li>
+      <li><strong>AI decisions</strong> &mdash; <code>investigate_anomaly</code> is a new decision type with personality-specific weights, evaluated alongside all other AI priorities</li>
+      <li><strong>Ship design</strong> &mdash; Sensor and advanced_sensors components now have a gameplay effect beyond combat (faster investigation)</li>
+      <li><strong>Save/load</strong> &mdash; <code>explorationOrders</code> serialised as a plain array (no Map conversion needed); backward-compatible with saves that lack the field</li>
+      <li><strong>Notifications</strong> &mdash; <code>anomaly_investigated</code> added as an info-priority auto-pause notification</li>
+    </ul>
+
+    <h3>Backward Compatibility</h3>
+    <p><code>explorationOrders</code> is optional (<code>?:</code>) on <code>GameTickState</code> and defaults to <code>[]</code> throughout the codebase. Existing saves load without issue.</p>
+  </div>
+
+  <!-- g) Potential Improvements -->
+  <h2>g) Potential Improvements</h2>
+  <div class="section">
+    <ul>
+      <li><strong>Tech unlocks from anomalies</strong> &mdash; The <code>techUnlock</code> field exists on <code>AnomalyReward</code> but is not yet wired to grant actual technologies. This would allow rare anomalies to unlock unique techs not in the standard tree.</li>
+      <li><strong>Investigation progress UI</strong> &mdash; Client-side progress bar showing investigation completion percentage (data is available via <code>ticksCompleted / totalTicks</code>).</li>
+      <li><strong>Multi-chapter quest lines</strong> &mdash; Chain anomalies together (investigating one reveals the next) for species-specific storylines, as suggested in the ES2 research.</li>
+      <li><strong>Hazardous anomalies</strong> &mdash; Some anomaly types (spatial_rift, gravity_anomaly) could damage or destroy ships during investigation, adding risk.</li>
+      <li><strong>Anomaly respawn</strong> &mdash; Late-game anomaly spawning to keep exploration relevant throughout the game.</li>
+      <li><strong>Fleet experience from exploration</strong> &mdash; Investigating anomalies could grant crew experience, tying into the 9-level experience system.</li>
+      <li><strong>Visible investigation on galaxy map</strong> &mdash; An icon or animation showing a fleet actively investigating an anomaly.</li>
+      <li><strong>Competitive investigation</strong> &mdash; Alert players when an opponent starts investigating an anomaly they've discovered.</li>
+    </ul>
+  </div>
+
+  <!-- h) Commits -->
+  <h2>h) Commits</h2>
+  <div class="section">
+    <table>
+      <tr><th>Hash</th><th>Message</th></tr>
+      <tr><td><code>7854323</code></td><td>feat: anomaly exploration system &mdash; investigate anomalies for rewards</td></tr>
+    </table>
+    <p>Branch: <code>feature/2026-03-30-anomaly-exploration</code></p>
+  </div>
+
+  <div class="footer">
+    Generated by Claude Code Scheduled Pipeline &mdash; Meridian Logic Ltd
+  </div>
+</div>
+</body>
+</html>
