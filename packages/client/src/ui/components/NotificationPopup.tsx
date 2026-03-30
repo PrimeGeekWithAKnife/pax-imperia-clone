@@ -80,12 +80,29 @@ export function NotificationPopup({
           </label>
         )}
 
-        {/* Footer: queue count + dismiss */}
+        {/* Footer: queue count + navigate + dismiss */}
         <div className="notification-popup__footer">
           {queueLength > 0 && (
             <span className="notification-popup__queue-count">
               +{queueLength} more
             </span>
+          )}
+          {notification.context?.systemId && (
+            <button
+              className="notification-popup__dismiss-btn"
+              style={{ marginRight: 6, background: 'rgba(0, 100, 180, 0.4)' }}
+              onClick={() => {
+                const game = (window as any).__EX_NIHILO_GAME__;
+                if (game?.events && notification.context?.systemId) {
+                  game.events.emit('galaxy:navigate_to_system', {
+                    systemId: notification.context.systemId,
+                  });
+                }
+                handleDismiss();
+              }}
+            >
+              Go to
+            </button>
           )}
           <button
             className="notification-popup__dismiss-btn"
