@@ -8,7 +8,7 @@
  *  - Trade Routes (right panel): active routes with "Establish Route" controls.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Planet } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import {
@@ -209,6 +209,14 @@ function BreakdownRow({ label, value, isExpense = false }: BreakdownRowProps): R
 // ---------------------------------------------------------------------------
 
 export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): React.ReactElement {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   // Force re-render on each engine tick so resource figures stay current.
   const [, setTickCounter] = useState(0);
   useGameEvent('engine:tick', useCallback(() => {

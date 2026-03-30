@@ -5,7 +5,7 @@
  * be driven by mock data before the full engine integration is wired up.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Empire } from '@nova-imperia/shared';
 import {
   recruitSpy,
@@ -393,6 +393,14 @@ export function EspionageScreen({
   onRecruitSpy,
   onAssignMission,
 }: EspionageScreenProps): React.ReactElement {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   const myAgents = useMemo(

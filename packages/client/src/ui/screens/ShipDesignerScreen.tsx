@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { ShipComponent, ShipDesign, ComponentType, HullClass } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics';
 import {
@@ -196,6 +196,14 @@ export function ShipDesignerScreen({
   onDeleteDesign,
   onClose,
 }: ShipDesignerScreenProps): React.ReactElement {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   // ── Hull selection ──────────────────────────────────────────────────────────
   const [selectedHullClass, setSelectedHullClass] = useState<HullClass>('scout');
 

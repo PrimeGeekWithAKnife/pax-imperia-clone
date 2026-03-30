@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type {
   Empire,
   DiplomaticRelation,
@@ -408,6 +408,14 @@ export function DiplomacyScreen({
   onSendGift,
   onEstablishTradeRoute,
 }: DiplomacyScreenProps): React.ReactElement {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   // ── Local state ──────────────────────────────────────────────────────────
   const [selectedEmpireId, setSelectedEmpireId] = useState<string | null>(
     knownEmpires.length > 0 && knownEmpires[0].isKnown ? knownEmpires[0].empire.id : null,

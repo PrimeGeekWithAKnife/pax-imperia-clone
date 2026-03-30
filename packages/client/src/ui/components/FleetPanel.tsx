@@ -85,6 +85,8 @@ export function FleetPanel({
   const [fleetName, setFleetName] = useState(fleet.name);
   const [editingName, setEditingName] = useState(false);
   const [stance, setStance] = useState<FleetStance>(fleet.stance);
+  useEffect(() => { setStance(fleet.stance); }, [fleet.stance]);
+  useEffect(() => { setFleetName(fleet.name); }, [fleet.name]);
   const [moveToActive, setMoveToActive] = useState(false);
   const [addWaypointMode, setAddWaypointMode] = useState(false);
   const [splitMode, setSplitMode] = useState(false);

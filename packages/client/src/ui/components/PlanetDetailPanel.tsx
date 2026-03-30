@@ -362,6 +362,7 @@ export function PlanetDetailPanel({
     <div
       className={`planet-detail-panel${visible ? ' planet-detail-panel--visible' : ''}`}
       aria-hidden={!visible}
+      style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 60px)' }}
     >
       {planet && (
         <>

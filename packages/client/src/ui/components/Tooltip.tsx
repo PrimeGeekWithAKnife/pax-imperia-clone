@@ -99,7 +99,7 @@ export function Tooltip(): React.ReactElement | null {
   const rawX = state.x + OFFSET_X;
   const clampedX =
     rawX + tooltipWidth > window.innerWidth ? state.x - tooltipWidth - 4 : rawX;
-  const clampedY = state.y + OFFSET_Y;
+  const clampedY = Math.min(state.y + OFFSET_Y, window.innerHeight - 60);
 
   return (
     <div

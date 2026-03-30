@@ -341,6 +341,15 @@ export function ResearchScreen({
   onClose,
 }: ResearchScreenProps): React.ReactElement {
   const maxActive = maxActiveResearchProp ?? MAX_ACTIVE_RESEARCH;
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const [selectedTech, setSelectedTech] = useState<Technology | null>(null);
 
   // ── Scroll position restoration ────────────────────────────────────────────

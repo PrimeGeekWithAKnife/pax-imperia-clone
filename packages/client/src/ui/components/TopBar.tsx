@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import type { GameSpeedName, GovernmentType } from '@nova-imperia/shared';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS, GOVERNMENTS } from '@nova-imperia/shared';
 
@@ -67,6 +67,23 @@ export function TopBar({
   empireName,
   currentTick,
 }: TopBarProps): React.ReactElement {
+  const prevRef = useRef({ credits, minerals, energy, organics, researchPoints });
+  const deltaRef = useRef({ credits: 0, minerals: 0, energy: 0, organics: 0, researchPoints: 0 });
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    deltaRef.current = {
+      credits: credits - prev.credits,
+      minerals: minerals - prev.minerals,
+      energy: energy - prev.energy,
+      organics: organics - prev.organics,
+      researchPoints: researchPoints - prev.researchPoints,
+    };
+    prevRef.current = { credits, minerals, energy, organics, researchPoints };
+  }, [credits, minerals, energy, organics, researchPoints]);
+
+  const delta = deltaRef.current;
+
   const govName = government ? (GOVERNMENTS[government]?.name ?? government) : null;
   const handleSpeedClick = useCallback(
     (speed: GameSpeedName) => {
@@ -129,22 +146,47 @@ export function TopBar({
         <span className="resource-item" title="Credits">
           <span className="resource-icon">₵</span>
           <span className="resource-value">{compact(credits)}</span>
+          {delta.credits !== 0 && (
+            <span className="resource-rate" style={{ color: delta.credits > 0 ? '#44cc88' : '#ff4444', fontSize: '10px', marginLeft: '2px' }}>
+              {delta.credits > 0 ? '+' : ''}{compact(delta.credits)}
+            </span>
+          )}
         </span>
         <span className="resource-item" title="Minerals">
           <span className="resource-icon">⛏</span>
           <span className="resource-value">{compact(minerals)}</span>
+          {delta.minerals !== 0 && (
+            <span className="resource-rate" style={{ color: delta.minerals > 0 ? '#44cc88' : '#ff4444', fontSize: '10px', marginLeft: '2px' }}>
+              {delta.minerals > 0 ? '+' : ''}{compact(delta.minerals)}
+            </span>
+          )}
         </span>
         <span className="resource-item" title="Energy">
           <span className="resource-icon" style={{ color: energy < 0 ? '#ff4444' : undefined }}>⚡</span>
           <span className="resource-value" style={{ color: energy < 0 ? '#ff4444' : undefined }}>{compact(energy)}</span>
+          {delta.energy !== 0 && (
+            <span className="resource-rate" style={{ color: delta.energy > 0 ? '#44cc88' : '#ff4444', fontSize: '10px', marginLeft: '2px' }}>
+              {delta.energy > 0 ? '+' : ''}{compact(delta.energy)}
+            </span>
+          )}
         </span>
         <span className="resource-item" title="Organics (Food)">
           <span className="resource-icon" style={{ color: organics < 0 ? '#ff4444' : undefined }}>🌾</span>
           <span className="resource-value" style={{ color: organics < 0 ? '#ff4444' : undefined }}>{compact(organics)}</span>
+          {delta.organics !== 0 && (
+            <span className="resource-rate" style={{ color: delta.organics > 0 ? '#44cc88' : '#ff4444', fontSize: '10px', marginLeft: '2px' }}>
+              {delta.organics > 0 ? '+' : ''}{compact(delta.organics)}
+            </span>
+          )}
         </span>
         <span className="resource-item" title="Research">
           <span className="resource-icon">⚗</span>
           <span className="resource-value">{compact(researchPoints)}</span>
+          {delta.researchPoints !== 0 && (
+            <span className="resource-rate" style={{ color: delta.researchPoints > 0 ? '#44cc88' : '#ff4444', fontSize: '10px', marginLeft: '2px' }}>
+              {delta.researchPoints > 0 ? '+' : ''}{compact(delta.researchPoints)}
+            </span>
+          )}
         </span>
       </div>
     </div>

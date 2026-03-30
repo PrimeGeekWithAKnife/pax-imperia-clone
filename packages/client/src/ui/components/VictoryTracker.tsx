@@ -107,10 +107,10 @@ export function VictoryTracker({
     for (const rival of rivalProgress) {
       for (const cond of rival.victoryConditions) {
         if (!cond.isAchieved && cond.progress >= 75) {
-          warnings.push(`Empire ${rival.empireId} is close to victory via ${cond.name}!`);
+          warnings.push(`A rival empire is close to victory via ${cond.name}!`);
         }
         if (cond.isAchieved) {
-          warnings.push(`Empire ${rival.empireId} has achieved ${cond.name}!`);
+          warnings.push(`A rival empire has achieved ${cond.name}!`);
         }
       }
     }

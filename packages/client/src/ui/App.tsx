@@ -413,6 +413,7 @@ export function App(): React.ReactElement {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
       if (currentScreen === 'game') {
+        if (e.ctrlKey || e.metaKey) return;
         switch (e.key) {
           case 'Escape':
             // Only toggle pause when a game is in progress; on the main menu
