@@ -596,63 +596,21 @@ export class CombatScene extends Phaser.Scene {
         : this.sceneData.defenderColor;
       const texKey = `ship_${hullClass}_${ship.side}_${iconPx}`;
 
+      // Load ship silhouette texture synchronously from canvas-rendered data URL
       if (!this.textures.exists(texKey)) {
         const dataUrl = renderShipIcon(hullClass, iconPx, colorHex);
         if (dataUrl && dataUrl.startsWith('data:')) {
-          // Load as texture from data URL
-          const img = new Image();
-          img.src = dataUrl;
-          img.onload = () => {
-            if (!this.textures.exists(texKey)) {
-              this.textures.addImage(texKey, img);
-            }
-            // Update the sprite once loaded
-            const existing = container.getByName('shipSprite') as Phaser.GameObjects.Sprite | null;
-            if (existing) {
-              existing.setTexture(texKey);
-              existing.setVisible(true);
-            }
-          };
+          this.textures.addBase64(texKey, dataUrl);
         }
       }
 
-      // Create sprite (may show immediately if texture cached, or after load)
-      if (this.textures.exists(texKey)) {
-        const sprite = this.add.sprite(0, 0, texKey);
-        sprite.setName('shipSprite');
-        // ShipGraphics renders nose-up; combat scene faces right (+x)
-        // Rotate the sprite -90deg so nose points in the +x direction
-        sprite.setAngle(-90);
-        sprite.setDisplaySize(iconPx, iconPx);
-        container.add(sprite);
-      } else {
-        // Placeholder triangle until icon loads
-        const gfx = this.add.graphics();
-        const color = this._shipColor(ship);
-        gfx.fillStyle(color, 1);
-        gfx.beginPath();
-        gfx.moveTo(height / 2, 0);
-        gfx.lineTo(-height / 2, -base / 2);
-        gfx.lineTo(-height / 2, base / 2);
-        gfx.closePath();
-        gfx.fillPath();
-        gfx.lineStyle(1.5, 0xffffff, 0.5);
-        gfx.beginPath();
-        gfx.moveTo(height / 2, 0);
-        gfx.lineTo(-height / 2, -base / 2);
-        gfx.lineTo(-height / 2, base / 2);
-        gfx.closePath();
-        gfx.strokePath();
-        container.add(gfx);
-
-        // Create a hidden sprite that will show when texture loads
-        const placeholder = this.add.sprite(0, 0, '__DEFAULT');
-        placeholder.setName('shipSprite');
-        placeholder.setAngle(-90);
-        placeholder.setDisplaySize(iconPx, iconPx);
-        placeholder.setVisible(false);
-        container.add(placeholder);
-      }
+      // Create sprite — texture available immediately via addBase64
+      const sprite = this.add.sprite(0, 0, texKey);
+      sprite.setName('shipSprite');
+      // ShipGraphics renders nose-up; combat scene faces right (+x)
+      sprite.setAngle(-90);
+      sprite.setDisplaySize(iconPx, iconPx);
+      container.add(sprite);
 
       // Hull class label above the ship
       const classLabel = this.add.text(0, -iconPx / 2 - 6, hullClass.replace(/_/g, ' ').toUpperCase(), {
