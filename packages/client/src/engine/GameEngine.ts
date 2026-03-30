@@ -271,12 +271,21 @@ export class GameEngine {
         case 'CombatResolved': {
           const combatEvent = event as CombatResolvedEvent;
           this.game.events.emit('engine:combat_resolved', combatEvent);
-          // Pause the engine so the player can read the battle results
-          this._clearInterval();
-          this.running = false;
-          // Build enriched battle result data for the UI
-          const battleData = this._buildBattleResultData(combatEvent, prevShips, prevFleets);
-          this.game.events.emit('engine:battle_resolved', battleData);
+
+          // Only pause and show battle results if the player was involved
+          const playerInvolved = playerEmpire && (
+            combatEvent.winnerEmpireId === playerEmpire.id ||
+            combatEvent.casualties.some(c => {
+              const fleet = prevFleets.find(f => f.id === c.fleetId);
+              return fleet?.empireId === playerEmpire.id;
+            })
+          );
+          if (playerInvolved) {
+            this._clearInterval();
+            this.running = false;
+            const battleData = this._buildBattleResultData(combatEvent, prevShips, prevFleets);
+            this.game.events.emit('engine:battle_resolved', battleData);
+          }
           break;
         }
         case 'TechResearched':
