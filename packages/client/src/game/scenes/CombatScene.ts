@@ -276,6 +276,9 @@ export class CombatScene extends Phaser.Scene {
     // ── Input ──────────────────────────────────────────────────────────────
     this._setupInput();
 
+    // ── Instructions overlay (starts paused) ────────────────────────────
+    this._showInstructions();
+
     // ── Tick loop ──────────────────────────────────────────────────────────
     this.tickTimer = this.time.addEvent({
       delay: SPEED_PRESETS[0]!.msPerTick,
@@ -902,12 +905,12 @@ export class CombatScene extends Phaser.Scene {
     }
 
     // ── Bottom-right: retreat button ───────────────────────────────────────
-    const retreatBtn = this.add.text(width - 16, height - 36, 'RETREAT ALL', {
+    const retreatBtn = this.add.text(width - 16, height - 38, 'RETREAT ALL', {
       fontFamily: 'monospace',
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#ff5555',
       backgroundColor: '#1a1a2e',
-      padding: { x: 8, y: 6 },
+      padding: { x: 12, y: 8 },
       stroke: '#ff5555',
       strokeThickness: 1,
     });
@@ -916,10 +919,12 @@ export class CombatScene extends Phaser.Scene {
     retreatBtn.on('pointerdown', () => this._retreatAll());
 
     // ── Bottom-left: formation buttons ──────────────────────────────────
-    const formationLabel = this.add.text(12, height - 70, 'FORMATION:', {
+    const formationLabel = this.add.text(12, height - 80, 'FORMATION:', {
       fontFamily: 'monospace',
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#88aacc',
+      stroke: '#000000',
+      strokeThickness: 2,
     });
     formationLabel.setScrollFactor(0).setDepth(100);
 
@@ -927,31 +932,35 @@ export class CombatScene extends Phaser.Scene {
     this.formationButtons = [];
     for (const fm of FORMATION_TYPES) {
       const isActive = fm.type === 'line'; // default formation
-      const btn = this.add.text(fmtBtnX, height - 56, fm.label, {
+      const btn = this.add.text(fmtBtnX, height - 62, fm.label, {
         fontFamily: 'monospace',
-        fontSize: '11px',
+        fontSize: '13px',
         color: isActive ? '#44ffaa' : '#6688aa',
         backgroundColor: '#1a1a2e',
-        padding: { x: 6, y: 4 },
+        padding: { x: 10, y: 6 },
+        stroke: '#000000',
+        strokeThickness: 1,
       });
       btn.setScrollFactor(0).setDepth(100);
       btn.setInteractive({ useHandCursor: true });
       btn.setData('formationType', fm.type);
       btn.on('pointerdown', () => this._setPlayerFormation(fm.type));
       this.formationButtons.push(btn);
-      fmtBtnX += btn.width + 6;
+      fmtBtnX += btn.width + 8;
     }
 
     // ── Admiral commands (right side, above retreat) ─────────────────────
-    const admiralY = height - 90;
+    const admiralY = height - 100;
     const admiralX = width - 16;
 
-    this.repairButton = this.add.text(admiralX, admiralY + 24, 'REPAIR', {
+    this.repairButton = this.add.text(admiralX, admiralY + 28, 'REPAIR', {
       fontFamily: 'monospace',
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#6688aa',
       backgroundColor: '#1a1a2e',
-      padding: { x: 6, y: 4 },
+      padding: { x: 10, y: 6 },
+      stroke: '#000000',
+      strokeThickness: 1,
     });
     this.repairButton.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     this.repairButton.setInteractive({ useHandCursor: true });
@@ -959,10 +968,12 @@ export class CombatScene extends Phaser.Scene {
 
     this.rallyButton = this.add.text(admiralX, admiralY, 'RALLY', {
       fontFamily: 'monospace',
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#6688aa',
       backgroundColor: '#1a1a2e',
-      padding: { x: 6, y: 4 },
+      padding: { x: 10, y: 6 },
+      stroke: '#000000',
+      strokeThickness: 1,
     });
     this.rallyButton.setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     this.rallyButton.setInteractive({ useHandCursor: true });
@@ -1002,11 +1013,102 @@ export class CombatScene extends Phaser.Scene {
     );
   }
 
+  /**
+   * Show a semi-transparent instructions panel at the start of combat.
+   * Pauses the battle until the player clicks "Begin Battle".
+   */
+  private _showInstructions(): void {
+    this.paused = true;
+    const { width, height } = this.scale;
+    const panelW = 420;
+    const panelH = 340;
+    const px = (width - panelW) / 2;
+    const py = (height - panelH) / 2;
+
+    const overlay = this.add.graphics();
+    overlay.setScrollFactor(0).setDepth(200);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, width, height);
+
+    const panel = this.add.graphics();
+    panel.setScrollFactor(0).setDepth(201);
+    panel.fillStyle(0x0a1628, 0.95);
+    panel.fillRoundedRect(px, py, panelW, panelH, 8);
+    panel.lineStyle(1, 0x3388cc, 0.6);
+    panel.strokeRoundedRect(px, py, panelW, panelH, 8);
+
+    const title = this.add.text(width / 2, py + 20, 'TACTICAL COMBAT', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#ff8844',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    title.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
+
+    const lines = [
+      '  CONTROLS',
+      '',
+      '  Left-click friendly ship    Select it',
+      '  Left-click enemy ship       Attack order',
+      '  Right-click empty space     Move order',
+      '  Right-click enemy ship      Attack order',
+      '  Scroll wheel                Zoom in/out',
+      '  Shift + drag                Pan camera',
+      '',
+      '  FORMATIONS (bottom-left)',
+      '  LINE / SPEAR / DIAMOND / WINGS',
+      '',
+      '  Ships attack enemies automatically when',
+      '  in weapon range. Use orders to focus fire',
+      '  or reposition your fleet.',
+    ];
+
+    const instructions = this.add.text(px + 16, py + 50, lines.join('\n'), {
+      fontFamily: 'monospace', fontSize: '12px', color: '#bbccdd',
+      lineSpacing: 4,
+    });
+    instructions.setScrollFactor(0).setDepth(202);
+
+    const btnW = 160;
+    const btnH = 36;
+    const btnX = (width - btnW) / 2;
+    const btnY = py + panelH - 52;
+
+    const btnBg = this.add.graphics();
+    btnBg.setScrollFactor(0).setDepth(202);
+    btnBg.fillStyle(0x00aa66, 0.9);
+    btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
+
+    const btnText = this.add.text(width / 2, btnY + btnH / 2, 'BEGIN BATTLE', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    btnText.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(203);
+
+    // Make the button area interactive
+    const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH);
+    hitZone.setScrollFactor(0).setDepth(204);
+    hitZone.setInteractive({ useHandCursor: true });
+    hitZone.on('pointerdown', () => {
+      overlay.destroy();
+      panel.destroy();
+      title.destroy();
+      instructions.destroy();
+      btnBg.destroy();
+      btnText.destroy();
+      hitZone.destroy();
+      this.paused = false;
+    });
+  }
+
   // =========================================================================
   // Input
   // =========================================================================
 
   private _setupInput(): void {
+    // Prevent browser context menu on right-click within the game canvas
+    this.game.canvas.addEventListener('contextmenu', (e: Event) => {
+      e.preventDefault();
+    });
+
     // ESC to deselect
     this.input.keyboard?.on('keydown-ESC', () => {
       this.selectedShipId = null;

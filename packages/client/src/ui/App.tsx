@@ -910,7 +910,10 @@ export function App(): React.ReactElement {
           d => d.empireId === playerEmp.id || d.empireId === '',
         );
         setSavedDesigns(prev => {
-          if (prev.length === playerDesigns.length) return prev; // avoid unnecessary re-renders
+          // Compare by IDs to detect additions, deletions, and edits
+          const prevIds = new Set(prev.map(d => d.id));
+          const nextIds = new Set(playerDesigns.map(d => d.id));
+          if (prev.length === playerDesigns.length && prev.every(d => nextIds.has(d.id)) && playerDesigns.every(d => prevIds.has(d.id))) return prev;
           return playerDesigns;
         });
       }
@@ -2018,7 +2021,7 @@ export function App(): React.ReactElement {
         <ShipDesignerScreen
           researchedTechs={researchState.completedTechs}
           currentAge={researchState.currentAge}
-          empireId="player"
+          empireId={playerEmpire?.id ?? 'player'}
           savedDesigns={savedDesigns}
           onSaveDesign={handleSaveDesign}
           onDeleteDesign={handleDeleteDesign}
