@@ -2403,10 +2403,11 @@ export function App(): React.ReactElement {
         <button
           onClick={() => setShow3DMap(true)}
           style={{
-            position: 'absolute', bottom: 16, right: 16, zIndex: 800,
+            position: 'absolute', bottom: 60, right: 16, zIndex: 800,
             background: 'rgba(0, 8, 20, 0.85)', border: '1px solid #4488ff',
             color: '#ccddff', fontFamily: 'monospace', fontSize: 12,
             padding: '6px 12px', borderRadius: 4, cursor: 'pointer',
+            pointerEvents: 'auto',
           }}
         >
           3D View (PoC)

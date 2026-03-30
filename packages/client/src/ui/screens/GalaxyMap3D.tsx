@@ -565,7 +565,7 @@ export function GalaxyMap3D({ galaxy, onSystemSelected, onClose }: GalaxyMap3DPr
   }, [systemMap]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 900 }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 900, pointerEvents: 'auto' }}>
       {/* Close button */}
       {onClose && (
         <button
