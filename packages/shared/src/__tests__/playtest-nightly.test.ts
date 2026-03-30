@@ -103,7 +103,7 @@ function runTicksWithSnapshots(
     allEvents.push(...result.events);
 
     for (const evt of result.events) {
-      if (evt.type === 'combat_resolved' || evt.type === 'combat_started') {
+      if (evt.type === 'CombatResolved' || evt.type === 'CombatStarted') {
         combatEvents.push(evt);
       }
     }
