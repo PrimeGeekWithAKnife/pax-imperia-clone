@@ -61,7 +61,7 @@ const ASCENSION_PROJECT_ID = 'ascension_project';
 const CONQUEST_THRESHOLD = 0.75;
 
 /** Credit multiplier over the nearest rival required for an economic victory. */
-const ECONOMIC_CREDIT_MULTIPLIER = 3;
+const ECONOMIC_CREDIT_MULTIPLIER = 10;
 
 /** Number of consecutive ticks the empire must maintain the credit lead. */
 const ECONOMIC_DURATION_TICKS = 200;
