@@ -67,10 +67,14 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  // CORS: restrict to same-origin in production, allow all in development
-  const isDev = process.env['NODE_ENV'] !== 'production';
+  // CORS: restrict to explicit localhost patterns in development, same-origin in production
+  const corsOrigin = process.env['CORS_ORIGIN']
+    ? process.env['CORS_ORIGIN'].split(',').map((o: string) => o.trim())
+    : process.env['NODE_ENV'] !== 'production'
+      ? [/^https?:\/\/localhost(:\d+)?$/, /^https?:\/\/127\.0\.0\.1(:\d+)?$/]
+      : false;
   await fastify.register(cors, {
-    origin: process.env['CORS_ORIGIN'] ?? (isDev ? true : false),
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
@@ -103,6 +107,7 @@ async function bootstrap(): Promise<void> {
   /** POST /api/saves — write a save file to the server. */
   fastify.post<{ Body: { name: string; data: unknown } }>('/api/saves', {
     bodyLimit: 5 * 1024 * 1024, // 5 MB (reduced from 50 MB to limit disk exhaustion)
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const { name, data } = request.body as { name?: string; data?: unknown };
     if (!name || typeof name !== 'string' || !data) {
