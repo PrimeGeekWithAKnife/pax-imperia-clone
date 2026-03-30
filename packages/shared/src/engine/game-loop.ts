@@ -19,6 +19,7 @@
  *  6.  Ship Production
  *  7.  Research Progress
  *  8.  Diplomacy Tick       (stub)
+ *  8c. Exploration Tick    (anomaly investigation progress + reward granting)
  *  9.  AI Decisions
  *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
  *  9c. Building Condition   (maintenance-based decay, functionality checks)
@@ -48,7 +49,10 @@ import type {
   GovernorDiedEvent,
   GovernorAppointedEvent,
   EspionageResultEvent,
+  AnomalyInvestigationStartedEvent,
+  AnomalyInvestigatedEvent,
 } from '../types/events.js';
+import type { ExplorationOrder } from '../types/anomaly.js';
 import { GAME_SPEEDS, TECH_AGES } from '../constants/game.js';
 import { SHIP_COMPONENTS, HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 import { generateDefaultDesigns, getAvailableComponents } from './ship-design.js';
@@ -159,6 +163,11 @@ import {
   type EspionageEvent,
   type SpyMission,
 } from './espionage.js';
+import {
+  createExplorationOrder,
+  processExplorationTick,
+  discoverAnomaliesInSystem,
+} from './exploration.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -285,6 +294,11 @@ export interface GameTickState {
    * Most recent events are appended at the end.
    */
   espionageEventLog: EspionageEvent[];
+  /**
+   * Active anomaly investigation orders.
+   * Created via InvestigateAnomaly actions; advanced each tick by stepExploration.
+   */
+  explorationOrders?: ExplorationOrder[];
 }
 
 /** The result returned by processGameTick. */
@@ -741,6 +755,50 @@ function processPlayerActions(
       } else if (action.type === 'SetGameSpeed') {
         gameSpeed = action.speed;
 
+      // ── InvestigateAnomaly ──────────────────────────────────────────────
+      } else if (action.type === 'InvestigateAnomaly') {
+        const order = createExplorationOrder(
+          action.anomalyId,
+          action.fleetId,
+          state.gameState.galaxy,
+          state.gameState.fleets,
+          state.gameState.ships,
+          state.shipDesigns,
+          state.shipComponents,
+          empires,
+          state.explorationOrders ?? [],
+        );
+        if (order) {
+          state = {
+            ...state,
+            explorationOrders: [...(state.explorationOrders ?? []), order],
+          };
+          const anomaly = state.gameState.galaxy.anomalies.find(a => a.id === action.anomalyId);
+          if (anomaly) {
+            events.push({
+              type: 'AnomalyInvestigationStarted',
+              empireId: order.empireId,
+              anomalyId: order.anomalyId,
+              anomalyName: anomaly.name,
+              fleetId: order.fleetId,
+              systemId: order.systemId,
+              totalTicks: order.totalTicks,
+              tick: state.gameState.currentTick,
+            } as import('../types/events.js').AnomalyInvestigationStartedEvent);
+          }
+        } else {
+          console.warn(`[game-loop] InvestigateAnomaly rejected for anomaly "${action.anomalyId}" fleet "${action.fleetId}"`);
+        }
+
+      // ── CancelInvestigation ─────────────────────────────────────────────
+      } else if (action.type === 'CancelInvestigation') {
+        state = {
+          ...state,
+          explorationOrders: (state.explorationOrders ?? []).filter(
+            o => !(o.anomalyId === action.anomalyId && o.empireId === empireId),
+          ),
+        };
+
       } else {
         // Action type recognised but not handled yet — log and continue.
         console.warn(`[game-loop] Unhandled action type "${(action as GameAction).type}" — skipping`);
@@ -775,6 +833,7 @@ function stepFleetMovement(
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
   let empires = [...state.gameState.empires];
+  let anomalies = [...state.gameState.galaxy.anomalies];
   const remainingOrders: FleetMovementOrder[] = [];
   const newPendingCombats: CombatPending[] = [...state.pendingCombats];
 
@@ -820,6 +879,14 @@ function stepFleetMovement(
             : e,
         );
       }
+
+      // Discover anomalies in the arrived system
+      const discoveryResult = discoverAnomaliesInSystem(
+        arrivedSystemId,
+        fleet.empireId,
+        anomalies,
+      );
+      anomalies = discoveryResult.anomalies;
 
       // Check if there are enemy fleets in the arrived system
       const empireId = fleet.empireId;
@@ -915,6 +982,7 @@ function stepFleetMovement(
       empires,
       fleets,
       ships,
+      galaxy: { ...state.gameState.galaxy, anomalies },
     },
   };
 }
@@ -2127,6 +2195,52 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
 }
 
 // ---------------------------------------------------------------------------
+// Step 8c: Exploration Tick
+// ---------------------------------------------------------------------------
+
+/**
+ * Advance active anomaly investigation orders by one tick.
+ * Completed investigations grant rewards and emit events.
+ * Orders whose fleet has moved away are automatically cancelled.
+ */
+function stepExploration(state: GameTickState, events: GameEvent[]): GameTickState {
+  const orders = state.explorationOrders ?? [];
+  if (orders.length === 0) return state;
+
+  const result = processExplorationTick(
+    orders,
+    state.gameState.galaxy,
+    state.gameState.fleets,
+    state.gameState.empires,
+    state.empireResourcesMap,
+    state.gameState.currentTick,
+  );
+
+  events.push(...result.events);
+
+  // Sync empire credits/researchPoints back to Empire objects
+  let empires = state.gameState.empires;
+  for (const [empireId, res] of result.empireResourcesMap) {
+    empires = empires.map(e =>
+      e.id === empireId
+        ? { ...e, credits: res.credits, researchPoints: res.researchPoints }
+        : e,
+    );
+  }
+
+  return {
+    ...state,
+    explorationOrders: result.orders,
+    empireResourcesMap: result.empireResourcesMap,
+    gameState: {
+      ...state.gameState,
+      empires,
+      galaxy: { ...state.gameState.galaxy, anomalies: result.anomalies },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 9: AI Decisions
 // ---------------------------------------------------------------------------
 
@@ -2161,11 +2275,12 @@ function stepAIDecisions(
       personality,
       evaluation,
       allTechs,
+      state.explorationOrders ?? [],
     );
 
     // 3. Filter out unimplemented decision types that would waste slots, then pick top N
     const executableDecisions = allDecisions.filter(d =>
-      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war'].includes(d.type)
+      ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war', 'investigate_anomaly'].includes(d.type)
     );
 
     // Guarantee at least 1 research decision per tick to prevent starvation from
@@ -2218,6 +2333,9 @@ function executeAIDecision(
     case 'colonize':
       return executeAIColonize(state, empireId, decision);
 
+    case 'investigate_anomaly':
+      return executeAIInvestigateAnomaly(state, empireId, decision);
+
     // diplomacy and war are not yet wired — skip silently
     default:
       return state;
@@ -2260,6 +2378,38 @@ function executeAIColonize(
   // Use startMigration to set up colonisation
   const migrationOrder = startMigration(system, sourcePlanet.id, planetId, empireId, empire.species);
   return { ...state, migrationOrders: [...state.migrationOrders, migrationOrder] };
+}
+
+// ---------------------------------------------------------------------------
+// Investigate Anomaly: AI orders a fleet to investigate a space anomaly
+// ---------------------------------------------------------------------------
+
+function executeAIInvestigateAnomaly(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { fleetId, anomalyId } = decision.params as { fleetId: string; anomalyId: string };
+  if (!fleetId || !anomalyId) return state;
+
+  const order = createExplorationOrder(
+    anomalyId,
+    fleetId,
+    state.gameState.galaxy,
+    state.gameState.fleets,
+    state.gameState.ships,
+    state.shipDesigns,
+    state.shipComponents,
+    state.gameState.empires,
+    state.explorationOrders ?? [],
+  );
+
+  if (!order) return state;
+
+  return {
+    ...state,
+    explorationOrders: [...(state.explorationOrders ?? []), order],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -2837,6 +2987,9 @@ export function processGameTick(
   // 8b. Espionage Tick (spy infiltration, mission rolls, counter-intel)
   s = stepEspionage(s, events);
 
+  // 8c. Exploration Tick (anomaly investigation progress)
+  s = stepExploration(s, events);
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
@@ -2989,6 +3142,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     shipComponents: [...SHIP_COMPONENTS],
     espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
     espionageEventLog: [],
+    explorationOrders: [],
   };
 }
 

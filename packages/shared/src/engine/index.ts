@@ -26,3 +26,4 @@ export * from './energy-flow.js';
 export * from './building-condition.js';
 export * from './combat-tactical.js';
 export * from './ground-combat.js';
+export * from './exploration.js';

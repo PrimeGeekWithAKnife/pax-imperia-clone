@@ -22,6 +22,7 @@ import type { Governor } from '../types/governor.js';
 import type { PlanetWasteState, PlanetEnergyState } from '../types/waste.js';
 import type { SpyAgent, EspionageEvent } from './espionage.js';
 import { initialiseEspionage } from './espionage.js';
+import type { ExplorationOrder } from '../types/anomaly.js';
 
 export const SAVE_FORMAT_VERSION = '0.2.0';
 
@@ -55,6 +56,7 @@ export interface SerializedTickState {
   espionageAgents: SpyAgent[];
   espionageCounterIntel: Array<[string, number]>;
   espionageEventLog: EspionageEvent[];
+  explorationOrders?: ExplorationOrder[];
 }
 
 export interface SaveGame {
@@ -99,6 +101,7 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     espionageAgents: state.espionageState.agents,
     espionageCounterIntel: Array.from(state.espionageState.counterIntelLevel.entries()),
     espionageEventLog: state.espionageEventLog,
+    explorationOrders: state.explorationOrders ?? [],
   };
 }
 
@@ -142,6 +145,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
       counterIntelLevel: new Map(data.espionageCounterIntel ?? []),
     },
     espionageEventLog: data.espionageEventLog ?? [],
+    explorationOrders: data.explorationOrders ?? [],
   };
 }
 

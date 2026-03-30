@@ -8,11 +8,13 @@
 
 import type { Empire, Species, AIPersonality, DiplomaticStatus } from '../types/species.js';
 import type { Galaxy, Planet, BuildingType } from '../types/galaxy.js';
+import type { Anomaly, ExplorationOrder } from '../types/anomaly.js';
 import type { GameState } from '../types/game-state.js';
 import type { Fleet, Ship } from '../types/ships.js';
 import type { Technology } from '../types/technology.js';
 import { calculateHabitability, canColonize, getUpgradeCost, getMaxLevelForAge } from './colony.js';
 import { getFleetStrength } from './fleet.js';
+import { ANOMALY_REWARD_BY_TYPE } from '../../data/anomaly/index.js';
 import { getAvailableTechs, type ResearchState } from './research.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
 
@@ -30,7 +32,8 @@ export interface AIDecision {
     | 'diplomacy'
     | 'war'
     | 'recruit_spy'
-    | 'assign_spy';
+    | 'assign_spy'
+    | 'investigate_anomaly';
   /** Relative urgency 0–100. Higher = execute sooner. */
   priority: number;
   params: Record<string, unknown>;
@@ -60,12 +63,12 @@ const PERSONALITY_WEIGHTS: Record<
   AIPersonality,
   Partial<Record<AIDecision['type'], number>>
 > = {
-  aggressive:   { build_ship: 1.6, war: 1.5, move_fleet: 1.3, build: 0.8, research: 0.9, colonize: 1.0, diplomacy: 0.5, recruit_spy: 1.2, assign_spy: 1.3 },
-  defensive:    { build_ship: 1.2, war: 0.4, move_fleet: 0.8, build: 1.3, research: 1.0, colonize: 0.9, diplomacy: 1.0, recruit_spy: 0.8, assign_spy: 0.8 },
-  economic:     { build_ship: 0.8, war: 0.5, move_fleet: 0.7, build: 1.5, research: 1.1, colonize: 1.1, diplomacy: 1.2, recruit_spy: 1.0, assign_spy: 1.0 },
-  diplomatic:   { build_ship: 0.6, war: 0.3, move_fleet: 0.6, build: 1.0, research: 1.0, colonize: 1.0, diplomacy: 1.8, recruit_spy: 0.6, assign_spy: 0.5 },
-  expansionist: { build_ship: 1.0, war: 0.9, move_fleet: 1.4, build: 0.9, research: 0.9, colonize: 1.8, diplomacy: 0.8, recruit_spy: 1.0, assign_spy: 1.1 },
-  researcher:   { build_ship: 0.7, war: 0.5, move_fleet: 0.6, build: 1.2, research: 1.8, colonize: 0.8, diplomacy: 1.0, recruit_spy: 1.1, assign_spy: 1.2 },
+  aggressive:   { build_ship: 1.6, war: 1.5, move_fleet: 1.3, build: 0.8, research: 0.9, colonize: 1.0, diplomacy: 0.5, recruit_spy: 1.2, assign_spy: 1.3, investigate_anomaly: 0.6 },
+  defensive:    { build_ship: 1.2, war: 0.4, move_fleet: 0.8, build: 1.3, research: 1.0, colonize: 0.9, diplomacy: 1.0, recruit_spy: 0.8, assign_spy: 0.8, investigate_anomaly: 0.9 },
+  economic:     { build_ship: 0.8, war: 0.5, move_fleet: 0.7, build: 1.5, research: 1.1, colonize: 1.1, diplomacy: 1.2, recruit_spy: 1.0, assign_spy: 1.0, investigate_anomaly: 1.2 },
+  diplomatic:   { build_ship: 0.6, war: 0.3, move_fleet: 0.6, build: 1.0, research: 1.0, colonize: 1.0, diplomacy: 1.8, recruit_spy: 0.6, assign_spy: 0.5, investigate_anomaly: 0.8 },
+  expansionist: { build_ship: 1.0, war: 0.9, move_fleet: 1.4, build: 0.9, research: 0.9, colonize: 1.8, diplomacy: 0.8, recruit_spy: 1.0, assign_spy: 1.1, investigate_anomaly: 1.4 },
+  researcher:   { build_ship: 0.7, war: 0.5, move_fleet: 0.6, build: 1.2, research: 1.8, colonize: 0.8, diplomacy: 1.0, recruit_spy: 1.1, assign_spy: 1.2, investigate_anomaly: 1.6 },
 };
 
 /** Tech categories favoured by each personality when choosing research. */
@@ -837,6 +840,76 @@ function evaluateEspionageActions(
 // Top-level: generateAIDecisions
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Anomaly exploration evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Evaluate whether any idle fleets in systems with undiscovered anomalies
+ * should investigate them. Returns one decision per investigable anomaly.
+ */
+export function evaluateExplorationActions(
+  empire: Empire,
+  galaxy: Galaxy,
+  fleets: Fleet[],
+  existingOrders: ExplorationOrder[],
+): AIDecision[] {
+  const decisions: AIDecision[] = [];
+  const empireFleets = fleets.filter(f => f.empireId === empire.id);
+  const activeAnomalyIds = new Set(existingOrders.map(o => o.anomalyId));
+
+  for (const anomaly of galaxy.anomalies) {
+    // Skip investigated or already-being-investigated anomalies
+    if (anomaly.investigated || activeAnomalyIds.has(anomaly.id)) continue;
+
+    // Only investigate in systems the empire knows about
+    if (!empire.knownSystems.includes(anomaly.systemId)) continue;
+
+    // Find an idle fleet in this system (no destination, not already investigating)
+    const fleetsInvestigating = new Set(existingOrders.map(o => o.fleetId));
+    const idleFleet = empireFleets.find(
+      f =>
+        f.position.systemId === anomaly.systemId &&
+        f.destination === null &&
+        !fleetsInvestigating.has(f.id),
+    );
+
+    if (!idleFleet) continue;
+
+    // Calculate priority based on anomaly rewards value
+    const template = ANOMALY_REWARD_BY_TYPE[anomaly.type];
+    let basePriority = 40; // Moderate base priority
+    if (template) {
+      const rewards = template.baseRewards;
+      const rewardValue =
+        (rewards.researchPoints ?? 0) * 0.05 +
+        (rewards.minerals ?? 0) * 0.03 +
+        (rewards.credits ?? 0) * 0.03 +
+        (rewards.rareElements ?? 0) * 0.08 +
+        (rewards.exoticMaterials ?? 0) * 0.10 +
+        (rewards.energy ?? 0) * 0.02;
+
+      // Scale: higher rewards = higher priority (30-70 range before personality)
+      basePriority = Math.min(70, 30 + rewardValue);
+
+      // Species affinity bonus
+      const affinity = template.speciesAffinity?.[empire.species.name] ?? 1.0;
+      if (affinity > 1.0) {
+        basePriority = Math.min(80, basePriority * affinity);
+      }
+    }
+
+    decisions.push({
+      type: 'investigate_anomaly',
+      priority: basePriority,
+      params: { fleetId: idleFleet.id, anomalyId: anomaly.id },
+      reasoning: `Investigate ${anomaly.name} in system ${anomaly.systemId} with fleet ${idleFleet.name}`,
+    });
+  }
+
+  return decisions;
+}
+
 /**
  * Generate a prioritized list of AI decisions for one empire in one game tick.
  *
@@ -853,6 +926,7 @@ export function generateAIDecisions(
   personality: AIPersonality,
   evaluation: AIEvaluation,
   allTechs: Technology[] = [],
+  explorationOrders: ExplorationOrder[] = [],
 ): AIDecision[] {
   const researchState: ResearchState = {
     completedTechs: empire.technologies,
@@ -907,6 +981,14 @@ export function generateAIDecisions(
   // Espionage: recruit spies and assign missions against rival empires
   const espionageDecisions = evaluateEspionageActions(empire, gameState, personality, evaluation);
 
+  // Exploration: investigate anomalies in systems where idle fleets are present
+  const explorationDecisions = evaluateExplorationActions(
+    empire,
+    gameState.galaxy,
+    gameState.fleets,
+    explorationOrders,
+  ).map(d => ({ ...d, priority: applyWeight(d.priority, 'investigate_anomaly', personality) }));
+
   const allDecisions = [
     ...colonization,
     ...research,
@@ -916,6 +998,7 @@ export function generateAIDecisions(
     ...building,
     ...shipDecisions,
     ...espionageDecisions,
+    ...explorationDecisions,
   ];
 
   return allDecisions.sort((a, b) => b.priority - a.priority);

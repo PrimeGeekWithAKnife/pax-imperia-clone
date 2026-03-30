@@ -90,6 +90,19 @@ export interface DesignShipAction {
   components: { slotId: string; componentId: string }[];
 }
 
+/** Order a fleet in the same system as an anomaly to investigate it. */
+export interface InvestigateAnomalyAction {
+  type: 'InvestigateAnomaly';
+  fleetId: string;
+  anomalyId: string;
+}
+
+/** Cancel an ongoing anomaly investigation. */
+export interface CancelInvestigationAction {
+  type: 'CancelInvestigation';
+  anomalyId: string;
+}
+
 export type GameAction =
   | MoveFleetAction
   | BuildShipAction
@@ -103,7 +116,9 @@ export type GameAction =
   | AcceptTreatyAction
   | RejectTreatyAction
   | SetGameSpeedAction
-  | DesignShipAction;
+  | DesignShipAction
+  | InvestigateAnomalyAction
+  | CancelInvestigationAction;
 
 // ---------------------------------------------------------------------------
 // Game Events (server -> client)
@@ -283,6 +298,30 @@ export interface EspionageResultEvent {
   tick: number;
 }
 
+/** Emitted when a fleet begins investigating an anomaly. */
+export interface AnomalyInvestigationStartedEvent {
+  type: 'AnomalyInvestigationStarted';
+  empireId: string;
+  anomalyId: string;
+  anomalyName: string;
+  fleetId: string;
+  systemId: string;
+  totalTicks: number;
+  tick: number;
+}
+
+/** Emitted when an anomaly investigation completes and rewards are granted. */
+export interface AnomalyInvestigatedEvent {
+  type: 'AnomalyInvestigated';
+  empireId: string;
+  anomalyId: string;
+  anomalyName: string;
+  anomalyType: string;
+  systemId: string;
+  rewards: import('../types/anomaly.js').AnomalyReward;
+  tick: number;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -304,4 +343,6 @@ export type GameEvent =
   | TerraformingCompleteEvent
   | GovernorDiedEvent
   | GovernorAppointedEvent
-  | EspionageResultEvent;
+  | EspionageResultEvent
+  | AnomalyInvestigationStartedEvent
+  | AnomalyInvestigatedEvent;

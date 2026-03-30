@@ -23,7 +23,8 @@ export type NotificationType =
   | 'fleet_arrived'           // Fleet reached destination
   | 'diplomatic_proposal'     // AI offers treaty/demands
   | 'minor_species_found'     // Discovered pre-spaceflight civilisation
-  | 'anomaly_discovered';     // Found space anomaly
+  | 'anomaly_discovered'      // Found space anomaly
+  | 'anomaly_investigated';   // Anomaly investigation complete — rewards granted
 
 export interface GameNotification {
   id: string;

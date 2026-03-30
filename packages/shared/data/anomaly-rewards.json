@@ -1,0 +1,157 @@
+[
+  {
+    "type": "precursor_ruins",
+    "baseTicks": 30,
+    "difficulty": 4,
+    "baseRewards": {
+      "researchPoints": 500,
+      "rareElements": 150,
+      "loreFragment": "The ruins predate every known civilisation by millions of years. Crystalline data cores hold fragments of a star map — charting systems that no longer exist."
+    },
+    "speciesAffinity": {
+      "Orivani": 1.5,
+      "Kaelenth": 1.3,
+      "Nexari": 1.2
+    }
+  },
+  {
+    "type": "derelict_vessel",
+    "baseTicks": 20,
+    "difficulty": 3,
+    "baseRewards": {
+      "minerals": 300,
+      "rareElements": 100,
+      "exoticMaterials": 50,
+      "loreFragment": "The hull is pockmarked with weapons fire of unknown origin. Inside, the crew quarters are arranged for beings with six limbs. The cargo hold still contains refined alloys of exceptional purity."
+    },
+    "speciesAffinity": {
+      "Ashkari": 1.5,
+      "Drakmari": 1.3,
+      "Khazari": 1.2
+    }
+  },
+  {
+    "type": "spatial_rift",
+    "baseTicks": 35,
+    "difficulty": 5,
+    "baseRewards": {
+      "researchPoints": 800,
+      "exoticMaterials": 200,
+      "loreFragment": "The rift pulsates with energies that defy conventional physics. Sensor readings suggest a stable bridge to a parallel spatial dimension — or perhaps a scar from when someone tried to create one."
+    },
+    "speciesAffinity": {
+      "Aethyn": 1.8,
+      "Luminari": 1.4,
+      "Vaelori": 1.3
+    }
+  },
+  {
+    "type": "mineral_deposit",
+    "baseTicks": 15,
+    "difficulty": 2,
+    "baseRewards": {
+      "minerals": 600,
+      "rareElements": 200,
+      "credits": 150,
+      "loreFragment": "A dense asteroid cluster rich in heavy elements. Spectral analysis reveals deposits of iridium, osmium, and trace amounts of an unclassified transuranic element."
+    },
+    "speciesAffinity": {
+      "Khazari": 1.5,
+      "Zorvathi": 1.3,
+      "Pyrenth": 1.4
+    }
+  },
+  {
+    "type": "energy_signature",
+    "baseTicks": 25,
+    "difficulty": 4,
+    "baseRewards": {
+      "researchPoints": 600,
+      "energy": 400,
+      "exoticMaterials": 100,
+      "loreFragment": "The signal originates from beyond the galactic rim, repeating in a pattern that maps to prime numbers. Whatever is broadcasting has been doing so for millennia. It knows we are here."
+    },
+    "speciesAffinity": {
+      "Nexari": 1.4,
+      "Luminari": 1.3,
+      "Teranos": 1.2
+    }
+  },
+  {
+    "type": "sealed_wormhole",
+    "baseTicks": 40,
+    "difficulty": 5,
+    "baseRewards": {
+      "researchPoints": 1000,
+      "exoticMaterials": 300,
+      "loreFragment": "The wormhole was deliberately collapsed using technology far beyond current capability. Residual energy patterns suggest it was sealed from the other side. Whatever lies beyond was either protected — or contained."
+    },
+    "speciesAffinity": {
+      "Aethyn": 1.6,
+      "Kaelenth": 1.4,
+      "Vaelori": 1.2
+    }
+  },
+  {
+    "type": "debris_field",
+    "baseTicks": 12,
+    "difficulty": 1,
+    "baseRewards": {
+      "minerals": 200,
+      "credits": 100,
+      "rareElements": 50,
+      "loreFragment": "Fragments of hundreds of vessels, fused together by extreme heat. Metallurgical analysis dates the wreckage to roughly 50,000 years ago. The battle that produced this carnage was immense."
+    },
+    "speciesAffinity": {
+      "Ashkari": 1.6,
+      "Drakmari": 1.2,
+      "Khazari": 1.2
+    }
+  },
+  {
+    "type": "living_nebula",
+    "baseTicks": 28,
+    "difficulty": 4,
+    "baseRewards": {
+      "researchPoints": 700,
+      "energy": 300,
+      "exoticMaterials": 150,
+      "loreFragment": "The gas clouds respond to external stimuli with coordinated electromagnetic pulses. The nebula is not merely alive — it is aware. Communication attempts using modulated radio waves have received structured responses."
+    },
+    "speciesAffinity": {
+      "Luminari": 1.8,
+      "Sylvani": 1.4,
+      "Vethara": 1.3
+    }
+  },
+  {
+    "type": "gravity_anomaly",
+    "baseTicks": 22,
+    "difficulty": 3,
+    "baseRewards": {
+      "researchPoints": 400,
+      "exoticMaterials": 120,
+      "loreFragment": "Local gravitational constants differ by 0.3% from the galactic norm. Time dilation effects are measurable at the epicentre. The phenomenon appears to be artificial — a gravity lens of staggering precision."
+    },
+    "speciesAffinity": {
+      "Thyriaq": 1.5,
+      "Kaelenth": 1.3,
+      "Nexari": 1.2
+    }
+  },
+  {
+    "type": "ancient_beacon",
+    "baseTicks": 18,
+    "difficulty": 3,
+    "baseRewards": {
+      "researchPoints": 350,
+      "credits": 200,
+      "loreFragment": "A structure of impossible geometry, broadcasting on frequencies that predate the formation of most nearby stars. Its message is a warning — or an invitation. The distinction may not matter."
+    },
+    "speciesAffinity": {
+      "Orivani": 1.6,
+      "Teranos": 1.3,
+      "Vaelori": 1.2
+    }
+  }
+]
