@@ -1184,3 +1184,19 @@
 - Auto-resolve outcome based on historical average of the last 10 matching battles in that game session
 - This makes auto-resolve a learned shortcut, not a generic formula
 - Later enhancement: full AI battle simulation option (AI plays both sides tactically)
+
+### Galactic Organisations (replaces "Galactic Council" single-body model)
+
+**Decision:** Multiple competing galactic organisations, not one monolithic council.
+
+- **Formation requires only 2 members** — any two empires with complex diplomatic communication technology can propose forming a galactic organisation
+- **Default benefits of membership:** non-aggression pact and basic trade partnerships between all members
+- **Multiple organisations can coexist and compete:**
+  - "Galactic Council", "Galactic Federation", "United Worlds League", etc. — each with a distinct name for differentiation
+  - Organisations are like real-world power blocs: USA forming NATO vs USSR forming the Warsaw Pact
+  - Members can leave one organisation and join another
+  - Organisations can merge into a single body if all members agree
+  - Competing organisations may have different rules, currencies, and markets
+- **Naming:** Each organisation gets a unique procedural or player-chosen name to distinguish it
+- **Historical parallel:** Like states forming the United States vs Russia/Ukraine/Belarus forming the USSR — voluntary coalitions with distinct character and rules
+- **One empire can only be a member of one organisation at a time** (must leave before joining another)
