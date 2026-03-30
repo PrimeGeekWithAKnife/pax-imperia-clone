@@ -818,7 +818,7 @@ export function initializeTacticalCombat(
         armour: extracted.armour,
         weapons: extracted.weapons,
         sensorRange: extracted.sensorRange,
-        order: { type: 'idle' } as ShipOrder,
+        order: { type: 'attack', targetId: '' } as ShipOrder,
         destroyed: false,
         routed: false,
         crew: {
@@ -877,7 +877,7 @@ export function initializeTacticalCombat(
           maxAmmo: 200,
         }],
         sensorRange: 600,
-        order: { type: 'idle' } as ShipOrder,
+        order: { type: 'attack', targetId: '' } as ShipOrder,
         destroyed: false,
         routed: false,
         crew: {
