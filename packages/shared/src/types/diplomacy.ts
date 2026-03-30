@@ -280,6 +280,8 @@ export interface CouncilResolution {
 /**
  * A bloc of empires within the Galactic Council that coordinate
  * voting and may establish their own economic institutions.
+ *
+ * @deprecated Use GalacticOrganisation instead. Retained for save compatibility.
  */
 export interface GalacticBloc {
   id: string;
@@ -300,6 +302,9 @@ export interface GalacticBloc {
  * The Galactic Council — a multi-empire governing body formed when
  * enough empires have established diplomatic relations.
  *
+ * @deprecated Use GalacticOrganisationState instead for multiple competing organisations.
+ * Retained for save compatibility.
+ *
  * Supports voting on resolutions, rival blocs, and an optional
  * reserve currency.
  */
@@ -318,6 +323,52 @@ export interface GalacticCouncil {
   resolutions: CouncilResolution[];
   /** Rival blocs that have formed within the council. */
   rivalBlocs: GalacticBloc[];
+}
+
+// ---------------------------------------------------------------------------
+// Galactic Organisations (multi-org model)
+// ---------------------------------------------------------------------------
+
+/**
+ * A galactic organisation — an inter-empire body that any two empires
+ * with mutual diplomatic contact may found. Multiple organisations
+ * coexist and compete (akin to NATO vs the Warsaw Pact).
+ *
+ * Default membership benefits: non-aggression pact + basic trade partnerships.
+ * An empire may belong to at most one organisation at a time.
+ */
+export interface GalacticOrganisation {
+  /** Unique identifier for this organisation. */
+  id: string;
+  /** Human-readable name (e.g. "Galactic Council", "Stellar Alliance"). */
+  name: string;
+  /** Game tick when the organisation was founded. */
+  formedTick: number;
+  /** Empire IDs of the two founding empires. */
+  founderEmpires: [string, string];
+  /** Empire IDs of all current members (including founders). */
+  memberEmpires: string[];
+  /** empireId -> voting weight (based on economy, military, reputation, etc.). */
+  votingPower: Record<string, number>;
+  /** All resolutions that have been proposed or voted on within this organisation. */
+  resolutions: CouncilResolution[];
+  /** Whether this organisation has established its own reserve currency. */
+  reserveCurrency: boolean;
+  /** Whether this organisation operates its own internal market. */
+  hasOwnMarket: boolean;
+  /**
+   * Game tick at which binding resolutions become permitted.
+   * Equals formedTick + maturity period. Undefined if already mature.
+   */
+  maturityTick: number;
+}
+
+/**
+ * Top-level state container for all galactic organisations in the game.
+ */
+export interface GalacticOrganisationState {
+  /** All currently active galactic organisations. */
+  organisations: GalacticOrganisation[];
 }
 
 // ---------------------------------------------------------------------------

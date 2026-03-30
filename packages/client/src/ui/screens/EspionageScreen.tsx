@@ -22,19 +22,76 @@ import type {
   GatherIntelResult,
   StealTechResult,
   SabotageResult,
+  FabricateGrievanceResult,
+  RevealPrivateStanceResult,
+  SabotageNegotiationsResult,
+  PlantEvidenceResult,
+  RecruitAssetResult,
+  FalseFlagResult,
 } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const MISSION_TYPES: SpyMission[] = ['gather_intel', 'steal_tech', 'sabotage', 'counter_intel'];
+// ── Mission categories ────────────────────────────────────────────────────────
+
+interface MissionCategory {
+  label: string;
+  missions: SpyMission[];
+}
+
+const MISSION_CATEGORIES: MissionCategory[] = [
+  { label: 'Intelligence',  missions: ['gather_intel', 'reveal_private_stance'] },
+  { label: 'Technology',    missions: ['steal_tech'] },
+  { label: 'Sabotage',      missions: ['sabotage', 'sabotage_negotiations'] },
+  { label: 'Diplomatic',    missions: ['fabricate_grievance', 'plant_evidence'] },
+  { label: 'Subversion',    missions: ['recruit_asset', 'false_flag'] },
+  { label: 'Defence',       missions: ['counter_intel'] },
+];
 
 const MISSION_DESCRIPTIONS: Record<SpyMission, string> = {
-  gather_intel:  'Reveals the target empire\'s credits, tech count and fleet positions.',
-  steal_tech:    '30% chance per turn to steal a technology the target has but you lack. Counter-intelligence reduces this.',
-  sabotage:      '20% chance per turn to damage a building or delay production. Counter-intelligence reduces this.',
-  counter_intel: 'Passively raises your own counter-intelligence level by 3 each turn, making your empire harder to spy on.',
+  gather_intel:          'Reveals the target empire\'s credits, tech count and fleet positions.',
+  steal_tech:            '30% chance per turn to steal a technology the target has but you lack. Counter-intelligence reduces this.',
+  sabotage:              '20% chance per turn to damage a building or delay production. Counter-intelligence reduces this.',
+  counter_intel:         'Passively raises your own counter-intelligence level by 3 each turn, making your empire harder to spy on.',
+  fabricate_grievance:   'Plants a fake diplomatic incident to worsen relations between two empires.',
+  reveal_private_stance: 'Uncovers the target empire\'s true diplomatic position towards another empire.',
+  sabotage_negotiations: 'Disrupts ongoing treaty negotiations, delaying or collapsing diplomatic progress.',
+  plant_evidence:        'Plants fabricated evidence of a transgression to frame a third-party empire.',
+  recruit_asset:         'Attempts to turn an enemy official into a double agent. High risk, high reward.',
+  false_flag:            'Conducts a covert operation disguised as another empire. Very high detection risk.',
+};
+
+// ── Mission colour coding ─────────────────────────────────────────────────────
+
+const DIPLOMATIC_MISSIONS: ReadonlySet<SpyMission> = new Set([
+  'fabricate_grievance', 'reveal_private_stance', 'sabotage_negotiations',
+]);
+const SUBVERSION_MISSIONS: ReadonlySet<SpyMission> = new Set([
+  'plant_evidence', 'recruit_asset', 'false_flag',
+]);
+
+function getMissionColour(mission: SpyMission): string | undefined {
+  if (DIPLOMATIC_MISSIONS.has(mission)) return '#42a5f5'; // blue
+  if (SUBVERSION_MISSIONS.has(mission)) return '#ab47bc'; // purple
+  return undefined; // existing missions keep default colour
+}
+
+// ── Mission risk indicators ───────────────────────────────────────────────────
+
+interface RiskIndicator {
+  label: string;
+  colour: string;
+}
+
+const MISSION_RISK: Partial<Record<SpyMission, RiskIndicator>> = {
+  false_flag:            { label: 'Very High Risk', colour: '#ef5350' },
+  recruit_asset:         { label: 'High Risk',      colour: '#ffa726' },
+  plant_evidence:        { label: 'High Risk',      colour: '#ffa726' },
+  fabricate_grievance:   { label: 'Medium Risk',    colour: '#ffee58' },
+  sabotage_negotiations: { label: 'Medium Risk',    colour: '#ffee58' },
+  reveal_private_stance: { label: 'Low Risk',       colour: '#66bb6a' },
 };
 
 const STATUS_COLOURS: Record<SpyAgent['status'], string> = {
@@ -45,11 +102,17 @@ const STATUS_COLOURS: Record<SpyAgent['status'], string> = {
 };
 
 const EVENT_ICONS: Record<EspionageEvent['type'], string> = {
-  gather_intel:  'I',
-  steal_tech:    'T',
-  sabotage:      'S',
-  counter_intel: 'C',
-  capture:       'X',
+  gather_intel:          'I',
+  steal_tech:            'T',
+  sabotage:              'S',
+  counter_intel:         'C',
+  capture:               'X',
+  fabricate_grievance:   'G',
+  reveal_private_stance: 'R',
+  sabotage_negotiations: 'N',
+  plant_evidence:        'E',
+  recruit_asset:         'A',
+  false_flag:            'F',
 };
 
 // ---------------------------------------------------------------------------
@@ -103,7 +166,12 @@ function AgentRow({ agent, knownEmpires, isSelected, onClick }: AgentRowProps): 
           </span>
         )}
       </span>
-      <span className="agent-row__mission">{getSpyMissionLabel(agent.mission)}</span>
+      <span
+        className="agent-row__mission"
+        style={getMissionColour(agent.mission) ? { color: getMissionColour(agent.mission) } : undefined}
+      >
+        {getSpyMissionLabel(agent.mission)}
+      </span>
       <span className="agent-row__target">{targetName}</span>
     </button>
   );
@@ -153,19 +221,41 @@ function MissionPanel({ agent, knownEmpires, onAssign }: MissionPanelProps): Rea
 
       <fieldset className="mission-panel__missions">
         <legend className="mission-panel__legend">Mission Type</legend>
-        {MISSION_TYPES.map((m) => (
-          <label key={m} className="mission-panel__radio-label">
-            <input
-              type="radio"
-              name="mission"
-              value={m}
-              checked={selectedMission === m}
-              onChange={() => setSelectedMission(m)}
-              disabled={!isActive}
-            />
-            <span className="mission-panel__mission-name">{getSpyMissionLabel(m)}</span>
-            <span className="mission-panel__mission-desc">{MISSION_DESCRIPTIONS[m]}</span>
-          </label>
+        {MISSION_CATEGORIES.map((cat) => (
+          <div key={cat.label} className="mission-panel__category">
+            <h4 className="mission-panel__category-heading">{cat.label}</h4>
+            {cat.missions.map((m) => {
+              const missionColour = getMissionColour(m);
+              const risk = MISSION_RISK[m];
+              return (
+                <label key={m} className="mission-panel__radio-label">
+                  <input
+                    type="radio"
+                    name="mission"
+                    value={m}
+                    checked={selectedMission === m}
+                    onChange={() => setSelectedMission(m)}
+                    disabled={!isActive}
+                  />
+                  <span
+                    className="mission-panel__mission-name"
+                    style={missionColour ? { color: missionColour } : undefined}
+                  >
+                    {getSpyMissionLabel(m)}
+                  </span>
+                  {risk && (
+                    <span
+                      className="mission-panel__mission-risk"
+                      style={{ color: risk.colour }}
+                    >
+                      {risk.label}
+                    </span>
+                  )}
+                  <span className="mission-panel__mission-desc">{MISSION_DESCRIPTIONS[m]}</span>
+                </label>
+              );
+            })}
+          </div>
         ))}
       </fieldset>
 
@@ -229,12 +319,55 @@ function EventLogEntry({ event, knownEmpires }: EventLogEntryProps): React.React
         const target = empireLabel(event.targetEmpireId);
         return `Agent captured by ${target}! Diplomatic relations will suffer.`;
       }
+      case 'fabricate_grievance': {
+        const e = event as FabricateGrievanceResult;
+        const victim = empireLabel(e.victimEmpireId);
+        const framed = empireLabel(e.framedEmpireId);
+        return `Fabricated a ${e.severity} grievance — ${victim} now suspects ${framed}. Evidence strength: ${e.evidenceStrength}%.`;
+      }
+      case 'reveal_private_stance': {
+        const e = event as RevealPrivateStanceResult;
+        const target = empireLabel(e.targetEmpireId);
+        const position = e.assessedPosition >= 0 ? `+${e.assessedPosition}` : `${e.assessedPosition}`;
+        return `Private stance of ${target} revealed: ${position} (confidence: ${e.confidence}).`;
+      }
+      case 'sabotage_negotiations': {
+        const e = event as SabotageNegotiationsResult;
+        const target = empireLabel(e.targetEmpireId);
+        if (e.affectedTreatyId) {
+          return `Negotiations disrupted for ${target}: treaty ${e.affectedTreatyId} affected. ${e.description}`;
+        }
+        return `Attempted to sabotage negotiations with ${target} — no active treaties found.`;
+      }
+      case 'plant_evidence': {
+        const e = event as PlantEvidenceResult;
+        const target = empireLabel(e.targetEmpireId);
+        const framed = empireLabel(e.framedEmpireId);
+        return `Evidence planted on ${target} implicating ${framed}. Evidence strength: ${e.evidenceStrength}%.`;
+      }
+      case 'recruit_asset': {
+        const e = event as RecruitAssetResult;
+        const target = empireLabel(e.targetEmpireId);
+        if (e.success && e.recruitedCharacterName) {
+          return `Asset recruited within ${target}: ${e.recruitedCharacterName} (${e.recruitedCharacterRole ?? 'unknown'}).`;
+        }
+        return `Attempted to recruit an asset within ${target} — operation unsuccessful.`;
+      }
+      case 'false_flag': {
+        const e = event as FalseFlagResult;
+        const target = empireLabel(e.targetEmpireId);
+        const framed = empireLabel(e.framedEmpireId);
+        return `False flag ${e.operationType} conducted on ${target}, attributed to ${framed}. Evidence strength: ${e.evidenceStrength}%.`;
+      }
     }
   }
 
   const icon = EVENT_ICONS[event.type];
   const isNegative = event.type === 'capture';
-  const isPositive = event.type === 'steal_tech' || event.type === 'sabotage';
+  const isPositive = event.type === 'steal_tech' || event.type === 'sabotage'
+    || event.type === 'fabricate_grievance' || event.type === 'plant_evidence'
+    || event.type === 'false_flag'
+    || (event.type === 'recruit_asset' && (event as RecruitAssetResult).success);
 
   return (
     <li
