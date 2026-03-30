@@ -42,7 +42,7 @@ export interface MultiplayerLobbyScreenProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = import.meta.env['VITE_SERVER_URL'] ?? 'http://localhost:3000';
 
 const GALAXY_SIZES: Array<{ key: GalaxySize; label: string; systems: number }> = [
   { key: 'small',  label: 'Small',  systems: 20  },
