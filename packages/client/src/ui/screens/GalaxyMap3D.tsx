@@ -692,39 +692,14 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, systems.length]} raycast={() => null}>
-      <sphereGeometry args={[1, 24, 24]} />
-      <shaderMaterial
+      <sphereGeometry args={[1, 16, 16]} />
+      <meshBasicMaterial
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        side={THREE.FrontSide}
-        vertexShader={`
-          varying vec3 vNormal;
-          varying vec3 vViewDir;
-          varying vec3 vColor;
-          void main() {
-            vColor = instanceColor;
-            vNormal = normalize(normalMatrix * normal);
-            vec4 mvPos = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-            vViewDir = normalize(-mvPos.xyz);
-            gl_Position = projectionMatrix * mvPos;
-          }
-        `}
-        fragmentShader={`
-          varying vec3 vNormal;
-          varying vec3 vViewDir;
-          varying vec3 vColor;
-          void main() {
-            float fresnel = 1.0 - abs(dot(vViewDir, vNormal));
-            // Outer glow: strong at edges (Fresnel rim), fading inward
-            float outerGlow = pow(fresnel, 1.8) * 0.6;
-            // Inner core brightening
-            float innerCore = pow(1.0 - fresnel, 4.0) * 0.3;
-            float alpha = outerGlow + innerCore;
-            // Colour stays consistent across the sphere
-            gl_FragColor = vec4(vColor * (1.0 + innerCore * 2.0), alpha);
-          }
-        `}
+        toneMapped={false}
+        vertexColors
+        opacity={0.35}
       />
     </instancedMesh>
   );
