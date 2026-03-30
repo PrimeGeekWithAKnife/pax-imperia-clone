@@ -4,6 +4,7 @@ import type { EmpireResources } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, UNIVERSAL_TECHNOLOGIES } from '@nova-imperia/shared';
 import type { GameEngine } from '../engine/GameEngine';
 import { getGameEngine } from '../engine/GameEngine';
+import { SaveManager } from '../engine/SaveManager';
 import type { MigrationOrder } from '@nova-imperia/shared';
 import { estimateTotalWaves } from '../engine/migration';
 import type { SpeciesCreatorContinueData } from './screens/SpeciesCreatorScreen';
@@ -505,6 +506,51 @@ export function App(): React.ReactElement {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentScreen, gameStarted, setGameSpeed]);
+
+  // ── Quick Save / Quick Load (Ctrl+S / Ctrl+L) ──
+
+  useEffect(() => {
+    const handleQuickSaveLoad = (e: KeyboardEvent) => {
+      if (!gameStarted || !e.ctrlKey) return;
+
+      if (e.key === 's') {
+        e.preventDefault();
+        const engine = getGameEngine();
+        if (!engine) return;
+        try {
+          const sm = new SaveManager();
+          sm.save('__quicksave__', engine.getState(), true);
+          setBuildNotification('Quick saved');
+          setTimeout(() => setBuildNotification(null), 1500);
+        } catch (err) {
+          console.error('[QuickSave] Failed:', err);
+        }
+      }
+
+      if (e.key === 'l') {
+        e.preventDefault();
+        try {
+          const sm = new SaveManager();
+          const state = sm.load('__quicksave__');
+          if (state) {
+            const engine = getGameEngine();
+            if (engine) {
+              engine.loadState(state);
+              setBuildNotification('Quick loaded');
+              setTimeout(() => setBuildNotification(null), 1500);
+            }
+          } else {
+            setBuildNotification('No quick save found');
+            setTimeout(() => setBuildNotification(null), 1500);
+          }
+        } catch (err) {
+          console.error('[QuickLoad] Failed:', err);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleQuickSaveLoad);
+    return () => window.removeEventListener('keydown', handleQuickSaveLoad);
+  }, [gameStarted]);
 
   // ── Phaser → React event bridges ──
 
