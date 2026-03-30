@@ -1146,3 +1146,41 @@
   - A ruler who rewards honesty and protects whistleblowers gets accurate information
   - Loyalty is earned, not assumed -- and it can be lost through neglect, cruelty, or indifference
   - The entire information model reinforces the game's core philosophy: there is no objective truth handed to the player; truth must be actively pursued and earned
+
+---
+
+## Follow-Up Decisions (30 March 2026)
+
+### Tick-to-Time Mapping
+
+**Decision:** 1 tick = 1 day. Ground combat ticks = 1/100th of a day.
+
+- Each game tick represents one day
+- Ground combat operates at 100x resolution: each ground combat tick = ~14.4 minutes
+- Time advances during ground combat -- the galaxy does not pause while a battle plays out
+- This means: elections happen over ~365 ticks (1 year), demographics age over ~25,000 ticks (70 years), treaties last meaningful durations
+
+### UI Priority
+
+**Decision:** Build all UI screens, in this order:
+1. Economy/Market screen (commodity marketplace, trade routes, inflation)
+2. Political factions panel (faction support, demands, elections, policies)
+3. Espionage expanded missions (6 new mission types, diplomatic intelligence)
+4. Planet demographics dashboard (age pyramid, wealth, employment, crime, healthcare)
+5. Then all remaining systems
+
+### Settlement Tier Visuals
+
+**Decision:** Visual differentiation by density, lights, and label.
+- Building density increases with tier (sparse habitat → sprawling megatropolis)
+- City lights visible from space view at city tier and above
+- Settlement tier label displayed in planet info (e.g. "Metropolis" or "Colony")
+- Each tier should feel visually distinct when viewing the planet
+
+### Auto-Resolve Battle Criteria
+
+**Decision:** Similar = composition + size + terrain. Historical average as outcome predictor.
+- "Similar" means: similar unit composition, similar unit size, on similar terrain
+- Auto-resolve outcome based on historical average of the last 10 matching battles in that game session
+- This makes auto-resolve a learned shortcut, not a generic formula
+- Later enhancement: full AI battle simulation option (AI plays both sides tactically)
