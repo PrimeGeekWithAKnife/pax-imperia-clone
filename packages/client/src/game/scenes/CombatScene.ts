@@ -596,21 +596,43 @@ export class CombatScene extends Phaser.Scene {
         : this.sceneData.defenderColor;
       const texKey = `ship_${hullClass}_${ship.side}_${iconPx}`;
 
-      // Load ship silhouette texture synchronously from canvas-rendered data URL
-      if (!this.textures.exists(texKey)) {
-        const dataUrl = renderShipIcon(hullClass, iconPx, colorHex);
-        if (dataUrl && dataUrl.startsWith('data:')) {
-          this.textures.addBase64(texKey, dataUrl);
+      // Render ship silhouette directly as a Phaser Graphics object
+      // (avoids async texture loading issues with addBase64/Image)
+      const shipGfx = this.add.graphics();
+      const dataUrl = renderShipIcon(hullClass, iconPx, colorHex);
+      if (dataUrl && dataUrl.startsWith('data:')) {
+        // Use a canvas texture created from the data URL
+        const canvasKey = `canvas_${texKey}`;
+        if (!this.textures.exists(canvasKey)) {
+          const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
+          if (canvasTex) {
+            const img = new Image();
+            img.src = dataUrl;
+            img.onload = () => {
+              const ctx = canvasTex.getContext();
+              ctx.drawImage(img, 0, 0, iconPx, iconPx);
+              canvasTex.refresh();
+            };
+          }
         }
+        const sprite = this.add.sprite(0, 0, `canvas_${texKey}`);
+        sprite.setName('shipSprite');
+        // ShipGraphics renders nose-up; combat scene faces right (+x)
+        sprite.setAngle(-90);
+        sprite.setDisplaySize(iconPx, iconPx);
+        container.add(sprite);
+      } else {
+        // Fallback: draw a simple coloured shape
+        const color = this._shipColor(ship);
+        shipGfx.fillStyle(color, 0.8);
+        shipGfx.fillRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
+        shipGfx.lineStyle(1, 0xffffff, 0.4);
+        shipGfx.strokeRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
+        container.add(shipGfx);
       }
 
-      // Create sprite — texture available immediately via addBase64
-      const sprite = this.add.sprite(0, 0, texKey);
-      sprite.setName('shipSprite');
-      // ShipGraphics renders nose-up; combat scene faces right (+x)
-      sprite.setAngle(-90);
-      sprite.setDisplaySize(iconPx, iconPx);
-      container.add(sprite);
+      // Counter-rotate text labels so they stay upright regardless of ship facing
+      const textAngle = -Phaser.Math.RadToDeg(ship.facing);
 
       // Hull class label above the ship
       const classLabel = this.add.text(0, -iconPx / 2 - 6, hullClass.replace(/_/g, ' ').toUpperCase(), {
@@ -621,7 +643,7 @@ export class CombatScene extends Phaser.Scene {
         stroke: '#000000',
         strokeThickness: 1,
       });
-      classLabel.setOrigin(0.5, 1).setAngle(-Phaser.Math.RadToDeg(ship.facing));
+      classLabel.setOrigin(0.5, 1).setAngle(textAngle);
       container.add(classLabel);
 
       // Name label below the ship
@@ -633,7 +655,7 @@ export class CombatScene extends Phaser.Scene {
         stroke: '#000000',
         strokeThickness: 2,
       });
-      label.setOrigin(0.5, 0);
+      label.setOrigin(0.5, 0).setAngle(textAngle);
       container.add(label);
 
       // Make the container interactive for click targeting
