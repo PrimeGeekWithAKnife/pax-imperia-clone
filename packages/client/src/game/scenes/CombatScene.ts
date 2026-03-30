@@ -1398,11 +1398,12 @@ export class CombatScene extends Phaser.Scene {
       (this as unknown as Record<string, unknown>).selectedShipIds = null;
     });
 
-    // Ctrl+A to select all friendly ships — use native listener because
-    // Phaser keyboard events don't reliably pass ctrlKey
-    window.addEventListener('keydown', (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+    // Ctrl+A to select all friendly ships — use canvas-level native listener
+    // because Phaser keyboard events don't reliably pass modifier keys
+    const ctrlAHandler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'a' || event.key === 'A')) {
         event.preventDefault();
+        event.stopPropagation();
         const friendlyIds = this.tacticalState?.ships
           ?.filter(s => !s.destroyed && !s.routed && this._isPlayerSide(s))
           .map(s => s.id) ?? [];
@@ -1411,6 +1412,14 @@ export class CombatScene extends Phaser.Scene {
           (this as unknown as Record<string, unknown>).selectedShipIds = friendlyIds;
         }
       }
+    };
+    document.addEventListener('keydown', ctrlAHandler);
+    // Ensure canvas has focus so keyboard events work
+    this.game.canvas.setAttribute('tabindex', '0');
+    this.game.canvas.focus();
+    // Clean up on scene shutdown
+    this.events.once('shutdown', () => {
+      document.removeEventListener('keydown', ctrlAHandler);
     });
 
     // Right-click anywhere in the scene for move/attack orders
