@@ -62,6 +62,7 @@ import {
   ZONE_COST_MULTIPLIER,
   generateBattleReport,
   addAgentToState,
+  splitFleet as splitFleetFn,
   assignMission as assignMissionFn,
   SPY_RECRUIT_COST,
 } from '@nova-imperia/shared';
@@ -1331,6 +1332,99 @@ export class GameEngine {
       },
     };
 
+    return true;
+  }
+
+  // ── Fleet splitting ─────────────────────────────────────────────────────────
+
+  /**
+   * Split selected ships from a fleet into a new fleet.
+   * Returns the new fleet ID on success, or null on failure.
+   */
+  splitFleet(fleetId: string, shipIds: string[]): string | null {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) {
+      console.warn(`[GameEngine.splitFleet] Fleet "${fleetId}" not found`);
+      return null;
+    }
+
+    try {
+      const { original, newFleet } = splitFleetFn(fleet, shipIds, `${fleet.name} Detachment`);
+
+      // Update fleet list: replace original, add new fleet
+      const updatedFleets = this.tickState.gameState.fleets.map(f =>
+        f.id === fleetId ? original : f,
+      );
+      updatedFleets.push(newFleet);
+
+      // Update ship records: reassign fleetId for split ships
+      const splitSet = new Set(shipIds);
+      const updatedShips = this.tickState.gameState.ships.map(s =>
+        splitSet.has(s.id) ? { ...s, fleetId: newFleet.id } : s,
+      );
+
+      this.tickState = {
+        ...this.tickState,
+        gameState: {
+          ...this.tickState.gameState,
+          fleets: updatedFleets,
+          ships: updatedShips,
+        },
+      };
+
+      return newFleet.id;
+    } catch (err) {
+      console.warn('[GameEngine.splitFleet]', (err as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Rename a fleet.
+   */
+  renameFleet(fleetId: string, name: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, name } : f,
+    );
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+    return true;
+  }
+
+  /**
+   * Set fleet combat stance.
+   */
+  setFleetStance(fleetId: string, stance: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+    const updatedFleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, stance: stance as Fleet['stance'] } : f,
+    );
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets },
+    };
+    return true;
+  }
+
+  /**
+   * Disband a fleet — removes the fleet and unassigns all its ships.
+   */
+  disbandFleet(fleetId: string): boolean {
+    const fleet = this.tickState.gameState.fleets.find(f => f.id === fleetId);
+    if (!fleet) return false;
+    const updatedFleets = this.tickState.gameState.fleets.filter(f => f.id !== fleetId);
+    const updatedShips = this.tickState.gameState.ships.map(s =>
+      s.fleetId === fleetId ? { ...s, fleetId: null } : s,
+    );
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets: updatedFleets, ships: updatedShips },
+    };
     return true;
   }
 
