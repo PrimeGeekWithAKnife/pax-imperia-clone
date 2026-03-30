@@ -2131,11 +2131,12 @@ export function calculateExperienceGain(
   const currentIdx = EXP_LEVELS.indexOf(ship.crew.experience);
 
   // Difficult battles (outnumbered) give bonus
-  const difficultyBonus = enemyShipCount > allyShipCount * 1.5 ? 1 : 0;
-  const victoryBonus = wasVictorious ? 1 : 0;
+  const difficultyBonus = enemyShipCount > allyShipCount * 1.5 ? 2 : 0;
+  const victoryBonus = wasVictorious ? 2 : 0;
 
   const totalGain = victoryBonus + difficultyBonus;
-  const newIdx = Math.min(3, currentIdx + (totalGain > 0 ? 1 : 0));
+  const ELITE_IDX = EXP_LEVELS.indexOf('elite');
+  const newIdx = Math.min(ELITE_IDX, currentIdx + totalGain);
 
   return EXP_LEVELS[newIdx]!;
 }
