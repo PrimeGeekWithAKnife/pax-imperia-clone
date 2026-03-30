@@ -1668,6 +1668,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   const newMissiles: Missile[] = [];
   const newFighters: Fighter[] = [];
 
+  // Collect beam damage to apply AFTER the weapon-firing map, because
+  // .map() returns new ship objects — mutating ships[idx] inside the
+  // callback is lost when .map() overwrites the array.
+  const pendingBeamDamage: Array<{ targetIdx: number; damage: number }> = [];
+
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
 
@@ -1799,10 +1804,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           FRIENDLY_FIRE_BEAM_RADIUS,
         );
         if (collateral != null && Math.random() < BEAM_COLLATERAL_CHANCE) {
-          // Hit the bystander in addition to the target
           const cIdx = ships.indexOf(collateral);
           if (cIdx >= 0) {
-            ships[cIdx] = applyDamage(ships[cIdx], beamDamage);
+            pendingBeamDamage.push({ targetIdx: cIdx, damage: beamDamage });
           }
           newBeamEffects.push({
             sourceShipId: ship.id,
@@ -1813,10 +1817,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           });
         }
 
-        // Apply damage to the intended target
+        // Queue damage for the intended target (applied after .map() completes)
         const idx = ships.indexOf(target);
         if (idx >= 0) {
-          ships[idx] = applyDamage(ships[idx], beamDamage);
+          pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage });
         }
         newBeamEffects.push({
           sourceShipId: ship.id,
@@ -1857,6 +1861,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
     return { ...ship, weapons: updatedWeapons };
   });
+
+  // 4b. Apply deferred beam damage (must happen AFTER .map() so changes aren't lost)
+  for (const { targetIdx, damage } of pendingBeamDamage) {
+    if (targetIdx >= 0 && targetIdx < ships.length) {
+      ships[targetIdx] = applyDamage(ships[targetIdx]!, damage);
+    }
+  }
 
   // 5. Create debris from newly destroyed ships + morale drop from ally loss
   const prevDestroyedIds = new Set(
