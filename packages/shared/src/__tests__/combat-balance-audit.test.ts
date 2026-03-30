@@ -447,7 +447,7 @@ describe('1. Damage Verification', () => {
         sensorRange: 200,
         order: { type: 'idle' },
         destroyed: false,
-        routed: false,
+        routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
       };
 
@@ -477,7 +477,7 @@ describe('1. Damage Verification', () => {
         sensorRange: 200,
         order: { type: 'idle' },
         destroyed: false,
-        routed: false,
+        routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
       };
 
@@ -512,7 +512,7 @@ describe('1. Damage Verification', () => {
         sensorRange: 200,
         order: { type: 'idle' },
         destroyed: false,
-        routed: false,
+        routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
       };
 

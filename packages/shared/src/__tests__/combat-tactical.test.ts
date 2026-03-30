@@ -676,7 +676,7 @@ describe('applyDamage', () => {
       crew: { morale: 80, health: 100, experience: 'regular' },
       order: { type: 'idle' },
       destroyed: false,
-      routed: false,
+      routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
       ...overrides,
     };
   }
@@ -1016,7 +1016,7 @@ describe('isInWeaponArc', () => {
       sensorRange: 200,
       order: { type: 'idle' },
       destroyed: false,
-      routed: false,
+      routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
       crew: { morale: 80, health: 100, experience: 'regular' },
       ...overrides,
     };
@@ -2009,7 +2009,7 @@ function makeTacticalShip(overrides: Partial<TacticalShip> & { id: string; side:
     sensorRange: 200,
     order: { type: 'idle' as const },
     destroyed: false,
-    routed: false,
+    routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
     crew: { morale: 80, health: 100, experience: 'regular' as const },
     ...overrides,
   };
