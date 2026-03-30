@@ -1524,6 +1524,18 @@ export class CombatScene extends Phaser.Scene {
       this.selectedInfoLabel.setText('');
       return;
     }
+    // Check for multi-selection (Ctrl+A)
+    const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+    if (multiIds && multiIds.length > 1) {
+      const selected = this.tacticalState.ships.filter(s => multiIds.includes(s.id) && !s.destroyed && !s.routed);
+      const avgHull = selected.length > 0 ? Math.round(selected.reduce((sum, s) => sum + (s.hull / s.maxHull) * 100, 0) / selected.length) : 0;
+      const avgShields = selected.length > 0 ? Math.round(selected.reduce((sum, s) => sum + (s.maxShields > 0 ? (s.shields / s.maxShields) * 100 : 100), 0) / selected.length) : 0;
+      this.selectedInfoLabel.setText(
+        `ALL SHIPS SELECTED (${selected.length})  |  Avg Hull: ${avgHull}%  |  Avg Shields: ${avgShields}%  |  Right-click to issue orders`,
+      );
+      return;
+    }
+
     const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
     if (!ship) {
       this.selectedInfoLabel.setText('');
@@ -1744,28 +1756,28 @@ export class CombatScene extends Phaser.Scene {
       (this as unknown as Record<string, unknown>).selectedShipIds = null;
     });
 
-    // Ctrl+A to select all friendly ships — use canvas-level native listener
-    // because Phaser keyboard events don't reliably pass modifier keys
+    // Ctrl+A to select all friendly ships
+    // Use CAPTURE phase on window to intercept before browser "select all"
     const ctrlAHandler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && (event.key === 'a' || event.key === 'A')) {
         event.preventDefault();
-        event.stopPropagation();
+        event.stopImmediatePropagation();
         const friendlyIds = this.tacticalState?.ships
           ?.filter(s => !s.destroyed && !s.routed && this._isPlayerSide(s))
           .map(s => s.id) ?? [];
         if (friendlyIds.length > 0) {
           this.selectedShipId = friendlyIds[0] ?? null;
           (this as unknown as Record<string, unknown>).selectedShipIds = friendlyIds;
+          this._updateSelectedInfo();
         }
       }
     };
-    document.addEventListener('keydown', ctrlAHandler);
-    // Ensure canvas has focus so keyboard events work
+    // Capture phase fires before bubbling — intercepts Ctrl+A before the browser
+    window.addEventListener('keydown', ctrlAHandler, true);
     this.game.canvas.setAttribute('tabindex', '0');
     this.game.canvas.focus();
-    // Clean up on scene shutdown
     this.events.once('shutdown', () => {
-      document.removeEventListener('keydown', ctrlAHandler);
+      window.removeEventListener('keydown', ctrlAHandler, true);
     });
 
     // Right-click anywhere in the scene for move/attack orders
