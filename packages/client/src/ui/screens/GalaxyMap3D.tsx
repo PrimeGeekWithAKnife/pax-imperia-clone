@@ -798,8 +798,10 @@ function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
 
 function EmpireRings({ systems, playerEmpireId }: { systems: StarSystem[]; playerEmpireId?: string }) {
   const ownedSystems = useMemo(
-    () => systems.filter(s => s.ownerId != null),
-    [systems],
+    () => systems.filter(s => s.ownerId != null && (
+      !playerEmpireId || s.discovered?.[playerEmpireId]
+    )),
+    [systems, playerEmpireId],
   );
 
   if (ownedSystems.length === 0) return null;
@@ -980,8 +982,9 @@ interface TooltipInfo {
   screenY: number;
 }
 
-function StarTooltip({ info }: { info: TooltipInfo }) {
+function StarTooltip({ info, playerEmpireId }: { info: TooltipInfo; playerEmpireId?: string }) {
   const { system, screenX, screenY } = info;
+  const discovered = playerEmpireId ? system.discovered?.[playerEmpireId] : true;
   const planets = system.planets.length;
   const habitable = system.planets.filter((p: Planet) =>
     ['terran', 'ocean', 'desert', 'tundra', 'jungle', 'savanna', 'steppe', 'alpine', 'continental', 'tropical', 'arid', 'arctic', 'swamp', 'mesa'].includes(p.type)
@@ -1006,10 +1009,12 @@ function StarTooltip({ info }: { info: TooltipInfo }) {
     }}>
       <div style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: 2 }}>{system.name}</div>
       <div style={{ color: '#8899bb', fontSize: 11 }}>
-        {system.starType.replace('_', ' ')} &middot; {planets} planet{planets !== 1 ? 's' : ''}
-        {habitable > 0 && <span style={{ color: '#44cc88' }}> &middot; {habitable} habitable</span>}
+        {system.starType.replace('_', ' ')}
+        {discovered && <> &middot; {planets} planet{planets !== 1 ? 's' : ''}</>}
+        {discovered && habitable > 0 && <span style={{ color: '#44cc88' }}> &middot; {habitable} habitable</span>}
+        {!discovered && <span style={{ color: '#556677' }}> &middot; Unexplored</span>}
       </div>
-      {system.ownerId && (
+      {discovered && system.ownerId && (
         <div style={{ color: '#ffaa44', fontSize: 11, marginTop: 2 }}>Colonised</div>
       )}
     </div>
@@ -1174,7 +1179,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose 
       </Canvas>
 
       {/* HTML tooltip overlay */}
-      {tooltipInfo && <StarTooltip info={tooltipInfo} />}
+      {tooltipInfo && <StarTooltip info={tooltipInfo} playerEmpireId={playerEmpireId} />}
 
       {/* 3D System View overlay (entered via double-click on a star) */}
       {viewingSystem && (

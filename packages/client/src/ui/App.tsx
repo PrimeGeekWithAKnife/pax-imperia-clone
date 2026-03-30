@@ -2461,11 +2461,11 @@ export function App(): React.ReactElement {
       )}
 
       {/* 3D Galaxy Map overlay */}
-      {show3DMap && galaxy && (
+      {show3DMap && (galaxy || getGameEngine()?.getState().gameState.galaxy) && (
         <GalaxyMap3D
-          galaxy={galaxy}
+          galaxy={(galaxy || getGameEngine()?.getState().gameState.galaxy)!}
+          playerEmpireId={playerEmpire.id}
           onSystemSelected={(sys) => {
-            // Emit same event as Phaser so React panels update
             const game = (window as any).__EX_NIHILO_GAME__;
             if (game?.events) game.events.emit('system:selected', sys);
           }}
