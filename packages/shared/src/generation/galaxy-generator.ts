@@ -21,6 +21,9 @@ import type {
   StarType,
   Planet,
   PlanetType,
+  PlanetSize,
+  PlanetModifier,
+  PlanetModifierType,
   AtmosphereType,
 } from '../types/galaxy.js';
 import type { Anomaly, AnomalyType } from '../types/anomaly.js';
@@ -269,6 +272,121 @@ function makeIdGenerator(rng: SeededRng) {
 
 // ── planet generation ─────────────────────────────────────────────────────────
 
+/** Weighted size distribution — bell-curved toward average. */
+const SIZE_WEIGHTS: { size: PlanetSize; weight: number }[] = [
+  { size: 'colossal', weight: 2 },
+  { size: 'gigantic', weight: 4 },
+  { size: 'very_large', weight: 8 },
+  { size: 'large', weight: 14 },
+  { size: 'above_average', weight: 18 },
+  { size: 'average', weight: 20 },
+  { size: 'below_average', weight: 16 },
+  { size: 'small', weight: 10 },
+  { size: 'very_small', weight: 5 },
+  { size: 'tiny', weight: 3 },
+];
+
+function pickPlanetSize(rng: SeededRng, planetType: PlanetType): PlanetSize {
+  // Gas giants are always large+; barren/toxic tend smaller
+  if (planetType === 'gas_giant') {
+    const bigSizes: PlanetSize[] = ['colossal', 'gigantic', 'very_large', 'large'];
+    return bigSizes[Math.floor(rng.nextFloat(0, bigSizes.length))]!;
+  }
+  if (planetType === 'barren') {
+    const smallBias = rng.nextFloat(0, 1);
+    if (smallBias < 0.4) return 'tiny';
+    if (smallBias < 0.7) return 'very_small';
+    if (smallBias < 0.9) return 'small';
+    return 'below_average';
+  }
+  // Weighted random for habitable types
+  const totalWeight = SIZE_WEIGHTS.reduce((s, w) => s + w.weight, 0);
+  let roll = rng.nextFloat(0, totalWeight);
+  for (const entry of SIZE_WEIGHTS) {
+    roll -= entry.weight;
+    if (roll <= 0) return entry.size;
+  }
+  return 'average';
+}
+
+/** Fertility depends on planet type — terran/ocean are fertile, barren/volcanic are not. */
+function pickFertility(rng: SeededRng, planetType: PlanetType): number {
+  switch (planetType) {
+    case 'terran': return Math.round(rng.nextFloat(55, 100));
+    case 'ocean': return Math.round(rng.nextFloat(45, 90));
+    case 'desert': return Math.round(rng.nextFloat(5, 35));
+    case 'ice': return Math.round(rng.nextFloat(0, 20));
+    case 'volcanic': return Math.round(rng.nextFloat(0, 10));
+    case 'barren': return Math.round(rng.nextFloat(0, 5));
+    case 'toxic': return Math.round(rng.nextFloat(0, 8));
+    case 'gas_giant': return 0;
+    default: return Math.round(rng.nextFloat(10, 50));
+  }
+}
+
+/** Beauty depends on planet type with wide variance. */
+function pickBeauty(rng: SeededRng, planetType: PlanetType): number {
+  switch (planetType) {
+    case 'terran': return Math.round(rng.nextFloat(40, 100));
+    case 'ocean': return Math.round(rng.nextFloat(50, 95));
+    case 'desert': return Math.round(rng.nextFloat(15, 60));
+    case 'ice': return Math.round(rng.nextFloat(30, 80));
+    case 'volcanic': return Math.round(rng.nextFloat(10, 45));
+    case 'barren': return Math.round(rng.nextFloat(0, 20));
+    case 'toxic': return Math.round(rng.nextFloat(0, 15));
+    case 'gas_giant': return Math.round(rng.nextFloat(20, 70));
+    default: return Math.round(rng.nextFloat(20, 60));
+  }
+}
+
+const MODIFIER_DEFS: { type: PlanetModifierType; effect: 'positive' | 'negative' | 'neutral'; label: string; description: string; weight: number }[] = [
+  { type: 'xenoarchaeology', effect: 'positive', label: 'Xenoarchaeological Site', description: 'Ancient alien artefacts provide a research boost.', weight: 3 },
+  { type: 'minor_race', effect: 'neutral', label: 'Indigenous Species', description: 'A sentient minor race inhabits this world.', weight: 2 },
+  { type: 'vicious_storms', effect: 'negative', label: 'Vicious Storms', description: 'Extreme weather reduces happiness and slows construction.', weight: 5 },
+  { type: 'earthquakes', effect: 'negative', label: 'Seismic Activity', description: 'Frequent earthquakes degrade building condition faster.', weight: 4 },
+  { type: 'beneficial_radiation', effect: 'positive', label: 'Beneficial Radiation', description: 'Unusual radiation accelerates research and population growth.', weight: 3 },
+  { type: 'unique_bacteria', effect: 'positive', label: 'Unique Bacteria', description: 'Exotic micro-organisms boost science and organics output.', weight: 3 },
+  { type: 'ancient_ruins', effect: 'positive', label: 'Ancient Ruins', description: 'Mysterious ruins yield a one-time research windfall on colonisation.', weight: 4 },
+  { type: 'rich_deposits', effect: 'positive', label: 'Rich Mineral Deposits', description: 'Abundant veins boost mineral and resource extraction.', weight: 5 },
+  { type: 'unstable_tectonics', effect: 'negative', label: 'Unstable Tectonics', description: 'Tectonic instability causes random building damage.', weight: 3 },
+  { type: 'paradise_flora', effect: 'positive', label: 'Paradise Flora', description: 'Lush alien vegetation enhances beauty, happiness, and food.', weight: 2 },
+];
+
+function pickModifiers(rng: SeededRng, planetType: PlanetType): PlanetModifier[] {
+  if (planetType === 'gas_giant') return [];
+  const mods: PlanetModifier[] = [];
+
+  // ~30% chance of having any modifier, ~8% chance of two
+  if (rng.nextFloat(0, 1) > 0.30) return mods;
+
+  // Pick one weighted modifier
+  const totalWeight = MODIFIER_DEFS.reduce((s, d) => s + d.weight, 0);
+  let roll = rng.nextFloat(0, totalWeight);
+  for (const def of MODIFIER_DEFS) {
+    roll -= def.weight;
+    if (roll <= 0) {
+      mods.push({ type: def.type, effect: def.effect, label: def.label, description: def.description });
+      break;
+    }
+  }
+
+  // 25% chance of a second modifier (different from the first)
+  if (mods.length > 0 && rng.nextFloat(0, 1) < 0.25) {
+    const remaining = MODIFIER_DEFS.filter(d => !mods.some(m => m.type === d.type));
+    const remWeight = remaining.reduce((s, d) => s + d.weight, 0);
+    let roll2 = rng.nextFloat(0, remWeight);
+    for (const def of remaining) {
+      roll2 -= def.weight;
+      if (roll2 <= 0) {
+        mods.push({ type: def.type, effect: def.effect, label: def.label, description: def.description });
+        break;
+      }
+    }
+  }
+
+  return mods;
+}
+
 function generatePlanet(
   rng: SeededRng,
   nextId: () => string,
@@ -289,6 +407,10 @@ function generatePlanet(
     PLANET_NATURAL_RESOURCES_MAX,
   );
   const maxPopulation = pickMaxPopulation(type, gravity);
+  const size = pickPlanetSize(rng, type);
+  const fertility = pickFertility(rng, type);
+  const beauty = pickBeauty(rng, type);
+  const modifiers = pickModifiers(rng, type);
 
   return {
     id: nextId(),
@@ -299,6 +421,10 @@ function generatePlanet(
     gravity,
     temperature,
     naturalResources,
+    size,
+    fertility,
+    beauty,
+    modifiers,
     maxPopulation,
     currentPopulation: 0,
     ownerId: null,

@@ -1,13 +1,12 @@
 /** Planet-related game constants */
 
-import type { PlanetType, AtmosphereType } from '../types/galaxy.js';
+import type { PlanetType, PlanetSize, AtmosphereType } from '../types/galaxy.js';
 
 // ── Building slot limits ────────────────────────────────────────────────────
 
 /**
- * Maximum number of building slots available per planet type.
- * Terran worlds are the most hospitable; gas giants support only orbital
- * platforms so they have fewer slots.
+ * Legacy type-based slot limits — still used as a fallback when planet.size
+ * is not set (e.g. old save files).
  */
 export const PLANET_BUILDING_SLOTS: Record<PlanetType, number> = {
   terran: 20,
@@ -19,6 +18,41 @@ export const PLANET_BUILDING_SLOTS: Record<PlanetType, number> = {
   barren: 10,
   toxic: 11,
 };
+
+/**
+ * Planet size tiers and their base surface building slot counts.
+ */
+export const PLANET_SIZE_SLOTS: Record<PlanetSize, number> = {
+  colossal: 21,
+  gigantic: 19,
+  very_large: 17,
+  large: 15,
+  above_average: 13,
+  average: 11,
+  below_average: 9,
+  small: 7,
+  very_small: 5,
+  tiny: 3,
+};
+
+export const PLANET_SIZE_LABELS: Record<PlanetSize, string> = {
+  colossal: 'Colossal',
+  gigantic: 'Gigantic',
+  very_large: 'Very Large',
+  large: 'Large',
+  above_average: 'Above Average',
+  average: 'Average',
+  below_average: 'Below Average',
+  small: 'Small',
+  very_small: 'Very Small',
+  tiny: 'Tiny',
+};
+
+/** All sizes ordered largest to smallest for generation weighting. */
+export const PLANET_SIZES: PlanetSize[] = [
+  'colossal', 'gigantic', 'very_large', 'large', 'above_average',
+  'average', 'below_average', 'small', 'very_small', 'tiny',
+];
 
 // ── Atmosphere compatibility ────────────────────────────────────────────────
 
