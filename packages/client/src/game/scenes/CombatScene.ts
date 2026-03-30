@@ -307,6 +307,9 @@ export class CombatScene extends Phaser.Scene {
       loop: true,
       callback: () => this._onTick(),
     });
+    // Start paused — the instructions overlay is showing; the timer resumes
+    // when the player clicks BEGIN BATTLE.
+    this.tickTimer.paused = true;
 
     // Emit scene change for React overlay awareness
     this.game.events.emit('scene:change', 'CombatScene');
@@ -1375,6 +1378,7 @@ export class CombatScene extends Phaser.Scene {
       (this as unknown as Record<string, unknown>).currentStance = selectedStance;
       for (const el of allElements) el.destroy();
       this.paused = false;
+      this.tickTimer.paused = false;
     });
   }
 
