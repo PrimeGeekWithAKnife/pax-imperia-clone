@@ -67,28 +67,50 @@ const SELECTION_RING_RADIUS = 24;
 const SELECTION_RING_COLOR = 0xffffff;
 const SELECTION_RING_ALPHA = 0.9;
 
-/** Projectile dot radius */
-const PROJECTILE_RADIUS = 5;
-const PROJECTILE_COLOR = 0xffaa22;
+/** Projectile visual constants */
+const PROJECTILE_MIN_RADIUS = 2;
+const PROJECTILE_MAX_RADIUS = 6;
+const PROJECTILE_TRAIL_LENGTH = 3; // number of trail segments for high-damage projectiles
 
 /** Missile visual constants */
-const MISSILE_SIZE = 8;
-const MISSILE_COLOR = 0xff6633;
-const MISSILE_TRAIL_COLOR = 0xff4400;
-const MISSILE_TRAIL_ALPHA = 0.45;
-const MISSILE_TRAIL_LENGTH = 16;
+const MISSILE_SIZE = 10;
+const MISSILE_TRAIL_LENGTH = 20;
+const MISSILE_EXHAUST_SEGMENTS = 4; // fading trail dots behind the missile
 
 /** Fighter visual constants */
-const FIGHTER_RADIUS = 4;
+const FIGHTER_SIZE = 5;
 const FIGHTER_JITTER = 4; // random visual offset for swarming effect
 
 /** Point defence visual constants */
 const PD_COLOR = 0xffffff;
 const PD_ALPHA = 0.85;
+const PD_STARBURST_RADIUS = 6;
 
-/** Beam colours */
-const BEAM_COLOR_FRIENDLY = 0x44ff88;
-const BEAM_COLOR_ENEMY = 0xff4444;
+/** Beam style lookup by componentId */
+type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation';
+const BEAM_STYLE_MAP: Record<string, BeamStyle> = {
+  pulse_laser: 'pulse',
+  phased_array: 'pulse',
+  particle_beam_cannon: 'particle',
+  radiation_ray: 'radiation',
+  disruptor_beam: 'disruptor',
+  plasma_lance: 'plasma',
+};
+/** Beam base tint by side (friendly / enemy). */
+const BEAM_TINT_FRIENDLY = { r: 0x44, g: 0xff, b: 0x88 };
+const BEAM_TINT_ENEMY    = { r: 0xff, g: 0x44, b: 0x44 };
+
+/** Projectile style lookup by componentId */
+type ProjectileStyle = 'kinetic' | 'mass_driver' | 'gauss' | 'battering_ram' | 'antimatter' | 'singularity' | 'fusion';
+const PROJECTILE_STYLE_MAP: Record<string, ProjectileStyle> = {
+  kinetic_cannon: 'kinetic',
+  mass_driver: 'mass_driver',
+  gauss_cannon: 'gauss',
+  battering_ram: 'battering_ram',
+  antimatter_accelerator: 'antimatter',
+  singularity_driver: 'singularity',
+  fusion_autocannon: 'fusion',
+};
 
 /** Health bar dimensions (drawn above each ship) */
 const HEALTH_BAR_WIDTH = 28;
@@ -783,32 +805,247 @@ export class CombatScene extends Phaser.Scene {
 
   private _drawBeams(): void {
     this.beamGraphics.clear();
+    const tick = this.tacticalState.tick;
     for (const beam of this.tacticalState.beamEffects) {
       const source = this.tacticalState.ships.find(s => s.id === beam.sourceShipId);
       const target = this.tacticalState.ships.find(s => s.id === beam.targetShipId);
       if (!source || !target) continue;
-      const alpha = Math.max(0.3, beam.ticksRemaining / 3);
-      const color = this._isPlayerSide(source) ? BEAM_COLOR_FRIENDLY : BEAM_COLOR_ENEMY;
-      this.beamGraphics.lineStyle(3, color, alpha);
-      this.beamGraphics.lineBetween(
-        source.position.x, source.position.y,
-        target.position.x, target.position.y,
-      );
+
+      const sx = source.position.x;
+      const sy = source.position.y;
+      const tx = target.position.x;
+      const ty = target.position.y;
+      const fadeAlpha = Math.max(0.3, beam.ticksRemaining / 3);
+      const friendly = this._isPlayerSide(source);
+      const tint = friendly ? BEAM_TINT_FRIENDLY : BEAM_TINT_ENEMY;
+      const style: BeamStyle = BEAM_STYLE_MAP[beam.componentId ?? ''] ?? 'pulse';
+
+      // Damage-based intensity scaling: low (10) to high (55+)
+      const intensity = Math.min(1, beam.damage / 55);
+
+      switch (style) {
+        // ── Pulse laser / Phased array: thin pulsing line ──────────────────
+        case 'pulse': {
+          // Pulse effect: rapid on/off flicker
+          const pulseOn = (tick % 3) < 2;
+          if (!pulseOn) break;
+          const width = 1.5 + intensity * 1.5; // 1.5 - 3
+          const color = Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b);
+          this.beamGraphics.lineStyle(width, color, fadeAlpha * 0.9);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          break;
+        }
+
+        // ── Particle beam / Radiation ray: thick glow + thin bright core ───
+        case 'particle':
+        case 'radiation': {
+          const isRad = style === 'radiation';
+          const outerTint = isRad
+            ? { r: 0x88, g: 0xff, b: 0x44 } // sickly green for radiation
+            : tint;
+          const outerColor = Phaser.Display.Color.GetColor(outerTint.r, outerTint.g, outerTint.b);
+          const innerColor = isRad ? 0xccffaa : 0xffffff;
+          // Fat translucent outer glow
+          const outerWidth = 6 + intensity * 4; // 6 - 10
+          this.beamGraphics.lineStyle(outerWidth, outerColor, fadeAlpha * 0.25);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Thin bright inner core
+          const innerWidth = 1.5 + intensity * 1;
+          this.beamGraphics.lineStyle(innerWidth, innerColor, fadeAlpha * 0.9);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          break;
+        }
+
+        // ── Disruptor beam: jagged lightning bolt, purple tint ──────────────
+        case 'disruptor': {
+          const purpleOuter = 0x9944ff;
+          const purpleInner = 0xddaaff;
+          // Generate zigzag segments between source and target
+          const dx = tx - sx;
+          const dy = ty - sy;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const segments = Math.max(4, Math.floor(length / 20));
+          const perpX = -dy / length;
+          const perpY = dx / length;
+          // Outer glow path
+          this.beamGraphics.lineStyle(4 + intensity * 3, purpleOuter, fadeAlpha * 0.3);
+          this.beamGraphics.beginPath();
+          this.beamGraphics.moveTo(sx, sy);
+          for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            // Deterministic-ish jitter based on tick+segment for animation
+            const jitter = ((Math.sin(tick * 7 + i * 13) + Math.sin(tick * 11 + i * 7)) * 0.5) * (8 + intensity * 8);
+            const px = sx + dx * t + perpX * jitter;
+            const py = sy + dy * t + perpY * jitter;
+            this.beamGraphics.lineTo(px, py);
+          }
+          this.beamGraphics.lineTo(tx, ty);
+          this.beamGraphics.strokePath();
+          // Inner bright path (same zigzag)
+          this.beamGraphics.lineStyle(1.5, purpleInner, fadeAlpha * 0.85);
+          this.beamGraphics.beginPath();
+          this.beamGraphics.moveTo(sx, sy);
+          for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            const jitter = ((Math.sin(tick * 7 + i * 13) + Math.sin(tick * 11 + i * 7)) * 0.5) * (8 + intensity * 8);
+            const px = sx + dx * t + perpX * jitter;
+            const py = sy + dy * t + perpY * jitter;
+            this.beamGraphics.lineTo(px, py);
+          }
+          this.beamGraphics.lineTo(tx, ty);
+          this.beamGraphics.strokePath();
+          break;
+        }
+
+        // ── Plasma lance: very thick beam with orange-white fade gradient ───
+        case 'plasma': {
+          // Outermost orange glow
+          this.beamGraphics.lineStyle(12 + intensity * 6, 0xff6600, fadeAlpha * 0.15);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Middle orange-yellow
+          this.beamGraphics.lineStyle(6 + intensity * 3, 0xff9933, fadeAlpha * 0.35);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Inner white-hot core
+          this.beamGraphics.lineStyle(2 + intensity * 1.5, 0xffffdd, fadeAlpha * 0.9);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          break;
+        }
+      }
     }
   }
 
   private _drawProjectiles(): void {
     this.projectileGraphics.clear();
     for (const proj of this.tacticalState.projectiles) {
-      // Colour projectiles by faction so players can tell who fired what
-      const source = this.tacticalState.ships.find(s => s.id === proj.sourceShipId);
-      const color = source && this._isPlayerSide(source) ? 0x44ddff : PROJECTILE_COLOR;
-      this.projectileGraphics.fillStyle(color, 0.9);
-      this.projectileGraphics.fillCircle(proj.position.x, proj.position.y, PROJECTILE_RADIUS);
+      const px = proj.position.x;
+      const py = proj.position.y;
+      const style: ProjectileStyle = PROJECTILE_STYLE_MAP[proj.componentId ?? ''] ?? 'kinetic';
+      // Damage-based size: range ~2-6 radius
+      const dmgFrac = Math.min(1, proj.damage / 65);
+      const radius = PROJECTILE_MIN_RADIUS + dmgFrac * (PROJECTILE_MAX_RADIUS - PROJECTILE_MIN_RADIUS);
+
+      // Compute heading from source to target for trail direction
+      const target = this.tacticalState.ships.find(s => s.id === proj.targetShipId);
+      let hdg = 0;
+      if (target) {
+        hdg = Math.atan2(target.position.y - py, target.position.x - px);
+      }
+
+      switch (style) {
+        // ── Kinetic cannon: small white/grey fast dot, no trail ─────────────
+        case 'kinetic': {
+          this.projectileGraphics.fillStyle(0xcccccc, 0.95);
+          this.projectileGraphics.fillCircle(px, py, Math.max(2, radius * 0.7));
+          break;
+        }
+
+        // ── Fusion autocannon: rapid orange-white rounds ────────────────────
+        case 'fusion': {
+          this.projectileGraphics.fillStyle(0xffaa44, 0.9);
+          this.projectileGraphics.fillCircle(px, py, Math.max(2, radius * 0.6));
+          // Tiny bright core
+          this.projectileGraphics.fillStyle(0xffeedd, 0.7);
+          this.projectileGraphics.fillCircle(px, py, 1);
+          break;
+        }
+
+        // ── Mass driver: blue-white dot with short trail ────────────────────
+        case 'mass_driver': {
+          // Short trail behind
+          const trailLen = 10;
+          const tailX = px - Math.cos(hdg) * trailLen;
+          const tailY = py - Math.sin(hdg) * trailLen;
+          this.projectileGraphics.lineStyle(2, 0x88bbff, 0.3);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
+          // Bright dot
+          this.projectileGraphics.fillStyle(0xaaccff, 0.95);
+          this.projectileGraphics.fillCircle(px, py, radius);
+          // White core
+          this.projectileGraphics.fillStyle(0xffffff, 0.6);
+          this.projectileGraphics.fillCircle(px, py, radius * 0.4);
+          break;
+        }
+
+        // ── Gauss cannon: bright blue elongated streak ──────────────────────
+        case 'gauss': {
+          const streakLen = 14;
+          const tailX = px - Math.cos(hdg) * streakLen;
+          const tailY = py - Math.sin(hdg) * streakLen;
+          // Outer glow streak
+          this.projectileGraphics.lineStyle(4, 0x4488ff, 0.3);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
+          // Inner bright streak
+          this.projectileGraphics.lineStyle(2, 0x88ccff, 0.9);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
+          // Bright tip
+          this.projectileGraphics.fillStyle(0xccddff, 0.95);
+          this.projectileGraphics.fillCircle(px, py, 2.5);
+          break;
+        }
+
+        // ── Battering ram: big solid grey chunk ─────────────────────────────
+        case 'battering_ram': {
+          this.projectileGraphics.fillStyle(0x999999, 0.95);
+          this.projectileGraphics.fillCircle(px, py, radius * 1.3);
+          this.projectileGraphics.fillStyle(0xbbbbbb, 0.5);
+          this.projectileGraphics.fillCircle(px, py, radius * 0.6);
+          break;
+        }
+
+        // ── Antimatter accelerator: glowing purple-white with particle trail
+        case 'antimatter': {
+          // Trailing glow particles
+          for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH; i++) {
+            const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 1);
+            const trailX = px - Math.cos(hdg) * (i * 6);
+            const trailY = py - Math.sin(hdg) * (i * 6);
+            this.projectileGraphics.fillStyle(0xaa66ff, 0.4 * (1 - tFrac));
+            this.projectileGraphics.fillCircle(trailX, trailY, radius * (1 - tFrac * 0.5));
+          }
+          // Outer glow
+          this.projectileGraphics.fillStyle(0x8844cc, 0.3);
+          this.projectileGraphics.fillCircle(px, py, radius * 1.8);
+          // Bright core
+          this.projectileGraphics.fillStyle(0xddaaff, 0.95);
+          this.projectileGraphics.fillCircle(px, py, radius);
+          // White-hot centre
+          this.projectileGraphics.fillStyle(0xffffff, 0.7);
+          this.projectileGraphics.fillCircle(px, py, radius * 0.4);
+          break;
+        }
+
+        // ── Singularity driver: distortion ring + dark core ─────────────────
+        case 'singularity': {
+          // Trailing distortion particles
+          for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH; i++) {
+            const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 1);
+            const trailX = px - Math.cos(hdg) * (i * 7);
+            const trailY = py - Math.sin(hdg) * (i * 7);
+            this.projectileGraphics.fillStyle(0x6622aa, 0.3 * (1 - tFrac));
+            this.projectileGraphics.fillCircle(trailX, trailY, radius * 0.8 * (1 - tFrac * 0.4));
+          }
+          // Outer gravitational distortion ring
+          this.projectileGraphics.lineStyle(2, 0x9955ff, 0.4);
+          this.projectileGraphics.strokeCircle(px, py, radius * 2.2);
+          // Inner ring
+          this.projectileGraphics.lineStyle(1.5, 0xbb88ff, 0.5);
+          this.projectileGraphics.strokeCircle(px, py, radius * 1.4);
+          // Dark core (the singularity itself)
+          this.projectileGraphics.fillStyle(0x110022, 0.95);
+          this.projectileGraphics.fillCircle(px, py, radius * 0.8);
+          // Bright accretion ring highlight
+          this.projectileGraphics.fillStyle(0xddaaff, 0.6);
+          this.projectileGraphics.fillCircle(px, py, radius * 0.3);
+          break;
+        }
+      }
     }
   }
 
-  /** Draw missiles as small red/orange triangles with a faint trail. */
+  /**
+   * Draw missiles as coloured triangles with visible exhaust trail.
+   * Higher-tier missiles glow brighter and are larger.
+   */
   private _drawMissiles(): void {
     this.missileGraphics.clear();
     for (const missile of (this.tacticalState.missiles ?? [])) {
@@ -822,48 +1059,132 @@ export class CombatScene extends Phaser.Scene {
         );
       }
 
-      // Faint trail behind the missile
-      const trailX = missile.x - Math.cos(heading) * MISSILE_TRAIL_LENGTH;
-      const trailY = missile.y - Math.sin(heading) * MISSILE_TRAIL_LENGTH;
-      this.missileGraphics.lineStyle(1.5, MISSILE_TRAIL_COLOR, MISSILE_TRAIL_ALPHA);
-      this.missileGraphics.lineBetween(trailX, trailY, missile.x, missile.y);
+      // Damage-based tier scaling: 18 (basic) to 95 (singularity)
+      const dmgFrac = Math.min(1, missile.damage / 95);
+      const size = MISSILE_SIZE * (0.8 + dmgFrac * 0.6);   // 8-14 pixels
+      const trailLen = MISSILE_TRAIL_LENGTH * (0.8 + dmgFrac * 0.4);
 
-      // Triangle pointing in heading direction
+      // Colour by damage tier
+      let bodyColor: number;
+      let exhaustColor: number;
+      let glowColor: number;
+      if (missile.damage >= 80) {
+        // Singularity tier — purple-white
+        bodyColor = 0xbb88ff;
+        exhaustColor = 0x8844cc;
+        glowColor = 0x9955ff;
+      } else if (missile.damage >= 55) {
+        // Antimatter tier — hot orange-red
+        bodyColor = 0xff6622;
+        exhaustColor = 0xff4400;
+        glowColor = 0xff8844;
+      } else if (missile.damage >= 35) {
+        // Fusion tier — bright yellow-orange
+        bodyColor = 0xffaa33;
+        exhaustColor = 0xff7711;
+        glowColor = 0xffcc44;
+      } else if (missile.damage >= 25) {
+        // Guided tier — standard orange
+        bodyColor = 0xff8833;
+        exhaustColor = 0xcc5511;
+        glowColor = 0xffaa55;
+      } else {
+        // Basic tier — dull red-orange
+        bodyColor = 0xcc5533;
+        exhaustColor = 0x993322;
+        glowColor = 0xdd6644;
+      }
+
       const cos = Math.cos(heading);
       const sin = Math.sin(heading);
-      const noseX = missile.x + cos * MISSILE_SIZE;
-      const noseY = missile.y + sin * MISSILE_SIZE;
-      const leftX = missile.x + (-cos * MISSILE_SIZE * 0.5 - sin * MISSILE_SIZE * 0.4);
-      const leftY = missile.y + (-sin * MISSILE_SIZE * 0.5 + cos * MISSILE_SIZE * 0.4);
-      const rightX = missile.x + (-cos * MISSILE_SIZE * 0.5 + sin * MISSILE_SIZE * 0.4);
-      const rightY = missile.y + (-sin * MISSILE_SIZE * 0.5 - cos * MISSILE_SIZE * 0.4);
 
-      this.missileGraphics.fillStyle(MISSILE_COLOR, 0.95);
+      // ── Exhaust trail: 3-4 fading dots behind the missile ────────────────
+      for (let i = 1; i <= MISSILE_EXHAUST_SEGMENTS; i++) {
+        const t = i / (MISSILE_EXHAUST_SEGMENTS + 1);
+        const ex = missile.x - cos * (trailLen * t);
+        const ey = missile.y - sin * (trailLen * t);
+        const dotR = size * 0.25 * (1 - t * 0.6);
+        this.missileGraphics.fillStyle(exhaustColor, 0.5 * (1 - t));
+        this.missileGraphics.fillCircle(ex, ey, dotR);
+      }
+
+      // ── Exhaust trail line ───────────────────────────────────────────────
+      const tailX = missile.x - cos * trailLen;
+      const tailY = missile.y - sin * trailLen;
+      this.missileGraphics.lineStyle(1.5, exhaustColor, 0.35);
+      this.missileGraphics.lineBetween(tailX, tailY, missile.x, missile.y);
+
+      // ── Outer glow for high-tier missiles ────────────────────────────────
+      if (dmgFrac > 0.5) {
+        this.missileGraphics.fillStyle(glowColor, 0.15 * dmgFrac);
+        this.missileGraphics.fillCircle(missile.x, missile.y, size * 1.2);
+      }
+
+      // ── Missile body triangle ────────────────────────────────────────────
+      const noseX = missile.x + cos * size;
+      const noseY = missile.y + sin * size;
+      const leftX = missile.x + (-cos * size * 0.5 - sin * size * 0.4);
+      const leftY = missile.y + (-sin * size * 0.5 + cos * size * 0.4);
+      const rightX = missile.x + (-cos * size * 0.5 + sin * size * 0.4);
+      const rightY = missile.y + (-sin * size * 0.5 - cos * size * 0.4);
+
+      this.missileGraphics.fillStyle(bodyColor, 0.95);
       this.missileGraphics.beginPath();
       this.missileGraphics.moveTo(noseX, noseY);
       this.missileGraphics.lineTo(leftX, leftY);
       this.missileGraphics.lineTo(rightX, rightY);
       this.missileGraphics.closePath();
       this.missileGraphics.fillPath();
+
+      // ── Bright nose tip ──────────────────────────────────────────────────
+      this.missileGraphics.fillStyle(0xffffff, 0.6 + dmgFrac * 0.3);
+      this.missileGraphics.fillCircle(noseX, noseY, 1.5);
     }
   }
 
-  /** Draw point defence intercept lines as brief thin white lines. */
+  /**
+   * Draw point defence: brief white intercept line from ship to target
+   * plus a small starburst flash at the intercept point.
+   */
   private _drawPointDefence(): void {
     this.pdGraphics.clear();
     for (const pd of (this.tacticalState.pointDefenceEffects ?? [])) {
       const ship = this.tacticalState.ships.find(s => s.id === pd.shipId);
       if (!ship) continue;
       const alpha = (pd.ticksRemaining / 2) * PD_ALPHA;
-      this.pdGraphics.lineStyle(2, PD_COLOR, alpha);
+
+      // ── Thin white intercept line ────────────────────────────────────────
+      this.pdGraphics.lineStyle(1.5, PD_COLOR, alpha * 0.7);
       this.pdGraphics.lineBetween(
         ship.position.x, ship.position.y,
         pd.missileX, pd.missileY,
       );
+
+      // ── Starburst flash at intercept point ───────────────────────────────
+      const burstAlpha = alpha * 0.9;
+      const r = PD_STARBURST_RADIUS * (1 + (1 - pd.ticksRemaining / 2) * 0.5);
+      // Centre bright dot
+      this.pdGraphics.fillStyle(PD_COLOR, burstAlpha);
+      this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 0.4);
+      // 4 cross-hair lines radiating from the intercept point
+      const spokes = 4;
+      for (let i = 0; i < spokes; i++) {
+        const angle = (i / spokes) * Math.PI * 2 + Math.PI / 4;
+        const tipX = pd.missileX + Math.cos(angle) * r;
+        const tipY = pd.missileY + Math.sin(angle) * r;
+        this.pdGraphics.lineStyle(1, PD_COLOR, burstAlpha * 0.8);
+        this.pdGraphics.lineBetween(pd.missileX, pd.missileY, tipX, tipY);
+      }
+      // Outer ring flash
+      this.pdGraphics.lineStyle(1, 0xffffaa, burstAlpha * 0.4);
+      this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r);
     }
   }
 
-  /** Draw fighters as tiny coloured dots swarming around their targets. */
+  /**
+   * Draw fighters as small diamond/chevron shapes in empire colours.
+   * Jitter creates a swarming effect; heading points toward target.
+   */
   private _drawFighters(): void {
     this.fighterGraphics.clear();
     for (const fighter of (this.tacticalState.fighters ?? [])) {
@@ -874,12 +1195,45 @@ export class CombatScene extends Phaser.Scene {
       // Add slight random jitter for visual swarming effect
       const jitterX = (Math.random() - 0.5) * FIGHTER_JITTER;
       const jitterY = (Math.random() - 0.5) * FIGHTER_JITTER;
+      const fx = fighter.x + jitterX;
+      const fy = fighter.y + jitterY;
+
+      // Compute heading toward target (or carrier if returning)
+      let heading = 0;
+      if (fighter.targetId) {
+        const tgt = this.tacticalState.ships.find(s => s.id === fighter.targetId);
+        if (tgt) heading = Math.atan2(tgt.position.y - fy, tgt.position.x - fx);
+      } else if (fighter.carrierId) {
+        const carrier = this.tacticalState.ships.find(s => s.id === fighter.carrierId);
+        if (carrier) heading = Math.atan2(carrier.position.y - fy, carrier.position.x - fx);
+      }
+
+      const cos = Math.cos(heading);
+      const sin = Math.sin(heading);
+      const s = FIGHTER_SIZE;
+
+      // Draw a small chevron/arrow shape
+      const noseX = fx + cos * s;
+      const noseY = fy + sin * s;
+      const leftX = fx + (-cos * s * 0.5 - sin * s * 0.6);
+      const leftY = fy + (-sin * s * 0.5 + cos * s * 0.6);
+      const rearX = fx - cos * s * 0.3;
+      const rearY = fy - sin * s * 0.3;
+      const rightX = fx + (-cos * s * 0.5 + sin * s * 0.6);
+      const rightY = fy + (-sin * s * 0.5 - cos * s * 0.6);
+
       this.fighterGraphics.fillStyle(color, 0.9);
-      this.fighterGraphics.fillCircle(
-        fighter.x + jitterX,
-        fighter.y + jitterY,
-        FIGHTER_RADIUS,
-      );
+      this.fighterGraphics.beginPath();
+      this.fighterGraphics.moveTo(noseX, noseY);
+      this.fighterGraphics.lineTo(leftX, leftY);
+      this.fighterGraphics.lineTo(rearX, rearY);
+      this.fighterGraphics.lineTo(rightX, rightY);
+      this.fighterGraphics.closePath();
+      this.fighterGraphics.fillPath();
+
+      // Tiny engine glow at the rear
+      this.fighterGraphics.fillStyle(0xffaa44, 0.5);
+      this.fighterGraphics.fillCircle(rearX, rearY, 1.5);
     }
   }
 

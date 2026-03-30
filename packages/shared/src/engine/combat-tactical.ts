@@ -188,6 +188,7 @@ export interface Projectile {
   damage: number;
   sourceShipId: string;
   targetShipId: string;
+  componentId?: string;
 }
 
 export interface Missile {
@@ -237,6 +238,7 @@ export interface BeamEffect {
   targetShipId: string;
   damage: number;
   ticksRemaining: number;
+  componentId?: string;
 }
 
 export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
@@ -1807,6 +1809,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             targetShipId: collateral.id,
             damage: beamDamage,
             ticksRemaining: BEAM_EFFECT_DURATION,
+            componentId: weapon.componentId,
           });
         }
 
@@ -1820,6 +1823,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           targetShipId: target.id,
           damage: beamDamage,
           ticksRemaining: BEAM_EFFECT_DURATION,
+          componentId: weapon.componentId,
         });
       } else if (weapon.type === 'missile') {
         newMissiles.push({
@@ -1843,6 +1847,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           damage: weapon.damage,
           sourceShipId: ship.id,
           targetShipId: target.id,
+          componentId: weapon.componentId,
         });
       }
 
