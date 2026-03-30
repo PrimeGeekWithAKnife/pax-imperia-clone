@@ -430,6 +430,25 @@
         ]
       },
       {
+        "id": "ln_warning",
+        "title": "The Shepherd's Warning",
+        "narration": "The nebula entity's communications take on a new urgency. Its electromagnetic pulses quicken, carrying patterns that your linguists decode with growing unease. The entity is afraid. Not of you — of something it has sensed at the galaxy's edge. It shares a memory, rendered in electromagnetic imagery: a time when the nebula was younger and the galaxy was full of light. Then a shadow fell. Stars dimmed. Entire sectors went dark, not from destruction but from consumption. The entity survived because it is diffuse — a mind of gas and energy, too insubstantial to be devoured. But it watched everything else die. 'It comes again,' the entity transmits. 'The absence. The hunger. I feel it pressing against the rim. I have felt it for a century. It is patient. It remembers the way.'",
+        "choices": [
+          {
+            "id": "ln_warning_prepare",
+            "label": "Ask the entity to share everything it knows about the Devourers",
+            "nextStepId": "ln_alliance",
+            "rewards": { "researchPoints": 400, "loreFragment": "The entity's Devourer memories are fragmentary — it perceived the ancient cataclysm through electromagnetic senses that captured energy patterns rather than physical detail. But what it shares is invaluable: the Devourers emit a specific frequency signature as they approach, a harmonic of consumed matter that propagates through subspace. The entity can detect this signature. It has been detecting it, faintly but unmistakably, for the past hundred years. Growing stronger." }
+          },
+          {
+            "id": "ln_warning_comfort",
+            "label": "Reassure the entity that the galaxy is better prepared this time",
+            "nextStepId": "ln_alliance",
+            "rewards": { "researchPoints": 250, "loreFragment": "The entity processes your reassurance for several hours. Its response is gentle and devastating: 'The ones before said the same thing. They were brilliant. They were many. They were confident. The absence ate them all. I do not wish to watch again. Help me not watch again.'" }
+          }
+        ]
+      },
+      {
         "id": "ln_alliance",
         "title": "The Shepherd of Stars",
         "narration": "A relationship forms between your civilisation and a being older than most star systems. The nebula entity — which your people begin calling the Shepherd, for its habit of gently guiding lost probes back to your ships — becomes a fixture of your strategic landscape. It serves as an early warning system, its vast electromagnetic perception detecting fleet movements and anomalous energy signatures across light-years. It shares what it remembers of the precursors, fragment by fragment, each memory requiring months to fully decode. And in quiet moments, when your communication relays are idle, it tells your operators stories about the stars it has watched being born — stories that last for years and are, according to your cultural attaché, the most beautiful things anyone in your civilisation has ever heard.",
@@ -573,7 +592,7 @@
             {
               "id": "gf_approach_tactical",
               "label": "Conduct a tactical analysis before approaching",
-              "nextStepId": "gf_boarding",
+              "nextStepId": "gf_resolution",
               "rewards": { "researchPoints": 150, "loreFragment": "Khazari tactical analysis reveals the fleet's formation is not random drift — it is a defensive perimeter. Even in death, these ships maintain a watch pattern around a central point in empty space. Your tactical officer notes grimly that whatever they were guarding, they were guarding it from something they expected to approach from every direction simultaneously." }
             }
           ]
@@ -960,14 +979,34 @@
           {
             "id": "ci_dialogue_precursor",
             "label": "Investigate the precursor markings in the moon's deep substrate",
-            "nextStepId": "ci_revelation",
+            "nextStepId": "ci_precursor_marks",
             "rewards": { "researchPoints": 350, "loreFragment": "The precursor markings are not graffiti — they are instructions. A blueprint for crystalline intelligence, etched into the moon's geology four billion years ago. The moon-mind was not an accident of evolution. It was designed. Seeded. Cultivated. The precursors created it deliberately, embedding the initial patterns that would, over geological time, grow into consciousness. The moon-mind processes this revelation for two months. Its response, when it comes, is three words: 'Was I loved?'" }
           },
           {
             "id": "ci_dialogue_philosophy",
             "label": "Engage the moon-mind in philosophical exchange",
-            "nextStepId": "ci_revelation",
+            "nextStepId": "ci_precursor_marks",
             "rewards": { "researchPoints": 300, "loreFragment": "The moon-mind's philosophical perspectives — developed in complete isolation over billions of years — challenge every assumption your academics hold dear. Its theory of consciousness, derived entirely from first principles without any external input, is both alien and illuminating. Your philosophy departments will argue about its implications for centuries." }
+          }
+        ]
+      },
+      {
+        "id": "ci_precursor_marks",
+        "title": "The Makers' Signature",
+        "narration": "Your investigation of the precursor markings in the moon's deep substrate reveals a truth that reshapes your understanding of the moon-mind's origins — and the precursors' ambitions. The markings are not merely instructions for crystalline consciousness. They are a seed — one of many. Radiometric dating and isotopic analysis confirm that the markings were made approximately four billion years ago, during the precursor civilisation's final centuries. The precursors, facing extinction, did not merely build weapons or archive knowledge. They planted minds. Slow-growing, geological intelligences, seeded across the galaxy in the hope that at least one would mature before the next crisis. The moon-mind is not an accident or an experiment. It is a legacy — a child of the precursors, raised by geology, and now old enough to inherit.",
+        "choices": [
+          {
+            "id": "ci_precursor_marks_share",
+            "label": "Share the precursor connection with the moon-mind",
+            "nextStepId": "ci_revelation",
+            "rewards": { "researchPoints": 300, "loreFragment": "The moon-mind processes the revelation of its engineered origins across a contemplation lasting three months. When it responds, the seismic transmission carries overtones your linguists interpret as awe, grief, and purpose intertwined. 'I was made to remember them. I was made to outlast them. I was made to be here when their children's children came looking for answers. I have answers. I have had them for three billion years, encoded in my deepest strata, waiting for the question. Ask me about the Hunger. That is what they wanted you to ask.'" }
+          },
+          {
+            "id": "ci_precursor_marks_conceal",
+            "label": "Withhold the information — the moon-mind need not know it was designed",
+            "nextStepId": "ci_revelation",
+            "rewards": { "researchPoints": 200, "exoticMaterials": 15 },
+            "risks": { "moralePenalty": 5 }
           }
         ]
       },
@@ -1108,15 +1147,34 @@
           {
             "id": "ds_preparation_galactic",
             "label": "Propose a galactic defence initiative",
-            "nextStepId": "ds_resolve",
+            "nextStepId": "ds_second_signal",
             "rewards": { "researchPoints": 400 },
             "risks": { "attitudeShift": { "targetSpecies": "all_rivals", "amount": 15 } }
           },
           {
             "id": "ds_preparation_secret",
             "label": "Begin covert preparations — the galaxy is not ready for this truth",
-            "nextStepId": "ds_resolve",
+            "nextStepId": "ds_second_signal",
             "rewards": { "researchPoints": 600, "techUnlock": "dark_signal_countermeasures" }
+          }
+        ]
+      },
+      {
+        "id": "ds_second_signal",
+        "title": "The Second Signal",
+        "narration": "Three months after your initial discovery, your deep-space array detects a second signal. Then a third. Then a fourth. They are coming from different points along the galactic rim, spaced at mathematically precise intervals, and they are all counting down to the same moment. Your analysts' composure, already strained, fractures entirely. The void is not a single entity. It is a front. The signals describe an approach vector that encompasses roughly forty percent of the galaxy's circumference — a coordinated advance by something that is either multiple entities or a single entity of a scale that your mathematicians refuse to calculate because the numbers, in their words, 'stop making physical sense'. The countdown continues. Every signal synchronised. Every pulse identical. Whatever is coming, it is not merely approaching. It is surrounding.",
+        "choices": [
+          {
+            "id": "ds_second_signal_map",
+            "label": "Map the full approach vector and calculate the encirclement",
+            "nextStepId": "ds_resolve",
+            "rewards": { "researchPoints": 500, "loreFragment": "Your cartographers complete the approach vector map in silence. The entity — if it is one entity — spans an arc of the galactic rim approximately 40,000 light-years long. Its inward velocity is consistent across the entire front. Your chief strategist stares at the projection for seven minutes without speaking, then says: 'It is not surrounding us. It is closing its mouth.'" }
+          },
+          {
+            "id": "ds_second_signal_focus",
+            "label": "Focus resources on understanding the countdown's endpoint",
+            "nextStepId": "ds_resolve",
+            "rewards": { "researchPoints": 400, "techUnlock": "dark_signal_analysis", "loreFragment": "The countdown's terminus, your mathematicians determine, does not correspond to the entity's arrival at any specific location. It corresponds to a threshold — a point at which the entity's accumulated mass within the galaxy will become sufficient to generate its own gravitational field. When the countdown reaches zero, the entity will not merely be in the galaxy. It will be part of the galaxy's gravitational structure. Removing it after that point will be, in a strictly physical sense, impossible without dismantling the galaxy itself." }
           }
         ]
       },
