@@ -114,6 +114,30 @@ function getHabitabilityColor(score: number): string {
   return '#cc4422';
 }
 
+/** Traffic-light colour for colony health based on happiness score. */
+function getHealthColor(happiness: number): string {
+  if (happiness >= 70) return '#10b981'; // green
+  if (happiness >= 40) return '#f59e0b'; // amber
+  return '#ef4444'; // red
+}
+
+/** Client-side happiness estimate from planet buildings and population. */
+function estimateHappinessScore(planet: Planet): number {
+  if (!planet.ownerId || planet.currentPopulation <= 0) return -1;
+  let score = 60;
+  for (const b of planet.buildings) {
+    if (b.type === 'entertainment_complex') score += 10 * b.level;
+  }
+  if (planet.maxPopulation > 0) {
+    const density = planet.currentPopulation / planet.maxPopulation;
+    if (density > 0.95) score -= 20;
+    else if (density > 0.80) score -= 10;
+    else if (density < 0.50) score += 10;
+  }
+  score -= 5;
+  return Math.max(0, Math.min(100, score));
+}
+
 /** Estimate construction turns from construction point cost using planet's factories. */
 function estimateBuildTurns(planet: Planet, constructionCost: number): number {
   // Use a default species construction factor of 1.0 (no species data in this scope)
@@ -845,9 +869,41 @@ export function PlanetManagementScreen({
             </button>
           )}
           <div className="pm-header__info">
-            <h2 className="pm-header__name">{planet.name}</h2>
-            <div className="pm-header__type">
+            <h2 className="pm-header__name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {planet.ownerId && planet.currentPopulation > 0 && (() => {
+                const hp = estimateHappinessScore(planet);
+                return (
+                  <span
+                    title={`Colony health: ${hp}`}
+                    style={{
+                      display: 'inline-block',
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      background: getHealthColor(hp),
+                      flexShrink: 0,
+                    }}
+                  />
+                );
+              })()}
+              {planet.name}
+            </h2>
+            <div className="pm-header__type" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {PLANET_TYPE_LABELS[planet.type] ?? planet.type}
+              {planet.currentPopulation > 0 && (
+                <span style={{ color: '#8899aa', fontSize: '11px' }}>
+                  — {formatPopulation(planet.currentPopulation)}
+                  {planet.maxPopulation > 0 && planet.currentPopulation / planet.maxPopulation > 0.95 && (
+                    <span style={{
+                      fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' as const,
+                      marginLeft: '4px', padding: '0px 4px', borderRadius: '2px',
+                      background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                    }}>
+                      Overcrowded
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           </div>
           {hasNext && (

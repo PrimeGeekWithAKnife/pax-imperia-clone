@@ -157,7 +157,12 @@ const STANCE_TYPES: { label: string; type: string; description: string }[] = [
   { label: 'DEFENSIVE', type: 'defensive', description: 'Hold position, prioritise survival' },
   { label: 'FLANKING', type: 'flanking', description: 'Outmanoeuvre, target weak sides' },
   { label: 'EVASIVE', type: 'evasive', description: 'Minimise losses, maintain distance' },
+  { label: 'FLEE', type: 'flee', description: 'Withdraw from battle immediately' },
 ];
+
+/** Boundary zones for Total War-style double boundary. */
+const BOUNDARY_WARNING_MARGIN = 120; // amber zone — ships get a warning
+const BOUNDARY_FLEE_MARGIN = 40;     // red zone — ships past here are fleeing
 
 // ---------------------------------------------------------------------------
 // CombatScene
@@ -343,6 +348,39 @@ export class CombatScene extends Phaser.Scene {
       gfx.fillStyle(0xffffff, alpha);
       gfx.fillCircle(x, y, radius);
     }
+
+    // ── Double boundary (Total War style) ──────────────────────────────────
+    // Outer amber warning zone: "you're approaching the edge"
+    const wm = BOUNDARY_WARNING_MARGIN;
+    gfx.lineStyle(2, 0xf59e0b, 0.35);
+    gfx.strokeRect(wm, wm, BATTLEFIELD_WIDTH - wm * 2, BATTLEFIELD_HEIGHT - wm * 2);
+    // Dashed amber fill on the warning strip
+    gfx.fillStyle(0xf59e0b, 0.04);
+    gfx.fillRect(0, 0, BATTLEFIELD_WIDTH, wm); // top
+    gfx.fillRect(0, BATTLEFIELD_HEIGHT - wm, BATTLEFIELD_WIDTH, wm); // bottom
+    gfx.fillRect(0, wm, wm, BATTLEFIELD_HEIGHT - wm * 2); // left
+    gfx.fillRect(BATTLEFIELD_WIDTH - wm, wm, wm, BATTLEFIELD_HEIGHT - wm * 2); // right
+
+    // Inner red flee zone: "past here you are fleeing the battle"
+    const fm = BOUNDARY_FLEE_MARGIN;
+    gfx.lineStyle(2, 0xef4444, 0.5);
+    gfx.strokeRect(fm, fm, BATTLEFIELD_WIDTH - fm * 2, BATTLEFIELD_HEIGHT - fm * 2);
+    gfx.fillStyle(0xef4444, 0.06);
+    gfx.fillRect(0, 0, BATTLEFIELD_WIDTH, fm);
+    gfx.fillRect(0, BATTLEFIELD_HEIGHT - fm, BATTLEFIELD_WIDTH, fm);
+    gfx.fillRect(0, fm, fm, BATTLEFIELD_HEIGHT - fm * 2);
+    gfx.fillRect(BATTLEFIELD_WIDTH - fm, fm, fm, BATTLEFIELD_HEIGHT - fm * 2);
+
+    // Labels on the boundary zones
+    const warningLabel = this.add.text(BATTLEFIELD_WIDTH / 2, wm / 2, 'WARNING ZONE — Turn back or your fleet will flee', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#f59e0b', alpha: 0.5,
+    });
+    warningLabel.setOrigin(0.5, 0.5).setDepth(1);
+
+    const fleeLabel = this.add.text(BATTLEFIELD_WIDTH / 2, fm / 2, 'FLEE ZONE', {
+      fontFamily: 'monospace', fontSize: '9px', color: '#ef4444', alpha: 0.6,
+    });
+    fleeLabel.setOrigin(0.5, 0.5).setDepth(1);
   }
 
   /**
@@ -425,7 +463,11 @@ export class CombatScene extends Phaser.Scene {
     cam.setZoom(fitZoom);
     cam.centerOn(BATTLEFIELD_WIDTH / 2, BATTLEFIELD_HEIGHT / 2);
 
-    // Zoom with scroll wheel
+    // Zoom with scroll wheel — prevent browser zoom
+    this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
+      e.preventDefault();
+    }, { passive: false });
+
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
       const newZoom = Phaser.Math.Clamp(cam.zoom + (dy > 0 ? -0.05 : 0.05), 0.3, 2.0);
       cam.setZoom(newZoom);
@@ -991,10 +1033,13 @@ export class CombatScene extends Phaser.Scene {
       btn.setInteractive({ useHandCursor: true });
       btn.on('pointerdown', () => {
         (this as unknown as Record<string, unknown>).currentStance = st.type;
-        // Update button colours
-        let idx = 0;
-        for (const child of stanceLabel.parentContainer?.list ?? []) {
-          // handled below via data
+        // If FLEE stance selected, issue flee orders to all friendly ships
+        if (st.type === 'flee') {
+          for (const ship of this.tacticalState.ships) {
+            if (!ship.destroyed && !ship.routed && this._isPlayerSide(ship)) {
+              this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
+            }
+          }
         }
       });
       stBtnX += btn.width + 8;
@@ -1071,8 +1116,8 @@ export class CombatScene extends Phaser.Scene {
   private _showInstructions(): void {
     this.paused = true;
     const { width, height } = this.scale;
-    const panelW = Math.min(680, width - 40);
-    const panelH = Math.min(580, height - 40);
+    const panelW = Math.min(1020, width - 40);
+    const panelH = Math.min(740, height - 40);
     const px = (width - panelW) / 2;
     const py = (height - panelH) / 2;
 
@@ -1092,8 +1137,8 @@ export class CombatScene extends Phaser.Scene {
     panel.strokeRoundedRect(px, py, panelW, panelH, 10);
     allElements.push(panel);
 
-    const title = this.add.text(width / 2, py + 18, 'TACTICAL COMBAT', {
-      fontFamily: 'monospace', fontSize: '24px', color: '#ff8844',
+    const title = this.add.text(width / 2, py + 22, 'TACTICAL COMBAT', {
+      fontFamily: 'monospace', fontSize: '32px', color: '#ff8844',
       stroke: '#000000', strokeThickness: 3,
     });
     title.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
@@ -1105,7 +1150,7 @@ export class CombatScene extends Phaser.Scene {
     let curY = py + 58;
 
     const controlsHead = this.add.text(colLeftX, curY, 'CONTROLS', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      fontFamily: 'monospace', fontSize: '18px', color: '#44ccff',
       stroke: '#000000', strokeThickness: 2,
     });
     controlsHead.setScrollFactor(0).setDepth(202);
@@ -1123,8 +1168,8 @@ export class CombatScene extends Phaser.Scene {
       'ESC                    Deselect',
     ];
     const controlsText = this.add.text(colLeftX, curY, controlLines.join('\n'), {
-      fontFamily: 'monospace', fontSize: '13px', color: '#bbccdd',
-      lineSpacing: 5,
+      fontFamily: 'monospace', fontSize: '15px', color: '#bbccdd',
+      lineSpacing: 7,
     });
     controlsText.setScrollFactor(0).setDepth(202);
     allElements.push(controlsText);
@@ -1133,7 +1178,7 @@ export class CombatScene extends Phaser.Scene {
     let rightY = py + 58;
 
     const fmtHead = this.add.text(colRightX, rightY, 'FORMATION', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      fontFamily: 'monospace', fontSize: '18px', color: '#44ccff',
       stroke: '#000000', strokeThickness: 2,
     });
     fmtHead.setScrollFactor(0).setDepth(202);
@@ -1169,7 +1214,7 @@ export class CombatScene extends Phaser.Scene {
     rightY += 40;
 
     const stanceHead = this.add.text(colRightX, rightY, 'STANCE', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      fontFamily: 'monospace', fontSize: '18px', color: '#44ccff',
       stroke: '#000000', strokeThickness: 2,
     });
     stanceHead.setScrollFactor(0).setDepth(202);
@@ -1214,10 +1259,10 @@ export class CombatScene extends Phaser.Scene {
     fleetInfo.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
     allElements.push(fleetInfo);
 
-    const btnW = 220;
-    const btnH = 44;
+    const btnW = 300;
+    const btnH = 54;
     const btnX = (width - btnW) / 2;
-    const btnY = py + panelH - 60;
+    const btnY = py + panelH - 72;
 
     const btnBg = this.add.graphics();
     btnBg.setScrollFactor(0).setDepth(202);
@@ -1228,7 +1273,7 @@ export class CombatScene extends Phaser.Scene {
     allElements.push(btnBg);
 
     const btnText = this.add.text(width / 2, btnY + btnH / 2, 'BEGIN BATTLE', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff',
+      fontFamily: 'monospace', fontSize: '22px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 3,
     });
     btnText.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(203);

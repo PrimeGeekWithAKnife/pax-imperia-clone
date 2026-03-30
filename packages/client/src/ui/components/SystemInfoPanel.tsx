@@ -1,5 +1,5 @@
 import React from 'react';
-import type { StarSystem } from '@nova-imperia/shared';
+import type { StarSystem, Planet } from '@nova-imperia/shared';
 
 interface SystemInfoPanelProps {
   system: StarSystem | null;
@@ -50,6 +50,37 @@ const PLANET_TYPE_COLORS: Record<string, string> = {
   barren: '#888888',
   toxic: '#99cc33',
 };
+
+/** Traffic-light colour for colony health based on happiness score. */
+function getHealthColor(happiness: number): string {
+  if (happiness >= 70) return '#10b981'; // green
+  if (happiness >= 40) return '#f59e0b'; // amber
+  return '#ef4444'; // red
+}
+
+/** Client-side happiness estimate from planet buildings and population. */
+function estimateHappiness(planet: Planet): number {
+  if (!planet.ownerId || planet.currentPopulation <= 0) return -1;
+  let score = 60;
+  for (const b of planet.buildings) {
+    if (b.type === 'entertainment_complex') score += 10 * b.level;
+  }
+  if (planet.maxPopulation > 0) {
+    const density = planet.currentPopulation / planet.maxPopulation;
+    if (density > 0.95) score -= 20;
+    else if (density > 0.80) score -= 10;
+    else if (density < 0.50) score += 10;
+  }
+  score -= 5;
+  return Math.max(0, Math.min(100, score));
+}
+
+function formatPopulation(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
 
 export function SystemInfoPanel({ system, empireNameMap }: SystemInfoPanelProps): React.ReactElement | null {
   const visible = system !== null;
@@ -103,24 +134,70 @@ export function SystemInfoPanel({ system, empireNameMap }: SystemInfoPanelProps)
           <div className="panel-section-label">PLANETS</div>
 
           <ul className="planet-list">
-            {system.planets.map((planet) => (
-              <li key={planet.id} className="planet-list-item">
-                <span
-                  className="planet-type-dot"
-                  style={{ background: PLANET_TYPE_COLORS[planet.type] ?? '#888' }}
-                />
-                <span className="planet-name">{planet.name}</span>
-                <span
-                  className="planet-type-badge"
-                  style={{ color: PLANET_TYPE_COLORS[planet.type] ?? '#888' }}
-                >
-                  {PLANET_TYPE_LABELS[planet.type] ?? planet.type}
-                </span>
-                {planet.ownerId && (
-                  <span className="planet-colonized-badge">colonized</span>
-                )}
-              </li>
-            ))}
+            {system.planets.map((planet) => {
+              const hp = estimateHappiness(planet);
+              const isColony = planet.ownerId != null && planet.currentPopulation > 0;
+              const isOvercrowded = planet.maxPopulation > 0 && planet.currentPopulation / planet.maxPopulation > 0.95;
+              return (
+                <li key={planet.id} className="planet-list-item" style={{ flexWrap: 'wrap' }}>
+                  {isColony ? (
+                    <span
+                      title={`Colony health: ${hp}`}
+                      style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: getHealthColor(hp),
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="planet-type-dot"
+                      style={{ background: PLANET_TYPE_COLORS[planet.type] ?? '#888' }}
+                    />
+                  )}
+                  <span className="planet-name">{planet.name}</span>
+                  {isColony && (
+                    <span style={{ color: '#8899aa', fontSize: '10px', marginLeft: '4px' }}>
+                      {formatPopulation(planet.currentPopulation)}
+                    </span>
+                  )}
+                  <span
+                    className="planet-type-badge"
+                    style={{ color: PLANET_TYPE_COLORS[planet.type] ?? '#888' }}
+                  >
+                    {PLANET_TYPE_LABELS[planet.type] ?? planet.type}
+                  </span>
+                  {planet.ownerId && (
+                    <span className="planet-colonized-badge">colonised</span>
+                  )}
+                  {isColony && (hp < 30 || isOvercrowded) && (
+                    <div style={{ width: '100%', display: 'flex', gap: '3px', paddingLeft: '16px', marginTop: '2px' }}>
+                      {hp < 30 && (
+                        <span style={{
+                          fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase',
+                          padding: '0px 4px', borderRadius: '2px',
+                          background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                        }}>
+                          Unrest
+                        </span>
+                      )}
+                      {isOvercrowded && (
+                        <span style={{
+                          fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase',
+                          padding: '0px 4px', borderRadius: '2px',
+                          background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                        }}>
+                          Overcrowded
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
             {system.planets.length === 0 && (
               <li className="planet-list-empty">No planets</li>
             )}

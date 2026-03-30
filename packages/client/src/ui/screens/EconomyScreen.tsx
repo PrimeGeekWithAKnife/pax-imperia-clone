@@ -104,6 +104,30 @@ function fmt(n: number, decimals = 0): string {
   return n.toLocaleString('en-GB', { maximumFractionDigits: decimals });
 }
 
+/** Traffic-light colour for colony health based on happiness score. */
+function getHealthColor(happiness: number): string {
+  if (happiness >= 70) return '#10b981'; // green
+  if (happiness >= 40) return '#f59e0b'; // amber
+  return '#ef4444'; // red
+}
+
+/** Client-side happiness estimate from planet buildings and population. */
+function estimateHappiness(planet: Planet): number {
+  if (!planet.ownerId || planet.currentPopulation <= 0) return -1;
+  let score = 60;
+  for (const b of planet.buildings) {
+    if (b.type === 'entertainment_complex') score += 10 * b.level;
+  }
+  if (planet.maxPopulation > 0) {
+    const density = planet.currentPopulation / planet.maxPopulation;
+    if (density > 0.95) score -= 20;
+    else if (density > 0.80) score -= 10;
+    else if (density < 0.50) score += 10;
+  }
+  score -= 5;
+  return Math.max(0, Math.min(100, score));
+}
+
 function sign(n: number): string {
   return n >= 0 ? `+${fmt(n)}` : fmt(n);
 }
@@ -539,7 +563,39 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
                         title={onOpenPlanet ? `Open ${row.planet.name}` : undefined}
                       >
                         <td className="econ-planet-table__td econ-planet-table__td--name">
-                          {row.planet.name}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {(() => {
+                              const hp = estimateHappiness(row.planet);
+                              if (hp < 0) return null;
+                              return (
+                                <span
+                                  title={`Colony health: ${hp}`}
+                                  style={{
+                                    display: 'inline-block',
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: getHealthColor(hp),
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              );
+                            })()}
+                            {row.planet.name}
+                            {row.planet.maxPopulation > 0 && row.planet.currentPopulation / row.planet.maxPopulation > 0.95 && (
+                              <span
+                                title="Overcrowded"
+                                style={{
+                                  fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase',
+                                  padding: '0px 3px', borderRadius: '2px',
+                                  background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                                  marginLeft: '2px',
+                                }}
+                              >
+                                !
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="econ-planet-table__td econ-planet-table__td--muted">
                           {row.systemName}

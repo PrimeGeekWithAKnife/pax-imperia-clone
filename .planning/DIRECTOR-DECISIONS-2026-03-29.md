@@ -1200,3 +1200,12 @@
 - **Naming:** Each organisation gets a unique procedural or player-chosen name to distinguish it
 - **Historical parallel:** Like states forming the United States vs Russia/Ukraine/Belarus forming the USSR — voluntary coalitions with distinct character and rules
 - **One empire can only be a member of one organisation at a time** (must leave before joining another)
+
+### Demographics UI Threshold
+
+**Decision:** Full demographics dashboard only for planets with population >= 1,000,000.
+
+- Planets under 1M get a simplified view: settlement tier, population + trend, health dot, basic workforce summary, alert badges
+- Planets at 1M+ (City tier and above) get the full dashboard: workforce allocation rows, species composition, age/wealth/faith/loyalty bars, political faction clout bars, health/crime indicators, sparkline trends
+- This maps naturally to the settlement tier system: habitats, settlements, colonies, and small cities get the simple view; cities, metropolises, megatropolises, and planetary-scale populations get the full view
+- Reduces information overload on frontier colonies while providing deep insight on developed worlds

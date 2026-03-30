@@ -18,3 +18,4 @@ export * from './governor-personality.js';
 export * from './notification.js';
 export * from './waste.js';
 export * from './narrative.js';
+export * from './ground-combat-expanded.js';

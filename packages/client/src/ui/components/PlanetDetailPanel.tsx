@@ -96,6 +96,47 @@ function habitabilityColor(score: number): string {
   return '#ff6644';
 }
 
+/** Traffic-light colour for colony health based on happiness score. */
+function getHealthColor(happiness: number): string {
+  if (happiness >= 70) return '#10b981'; // green
+  if (happiness >= 40) return '#f59e0b'; // amber
+  return '#ef4444'; // red
+}
+
+/** Estimate happiness from planet buildings and population (client-side approximation). */
+function estimateHappiness(planet: Planet): number {
+  if (!planet.ownerId || planet.currentPopulation <= 0) return -1;
+  // Base happiness
+  let score = 60;
+  // Entertainment buildings
+  for (const b of planet.buildings) {
+    if (b.type === 'entertainment_complex') score += 10 * b.level;
+  }
+  // Overcrowding
+  if (planet.maxPopulation > 0) {
+    const density = planet.currentPopulation / planet.maxPopulation;
+    if (density > 0.95) score -= 20;
+    else if (density > 0.80) score -= 10;
+    else if (density < 0.50) score += 10;
+  }
+  // Tax burden (flat)
+  score -= 5;
+  return Math.max(0, Math.min(100, score));
+}
+
+/** Determine critical alert badges for a planet. */
+function getAlertBadges(planet: Planet): string[] {
+  const badges: string[] = [];
+  if (planet.maxPopulation > 0 && planet.currentPopulation / planet.maxPopulation > 0.95) {
+    badges.push('Overcrowded');
+  }
+  const happiness = estimateHappiness(planet);
+  if (happiness >= 0 && happiness < 30) {
+    badges.push('Unrest');
+  }
+  return badges;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function ResourceBar({ value }: { value: number }): React.ReactElement {
@@ -327,10 +368,58 @@ export function PlanetDetailPanel({
           {/* ── Header ── */}
           <div className="panel-header">
             <div>
-              <h2 className="panel-title">{planet.name}</h2>
-              <div className="panel-subtitle">
+              <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {planet.ownerId && planet.currentPopulation > 0 && (() => {
+                  const hp = estimateHappiness(planet);
+                  return (
+                    <span
+                      title={`Colony health: ${hp}`}
+                      style={{
+                        display: 'inline-block',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: getHealthColor(hp),
+                        flexShrink: 0,
+                      }}
+                    />
+                  );
+                })()}
+                {planet.name}
+              </h2>
+              <div className="panel-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {PLANET_TYPE_LABELS[planet.type] ?? planet.type}
+                {planet.ownerId && planet.currentPopulation > 0 && (
+                  <span style={{ color: '#8899aa', fontSize: '11px' }}>
+                    — {formatPopulation(planet.currentPopulation)}
+                  </span>
+                )}
               </div>
+              {planet.ownerId && planet.currentPopulation > 0 && (() => {
+                const badges = getAlertBadges(planet);
+                if (badges.length === 0) return null;
+                return (
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '3px' }}>
+                    {badges.map((badge) => (
+                      <span
+                        key={badge}
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 'bold',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          color: '#ef4444',
+                        }}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             {onClose && (
               <button
