@@ -220,6 +220,9 @@ export class CombatScene extends Phaser.Scene {
   /** Ships that were destroyed since last visual update (for explosion effects). */
   private prevDestroyed = new Set<string>();
   private selectionRing!: Phaser.GameObjects.Graphics;
+  private selectionBoxGfx!: Phaser.GameObjects.Graphics;
+  private dragSelecting = false;
+  private dragStartWorld: { x: number; y: number } | null = null;
   private beamGraphics!: Phaser.GameObjects.Graphics;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
   private missileGraphics!: Phaser.GameObjects.Graphics;
@@ -295,6 +298,8 @@ export class CombatScene extends Phaser.Scene {
     // ── Selection ring (drawn above ships) ─────────────────────────────────
     this.selectionRing = this.add.graphics();
     this.selectionRing.setDepth(10);
+    this.selectionBoxGfx = this.add.graphics();
+    this.selectionBoxGfx.setDepth(11);
 
     // ── Beam / projectile graphics layers ──────────────────────────────────
     this.beamGraphics = this.add.graphics();
@@ -541,8 +546,62 @@ export class CombatScene extends Phaser.Scene {
       cam.scrollY = camStartY - dy;
     });
 
-    this.input.on('pointerup', () => {
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       dragging = false;
+
+      // Complete drag selection or issue move
+      if (this.dragSelecting && this.dragStartWorld) {
+        const worldEnd = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const dx = Math.abs(worldEnd.x - this.dragStartWorld.x);
+        const dy = Math.abs(worldEnd.y - this.dragStartWorld.y);
+
+        if (dx > 15 || dy > 15) {
+          // Dragged a box — select all friendly ships inside it
+          const minX = Math.min(this.dragStartWorld.x, worldEnd.x);
+          const maxX = Math.max(this.dragStartWorld.x, worldEnd.x);
+          const minY = Math.min(this.dragStartWorld.y, worldEnd.y);
+          const maxY = Math.max(this.dragStartWorld.y, worldEnd.y);
+
+          const selected = this.tacticalState.ships.filter(s =>
+            !s.destroyed && !s.routed && this._isPlayerSide(s) &&
+            s.position.x >= minX && s.position.x <= maxX &&
+            s.position.y >= minY && s.position.y <= maxY
+          );
+
+          if (selected.length > 0) {
+            this.selectedShipId = selected[0]!.id;
+            (this as unknown as Record<string, unknown>).selectedShipIds = selected.map(s => s.id);
+          }
+        } else if (this.selectedShipId) {
+          // Small click (no drag) on empty space — move selected ships there
+          this._issueOrder({ type: 'move', x: worldEnd.x, y: worldEnd.y });
+        }
+
+        this.dragSelecting = false;
+        this.dragStartWorld = null;
+        this.selectionBoxGfx.clear();
+      }
+    });
+
+    // Draw selection box while dragging
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!dragging) {
+        // existing camera pan handled above
+      }
+      if (this.dragSelecting && this.dragStartWorld && pointer.leftButtonDown()) {
+        const worldEnd = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        this.selectionBoxGfx.clear();
+        const x = Math.min(this.dragStartWorld.x, worldEnd.x);
+        const y = Math.min(this.dragStartWorld.y, worldEnd.y);
+        const w = Math.abs(worldEnd.x - this.dragStartWorld.x);
+        const h = Math.abs(worldEnd.y - this.dragStartWorld.y);
+        if (w > 5 || h > 5) {
+          this.selectionBoxGfx.lineStyle(1, 0x44ffaa, 0.7);
+          this.selectionBoxGfx.strokeRect(x, y, w, h);
+          this.selectionBoxGfx.fillStyle(0x44ffaa, 0.1);
+          this.selectionBoxGfx.fillRect(x, y, w, h);
+        }
+      }
     });
   }
 
@@ -1817,25 +1876,40 @@ export class CombatScene extends Phaser.Scene {
         return;
       }
 
-      // Left-click on empty space: move selected ships to that position
-      if (pointer.leftButtonDown()) {
-        // Check if we clicked on a ship container first
+      // Left-click / drag: select, attack, move, or box-select
+      if (pointer.leftButtonDown() && !pointer.event.shiftKey) {
         const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-        let clickedOnShip = false;
+
+        // Check if clicked on a friendly ship — select it
         for (const ship of this.tacticalState.ships) {
           if (ship.destroyed || ship.routed) continue;
+          if (!this._isPlayerSide(ship)) continue;
           const dx = worldPoint.x - ship.position.x;
           const dy = worldPoint.y - ship.position.y;
           if (Math.sqrt(dx * dx + dy * dy) < 30) {
-            clickedOnShip = true;
-            break;
+            this.selectedShipId = ship.id;
+            (this as unknown as Record<string, unknown>).selectedShipIds = null;
+            return;
           }
         }
 
-        if (!clickedOnShip && this.selectedShipId) {
-          // Move selected ships to clicked position
-          this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
+        // Check if clicked on an enemy ship — attack it
+        if (this.selectedShipId) {
+          for (const ship of this.tacticalState.ships) {
+            if (ship.destroyed || ship.routed) continue;
+            if (this._isPlayerSide(ship)) continue;
+            const dx = worldPoint.x - ship.position.x;
+            const dy = worldPoint.y - ship.position.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 30) {
+              this._issueOrder({ type: 'attack', targetId: ship.id });
+              return;
+            }
+          }
         }
+
+        // Start drag selection box — will complete on pointerup
+        this.dragSelecting = true;
+        this.dragStartWorld = { x: worldPoint.x, y: worldPoint.y };
       }
     });
 
@@ -1851,13 +1925,13 @@ export class CombatScene extends Phaser.Scene {
 
   private _handleShipLeftClick(container: Phaser.GameObjects.Container): void {
     const shipId = container.getData('shipId') as string;
-    const side = container.getData('side') as 'attacker' | 'defender';
     const ship = this.tacticalState.ships.find(s => s.id === shipId);
     if (!ship) return;
 
     if (this._isPlayerSide(ship)) {
-      // Clicking a friendly ship — select it
+      // Clicking a friendly ship — select ONLY this ship, clear multi-selection
       this.selectedShipId = shipId;
+      (this as unknown as Record<string, unknown>).selectedShipIds = null;
     } else if (this.selectedShipId) {
       // Clicking an enemy ship while we have a selection — attack order
       this._issueOrder({ type: 'attack', targetId: shipId });
