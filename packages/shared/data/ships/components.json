@@ -22,7 +22,7 @@
     "category": "energy",
     "description": "Multi-emitter beam array with improved tracking",
     "stats": {
-      "damage": 20,
+      "damage": 18,
       "range": 6,
       "accuracy": 90,
       "piercingBonus": 5,
@@ -39,7 +39,7 @@
     "category": "energy",
     "description": "Accelerated particle stream that strips armour at the atomic level",
     "stats": {
-      "damage": 30,
+      "damage": 28,
       "range": 6,
       "accuracy": 88,
       "armorPenetration": 15,
@@ -56,7 +56,7 @@
     "category": "energy",
     "description": "Disrupts molecular bonds \u2014 devastating against shields",
     "stats": {
-      "damage": 35,
+      "damage": 40,
       "range": 7,
       "accuracy": 88,
       "shieldPenetration": 20,
@@ -73,7 +73,7 @@
     "category": "energy",
     "description": "Ionising radiation projector \u2014 damages crew and systems through hull",
     "stats": {
-      "damage": 25,
+      "damage": 22,
       "range": 5,
       "accuracy": 92,
       "systemDamageBonus": 25,
@@ -91,7 +91,7 @@
     "category": "energy",
     "description": "Superheated plasma stream \u2014 the most powerful beam weapon",
     "stats": {
-      "damage": 50,
+      "damage": 55,
       "range": 8,
       "accuracy": 82,
       "armorPenetration": 30,
@@ -140,7 +140,7 @@
     "category": "kinetic",
     "description": "High-velocity mass accelerator \u2014 punches through armour at extreme range",
     "stats": {
-      "damage": 30,
+      "damage": 25,
       "range": 7,
       "accuracy": 85,
       "armorPenetration": 20,
@@ -157,7 +157,7 @@
     "category": "kinetic",
     "description": "Magnetically accelerated rounds with devastating impact",
     "stats": {
-      "damage": 40,
+      "damage": 35,
       "range": 6,
       "accuracy": 88,
       "armorPenetration": 25,
@@ -206,7 +206,7 @@
     "category": "propulsion",
     "description": "Smart-tracking torpedo with terminal guidance",
     "stats": {
-      "damage": 35,
+      "damage": 32,
       "range": 10,
       "accuracy": 80,
       "blastRadius": 2,
@@ -223,7 +223,7 @@
     "category": "propulsion",
     "description": "Fusion-warhead torpedo \u2014 massive blast radius",
     "stats": {
-      "damage": 50,
+      "damage": 48,
       "range": 10,
       "accuracy": 75,
       "blastRadius": 4,
@@ -240,7 +240,7 @@
     "category": "propulsion",
     "description": "Antimatter annihilation warhead \u2014 devastating against capital ships",
     "stats": {
-      "damage": 70,
+      "damage": 68,
       "range": 12,
       "accuracy": 72,
       "blastRadius": 3,
@@ -257,7 +257,7 @@
     "category": "propulsion",
     "description": "Creates a micro-singularity at the point of impact",
     "stats": {
-      "damage": 100,
+      "damage": 95,
       "range": 14,
       "accuracy": 68,
       "blastRadius": 5,
@@ -353,7 +353,7 @@
     "type": "shield",
     "description": "Resonance-tuned shields with faster recharge",
     "stats": {
-      "shieldStrength": 60,
+      "shieldStrength": 55,
       "rechargeRate": 6,
       "resonanceBonus": 10,
       "powerDraw": 6
@@ -368,7 +368,7 @@
     "type": "shield",
     "description": "Ultra-dense energy barrier \u2014 excellent kinetic absorption",
     "stats": {
-      "shieldStrength": 100,
+      "shieldStrength": 90,
       "rechargeRate": 8,
       "kineticAbsorption": 25,
       "powerDraw": 9
@@ -381,16 +381,16 @@
     "id": "phase_shield",
     "name": "Phase Shield",
     "type": "shield",
-    "description": "Partially phase-shifts incoming projectiles \u2014 ultimate shield technology",
+    "description": "Partially phase-shifts incoming projectiles \u2014 the pinnacle of anti-matter era shielding",
     "stats": {
-      "shieldStrength": 150,
+      "shieldStrength": 140,
       "rechargeRate": 12,
       "phaseShift": 40,
       "powerDraw": 14
     },
     "cost": 500,
     "requiredTech": "phase_shields",
-    "minAge": "nano_fusion"
+    "minAge": "anti_matter"
   },
   {
     "id": "composite_plate",
@@ -452,7 +452,7 @@
     "type": "armor",
     "description": "Second-generation reactive plating with layered detonation chambers",
     "stats": {
-      "armorRating": 55,
+      "armorRating": 60,
       "massIncrease": 8,
       "explosiveResistance": 20
     },
@@ -466,7 +466,7 @@
     "type": "armor",
     "description": "Self-repairing nano-fibre mesh",
     "stats": {
-      "armorRating": 70,
+      "armorRating": 80,
       "massIncrease": 6,
       "selfRepair": 2
     },
@@ -480,7 +480,7 @@
     "type": "armor",
     "description": "Dense nano-fibre lattice with rare-element threading",
     "stats": {
-      "armorRating": 85,
+      "armorRating": 100,
       "massIncrease": 7,
       "selfRepair": 4
     },
@@ -494,7 +494,7 @@
     "type": "armor",
     "description": "Ultra-dense neutronium alloy",
     "stats": {
-      "armorRating": 110,
+      "armorRating": 130,
       "massIncrease": 12,
       "kineticResistance": 30
     },
@@ -508,7 +508,7 @@
     "type": "armor",
     "description": "Dimensional phase plating \u2014 weapons pass through",
     "stats": {
-      "armorRating": 140,
+      "armorRating": 160,
       "massIncrease": 4,
       "phaseEvasion": 25
     },
@@ -522,7 +522,7 @@
     "type": "armor",
     "description": "Micro-singularity lattice warps space around the hull",
     "stats": {
-      "armorRating": 180,
+      "armorRating": 200,
       "massIncrease": 3,
       "phaseEvasion": 35,
       "graviticDeflection": 20
@@ -978,5 +978,73 @@
     "cost": 200,
     "requiredTech": "autonomous_repair_systems",
     "minAge": "nano_fusion"
+  },
+  {
+    "id": "singularity_barrier",
+    "name": "Singularity Barrier",
+    "type": "shield",
+    "description": "Gravitational lens barrier that warps incoming fire around the hull",
+    "stats": {
+      "shieldStrength": 200,
+      "rechargeRate": 16,
+      "graviticDeflection": 30,
+      "phaseShift": 50,
+      "powerDraw": 18
+    },
+    "cost": 750,
+    "requiredTech": "singularity_shielding",
+    "minAge": "singularity"
+  },
+  {
+    "id": "antimatter_accelerator",
+    "name": "Antimatter Accelerator",
+    "type": "weapon_projectile",
+    "category": "kinetic",
+    "description": "Fires antimatter-tipped slugs that annihilate on contact",
+    "stats": {
+      "damage": 50,
+      "range": 7,
+      "accuracy": 86,
+      "armorPenetration": 30,
+      "powerDraw": 8
+    },
+    "cost": 380,
+    "requiredTech": "antimatter_munitions",
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "singularity_driver",
+    "name": "Singularity Driver",
+    "type": "weapon_projectile",
+    "category": "kinetic",
+    "description": "Launches micro-singularity projectiles that distort space on impact",
+    "stats": {
+      "damage": 65,
+      "range": 8,
+      "accuracy": 84,
+      "armorPenetration": 40,
+      "graviticPull": 15,
+      "powerDraw": 10
+    },
+    "cost": 580,
+    "requiredTech": "singularity_weapons",
+    "minAge": "singularity"
+  },
+  {
+    "id": "fusion_autocannon",
+    "name": "Fusion Autocannon",
+    "type": "weapon_projectile",
+    "category": "kinetic",
+    "description": "Rapid-fire magnetically accelerated rounds powered by a compact fusion core",
+    "stats": {
+      "damage": 20,
+      "range": 4,
+      "accuracy": 88,
+      "armorPenetration": 10,
+      "powerDraw": 3
+    },
+    "cost": 100,
+    "requiredTech": "fusion_kinetics",
+    "minAge": "fusion"
   }
 ]
