@@ -768,13 +768,13 @@ export class SystemViewScene extends Phaser.Scene {
         const angle = (indexInGroup / groupSize) * Math.PI * 2;
         orbitState = {
           angle,
-          speed: 0.00005,
-          radius: fleet.orbitTarget && fleet.orbitTarget !== 'star' ? 25 : ORBIT_BASE_RADIUS * 0.4,
+          speed: 0.000008, // Very slow — near-stationary so fleets are easy to click
+          radius: fleet.orbitTarget && fleet.orbitTarget !== 'star' ? 25 : ORBIT_BASE_RADIUS * 0.35,
         };
         this.fleetOrbitState.set(fleet.id, orbitState);
       }
 
-      const innerOrbitRadius = ORBIT_BASE_RADIUS * 0.4;
+      const innerOrbitRadius = ORBIT_BASE_RADIUS * 0.35;
       let wx: number, wy: number;
       if (fleet.orbitTarget && fleet.orbitTarget !== 'star') {
         const planetPos = this._getPlanetWorldPos(fleet.orbitTarget);
