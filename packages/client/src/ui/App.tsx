@@ -52,6 +52,7 @@ import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
+import { GalaxyMap3D } from './screens/GalaxyMap3D';
 import { NotificationPopup } from './components/NotificationPopup';
 import type { GameLogEntry } from './components/EventLog';
 import { VictoryTracker } from './components/VictoryTracker';
@@ -191,6 +192,9 @@ export function App(): React.ReactElement {
 
   // ── Viewport state (camera rect in galaxy coords, for minimap) ──
   const [viewport, setViewport] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // ── 3D galaxy map proof-of-concept toggle ──
+  const [show3DMap, setShow3DMap] = useState(false);
 
   // ── Live resource state (updated by engine ticks) ──
   const [liveCredits, setLiveCredits] = useState<number | undefined>(undefined);
@@ -2391,6 +2395,34 @@ export function App(): React.ReactElement {
           allowedPolicies={occupationData.allowedPolicies}
           onSelectPolicy={handleOccupationPolicy}
           onClose={handleOccupationClose}
+        />
+      )}
+
+      {/* 3D Galaxy Map toggle button */}
+      {gameStarted && galaxy && !show3DMap && (
+        <button
+          onClick={() => setShow3DMap(true)}
+          style={{
+            position: 'absolute', bottom: 16, right: 16, zIndex: 800,
+            background: 'rgba(0, 8, 20, 0.85)', border: '1px solid #4488ff',
+            color: '#ccddff', fontFamily: 'monospace', fontSize: 12,
+            padding: '6px 12px', borderRadius: 4, cursor: 'pointer',
+          }}
+        >
+          3D View (PoC)
+        </button>
+      )}
+
+      {/* 3D Galaxy Map overlay */}
+      {show3DMap && galaxy && (
+        <GalaxyMap3D
+          galaxy={galaxy}
+          onSystemSelected={(sys) => {
+            // Emit same event as Phaser so React panels update
+            const game = (window as any).__EX_NIHILO_GAME__;
+            if (game?.events) game.events.emit('system:selected', sys);
+          }}
+          onClose={() => setShow3DMap(false)}
         />
       )}
 
