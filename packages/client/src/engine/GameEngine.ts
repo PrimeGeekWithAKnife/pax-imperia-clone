@@ -69,6 +69,17 @@ import {
 import type { GameTickState } from '@nova-imperia/shared';
 import type { GameSpeedName } from '@nova-imperia/shared';
 import type { BuildingType, ShipDesign } from '@nova-imperia/shared';
+import type { TreatyType } from '@nova-imperia/shared';
+import {
+  declareWar as declareWarFn,
+  proposeTreaty as proposeTreatyFn,
+  breakTreaty as breakTreatyFn,
+  makePeace as makePeaceFn,
+  modifyAttitude as modifyAttitudeFn,
+  getRelation,
+  evaluateTreatyProposal,
+} from '@nova-imperia/shared';
+import type { DiplomacyState } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
 import type { ResearchState, Governor, SpyAgent, SpyMission } from '@nova-imperia/shared';
 import type {
@@ -2022,6 +2033,180 @@ export class GameEngine {
       newOwnerName: systemControlChanged ? winnerEmpire?.name : undefined,
       ticksElapsed: tick,
     };
+  }
+
+  // ── Diplomacy ─────────────────────────────────────────────────────────────
+
+  /** Access the diplomacy state from the tick state (attached as an extra field). */
+  private getDiplomacyState(): DiplomacyState | undefined {
+    return (this.tickState as unknown as Record<string, unknown>).diplomacyState as
+      | DiplomacyState
+      | undefined;
+  }
+
+  /** Replace the diplomacy state in the tick state. */
+  private setDiplomacyState(diplomacyState: DiplomacyState): void {
+    this.tickState = {
+      ...this.tickState,
+      diplomacyState,
+    } as GameTickState;
+  }
+
+  /** Get the player empire ID. */
+  getPlayerEmpireId(): string | undefined {
+    return this.tickState.gameState.empires.find(e => !e.isAI)?.id;
+  }
+
+  /** Declare war on a target empire. */
+  diplomacyDeclareWar(targetEmpireId: string): boolean {
+    const diplomacyState = this.getDiplomacyState();
+    if (!diplomacyState) return false;
+    const playerEmpireId = this.getPlayerEmpireId();
+    if (!playerEmpireId) return false;
+    const tick = this.tickState.gameState.currentTick;
+    const newState = declareWarFn(diplomacyState, playerEmpireId, targetEmpireId, tick);
+    this.setDiplomacyState(newState);
+    return true;
+  }
+
+  /**
+   * Propose a treaty to a target empire.
+   * For player-to-AI proposals, the AI evaluates and auto-accepts/rejects.
+   * Returns { accepted, reason } so the UI can show feedback.
+   */
+  diplomacyProposeTreaty(targetEmpireId: string, treatyType: TreatyType): { accepted: boolean; reason: string } {
+    const diplomacyState = this.getDiplomacyState();
+    if (!diplomacyState) return { accepted: false, reason: 'No diplomacy state.' };
+    const playerEmpireId = this.getPlayerEmpireId();
+    if (!playerEmpireId) return { accepted: false, reason: 'No player empire.' };
+    const tick = this.tickState.gameState.currentTick;
+
+    const relation = getRelation(diplomacyState, playerEmpireId, targetEmpireId);
+    if (!relation) return { accepted: false, reason: 'No diplomatic contact.' };
+
+    // Check if the target is an AI empire
+    const targetEmpire = this.tickState.gameState.empires.find(e => e.id === targetEmpireId);
+    const playerEmpire = this.tickState.gameState.empires.find(e => e.id === playerEmpireId);
+    if (!targetEmpire || !playerEmpire) return { accepted: false, reason: 'Empire not found.' };
+
+    if (targetEmpire.isAI) {
+      // AI evaluates the proposal using the full personality-driven logic
+      const evaluation = evaluateTreatyProposal(playerEmpire, targetEmpire, relation, {
+        fromEmpireId: playerEmpireId,
+        toEmpireId: targetEmpireId,
+        treatyType,
+      });
+
+      if (!evaluation.accept) {
+        return { accepted: false, reason: evaluation.reason };
+      }
+    }
+
+    // Proposal accepted — sign the treaty
+    const newState = proposeTreatyFn(diplomacyState, {
+      fromEmpireId: playerEmpireId,
+      toEmpireId: targetEmpireId,
+      treatyType,
+    }, tick);
+    this.setDiplomacyState(newState);
+    return { accepted: true, reason: `${treatyType.replace(/_/g, ' ')} treaty signed.` };
+  }
+
+  /** Break an existing treaty by matching type with the target empire. */
+  diplomacyBreakTreaty(targetEmpireId: string, treatyType: TreatyType): boolean {
+    const diplomacyState = this.getDiplomacyState();
+    if (!diplomacyState) return false;
+    const playerEmpireId = this.getPlayerEmpireId();
+    if (!playerEmpireId) return false;
+    const tick = this.tickState.gameState.currentTick;
+
+    // Find the treaty ID in the diplomacy state's ActiveTreaty list
+    const relation = getRelation(diplomacyState, playerEmpireId, targetEmpireId);
+    if (!relation) return false;
+    const treaty = relation.treaties.find(t => t.type === treatyType);
+    if (!treaty) return false;
+
+    const newState = breakTreatyFn(diplomacyState, playerEmpireId, targetEmpireId, treaty.id, tick);
+    this.setDiplomacyState(newState);
+    return true;
+  }
+
+  /** Make peace with a target empire. */
+  diplomacyMakePeace(targetEmpireId: string): boolean {
+    const diplomacyState = this.getDiplomacyState();
+    if (!diplomacyState) return false;
+    const playerEmpireId = this.getPlayerEmpireId();
+    if (!playerEmpireId) return false;
+    const tick = this.tickState.gameState.currentTick;
+    const newState = makePeaceFn(diplomacyState, playerEmpireId, targetEmpireId, tick);
+    this.setDiplomacyState(newState);
+    return true;
+  }
+
+  /**
+   * Send a gift of credits to a target empire.
+   * Deducts credits from the player and adds an attitude bonus.
+   * The attitude bonus scales with the gift amount (1 attitude per 100 credits).
+   */
+  diplomacySendGift(targetEmpireId: string, amount: number): boolean {
+    const diplomacyState = this.getDiplomacyState();
+    if (!diplomacyState) return false;
+    const playerEmpireId = this.getPlayerEmpireId();
+    if (!playerEmpireId) return false;
+
+    // Check player can afford it
+    const resources = this.tickState.empireResourcesMap.get(playerEmpireId);
+    if (!resources || resources.credits < amount) return false;
+
+    // Deduct credits
+    const updatedResources = { ...resources, credits: resources.credits - amount };
+    const updatedResourcesMap = new Map(this.tickState.empireResourcesMap);
+    updatedResourcesMap.set(playerEmpireId, updatedResources);
+
+    // Also update the empire's credits field for consistency
+    const updatedEmpires = this.tickState.gameState.empires.map(e =>
+      e.id === playerEmpireId ? { ...e, credits: updatedResources.credits } : e,
+    );
+
+    this.tickState = {
+      ...this.tickState,
+      empireResourcesMap: updatedResourcesMap,
+      gameState: {
+        ...this.tickState.gameState,
+        empires: updatedEmpires,
+      },
+    };
+
+    // Apply attitude bonus (1 point per 100 credits, minimum 1)
+    const tick = this.tickState.gameState.currentTick;
+    const attitudeBonus = Math.max(1, Math.round(amount / 100));
+    const newState = modifyAttitudeFn(
+      diplomacyState,
+      targetEmpireId,
+      playerEmpireId,
+      attitudeBonus,
+      `Gift of ${amount} credits received`,
+      tick,
+    );
+    this.setDiplomacyState(newState);
+
+    // Emit resource update so the TopBar reflects the deduction immediately
+    this.game.events.emit('engine:resources_updated', this.tickState.gameState.empires.map(e => {
+      const full = this.tickState.empireResourcesMap.get(e.id);
+      return {
+        empireId: e.id,
+        credits: full?.credits ?? e.credits,
+        minerals: full?.minerals ?? 0,
+        energy: full?.energy ?? 0,
+        organics: full?.organics ?? 0,
+        rareElements: full?.rareElements ?? 0,
+        exoticMaterials: full?.exoticMaterials ?? 0,
+        faith: full?.faith ?? 0,
+        researchPoints: full?.researchPoints ?? e.researchPoints,
+      };
+    }));
+
+    return true;
   }
 }
 

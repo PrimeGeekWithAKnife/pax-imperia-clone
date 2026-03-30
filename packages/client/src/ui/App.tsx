@@ -817,8 +817,10 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
   }, []);
 
-  // Play ominous horn when the player declares war
-  const handleDeclareWar = useCallback((_targetEmpireId: string) => {
+  // Declare war — mutate engine state then play SFX
+  const handleDeclareWar = useCallback((targetEmpireId: string) => {
+    const engine = getGameEngine();
+    if (engine) engine.diplomacyDeclareWar(targetEmpireId);
     const audioEngine = getAudioEngine();
     if (audioEngine) {
       const sfx = new SfxGenerator(audioEngine);
@@ -826,13 +828,45 @@ export function App(): React.ReactElement {
     }
   }, []);
 
-  // Play gentle bell when a treaty is signed
-  const handleProposeTreaty = useCallback((_targetEmpireId: string, _type: import('@nova-imperia/shared').TreatyType) => {
+  // Propose treaty — AI evaluates, play SFX only on acceptance
+  const handleProposeTreaty = useCallback((targetEmpireId: string, type: import('@nova-imperia/shared').TreatyType) => {
+    const engine = getGameEngine();
+    if (engine) {
+      const result = engine.diplomacyProposeTreaty(targetEmpireId, type);
+      if (!result.accepted) {
+        console.log(`[Diplomacy] Treaty rejected: ${result.reason}`);
+        return;
+      }
+    }
     const audioEngine = getAudioEngine();
     if (audioEngine) {
       const sfx = new SfxGenerator(audioEngine);
       sfx.playTreatySign();
     }
+  }, []);
+
+  // Break treaty
+  const handleBreakTreaty = useCallback((targetEmpireId: string, treaty: import('@nova-imperia/shared').Treaty) => {
+    const engine = getGameEngine();
+    if (engine) engine.diplomacyBreakTreaty(targetEmpireId, treaty.type);
+  }, []);
+
+  // Make peace
+  const handleMakePeace = useCallback((targetEmpireId: string) => {
+    const engine = getGameEngine();
+    if (engine) engine.diplomacyMakePeace(targetEmpireId);
+  }, []);
+
+  // Send gift (credits)
+  const handleSendGift = useCallback((targetEmpireId: string, credits: number) => {
+    const engine = getGameEngine();
+    if (engine) engine.diplomacySendGift(targetEmpireId, credits);
+  }, []);
+
+  // Establish trade route
+  const handleEstablishTradeRoute = useCallback((targetEmpireId: string) => {
+    const engine = getGameEngine();
+    if (engine) engine.diplomacyProposeTreaty(targetEmpireId, 'trade');
   }, []);
 
   // Fleet, Economy, Espionage button handlers for TopBar
@@ -2098,6 +2132,10 @@ export function App(): React.ReactElement {
           onClose={handleCloseDiplomacy}
           onDeclareWar={handleDeclareWar}
           onProposeTreaty={handleProposeTreaty}
+          onBreakTreaty={handleBreakTreaty}
+          onMakePeace={handleMakePeace}
+          onSendGift={handleSendGift}
+          onEstablishTradeRoute={handleEstablishTradeRoute}
         />
       </div>
     );
