@@ -26,7 +26,7 @@ export const BATTLEFIELD_HEIGHT = 1000;
 export const PROJECTILE_SPEED = 8;
 
 /** Default speed for ships without an engine component. */
-const DEFAULT_SPEED = 1.5;
+const DEFAULT_SPEED = 3.0;
 /** Default turn rate (radians per tick) for ships without specific data. */
 const DEFAULT_TURN_RATE = 0.08;
 /** Default sensor range in battlefield units. */
@@ -38,7 +38,7 @@ const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
 const BEAM_EFFECT_DURATION = 3;
 /** Fraction of max shields recharged per tick. */
-const SHIELD_RECHARGE_FRACTION = 0.05;
+const SHIELD_RECHARGE_FRACTION = 0.03;
 /** Armour absorbs up to this fraction of remaining damage per hit. */
 const ARMOUR_ABSORPTION_FRACTION = 0.25;
 /** Armour degrades by this fraction of the absorbed amount per hit. */
@@ -776,20 +776,21 @@ export function initializeTacticalCombat(
   const expandedAttackers = expandCarriedShips(topAttackers);
   const expandedDefenders = expandCarriedShips(topDefenders);
 
-  // For planetary assault, defenders are placed closer to the planet
+  // Fleets start within engagement range so combat begins quickly.
+  // Attackers on the left third, defenders on the right third.
   const defenderBaseX = layout === 'planetary_assault'
     ? BATTLEFIELD_WIDTH - 250
-    : BATTLEFIELD_WIDTH - 100;
+    : BATTLEFIELD_WIDTH * 0.65;
   const defenderBaseY = layout === 'planetary_assault'
     ? BATTLEFIELD_HEIGHT - 200
-    : BATTLEFIELD_HEIGHT - 100;
+    : BATTLEFIELD_HEIGHT * 0.4;
 
   function buildSide(
     ships: Ship[],
     side: 'attacker' | 'defender',
   ): TacticalShip[] {
-    const baseX = side === 'attacker' ? 100 : defenderBaseX;
-    const baseY = side === 'attacker' ? 100 : defenderBaseY;
+    const baseX = side === 'attacker' ? BATTLEFIELD_WIDTH * 0.25 : defenderBaseX;
+    const baseY = side === 'attacker' ? BATTLEFIELD_HEIGHT * 0.4 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 
     return ships.map((ship, index) => {
@@ -1861,8 +1862,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     if (ship.destroyed || ship.routed) return ship;
     let morale = ship.crew.morale;
 
-    // Prolonged combat fatigue: -0.2 per tick after tick 50
-    if (state.tick > 50) morale -= 0.2;
+    // Prolonged combat fatigue: -0.1 per tick after tick 200
+    // (battles should be decided by combat, not by waiting)
+    if (state.tick > 200) morale -= 0.1;
 
     // Outnumbered penalty: -0.5 per tick if enemy has 2x more ships
     const allies = ships.filter(
