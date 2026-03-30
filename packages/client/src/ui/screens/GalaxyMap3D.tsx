@@ -11,6 +11,7 @@ import { CameraControls, Html } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { Galaxy, StarSystem, StarType, SpiralGalaxyMetadata, Planet } from '@nova-imperia/shared';
+import { SystemView3D } from './SystemView3D';
 
 // ── Star visual properties ──────────────────────────────────────────────────
 
@@ -1027,6 +1028,9 @@ interface GalaxyMap3DProps {
 export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose }: GalaxyMap3DProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
+  const [viewingSystem, setViewingSystem] = useState<StarSystem | null>(null);
+  const lastClickTimeRef = useRef<number>(0);
+  const lastClickIdRef = useRef<string | null>(null);
 
   const systemMap = useMemo(() => {
     const map = new Map<string, StarSystem>();
@@ -1051,6 +1055,18 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose 
   }, [selectedId, systemMap]);
 
   const handleStarClick = useCallback((systemId: string) => {
+    const now = Date.now();
+    const isDoubleClick = (now - lastClickTimeRef.current < 400) && (lastClickIdRef.current === systemId);
+    lastClickTimeRef.current = now;
+    lastClickIdRef.current = systemId;
+
+    if (isDoubleClick) {
+      // Double-click: enter system view
+      const sys = systemMap.get(systemId);
+      if (sys) setViewingSystem(sys);
+      return;
+    }
+
     setSelectedId(systemId);
     const sys = systemMap.get(systemId);
     if (sys && onSystemSelected) {
@@ -1159,6 +1175,19 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose 
 
       {/* HTML tooltip overlay */}
       {tooltipInfo && <StarTooltip info={tooltipInfo} />}
+
+      {/* 3D System View overlay (entered via double-click on a star) */}
+      {viewingSystem && (
+        <SystemView3D
+          system={viewingSystem}
+          playerEmpireId={playerEmpireId}
+          onPlanetSelected={(planet) => {
+            const game = (window as any).__EX_NIHILO_GAME__;
+            if (game?.events) game.events.emit('planet:selected', planet);
+          }}
+          onClose={() => setViewingSystem(null)}
+        />
+      )}
     </div>
   );
 }
