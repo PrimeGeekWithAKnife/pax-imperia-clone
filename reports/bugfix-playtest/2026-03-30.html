@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bugfix &amp; Playtest Report - 2026-03-30</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #c8d6e5;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .back { display: inline-block; margin-bottom: 1.5rem; color: #5a7a94; text-decoration: none; }
+  .back:hover { color: #00d4ff; }
+  h1 { color: #00d4ff; font-size: 2rem; margin-bottom: 0.3rem; }
+  .report-meta { color: #5a7a94; font-size: 0.9rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #1e2d3d; }
+  .report-meta .pipeline-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: #10b98122;
+    color: #10b981;
+    margin-right: 0.5rem;
+  }
+  h2 {
+    color: #5ce0d8;
+    font-size: 1.4rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e2d3d;
+  }
+  h3 { color: #a8c4db; font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+  .section {
+    background: #111827;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 1px solid #1e2d3d;
+  }
+  .status-pass { color: #10b981; font-weight: 600; }
+  .status-fail { color: #ef4444; font-weight: 600; }
+  .status-warn { color: #f59e0b; font-weight: 600; }
+  .status-info { color: #3b82f6; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #1e2d3d; }
+  th { color: #5ce0d8; font-weight: 600; }
+  code { background: #1a2332; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1a2332; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
+  pre code { padding: 0; background: none; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #7f1d1d; color: #fca5a5; }
+  .badge-medium { background: #78350f; color: #fcd34d; }
+  .badge-low { background: #064e3b; color: #6ee7b7; }
+  .badge-info { background: #1e3a5f; color: #93c5fd; }
+  .summary-box {
+    background: linear-gradient(135deg, #0f1729, #1a1f3a);
+    border: 1px solid #1e2d3d;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .summary-box h3 { margin-top: 0; }
+  .metric {
+    display: inline-block;
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: #0d1117;
+    border-radius: 8px;
+    margin: 0.5rem;
+    min-width: 120px;
+  }
+  .metric .value { font-size: 2rem; font-weight: 700; color: #00d4ff; display: block; }
+  .metric .label { font-size: 0.8rem; color: #5a7a94; }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1e2d3d;
+    color: #3a4a5a;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="/">&larr; Back to Dashboard</a>
+  <h1>Bugfix &amp; Playtest Report</h1>
+  <div class="report-meta">
+    <span class="pipeline-badge">BUGFIX-PLAYTEST</span>
+    Generated: 2026-03-30 &mdash; Ex Nihilo by Meridian Logic Ltd
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- a) Executive Summary                                          -->
+  <!-- ============================================================ -->
+  <h2>Executive Summary</h2>
+  <div class="summary-box">
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem;">
+      <div class="metric">
+        <span class="value">4</span>
+        <span class="label">Bugs Found</span>
+      </div>
+      <div class="metric">
+        <span class="value">4</span>
+        <span class="label">Bugs Fixed</span>
+      </div>
+      <div class="metric">
+        <span class="value">2810</span>
+        <span class="label">Tests Passing</span>
+      </div>
+      <div class="metric">
+        <span class="value">0</span>
+        <span class="label">Tests Failing</span>
+      </div>
+      <div class="metric">
+        <span class="value" style="color: #10b981;">4/4</span>
+        <span class="label">Playtests Passing</span>
+      </div>
+    </div>
+    <p style="margin-top: 1rem; text-align: center;">
+      All 22 previously failing tests now pass. Four distinct bugs were identified and resolved across
+      hull template data, ship component data, combat experience logic, and victory condition constants.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- b) Bugs Fixed                                                 -->
+  <!-- ============================================================ -->
+  <h2>Bugs Fixed</h2>
+  <div class="section">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Description</th>
+          <th>File:Line</th>
+          <th>Fix Applied</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Scout hull slot IDs renamed from positional (<code>scout_fore_1</code>) to functional (<code>scout_weapon_1</code>) naming, breaking all references</td>
+          <td><code>data/ships/hull-templates.json:49</code></td>
+          <td>Restored positional slot IDs (<code>scout_fore_1</code>, <code>scout_turret_1</code>, <code>scout_aft_1</code>); merged turret slot allowed types to include both shield/armour and sensor types</td>
+          <td><span class="status-pass">VERIFIED</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Missing <code>basic_missile</code> component &mdash; test fixtures reference a missile component that did not exist in ship data</td>
+          <td><code>data/ships/components.json</code></td>
+          <td>Added <code>basic_missile</code> as a <code>weapon_missile</code> component alongside <code>basic_torpedo</code></td>
+          <td><span class="status-pass">VERIFIED</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Crew experience promotion logic &mdash; victory/difficulty bonuses were 1 instead of 2, total gain flattened to binary, and cap was at index 3 instead of elite</td>
+          <td><code>engine/combat-tactical.ts:2134-2138</code></td>
+          <td>Changed bonuses to 2 each, applied total gain directly, capped at elite rank index</td>
+          <td><span class="status-pass">VERIFIED</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Economic victory credit multiplier set to 3&times; instead of documented 10&times;, causing premature game endings at ~291 ticks</td>
+          <td><code>engine/victory.ts:64</code></td>
+          <td>Restored <code>ECONOMIC_CREDIT_MULTIPLIER</code> to 10 as per module documentation</td>
+          <td><span class="status-pass">VERIFIED</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- c) Test Suite Results                                         -->
+  <!-- ============================================================ -->
+  <h2>Test Suite Results</h2>
+  <div class="section">
+    <p><span class="status-pass">46 test files passed</span> &mdash; <span class="status-pass">2810 tests passed</span>, 0 failed</p>
+    <table>
+      <thead>
+        <tr><th>Category</th><th>File</th><th>Pass</th><th>Fail</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ship Design</td><td>ship-design.test.ts</td><td>280</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Combat (Tactical)</td><td>combat-tactical.test.ts</td><td>118</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Post-Combat</td><td>post-combat.test.ts</td><td>35</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Combat (Strategic)</td><td>combat.test.ts</td><td>various</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Galaxy Generation</td><td>galaxy-generation.test.ts</td><td>various</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Integration</td><td>integration-new-systems.test.ts</td><td>various</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Playtest: Khazari</td><td>playtest-khazari.test.ts</td><td>4</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Playtest: Nexari</td><td>playtest-nexari.test.ts</td><td>4</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Playtest: Vaelori</td><td>playtest-vaelori.test.ts</td><td>4</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+        <tr><td>Playtest: Nightly</td><td>playtest-nightly.test.ts</td><td>7</td><td>0</td><td><span class="status-pass">PASS</span></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top: 0.5rem; color: #5a7a94;">TypeScript type checking: <span class="status-pass">0 errors</span></p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- d) Playtest Results                                           -->
+  <!-- ============================================================ -->
+  <h2>Playtest Results</h2>
+
+  <h3>Khazari (Construction/Combat Focus)</h3>
+  <div class="section">
+    <table>
+      <thead><tr><th>Empire</th><th>Credits</th><th>Minerals</th><th>Techs (Age)</th><th>Ships</th><th>Tick</th></tr></thead>
+      <tbody>
+        <tr><td>Khazari Dominion</td><td>3,743,502</td><td>32,411</td><td>16 (nano_atomic)</td><td>9</td><td>1500</td></tr>
+        <tr><td>Drakmari Shoal</td><td>4,776,696</td><td>27,626</td><td>43 (fusion)</td><td>1</td><td>1500</td></tr>
+        <tr><td>Sylvani Concord</td><td>3,168,822</td><td>7,430</td><td>69 (anti_matter)</td><td>0</td><td>1500</td></tr>
+      </tbody>
+    </table>
+    <p>Outcome: <span class="status-pass">Full 1500 ticks completed.</span> No victory condition triggered. No NaN or negative resource values detected.</p>
+  </div>
+
+  <h3>Nexari (Research/Espionage Focus)</h3>
+  <div class="section">
+    <table>
+      <thead><tr><th>Empire</th><th>Credits</th><th>Minerals</th><th>Techs (Age)</th><th>Ships</th><th>Tick</th></tr></thead>
+      <tbody>
+        <tr><td>Nexari Collective</td><td>21,876</td><td>25,295</td><td>68 (nano_fusion)</td><td>1</td><td>1500</td></tr>
+        <tr><td>Zorvathi Swarm</td><td>316,800</td><td>32,075</td><td>24 (fusion)</td><td>9</td><td>1500</td></tr>
+        <tr><td>Orivani Depths</td><td>2,841,251</td><td>29,706</td><td>20 (fusion)</td><td>3</td><td>1500</td></tr>
+      </tbody>
+    </table>
+    <p>Outcome: <span class="status-pass">Full 1500 ticks completed.</span> Nexari lead in tech count (68 vs avg 22). Previously ended at tick ~291 due to premature economic victory (Bug #4).</p>
+  </div>
+
+  <h3>Vaelori (Research/Diplomacy Focus)</h3>
+  <div class="section">
+    <table>
+      <thead><tr><th>Empire</th><th>Credits</th><th>Minerals</th><th>Techs (Age)</th><th>Ships</th><th>Tick</th></tr></thead>
+      <tbody>
+        <tr><td>Vaelori Enclave</td><td>84,760</td><td>20,570</td><td>84 (nano_fusion)</td><td>1</td><td>1500</td></tr>
+        <tr><td>Drakmari Shoal</td><td>1,245,240</td><td>20,855</td><td>19 (nano_atomic)</td><td>9</td><td>1500</td></tr>
+        <tr><td>Ashkari Consortium</td><td>725,536</td><td>22,730</td><td>50 (fusion)</td><td>1</td><td>1500</td></tr>
+      </tbody>
+    </table>
+    <p>Outcome: <span class="status-pass">Full 1500 ticks completed.</span> Vaelori lead in tech (84 techs, nano_fusion age).</p>
+  </div>
+
+  <h3>Nightly: Drakmari (Military/Domination)</h3>
+  <div class="section">
+    <table>
+      <thead><tr><th>Empire</th><th>Credits</th><th>Minerals</th><th>Techs (Age)</th><th>Ships</th><th>Pop</th><th>Tick</th></tr></thead>
+      <tbody>
+        <tr><td>Drakmari Shoal (aggressive)</td><td>907,572</td><td>14,552</td><td>17 (nano_atomic)</td><td>9</td><td>93,584</td><td>2500</td></tr>
+        <tr><td>Thyriaq Rogue Fleet (aggressive)</td><td>527,083</td><td>53,945</td><td>86 (nano_fusion)</td><td>9</td><td>59,875</td><td>2500</td></tr>
+        <tr><td>Luminari Concord (defensive)</td><td>4,356,548</td><td>18,568</td><td>122 (anti_matter)</td><td>7</td><td>119,485</td><td>2500</td></tr>
+        <tr><td>Pyrenth Commerce Guild (expansionist)</td><td>846,713</td><td>57,775</td><td>32 (fusion)</td><td>1</td><td>186,713</td><td>2500</td></tr>
+      </tbody>
+    </table>
+    <p>Outcome: <span class="status-pass">Full 2500 ticks completed.</span> No conquest victory achieved. 0 combat encounters &mdash; aggressive AI did not initiate fleet engagements.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- e) Balance Observations                                       -->
+  <!-- ============================================================ -->
+  <h2>Balance Observations</h2>
+  <div class="section">
+    <p><span class="status-warn">FOR MORNING REVIEW &mdash; no changes implemented.</span></p>
+
+    <h3>Resource Accumulation Rates</h3>
+    <ul>
+      <li><strong>Credit generation is highly variable.</strong> Luminari Concord accumulated 4.36M credits by tick 2500 (2,158/tick) whilst Drakmari Shoal managed 907K (406/tick). The 5&times; difference suggests diplomatic/turtling strategies generate disproportionate income.</li>
+      <li><strong>Mineral rates are more compressed.</strong> Range from 4.4/tick (Drakmari) to 22.6/tick (Pyrenth), roughly a 5&times; spread. Minerals appear better balanced than credits.</li>
+      <li><strong>Nexari credit income is extremely low</strong> (21K at tick 1500) despite high research. Consider whether cybernetic species should have an alternative income mechanic.</li>
+    </ul>
+
+    <h3>Victory Condition Reachability</h3>
+    <ul>
+      <li><strong>Conquest victory was unreachable</strong> in 2500 ticks &mdash; no empire controls more than 2 of the galaxy's planets. AI empires are not expanding aggressively enough to trigger the 75% threshold.</li>
+      <li><strong>Technological victory</strong> is the most reachable. Luminari reached 122/300 techs (40.7%) by tick 2500 at the anti_matter age. At current rates, ascension project could be reached by tick ~6000.</li>
+      <li><strong>Economic victory</strong> is now correctly gated at 10&times; (restored from erroneously reduced 3&times;). No empire achieved 10&times; lead in any playtest.</li>
+      <li><strong>Diplomatic victory</strong> was not observed triggering in any playtest.</li>
+    </ul>
+
+    <h3>Fleet Size and Combat</h3>
+    <ul>
+      <li><strong>Zero combat encounters</strong> in the nightly playtest despite two aggressive AI empires. The AI appears to build fleets (9 ships each for Drakmari and Thyriaq) but does not engage. <span class="badge badge-high">HIGH PRIORITY</span></li>
+      <li><strong>Fleet sizes plateau early</strong> &mdash; most empires reach 7&ndash;9 ships by tick 500 and do not grow further. Ship production may be bottlenecked.</li>
+      <li><strong>Pyrenth consistently builds only 1 ship</strong> across all playtests where present. Economic AI personality may neglect military production entirely.</li>
+    </ul>
+
+    <h3>Tech Tree Progression</h3>
+    <ul>
+      <li><strong>Research-oriented species lead massively.</strong> Luminari researched 122 techs vs Drakmari's 17 by tick 2500 &mdash; a 7&times; difference. High research traits compound over time.</li>
+      <li><strong>Age progression gaps</strong> are significant: Luminari reached anti_matter whilst Drakmari remained at nano_atomic after 2500 ticks. Consider whether age gates need rebalancing.</li>
+      <li><strong>Tech completion rates:</strong> Best case 40.7% at 2500 ticks. Full tech tree completion appears to require ~6000+ ticks.</li>
+    </ul>
+
+    <h3>Population Growth</h3>
+    <ul>
+      <li><strong>Thyriaq population is declining</strong> (-24.8/tick) despite controlling 2 planets. Negative population growth may indicate a starvation or habitability issue. <span class="badge badge-medium">MEDIUM PRIORITY</span></li>
+      <li><strong>Pyrenth has the highest growth rate</strong> (92.1/tick) consistent with their economic focus.</li>
+      <li><strong>Drakmari population</strong> fluctuates significantly (peaked at 404K at tick 1000, then dropped to 93K by tick 2500). Population instability may be a combat-trait-related issue.</li>
+    </ul>
+
+    <h3>Suggested Changes for Review</h3>
+    <ol>
+      <li>Investigate aggressive AI fleet engagement logic &mdash; ships are built but never sent to attack.</li>
+      <li>Review economic AI ship production &mdash; expansionist AI builds only 1 ship.</li>
+      <li>Investigate Thyriaq negative population growth &mdash; possible starvation or habitability bug.</li>
+      <li>Consider adding a minimum tick threshold before victory conditions are checked (e.g. tick 300).</li>
+      <li>Review Drakmari population instability between ticks 1000&ndash;2500.</li>
+      <li>Evaluate whether credit income scaling is too steep for diplomatic/defensive play styles.</li>
+    </ol>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- f) Commits Made                                               -->
+  <!-- ============================================================ -->
+  <h2>Commits Made</h2>
+  <div class="section">
+    <table>
+      <thead><tr><th>Hash</th><th>Message</th></tr></thead>
+      <tbody>
+        <tr><td><code>6ae23e3</code></td><td>fix: restore positional slot IDs in scout hull template</td></tr>
+        <tr><td><code>13e6ea7</code></td><td>fix: add missing basic_missile component to ship components data</td></tr>
+        <tr><td><code>b0d8a4d</code></td><td>fix: correct crew experience promotion logic</td></tr>
+        <tr><td><code>1f22bb2</code></td><td>fix: restore economic victory credit multiplier to documented value</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    Generated by Claude Code Scheduled Pipeline &mdash; Meridian Logic Ltd
+  </div>
+</div>
+</body>
+</html>
