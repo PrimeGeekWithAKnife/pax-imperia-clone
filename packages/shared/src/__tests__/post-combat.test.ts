@@ -92,7 +92,7 @@ function makeTacticalShip(
     sensorRange: 200,
     order: { type: 'idle' },
     destroyed: false,
-    routed: false,
+    routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
     crew: {
       morale: 100,
       health: 100,
