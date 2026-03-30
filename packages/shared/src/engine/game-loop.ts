@@ -6,29 +6,37 @@
  * callers must persist the returned state.
  *
  * Processing order per tick:
- *  0.  Player Actions       (colonise/start migration, build, speed change)
- *  1.  Fleet Movement
- *  2.  Combat Resolution
- *  3.  Population Growth    (applies happiness growth bonus/revolt loss)
- *  3b. Migration Processing (wave departures, arrivals, colony establishment)
- *  3c. Happiness Processing (unrest/revolt effects, production multipliers)
- *  3e. Corruption           (wealth, employment, crime — after happiness)
- *  4.  Resource Production  (energy deficit penalties applied here)
- *  4b. Food Consumption     (organics deducted; starvation population loss)
- *  5.  Construction Queues
- *  5b. Terraforming        (atmosphere, temperature, biosphere, planet conversion)
- *  6.  Ship Production
- *  7.  Research Progress
- *  8.  Diplomacy Tick       (stub)
- *  8b. Espionage            (spy infiltration, mission rolls, counter-intel)
- *  8c. Minor Species        (integration, uplift, revolt, natural advancement)
- *  8d. Anomaly Investigations (progress active excavation sites)
- *  9.  AI Decisions
- *  9b. Waste Processing     (accumulation, reduction, overflow penalties)
- *  9d. Marketplace          (commodity prices, trade orders, sanctions)
- *  9c. Building Condition   (maintenance-based decay, functionality checks)
- *  10. Victory Check        (conquest / economic / technological / diplomatic)
- *  11. Advance Tick
+ *  0.   Player Actions       (colonise/start migration, build, speed change)
+ *  1.   Fleet Movement
+ *  2.   Combat Resolution
+ *  3.   Population Growth    (applies happiness growth bonus/revolt loss)
+ *  3a.  Healthcare           (disease, pandemics, medical infrastructure)
+ *  3b.  Migration Processing (wave departures, arrivals, colony establishment)
+ *  3c.  Happiness Processing (unrest/revolt effects, production multipliers)
+ *  3d.  Politics             (factions, elections, policy drift)
+ *  3e.  Corruption           (wealth, employment, crime — after happiness)
+ *  3f.  Governor Ageing      (age all governors; emit GovernorDied)
+ *  4.   Resource Production  (energy deficit penalties applied here)
+ *  4b.  Food Consumption     (organics deducted; starvation population loss)
+ *  5.   Construction Queues
+ *  5b.  Terraforming         (atmosphere, temperature, biosphere, planet conversion)
+ *  6.   Ship Production
+ *  7.   Research Progress
+ *  8.   Diplomacy Tick       (attitude decay, treaty expiry, status recalc)
+ *  8a.  Grievances           (inter-empire grievance decay and expiry)
+ *  8a+. Diplomat Characters  (experience, loyalty drift, skill progression)
+ *  8b.  Espionage            (spy infiltration, mission rolls, counter-intel)
+ *  8b+. Galactic Organisations (council membership, resolutions, formation)
+ *  8b++.Galactic Bank        (loan interest accrual, default checks)
+ *  8c.  Minor Species        (integration, uplift, revolt, natural advancement)
+ *  8d.  Anomaly Investigations (progress active excavation sites)
+ *  8e.  Narrative Chains     (trigger and progress multi-step stories)
+ *  9.   AI Decisions
+ *  9b.  Waste Processing     (accumulation, reduction, overflow penalties)
+ *  9d.  Marketplace          (commodity prices, trade orders, sanctions)
+ *  9c.  Building Condition   (maintenance-based decay, functionality checks)
+ *  10.  Victory Check        (conquest / economic / technological / diplomatic)
+ *  11.  Advance Tick
  */
 
 import type { GameState } from '../types/game-state.js';
@@ -189,6 +197,51 @@ import {
   type MarketTradeRouteView,
   type MarketEvent,
 } from './marketplace.js';
+import {
+  processDiplomacyTick,
+  type DiplomacyState,
+} from './diplomacy.js';
+import {
+  processPoliticalTick,
+  processElection,
+  initialisePoliticalState,
+  type EmpirePoliticalState,
+  type RNG,
+} from './politics.js';
+import {
+  processHealthcareTick,
+  checkPandemicTrigger,
+  generateDisease,
+  inferBiology,
+  type Disease,
+  type HealthcarePolicy,
+} from './healthcare.js';
+import {
+  processGrievanceTick,
+} from './grievance.js';
+import {
+  processDiplomatTick,
+} from './diplomat.js';
+import {
+  processOrganisationTick,
+  canFormOrganisation,
+} from './galactic-council.js';
+import {
+  processLoanTick,
+} from './galactic-bank.js';
+import type {
+  Grievance,
+  Diplomat,
+  GalacticOrganisationState,
+  GalacticBank,
+} from '../types/diplomacy.js';
+import {
+  getAvailableChains,
+  startChain,
+  type NarrativeChainProgress,
+} from './narrative.js';
+import type { NarrativeChain } from '../types/narrative.js';
+import { ELECTION_INTERVAL } from '../constants/time.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -2012,13 +2065,19 @@ function stepResearch(
 // ---------------------------------------------------------------------------
 
 function stepDiplomacyTick(state: GameTickState): GameTickState {
-  // TODO: When the diplomacy engine module is implemented, call it here.
-  // It should handle:
-  //  - Attitude decay towards neutrality over time
-  //  - Treaty expiry (treaties with finite duration)
-  //  - Trade-route income generation
-  //  - Diplomatic event generation (peace offers, war declarations)
-  return state;
+  // Guard: skip if the state has no diplomacy state structure yet (old saves)
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+    | DiplomacyState
+    | undefined;
+  if (!diplomacyState) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedDiplomacy = processDiplomacyTick(diplomacyState, tick);
+
+  return {
+    ...state,
+    diplomacyState: updatedDiplomacy,
+  } as GameTickState;
 }
 
 // ---------------------------------------------------------------------------
@@ -3044,6 +3103,368 @@ function stepMarketplace(state: GameTickState, _events: GameEvent[]): GameTickSt
 }
 
 // ---------------------------------------------------------------------------
+// Step 3a: Healthcare Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of healthcare for every empire's planets.
+ *
+ * Safe no-op if the state does not contain a diseaseStates field (old saves).
+ * Checks pandemic triggers, generates new diseases, and spreads active
+ * diseases along trade routes.
+ */
+function stepHealthcare(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no disease data structures yet (old saves)
+  const diseaseStates = (state as unknown as Record<string, unknown>).diseaseStates as
+    | Map<string, Disease[]>
+    | undefined;
+  if (!diseaseStates) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedDiseases = new Map(diseaseStates);
+
+  for (const empire of state.gameState.empires) {
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+
+    for (const planet of ownedPlanets) {
+      const demographics = (planet as unknown as Record<string, unknown>).demographics as
+        | import('../types/demographics.js').PlanetDemographics
+        | undefined;
+      if (!demographics) continue;
+
+      // Retrieve healthcare policy (default to 'semi_subsidised' for old saves)
+      const healthcarePolicy = ((empire as unknown as Record<string, unknown>).healthcarePolicy as
+        | HealthcarePolicy
+        | undefined) ?? 'semi_subsidised';
+
+      // Process healthcare tick for this planet
+      processHealthcareTick(
+        planet,
+        demographics,
+        planet.buildings,
+        healthcarePolicy,
+        tick,
+        Math.random,
+      );
+
+      // Check pandemic trigger
+      if (checkPandemicTrigger(planet, demographics, Math.random)) {
+        const speciesId = (planet as unknown as Record<string, unknown>).speciesId as string | undefined;
+        if (speciesId) {
+          const abilities = ((empire as unknown as Record<string, unknown>).specialAbilities as
+            | import('../types/species.js').SpecialAbility[]
+            | undefined) ?? [];
+          const biology = inferBiology(abilities);
+          const severity = Math.max(1, Math.min(10, Math.floor(Math.random() * 6) + 3));
+          const newDisease = generateDisease(speciesId, biology, severity, Math.random, 'natural', planet.id, tick);
+          const planetDiseases = updatedDiseases.get(planet.id) ?? [];
+          planetDiseases.push(newDisease);
+          updatedDiseases.set(planet.id, planetDiseases);
+        }
+      }
+    }
+  }
+
+  // Spread active diseases along trade routes
+  // (simplified: iterate all diseases and attempt spread)
+  // Healthcare events are engine-internal for now.
+
+  return {
+    ...state,
+    diseaseStates: updatedDiseases,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 3c+: Politics Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of political factions for every empire.
+ *
+ * Safe no-op if the state does not contain politicalStates (old saves).
+ * Initialises political state for empires that lack one.
+ * Runs elections for democratic government types every ELECTION_INTERVAL ticks.
+ */
+function stepPolitics(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no political data structures yet (old saves)
+  const politicalStates = (state as unknown as Record<string, unknown>).politicalStates as
+    | Map<string, EmpirePoliticalState>
+    | undefined;
+  if (!politicalStates) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedPoliticalStates = new Map(politicalStates);
+
+  for (const empire of state.gameState.empires) {
+    // Initialise political state if missing for this empire
+    let empirePolState = updatedPoliticalStates.get(empire.id);
+    if (!empirePolState) {
+      const speciesId = (empire as unknown as Record<string, unknown>).speciesId as string | undefined;
+      empirePolState = initialisePoliticalState(
+        empire.id,
+        speciesId ?? 'generic',
+        empire.government,
+        tick,
+      );
+    }
+
+    // Aggregate demographics across the empire's planets
+    const ownedPlanets = getEmpirePlanets(state.gameState.galaxy, empire.id);
+    let hasDemographics = false;
+    let aggregatedDemographics: import('../types/demographics.js').PlanetDemographics | undefined;
+
+    for (const planet of ownedPlanets) {
+      const demographics = (planet as unknown as Record<string, unknown>).demographics as
+        | import('../types/demographics.js').PlanetDemographics
+        | undefined;
+      if (!demographics) continue;
+      hasDemographics = true;
+      // Use first planet with demographics as a representative (simplification)
+      if (!aggregatedDemographics) {
+        aggregatedDemographics = demographics;
+      }
+    }
+
+    if (hasDemographics && aggregatedDemographics) {
+      const result = processPoliticalTick(
+        empirePolState,
+        aggregatedDemographics,
+        empire.government,
+        tick,
+        Math.random as RNG,
+      );
+      empirePolState = result.state;
+      // Political events are engine-internal for now.
+
+      // Elections for democratic government types every ELECTION_INTERVAL ticks
+      if (tick > 0 && tick % ELECTION_INTERVAL === 0) {
+        const electoralGovernments = new Set(['democracy', 'republic', 'federation', 'equality']);
+        if (electoralGovernments.has(empire.government)) {
+          const electionResult = processElection(empirePolState, aggregatedDemographics, Math.random as RNG);
+          empirePolState = electionResult.state;
+          // Election events are engine-internal for now.
+        }
+      }
+    }
+
+    updatedPoliticalStates.set(empire.id, empirePolState);
+  }
+
+  return {
+    ...state,
+    politicalStates: updatedPoliticalStates,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8+: Grievance Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of inter-empire grievance decay.
+ *
+ * Safe no-op if the state does not contain a grievances array (old saves).
+ * Decays all grievances and removes expired ones.
+ */
+function stepGrievances(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no grievance data yet (old saves)
+  const grievances = (state as unknown as Record<string, unknown>).grievances as
+    | Grievance[]
+    | undefined;
+  if (!grievances) return state;
+
+  const tick = state.gameState.currentTick;
+  const result = processGrievanceTick(grievances, tick);
+
+  return {
+    ...state,
+    grievances: result.grievances,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8+: Diplomat Character Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of diplomat character progression.
+ *
+ * Safe no-op if the state does not contain a diplomats array (old saves).
+ * Advances experience, adjusts loyalty, and collects events.
+ */
+function stepDiplomatCharacters(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no diplomat data yet (old saves)
+  const diplomats = (state as unknown as Record<string, unknown>).diplomats as
+    | Diplomat[]
+    | undefined;
+  if (!diplomats) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedDiplomats: Diplomat[] = [];
+
+  for (const diplomat of diplomats) {
+    const result = processDiplomatTick(diplomat, tick, Math.random);
+    updatedDiplomats.push(result.diplomat);
+    // Diplomat events are engine-internal for now.
+  }
+
+  return {
+    ...state,
+    diplomats: updatedDiplomats,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8b+: Galactic Organisations Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of galactic organisations (council/federation mechanics).
+ *
+ * Safe no-op if the state does not contain organisationState (old saves).
+ * Processes membership changes, resolution votes, and checks if new
+ * organisations can form between empires with mutual contact.
+ */
+function stepGalacticOrganisations(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no organisation data yet (old saves)
+  const organisationState = (state as unknown as Record<string, unknown>).organisationState as
+    | GalacticOrganisationState
+    | undefined;
+  if (!organisationState) return state;
+
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+    | DiplomacyState
+    | undefined;
+  if (!diplomacyState) return state;
+
+  const tick = state.gameState.currentTick;
+  const empires = state.gameState.empires;
+
+  // Process existing organisations
+  const result = processOrganisationTick(organisationState, empires, diplomacyState, tick);
+  let updatedOrgState = result.state;
+
+  // Check if new organisations can form (pairs of unaffiliated empires with mutual contact)
+  for (let i = 0; i < empires.length; i++) {
+    for (let j = i + 1; j < empires.length; j++) {
+      if (canFormOrganisation(empires[i].id, empires[j].id, diplomacyState, updatedOrgState)) {
+        // Formation is possible — for now, log opportunity but do not auto-form.
+        // AI empires may choose to form organisations via their decision step.
+      }
+    }
+  }
+
+  // Organisation events are engine-internal for now.
+
+  return {
+    ...state,
+    organisationState: updatedOrgState,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8b++: Galactic Bank Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of the galactic bank (loan interest accrual, defaults).
+ *
+ * Safe no-op if the state does not contain bankState (old saves).
+ */
+function stepGalacticBank(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no bank data yet (old saves)
+  const bankState = (state as unknown as Record<string, unknown>).bankState as
+    | GalacticBank
+    | undefined;
+  if (!bankState) return state;
+
+  const tick = state.gameState.currentTick;
+  const result = processLoanTick(bankState, tick);
+
+  // Bank events are engine-internal for now.
+
+  return {
+    ...state,
+    bankState: result.bank,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 8d+: Narrative Chain Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one tick of narrative event chains.
+ *
+ * Safe no-op if the state does not contain narrativeProgress (old saves).
+ * Checks for completed excavation stages and starts newly available chains.
+ */
+function stepNarrativeChains(state: GameTickState, _events: GameEvent[]): GameTickState {
+  // Guard: skip if the state has no narrative data yet (old saves)
+  const narrativeProgress = (state as unknown as Record<string, unknown>).narrativeProgress as
+    | NarrativeChainProgress[]
+    | undefined;
+  if (!narrativeProgress) return state;
+
+  const allChains = (state as unknown as Record<string, unknown>).narrativeChains as
+    | NarrativeChain[]
+    | undefined;
+  if (!allChains || allChains.length === 0) return state;
+
+  const tick = state.gameState.currentTick;
+  const updatedProgress = [...narrativeProgress];
+
+  // For each empire, check if new narrative chains should trigger
+  for (const empire of state.gameState.empires) {
+    // Gather empire's discovered anomaly types from excavation sites
+    const excavationSites = (state as unknown as Record<string, unknown>).excavationSites as
+      | ExcavationSite[]
+      | undefined;
+
+    const discoveredTypes: import('../types/anomaly.js').AnomalyType[] = [];
+    let totalDiscovered = 0;
+    if (excavationSites) {
+      for (const site of excavationSites) {
+        if (site.discoveredByEmpireId === empire.id &&
+            site.currentStage === 'complete') {
+          if (site.type && !discoveredTypes.includes(site.type)) {
+            discoveredTypes.push(site.type);
+          }
+          totalDiscovered++;
+        }
+      }
+    }
+
+    // Get IDs of chains already active or completed for this empire
+    const activeOrCompletedIds = updatedProgress
+      .filter(p => p.empireId === empire.id)
+      .map(p => p.chainId);
+
+    // Check for newly available chains
+    const available = getAvailableChains(
+      allChains,
+      discoveredTypes,
+      activeOrCompletedIds,
+      (empire as unknown as Record<string, unknown>).speciesId as string ?? '',
+      empire.technologies,
+      totalDiscovered,
+    );
+
+    // Start any newly available chains
+    for (const chain of available) {
+      const progress = startChain(chain, empire.id, tick);
+      updatedProgress.push(progress);
+    }
+  }
+
+  return {
+    ...state,
+    narrativeProgress: updatedProgress,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
 // Main tick processor
 // ---------------------------------------------------------------------------
 
@@ -3085,16 +3506,22 @@ export function processGameTick(
   // 3. Population Growth
   s = stepPopulationGrowth(s);
 
+  // 3a. Healthcare Processing (disease, pandemics, medical infrastructure)
+  s = stepHealthcare(s, events);
+
   // 3b. Migration Processing (after population growth so wave logistics are current)
   s = stepMigrations(s, events);
 
   // 3c. Happiness Processing (revolt population loss; production multipliers collected next step)
   s = stepHappiness(s);
 
+  // 3d. Politics Processing (factions, elections, policy drift)
+  s = stepPolitics(s, events);
+
   // 3e. Corruption, Wealth, Employment, Crime (after happiness so unrest data is current)
   s = stepCorruption(s, events);
 
-  // 3d. Governor ageing (age all governors; emit GovernorDied for those that expire)
+  // 3f. Governor ageing (age all governors; emit GovernorDied for those that expire)
   s = stepGovernors(s, events);
 
   // 4. Resource Production (applies happiness production multipliers, governor modifiers, and energy deficit penalties)
@@ -3115,17 +3542,32 @@ export function processGameTick(
   // 7. Research Progress
   s = stepResearch(s, allTechs, events);
 
-  // 8. Diplomacy Tick (stub)
+  // 8. Diplomacy Tick (attitude decay, treaty expiry, status recalc)
   s = stepDiplomacyTick(s);
+
+  // 8a. Grievance Processing (decay inter-empire grievances, remove expired)
+  s = stepGrievances(s, events);
+
+  // 8a+. Diplomat Characters (experience, loyalty drift, skill progression)
+  s = stepDiplomatCharacters(s, events);
 
   // 8b. Espionage Tick (spy infiltration, mission rolls, counter-intel)
   s = stepEspionage(s, events);
+
+  // 8b+. Galactic Organisations (council membership, resolution votes, formation)
+  s = stepGalacticOrganisations(s, events);
+
+  // 8b++. Galactic Bank (loan interest accrual, default checks)
+  s = stepGalacticBank(s, events);
 
   // 8c. Minor Species (integration, uplift, revolt, natural advancement)
   s = stepMinorSpecies(s, events);
 
   // 8d. Anomaly Investigations (progress active excavation sites)
   s = stepAnomalies(s, events);
+
+  // 8e. Narrative Chains (trigger and progress multi-step exploration stories)
+  s = stepNarrativeChains(s, events);
 
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);

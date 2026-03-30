@@ -2,7 +2,7 @@
 export const VERSION = '0.2.0';
 
 /** Auto-incrementing build counter. Bump with every commit. */
-export const BUILD_NUMBER = 7;
+export const BUILD_NUMBER = 8;
 
 /** Returns the formatted version string shown in the UI. */
 export function getVersionString(): string {
