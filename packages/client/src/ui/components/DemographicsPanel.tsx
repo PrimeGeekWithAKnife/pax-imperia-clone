@@ -272,17 +272,6 @@ const VOCATION_CONFIG: Array<{ key: keyof VocationDistribution; label: string; c
   { key: 'general', label: 'General', colour: COLOURS.general },
 ];
 
-const VOCATION_LABEL_MAP: Record<string, string> = {
-  scientists: 'Scientists',
-  workers: 'Workers',
-  military: 'Military',
-  merchants: 'Merchants',
-  administrators: 'Administrators',
-  educators: 'Educators',
-  medical: 'Medical',
-  general: 'General',
-};
-
 // ── Main component ───────────────────────────────────────────────────────────
 
 /**

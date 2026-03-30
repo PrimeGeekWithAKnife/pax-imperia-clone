@@ -1,21 +1,28 @@
 /**
- * Galactic Council engine — pure functions for managing the inter-empire
- * governing body that forms once galactic diplomacy reaches critical mass.
+ * Galactic Organisation engine — pure functions for managing competing
+ * inter-empire governing bodies.
  *
- * The council is an advisory-then-binding body that matures over time:
- *  - Forms when 50%+ empires have established mutual contact
- *  - Voting power weighted by economy, military, reputation, population, and intent
- *  - Early resolutions are advisory; binding resolutions unlock as the council matures
- *  - Empires may leave and form rival blocs with their own markets/currencies
+ * Unlike the original single-council model, empires may now found and
+ * join multiple independent organisations (akin to NATO vs the Warsaw
+ * Pact). Each organisation has its own membership, voting power,
+ * resolutions, and optional reserve currency / market.
+ *
+ * Key rules:
+ *  - Formation requires exactly 2 empires with mutual diplomatic contact
+ *  - An empire may belong to at most ONE organisation at a time
+ *  - Members may leave and join a different organisation
+ *  - Two organisations may merge if ALL members of both agree
+ *  - Default membership benefits: non-aggression pact + basic trade partnerships
+ *  - Binding resolutions unlock once the organisation matures (100 ticks)
  *
  * All functions are side-effect free and return new state objects.
  */
 
 import type { Empire } from '../types/species.js';
 import type {
-  GalacticCouncil,
+  GalacticOrganisation,
+  GalacticOrganisationState,
   CouncilResolution,
-  GalacticBloc,
   ResolutionType,
   VoteChoice,
 } from '../types/diplomacy.js';
@@ -27,8 +34,8 @@ import { generateId } from '../utils/id.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Fraction of empires that must have mutual contact for the council to form. */
-const FORMATION_THRESHOLD = 0.5;
+/** Minimum number of empires required to found an organisation. */
+const FORMATION_MEMBER_COUNT = 2;
 
 /** Number of ticks after formation before binding resolutions are permitted. */
 const BINDING_MATURITY_TICKS = 100;
@@ -36,7 +43,7 @@ const BINDING_MATURITY_TICKS = 100;
 /** Number of ticks a resolution remains open for voting before auto-resolution. */
 const VOTING_WINDOW_TICKS = 10;
 
-/** Maximum number of active (unresolved) resolutions at any one time. */
+/** Maximum number of active (unresolved) resolutions per organisation. */
 const MAX_ACTIVE_RESOLUTIONS = 5;
 
 // Voting power weights (must sum to 1.0)
@@ -47,28 +54,67 @@ const WEIGHT_POPULATION = 0.15;
 const WEIGHT_INTENTIONS = 0.10;
 
 // ---------------------------------------------------------------------------
-// Internal event type (returned alongside state mutations)
+// Organisation name templates
 // ---------------------------------------------------------------------------
 
 /**
- * A council-related event that the game loop can convert into notifications
- * or feed into the main GameEvent stream.
+ * Procedural name templates for galactic organisations.
+ * {@link generateOrganisationName} picks from these, avoiding duplicates.
  */
-export interface CouncilEvent {
+const ORGANISATION_NAME_TEMPLATES: readonly string[] = [
+  'Galactic Council',
+  'United Worlds Federation',
+  'Stellar Alliance',
+  'Interstellar Compact',
+  'Galactic Federation',
+  'United Worlds League',
+  'Stellar Concordat',
+  'Interstellar Assembly',
+  'Galactic Entente',
+  'Cosmic Accord',
+  'Astral Covenant',
+  'Galactic Pact',
+  'Stellar Union',
+  'Interstellar Congress',
+  'United Systems Coalition',
+  'Galactic Directorate',
+  'Stellar Forum',
+  'Interstellar Treaty Organisation',
+  'Cosmic Collective',
+  'Astral Confederation',
+] as const;
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+/**
+ * An organisation-related event that the game loop can convert into
+ * notifications or feed into the main GameEvent stream.
+ */
+export interface OrganisationEvent {
   type:
-    | 'council_formed'
+    | 'organisation_formed'
     | 'member_joined'
     | 'member_left'
     | 'resolution_proposed'
     | 'resolution_passed'
     | 'resolution_failed'
-    | 'bloc_formed'
+    | 'organisations_merged'
+    | 'member_transferred'
     | 'binding_unlocked';
   tick: number;
   description: string;
   /** Empire IDs that should be notified about this event. */
   involvedEmpires: string[];
+  /** Organisation ID this event relates to (if applicable). */
+  organisationId?: string;
 }
+
+/**
+ * @deprecated Use {@link OrganisationEvent} instead. Retained for backwards compatibility.
+ */
+export type CouncilEvent = OrganisationEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -79,69 +125,33 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Deep-copy a GalacticCouncil so mutations do not escape.
+ * Deep-copy a GalacticOrganisation so mutations do not escape.
  */
-function copyCouncil(council: GalacticCouncil): GalacticCouncil {
+function copyOrganisation(org: GalacticOrganisation): GalacticOrganisation {
   return {
-    formed: council.formed,
-    formedTick: council.formedTick,
-    memberEmpires: [...council.memberEmpires],
-    reserveCurrency: council.reserveCurrency,
-    votingPower: { ...council.votingPower },
-    resolutions: council.resolutions.map((r) => ({
+    id: org.id,
+    name: org.name,
+    formedTick: org.formedTick,
+    founderEmpires: [...org.founderEmpires] as [string, string],
+    memberEmpires: [...org.memberEmpires],
+    votingPower: { ...org.votingPower },
+    resolutions: org.resolutions.map((r) => ({
       ...r,
       votes: { ...r.votes },
     })),
-    rivalBlocs: council.rivalBlocs.map((b) => ({
-      ...b,
-      members: [...b.members],
-    })),
+    reserveCurrency: org.reserveCurrency,
+    hasOwnMarket: org.hasOwnMarket,
+    maturityTick: org.maturityTick,
   };
 }
 
 /**
- * Count mutual-contact pairs among empires using the diplomacy state.
- * Two empires have mutual contact when both sides have firstContact >= 0.
+ * Deep-copy the entire organisation state.
  */
-function countMutualContactPairs(
-  empireIds: string[],
-  diplomacyState: DiplomacyState,
-): number {
-  let pairs = 0;
-  for (let i = 0; i < empireIds.length; i++) {
-    for (let j = i + 1; j < empireIds.length; j++) {
-      const relA = getRelation(diplomacyState, empireIds[i], empireIds[j]);
-      const relB = getRelation(diplomacyState, empireIds[j], empireIds[i]);
-      if (relA && relA.firstContact >= 0 && relB && relB.firstContact >= 0) {
-        pairs++;
-      }
-    }
-  }
-  return pairs;
-}
-
-/**
- * Count the number of empires that have at least one mutual contact.
- */
-function countEmpiresWithContact(
-  empireIds: string[],
-  diplomacyState: DiplomacyState,
-): number {
-  let count = 0;
-  for (const empireId of empireIds) {
-    let hasContact = false;
-    for (const otherId of empireIds) {
-      if (empireId === otherId) continue;
-      const relA = getRelation(diplomacyState, empireId, otherId);
-      const relB = getRelation(diplomacyState, otherId, empireId);
-      if (relA && relA.firstContact >= 0 && relB && relB.firstContact >= 0) {
-        hasContact = true;
-        break;
-      }
-    }
-    if (hasContact) count++;
-  }
-  return count;
+function copyState(state: GalacticOrganisationState): GalacticOrganisationState {
+  return {
+    organisations: state.organisations.map(copyOrganisation),
+  };
 }
 
 /**
@@ -182,7 +192,7 @@ function reputationScore(
 
 /**
  * Derive a crude "declared intentions alignment" score.
- * Empires that are friendly to more council members score higher.
+ * Empires that are friendly to more organisation members score higher.
  * Maps average public attitude (from others toward them) to 0-1.
  */
 function intentionsAlignmentScore(
@@ -205,104 +215,197 @@ function intentionsAlignmentScore(
   return clamp((average + 100) / 200, 0, 1);
 }
 
+/**
+ * Check whether two empires have established mutual diplomatic contact.
+ */
+function haveMutualContact(
+  empireIdA: string,
+  empireIdB: string,
+  diplomacyState: DiplomacyState,
+): boolean {
+  const relA = getRelation(diplomacyState, empireIdA, empireIdB);
+  const relB = getRelation(diplomacyState, empireIdB, empireIdA);
+  return !!(relA && relA.firstContact >= 0 && relB && relB.firstContact >= 0);
+}
+
 // ---------------------------------------------------------------------------
-// Public API
+// Name generation
 // ---------------------------------------------------------------------------
 
 /**
- * Check whether the conditions for forming a Galactic Council are met.
+ * Generate a unique name for a new galactic organisation.
  *
- * The council forms when at least 50% of all empires have established
- * mutual diplomatic contact with at least one other empire.
+ * Picks from the pool of 20 templates, avoiding names already in use.
+ * If all templates are exhausted, appends a numeric suffix to a random
+ * template (e.g. "Stellar Alliance II").
  *
- * @param empires - All empires in the game.
- * @param diplomacyState - Current diplomacy state.
- * @returns `true` if the council should be formed.
+ * @param existingNames - Names already in use by current organisations.
+ * @param rng - Optional random number generator (0-1). Defaults to Math.random.
+ * @returns A unique organisation name.
  */
-export function checkCouncilFormation(
-  empires: Empire[],
-  diplomacyState: DiplomacyState,
-): boolean {
-  if (empires.length < 2) return false;
+export function generateOrganisationName(
+  existingNames: string[],
+  rng: () => number = Math.random,
+): string {
+  const available = ORGANISATION_NAME_TEMPLATES.filter(
+    (name) => !existingNames.includes(name),
+  );
 
-  const empireIds = empires.map((e) => e.id);
-  const withContact = countEmpiresWithContact(empireIds, diplomacyState);
+  if (available.length > 0) {
+    const index = Math.floor(rng() * available.length);
+    return available[index];
+  }
 
-  return withContact / empires.length >= FORMATION_THRESHOLD;
+  // All base templates exhausted — generate a suffixed variant.
+  const baseIndex = Math.floor(rng() * ORGANISATION_NAME_TEMPLATES.length);
+  const baseName = ORGANISATION_NAME_TEMPLATES[baseIndex];
+  let suffix = 2;
+  while (existingNames.includes(`${baseName} ${toRomanNumeral(suffix)}`)) {
+    suffix++;
+  }
+  return `${baseName} ${toRomanNumeral(suffix)}`;
 }
 
 /**
- * Create a new Galactic Council with all empires that have established
- * mutual contact as founding members.
- *
- * @param empires - All empires in the game.
- * @param diplomacyState - Current diplomacy state.
- * @param tick - The game tick at which the council is being formed.
- * @returns The newly formed council.
+ * Convert a small integer to a Roman numeral (covers 2-20 for our purposes).
  */
-export function formCouncil(
-  empires: Empire[],
-  diplomacyState: DiplomacyState,
-  tick: number,
-): GalacticCouncil {
-  const empireIds = empires.map((e) => e.id);
-
-  // Founding members: every empire that has mutual contact with at least one other.
-  const foundingMembers: string[] = [];
-  for (const empireId of empireIds) {
-    for (const otherId of empireIds) {
-      if (empireId === otherId) continue;
-      const relA = getRelation(diplomacyState, empireId, otherId);
-      const relB = getRelation(diplomacyState, otherId, empireId);
-      if (relA && relA.firstContact >= 0 && relB && relB.firstContact >= 0) {
-        foundingMembers.push(empireId);
-        break;
-      }
+function toRomanNumeral(n: number): string {
+  const numerals: [number, string][] = [
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let result = '';
+  let remaining = n;
+  for (const [value, symbol] of numerals) {
+    while (remaining >= value) {
+      result += symbol;
+      remaining -= value;
     }
   }
+  return result;
+}
 
-  // Calculate initial voting power for all founding members.
+// ---------------------------------------------------------------------------
+// Formation
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether two empires can found a new galactic organisation.
+ *
+ * Requirements:
+ *  - Both empires must have mutual diplomatic contact
+ *  - Neither empire may already be a member of an existing organisation
+ *
+ * @param empire1Id - First empire ID.
+ * @param empire2Id - Second empire ID.
+ * @param diplomacyState - Current diplomacy state.
+ * @param state - Current organisation state (to check existing memberships).
+ * @returns `true` if the two empires may form an organisation.
+ */
+export function canFormOrganisation(
+  empire1Id: string,
+  empire2Id: string,
+  diplomacyState: DiplomacyState,
+  state: GalacticOrganisationState,
+): boolean {
+  if (empire1Id === empire2Id) return false;
+  if (!haveMutualContact(empire1Id, empire2Id, diplomacyState)) return false;
+
+  // Neither empire may already belong to an organisation.
+  const empire1Org = getEmpireOrganisation(state, empire1Id);
+  const empire2Org = getEmpireOrganisation(state, empire2Id);
+  if (empire1Org || empire2Org) return false;
+
+  return true;
+}
+
+/**
+ * Form a new galactic organisation with two founding empires.
+ *
+ * @param name - Human-readable name for the organisation.
+ * @param founderEmpires - Tuple of the two founding empire IDs.
+ * @param tick - Game tick at which the organisation is being formed.
+ * @param empires - All empires in the game (for initial voting power calculation).
+ * @param diplomacyState - Current diplomacy state.
+ * @returns The newly formed organisation.
+ */
+export function formOrganisation(
+  name: string,
+  founderEmpires: [string, string],
+  tick: number,
+  empires: Empire[],
+  diplomacyState: DiplomacyState,
+): GalacticOrganisation {
+  const memberEmpires = [...founderEmpires];
+
+  // Calculate initial voting power for both founders.
   const votingPower: Record<string, number> = {};
-  for (const memberId of foundingMembers) {
+  for (const memberId of memberEmpires) {
     const empire = empires.find((e) => e.id === memberId);
     if (empire) {
       votingPower[memberId] = calculateVotingPower(
         empire,
         empires,
         diplomacyState,
-        foundingMembers,
+        memberEmpires,
       );
     }
   }
 
   return {
-    formed: true,
+    id: generateId(),
+    name,
     formedTick: tick,
-    memberEmpires: foundingMembers,
-    reserveCurrency: false,
+    founderEmpires: [...founderEmpires] as [string, string],
+    memberEmpires,
     votingPower,
     resolutions: [],
-    rivalBlocs: [],
+    reserveCurrency: false,
+    hasOwnMarket: false,
+    maturityTick: tick + BINDING_MATURITY_TICKS,
   };
 }
 
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
+
 /**
- * Calculate an empire's voting power within the council.
+ * Find which organisation an empire currently belongs to, if any.
+ *
+ * @param state - Current organisation state.
+ * @param empireId - The empire to look up.
+ * @returns The organisation the empire belongs to, or `undefined` if none.
+ */
+export function getEmpireOrganisation(
+  state: GalacticOrganisationState,
+  empireId: string,
+): GalacticOrganisation | undefined {
+  return state.organisations.find((org) =>
+    org.memberEmpires.includes(empireId),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Voting power
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate an empire's voting power within an organisation.
  *
  * Weights:
- *  - Economic strength:      30% (credits + economy trait)
+ *  - Economic strength:      30% (credits * economy trait)
  *  - Military power:         20% (combat trait as proxy)
  *  - Diplomatic reputation:  25% (average attitude from others)
  *  - Population proxy:       15% (known systems as proxy)
- *  - Declared intentions:    10% (alignment with council members)
+ *  - Declared intentions:    10% (alignment with organisation members)
  *
- * Returns a value between 0 and 100.
+ * Returns a value between 1 and 100.
  *
  * @param empire - The empire whose voting power is being calculated.
  * @param allEmpires - All empires in the game (for normalisation).
  * @param diplomacyState - Current diplomacy state.
- * @param memberEmpires - Optional list of council member IDs (defaults to allEmpires).
- * @returns Normalised voting power (0-100).
+ * @param memberEmpires - Optional list of organisation member IDs (defaults to allEmpires).
+ * @returns Normalised voting power (1-100).
  */
 export function calculateVotingPower(
   empire: Empire,
@@ -314,7 +417,9 @@ export function calculateVotingPower(
   const members = memberEmpires ?? allIds;
 
   // Economic strength: credits * economy trait modifier
-  const economicValues = allEmpires.map((e) => e.credits * (e.species.traits.economy / 5));
+  const economicValues = allEmpires.map(
+    (e) => e.credits * (e.species.traits.economy / 5),
+  );
   const economicScore = normalise(
     empire.credits * (empire.species.traits.economy / 5),
     economicValues,
@@ -332,7 +437,11 @@ export function calculateVotingPower(
   const populationScore = normalise(empire.knownSystems.length, popValues);
 
   // Declared intentions alignment
-  const intentionsScore = intentionsAlignmentScore(empire.id, members, diplomacyState);
+  const intentionsScore = intentionsAlignmentScore(
+    empire.id,
+    members,
+    diplomacyState,
+  );
 
   const raw =
     economicScore * WEIGHT_ECONOMY +
@@ -344,47 +453,48 @@ export function calculateVotingPower(
   return clamp(Math.round(raw * 100), 1, 100);
 }
 
+// ---------------------------------------------------------------------------
+// Resolutions & voting
+// ---------------------------------------------------------------------------
+
 /**
- * Propose a new resolution to the Galactic Council.
+ * Propose a new resolution to a galactic organisation.
  *
- * Only council members may propose resolutions. Binding resolutions are
- * only permitted once the council has matured (100+ ticks since formation).
+ * Only organisation members may propose resolutions. Binding resolutions
+ * are only permitted once the organisation has matured (100+ ticks since
+ * formation).
  *
- * @param council - Current council state.
+ * @param org - Current organisation state.
  * @param proposer - Empire ID of the proposer.
  * @param title - Short title for the resolution.
  * @param description - Full description of the resolution.
  * @param type - Whether the resolution is advisory or binding.
  * @param tick - Current game tick.
- * @returns Updated council with the new resolution added, or unchanged if invalid.
+ * @returns Updated organisation with the new resolution added, or unchanged if invalid.
  */
 export function proposeResolution(
-  council: GalacticCouncil,
+  org: GalacticOrganisation,
   proposer: string,
   title: string,
   description: string,
   type: ResolutionType,
   tick: number,
-): GalacticCouncil {
-  if (!council.formed) return council;
-  if (!council.memberEmpires.includes(proposer)) return council;
+): GalacticOrganisation {
+  if (!org.memberEmpires.includes(proposer)) return org;
 
   // Enforce maturity requirement for binding resolutions.
-  if (
-    type === 'binding' &&
-    council.formedTick !== undefined &&
-    tick - council.formedTick < BINDING_MATURITY_TICKS
-  ) {
-    return council;
+  if (type === 'binding' && tick < org.maturityTick) {
+    return org;
   }
 
   // Enforce maximum active resolutions.
-  const activeCount = council.resolutions.filter(
-    (r) => Object.keys(r.votes).length < council.memberEmpires.length && !r.passed,
+  const activeCount = org.resolutions.filter(
+    (r) =>
+      Object.keys(r.votes).length < org.memberEmpires.length && !r.passed,
   ).length;
-  if (activeCount >= MAX_ACTIVE_RESOLUTIONS) return council;
+  if (activeCount >= MAX_ACTIVE_RESOLUTIONS) return org;
 
-  const next = copyCouncil(council);
+  const next = copyOrganisation(org);
 
   const resolution: CouncilResolution = {
     id: generateId(),
@@ -402,58 +512,59 @@ export function proposeResolution(
 }
 
 /**
- * Cast a vote on an open council resolution.
+ * Cast a vote on an open organisation resolution.
  *
- * Only council members may vote. Each member may vote once per resolution.
+ * Only organisation members may vote. Each member may vote once per resolution.
  *
- * @param council - Current council state.
+ * @param org - Current organisation state.
  * @param resolutionId - ID of the resolution to vote on.
  * @param empireId - Empire casting the vote.
  * @param vote - The vote choice.
- * @returns Updated council state.
+ * @returns Updated organisation state.
  */
 export function voteOnResolution(
-  council: GalacticCouncil,
+  org: GalacticOrganisation,
   resolutionId: string,
   empireId: string,
   vote: VoteChoice,
-): GalacticCouncil {
-  if (!council.formed) return council;
-  if (!council.memberEmpires.includes(empireId)) return council;
+): GalacticOrganisation {
+  if (!org.memberEmpires.includes(empireId)) return org;
 
-  const next = copyCouncil(council);
+  const next = copyOrganisation(org);
   const resolution = next.resolutions.find((r) => r.id === resolutionId);
-  if (!resolution) return council;
+  if (!resolution) return org;
 
   // Already voted.
-  if (resolution.votes[empireId] !== undefined) return council;
+  if (resolution.votes[empireId] !== undefined) return org;
 
   resolution.votes[empireId] = vote;
   return next;
 }
 
 /**
- * Resolve the outcome of a council vote.
+ * Resolve the outcome of an organisation vote.
  *
  * A resolution passes if the weighted "for" votes exceed the weighted
  * "against" votes. Abstentions contribute no weight. The resolution's
  * `passed` field is updated accordingly.
  *
- * @param council - Current council state.
+ * @param org - Current organisation state.
  * @param resolutionId - ID of the resolution to resolve.
- * @returns Updated council and whether the resolution passed, plus events.
+ * @returns Updated organisation, whether the resolution passed, and events.
  */
 export function resolveVote(
-  council: GalacticCouncil,
+  org: GalacticOrganisation,
   resolutionId: string,
-): { council: GalacticCouncil; passed: boolean; events: CouncilEvent[] } {
-  const events: CouncilEvent[] = [];
+): {
+  organisation: GalacticOrganisation;
+  passed: boolean;
+  events: OrganisationEvent[];
+} {
+  const events: OrganisationEvent[] = [];
 
-  if (!council.formed) return { council, passed: false, events };
-
-  const next = copyCouncil(council);
+  const next = copyOrganisation(org);
   const resolution = next.resolutions.find((r) => r.id === resolutionId);
-  if (!resolution) return { council, passed: false, events };
+  if (!resolution) return { organisation: org, passed: false, events };
 
   let weightFor = 0;
   let weightAgainst = 0;
@@ -472,216 +583,372 @@ export function resolveVote(
     type: passed ? 'resolution_passed' : 'resolution_failed',
     tick: resolution.tick,
     description: passed
-      ? `Council resolution "${resolution.title}" has passed (${weightFor} for / ${weightAgainst} against).`
-      : `Council resolution "${resolution.title}" has failed (${weightFor} for / ${weightAgainst} against).`,
+      ? `${next.name} resolution "${resolution.title}" has passed (${weightFor} for / ${weightAgainst} against).`
+      : `${next.name} resolution "${resolution.title}" has failed (${weightFor} for / ${weightAgainst} against).`,
     involvedEmpires: [...next.memberEmpires],
+    organisationId: next.id,
   });
 
-  return { council: next, passed, events };
+  return { organisation: next, passed, events };
 }
 
+// ---------------------------------------------------------------------------
+// Membership management
+// ---------------------------------------------------------------------------
+
 /**
- * Remove an empire from the Galactic Council.
+ * Remove an empire from a galactic organisation.
  *
- * Leaving the council forfeits voting power and removes the empire from
- * all ongoing votes. Bloc membership is NOT automatically revoked — an
- * empire may leave the council but remain in a rival bloc.
+ * Leaving the organisation forfeits voting power and removes the empire
+ * from all ongoing votes.
  *
- * @param council - Current council state.
- * @param empireId - Empire leaving the council.
+ * @param state - Current organisation state (all organisations).
+ * @param empireId - Empire leaving the organisation.
  * @param tick - Current game tick.
- * @returns Updated council state.
+ * @returns Updated organisation state and events.
  */
-export function leaveCouncil(
-  council: GalacticCouncil,
+export function leaveOrganisation(
+  state: GalacticOrganisationState,
   empireId: string,
   tick: number,
-): GalacticCouncil {
-  if (!council.formed) return council;
-  if (!council.memberEmpires.includes(empireId)) return council;
+): { state: GalacticOrganisationState; events: OrganisationEvent[] } {
+  const events: OrganisationEvent[] = [];
+  const next = copyState(state);
 
-  const next = copyCouncil(council);
+  const orgIndex = next.organisations.findIndex((org) =>
+    org.memberEmpires.includes(empireId),
+  );
+  if (orgIndex === -1) return { state, events };
 
-  next.memberEmpires = next.memberEmpires.filter((id) => id !== empireId);
-  delete next.votingPower[empireId];
+  const org = next.organisations[orgIndex];
+
+  org.memberEmpires = org.memberEmpires.filter((id) => id !== empireId);
+  delete org.votingPower[empireId];
 
   // Remove this empire's votes from all unresolved resolutions.
-  for (const resolution of next.resolutions) {
+  for (const resolution of org.resolutions) {
     delete resolution.votes[empireId];
   }
 
-  return next;
-}
-
-/**
- * Form a rival bloc of empires — potentially within or outside the council.
- *
- * A bloc coordinates voting, may establish its own internal market, and
- * can issue its own currency as an alternative to the galactic reserve.
- *
- * @param empireIds - Empire IDs forming the bloc (must include the leader).
- * @param leaderEmpireId - The empire that leads the bloc.
- * @param name - Human-readable name for the bloc.
- * @param tick - Current game tick.
- * @returns The newly formed bloc.
- */
-export function formRivalBloc(
-  empireIds: string[],
-  leaderEmpireId: string,
-  name: string,
-  tick: number,
-): GalacticBloc {
-  return {
-    id: generateId(),
-    name,
-    leaderEmpire: leaderEmpireId,
-    members: [...empireIds],
-    formedTick: tick,
-    hasOwnMarket: false,
-    hasOwnCurrency: false,
-  };
-}
-
-/**
- * Add a rival bloc to the council's records.
- *
- * @param council - Current council state.
- * @param bloc - The bloc to register.
- * @returns Updated council state with the bloc added.
- */
-export function registerBloc(
-  council: GalacticCouncil,
-  bloc: GalacticBloc,
-): GalacticCouncil {
-  const next = copyCouncil(council);
-  next.rivalBlocs.push({
-    ...bloc,
-    members: [...bloc.members],
+  events.push({
+    type: 'member_left',
+    tick,
+    description: `Empire ${empireId} has left ${org.name}.`,
+    involvedEmpires: [empireId, ...org.memberEmpires],
+    organisationId: org.id,
   });
-  return next;
+
+  // If the organisation has fewer than 2 members, dissolve it.
+  if (org.memberEmpires.length < FORMATION_MEMBER_COUNT) {
+    next.organisations.splice(orgIndex, 1);
+  }
+
+  return { state: next, events };
 }
 
 /**
- * Process one game tick for the Galactic Council.
+ * Transfer an empire's membership from one organisation to another.
  *
- * Per tick:
- *  1. Check for new empires eligible to join (have mutual contact with a member).
- *  2. Auto-resolve votes whose voting window has expired.
- *  3. Recalculate voting power for all members.
- *  4. Check for maturity milestones (binding resolutions unlock).
+ * The empire leaves the source organisation and joins the target organisation
+ * in a single atomic operation.
  *
- * @param council - Current council state.
- * @param empires - All empires in the game.
- * @param diplomacyState - Current diplomacy state.
+ * @param state - Current organisation state (all organisations).
+ * @param empireId - Empire transferring membership.
+ * @param fromOrgId - Organisation ID the empire is leaving.
+ * @param toOrgId - Organisation ID the empire is joining.
  * @param tick - Current game tick.
- * @returns Updated council and any events generated.
+ * @returns Updated organisation state and events.
  */
-export function processCouncilTick(
-  council: GalacticCouncil,
+export function transferMembership(
+  state: GalacticOrganisationState,
+  empireId: string,
+  fromOrgId: string,
+  toOrgId: string,
+  tick: number,
+): { state: GalacticOrganisationState; events: OrganisationEvent[] } {
+  const events: OrganisationEvent[] = [];
+
+  if (fromOrgId === toOrgId) return { state, events };
+
+  const fromOrg = state.organisations.find((o) => o.id === fromOrgId);
+  const toOrg = state.organisations.find((o) => o.id === toOrgId);
+
+  if (!fromOrg || !toOrg) return { state, events };
+  if (!fromOrg.memberEmpires.includes(empireId)) return { state, events };
+  if (toOrg.memberEmpires.includes(empireId)) return { state, events };
+
+  // First, leave the current organisation.
+  const leaveResult = leaveOrganisation(state, empireId, tick);
+  const next = copyState(leaveResult.state);
+  events.push(...leaveResult.events);
+
+  // Then join the target organisation.
+  const targetOrg = next.organisations.find((o) => o.id === toOrgId);
+  if (!targetOrg) return { state: next, events };
+
+  targetOrg.memberEmpires.push(empireId);
+
+  events.push({
+    type: 'member_transferred',
+    tick,
+    description: `Empire ${empireId} has transferred from ${fromOrg.name} to ${toOrg.name}.`,
+    involvedEmpires: [empireId, ...targetOrg.memberEmpires],
+    organisationId: toOrgId,
+  });
+
+  return { state: next, events };
+}
+
+// ---------------------------------------------------------------------------
+// Merging
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge two galactic organisations into a single new organisation.
+ *
+ * All members of both organisations become members of the merged entity.
+ * Active resolutions from both organisations are carried over. The merged
+ * organisation's maturity tick is set to the earlier of the two source
+ * organisations' maturity ticks (preserving the most mature timeline).
+ *
+ * @param state - Current organisation state (all organisations).
+ * @param org1Id - First organisation to merge.
+ * @param org2Id - Second organisation to merge.
+ * @param newName - Name for the merged organisation.
+ * @param tick - Current game tick.
+ * @param empires - All empires in the game (for voting power recalculation).
+ * @param diplomacyState - Current diplomacy state.
+ * @returns Updated organisation state and events.
+ */
+export function mergeOrganisations(
+  state: GalacticOrganisationState,
+  org1Id: string,
+  org2Id: string,
+  newName: string,
+  tick: number,
   empires: Empire[],
   diplomacyState: DiplomacyState,
-  tick: number,
-): { council: GalacticCouncil; events: CouncilEvent[] } {
-  if (!council.formed) return { council, events: [] };
+): { state: GalacticOrganisationState; events: OrganisationEvent[] } {
+  const events: OrganisationEvent[] = [];
 
-  let next = copyCouncil(council);
-  const events: CouncilEvent[] = [];
+  if (org1Id === org2Id) return { state, events };
 
-  // 1. Check for new member eligibility.
-  const empireIds = empires.map((e) => e.id);
-  for (const empireId of empireIds) {
-    if (next.memberEmpires.includes(empireId)) continue;
+  const org1 = state.organisations.find((o) => o.id === org1Id);
+  const org2 = state.organisations.find((o) => o.id === org2Id);
 
-    // An empire is eligible if it has mutual contact with any current member.
-    let eligible = false;
-    for (const memberId of next.memberEmpires) {
-      const relA = getRelation(diplomacyState, empireId, memberId);
-      const relB = getRelation(diplomacyState, memberId, empireId);
-      if (relA && relA.firstContact >= 0 && relB && relB.firstContact >= 0) {
-        eligible = true;
-        break;
-      }
-    }
+  if (!org1 || !org2) return { state, events };
 
-    if (eligible) {
-      next.memberEmpires.push(empireId);
-      const empire = empires.find((e) => e.id === empireId);
-      events.push({
-        type: 'member_joined',
-        tick,
-        description: `${empire?.name ?? empireId} has joined the Galactic Council.`,
-        involvedEmpires: [...next.memberEmpires],
-      });
-    }
-  }
+  // Combine member lists (no duplicates expected due to one-org-per-empire rule).
+  const allMembers = [
+    ...new Set([...org1.memberEmpires, ...org2.memberEmpires]),
+  ];
 
-  // 2. Auto-resolve votes that have exceeded their voting window.
-  for (const resolution of next.resolutions) {
-    // Skip already-resolved resolutions (those where passed has been determined).
-    // A resolution is "active" if not all members have voted and it's still
-    // within the voting window OR just expired.
-    const age = tick - resolution.tick;
-    const allVoted = next.memberEmpires.every(
-      (id) => resolution.votes[id] !== undefined,
-    );
+  // Use the earlier maturity tick (more mature organisation wins).
+  const maturityTick = Math.min(org1.maturityTick, org2.maturityTick);
 
-    if (allVoted || age >= VOTING_WINDOW_TICKS) {
-      // Only resolve if not already resolved (check: if passed is still false
-      // and no one has voted for/against, it hasn't been resolved yet).
-      // Use a heuristic: if the resolution has zero votes it was just proposed.
-      const totalVotes = Object.keys(resolution.votes).length;
-      if (totalVotes === 0 && age < VOTING_WINDOW_TICKS) continue;
+  // Preserve founders from the older organisation.
+  const olderOrg =
+    org1.formedTick <= org2.formedTick ? org1 : org2;
 
-      // Check if this resolution was already resolved in a previous tick.
-      // We mark resolved resolutions by setting a vote count equal to members
-      // at the time — but since we can't add a field, we check via a simple
-      // heuristic: if passed is true, it was already resolved positively;
-      // if all members voted and passed is false, it already failed.
-      // To avoid re-resolving, only resolve if the tick matches the expiry.
-      if (allVoted || age === VOTING_WINDOW_TICKS) {
-        const result = resolveVote(next, resolution.id);
-        next = result.council;
-        events.push(...result.events);
-      }
-    }
-  }
+  // Carry over resolutions from both organisations.
+  const combinedResolutions = [
+    ...org1.resolutions.map((r) => ({ ...r, votes: { ...r.votes } })),
+    ...org2.resolutions.map((r) => ({ ...r, votes: { ...r.votes } })),
+  ];
 
-  // 3. Recalculate voting power for all members.
-  for (const memberId of next.memberEmpires) {
+  // Create the merged organisation.
+  const merged: GalacticOrganisation = {
+    id: generateId(),
+    name: newName,
+    formedTick: Math.min(org1.formedTick, org2.formedTick),
+    founderEmpires: [...olderOrg.founderEmpires] as [string, string],
+    memberEmpires: allMembers,
+    votingPower: {},
+    resolutions: combinedResolutions,
+    reserveCurrency: org1.reserveCurrency || org2.reserveCurrency,
+    hasOwnMarket: org1.hasOwnMarket || org2.hasOwnMarket,
+    maturityTick,
+  };
+
+  // Recalculate voting power for all members.
+  for (const memberId of allMembers) {
     const empire = empires.find((e) => e.id === memberId);
     if (empire) {
-      next.votingPower[memberId] = calculateVotingPower(
+      merged.votingPower[memberId] = calculateVotingPower(
         empire,
         empires,
         diplomacyState,
-        next.memberEmpires,
+        allMembers,
       );
     }
   }
 
-  // 4. Check maturity milestone: binding resolutions become available.
-  if (
-    next.formedTick !== undefined &&
-    tick - next.formedTick === BINDING_MATURITY_TICKS
-  ) {
-    events.push({
-      type: 'binding_unlocked',
-      tick,
-      description:
-        'The Galactic Council has matured — binding resolutions are now permitted.',
-      involvedEmpires: [...next.memberEmpires],
-    });
+  // Build new state: remove the two source orgs, add the merged one.
+  const next = copyState(state);
+  next.organisations = next.organisations.filter(
+    (o) => o.id !== org1Id && o.id !== org2Id,
+  );
+  next.organisations.push(merged);
+
+  events.push({
+    type: 'organisations_merged',
+    tick,
+    description: `${org1.name} and ${org2.name} have merged to form ${newName}.`,
+    involvedEmpires: allMembers,
+    organisationId: merged.id,
+  });
+
+  return { state: next, events };
+}
+
+// ---------------------------------------------------------------------------
+// Per-tick processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Process one game tick for ALL galactic organisations.
+ *
+ * Per organisation per tick:
+ *  1. Check for new empires eligible to join (have mutual contact with a
+ *     member AND are not in any other organisation).
+ *  2. Auto-resolve votes whose voting window has expired.
+ *  3. Recalculate voting power for all members.
+ *  4. Check for maturity milestones (binding resolutions unlock).
+ *
+ * @param state - Current organisation state (all organisations).
+ * @param empires - All empires in the game.
+ * @param diplomacyState - Current diplomacy state.
+ * @param tick - Current game tick.
+ * @returns Updated state and any events generated.
+ */
+export function processOrganisationTick(
+  state: GalacticOrganisationState,
+  empires: Empire[],
+  diplomacyState: DiplomacyState,
+  tick: number,
+): { state: GalacticOrganisationState; events: OrganisationEvent[] } {
+  if (state.organisations.length === 0) return { state, events: [] };
+
+  let next = copyState(state);
+  const events: OrganisationEvent[] = [];
+
+  const allEmpireIds = empires.map((e) => e.id);
+
+  for (let orgIdx = 0; orgIdx < next.organisations.length; orgIdx++) {
+    let org = next.organisations[orgIdx];
+
+    // 1. Check for new member eligibility.
+    for (const empireId of allEmpireIds) {
+      if (org.memberEmpires.includes(empireId)) continue;
+
+      // An empire is eligible if:
+      //  (a) it has mutual contact with any current member, AND
+      //  (b) it does not already belong to another organisation.
+      const alreadyInOrg = next.organisations.some(
+        (o) => o.memberEmpires.includes(empireId),
+      );
+      if (alreadyInOrg) continue;
+
+      let eligible = false;
+      for (const memberId of org.memberEmpires) {
+        if (haveMutualContact(empireId, memberId, diplomacyState)) {
+          eligible = true;
+          break;
+        }
+      }
+
+      if (eligible) {
+        org.memberEmpires.push(empireId);
+        const empire = empires.find((e) => e.id === empireId);
+        events.push({
+          type: 'member_joined',
+          tick,
+          description: `${empire?.name ?? empireId} has joined ${org.name}.`,
+          involvedEmpires: [...org.memberEmpires],
+          organisationId: org.id,
+        });
+      }
+    }
+
+    // 2. Auto-resolve votes that have exceeded their voting window.
+    for (const resolution of org.resolutions) {
+      const age = tick - resolution.tick;
+      const allVoted = org.memberEmpires.every(
+        (id) => resolution.votes[id] !== undefined,
+      );
+
+      if (allVoted || age >= VOTING_WINDOW_TICKS) {
+        const totalVotes = Object.keys(resolution.votes).length;
+        if (totalVotes === 0 && age < VOTING_WINDOW_TICKS) continue;
+
+        if (allVoted || age === VOTING_WINDOW_TICKS) {
+          const result = resolveVote(org, resolution.id);
+          org = result.organisation;
+          next.organisations[orgIdx] = org;
+          events.push(...result.events);
+        }
+      }
+    }
+
+    // 3. Recalculate voting power for all members.
+    for (const memberId of org.memberEmpires) {
+      const empire = empires.find((e) => e.id === memberId);
+      if (empire) {
+        org.votingPower[memberId] = calculateVotingPower(
+          empire,
+          empires,
+          diplomacyState,
+          org.memberEmpires,
+        );
+      }
+    }
+
+    // 4. Check maturity milestone: binding resolutions become available.
+    if (tick === org.maturityTick) {
+      events.push({
+        type: 'binding_unlocked',
+        tick,
+        description: `${org.name} has matured — binding resolutions are now permitted.`,
+        involvedEmpires: [...org.memberEmpires],
+        organisationId: org.id,
+      });
+    }
+
+    next.organisations[orgIdx] = org;
   }
 
-  return { council: next, events };
+  return { state: next, events };
 }
+
+// ---------------------------------------------------------------------------
+// State constructors
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a default (empty) organisation state with no organisations.
+ *
+ * @returns An empty GalacticOrganisationState.
+ */
+export function createEmptyOrganisationState(): GalacticOrganisationState {
+  return {
+    organisations: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Backwards-compatible aliases (deprecated)
+// ---------------------------------------------------------------------------
+
+// Re-export the old GalacticCouncil type for consumers that still import it.
+export type { GalacticCouncil, GalacticBloc } from '../types/diplomacy.js';
 
 /**
  * Create a default (unformed) council state.
  *
+ * @deprecated Use {@link createEmptyOrganisationState} instead.
  * @returns An empty GalacticCouncil.
  */
-export function createEmptyCouncil(): GalacticCouncil {
+export function createEmptyCouncil(): import('../types/diplomacy.js').GalacticCouncil {
   return {
     formed: false,
     formedTick: undefined,

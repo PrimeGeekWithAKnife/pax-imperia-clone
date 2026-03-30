@@ -10,22 +10,98 @@
  */
 
 import React, { useMemo } from 'react';
-import type {
-  GovernmentType,
-  GovernmentDefinition,
-} from '@nova-imperia/shared';
-import type {
-  EmpirePoliticalState,
-  PoliticalFaction,
-  PolicyPosition,
-  ElectionState,
-  ElectionResult,
-  RevolutionState,
-} from '@nova-imperia/shared';
+import type { GovernmentType } from '@nova-imperia/shared';
 import { GOVERNMENTS, tickToDate, tickDurationToString } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
-// Types
+// Local type definitions — mirrors from shared/types/politics.ts
+// The component accepts data via props; engine modules are not imported.
+// ---------------------------------------------------------------------------
+
+/** The 7 policy domains that factions care about. */
+type PolicyDomain =
+  | 'foreign'
+  | 'domestic'
+  | 'economic'
+  | 'political'
+  | 'education'
+  | 'health'
+  | 'security';
+
+/** Escalation actions a faction can take, ordered from mild to extreme. */
+type FactionAction = 'lobbying' | 'funding' | 'strikes' | 'protests' | 'coup';
+
+/** A single policy position in an empire. */
+interface PolicyPosition {
+  domain: PolicyDomain;
+  value: number;
+  transitionProgress?: number;
+  transitionTarget?: number;
+}
+
+/** A political faction within an empire. */
+interface PoliticalFaction {
+  id: string;
+  name: string;
+  speciesOrigin?: string;
+  supportBase: number;
+  clout: number;
+  satisfaction: number;
+  demands: PolicyPosition[];
+  currentAction: FactionAction;
+  isRulingFaction: boolean;
+  foundedTick: number;
+  dissolved: boolean;
+  supportSources: {
+    vocation?: string;
+    faith?: string;
+    loyalty?: string;
+    wealthLevel?: string;
+  };
+  frustrationTicks?: number;
+}
+
+/** Election results for a single election. */
+interface ElectionResult {
+  tick: number;
+  winner: string;
+  voteShare: Record<string, number>;
+  wasRigged: boolean;
+  riggingDetected: boolean;
+  turnout: number;
+}
+
+/** Election state for an empire. */
+interface ElectionState {
+  nextElectionTick: number;
+  electionInterval: number;
+  lastResults?: ElectionResult;
+  riggingLevel: number;
+  riggingDetectionRisk: number;
+}
+
+/** Tracks an active revolution or civil war. */
+interface RevolutionState {
+  isActive: boolean;
+  revoltingFaction?: string;
+  militaryStrength: number;
+  governmentStrength: number;
+  startTick?: number;
+  cause?: string;
+}
+
+/** The complete political state of an empire at a point in time. */
+interface EmpirePoliticalState {
+  factions: PoliticalFaction[];
+  policies: PolicyPosition[];
+  election?: ElectionState;
+  revolution?: RevolutionState;
+  legitimacy: number;
+  corruption: number;
+}
+
+// ---------------------------------------------------------------------------
+// Props
 // ---------------------------------------------------------------------------
 
 export interface PoliticsScreenProps {
@@ -93,10 +169,6 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-function pct(v: number, max: number): string {
-  return `${clamp((v / max) * 100, 0, 100).toFixed(1)}%`;
-}
-
 /** Get a colour for legitimacy (green > 70, yellow 40-70, red < 40). */
 function legitimacyColour(value: number): string {
   if (value > 70) return '#4caf50';
@@ -151,7 +223,7 @@ function formatDemand(demands: PolicyPosition[]): string {
 
 /** Get government display name. */
 function governmentName(type: GovernmentType): string {
-  const def: GovernmentDefinition | undefined = GOVERNMENTS[type];
+  const def = GOVERNMENTS[type];
   return def?.name ?? type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
@@ -184,7 +256,7 @@ function StatBar({
         marginBottom: '3px',
       }}>
         <span>{label}</span>
-        <span style={{ color }}>{Math.round(value)}{suffix ?? ''}</span>
+        <span style={{ color: colour }}>{Math.round(value)}{suffix ?? ''}</span>
       </div>
       <div style={{
         height: '8px',
@@ -232,7 +304,7 @@ function FactionCard({
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'centre',
+        alignItems: 'center',
       }}>
         <div style={{
           fontSize: '13px',
@@ -505,7 +577,7 @@ export function PoliticsScreen({
       <div
         className="pm-screen"
         style={{ maxWidth: '1100px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         {/* ── Header ── */}
         <div className="pm-header">
