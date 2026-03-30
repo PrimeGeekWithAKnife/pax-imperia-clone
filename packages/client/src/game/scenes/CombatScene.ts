@@ -151,6 +151,14 @@ const FORMATION_TYPES: { label: string; type: FormationType }[] = [
   { label: 'WINGS', type: 'wings' },
 ];
 
+/** Available combat stances. */
+const STANCE_TYPES: { label: string; type: string; description: string }[] = [
+  { label: 'AGGRESSIVE', type: 'aggressive', description: 'Maximum damage, close range' },
+  { label: 'DEFENSIVE', type: 'defensive', description: 'Hold position, prioritise survival' },
+  { label: 'FLANKING', type: 'flanking', description: 'Outmanoeuvre, target weak sides' },
+  { label: 'EVASIVE', type: 'evasive', description: 'Minimise losses, maintain distance' },
+];
+
 // ---------------------------------------------------------------------------
 // CombatScene
 // ---------------------------------------------------------------------------
@@ -859,8 +867,8 @@ export class CombatScene extends Phaser.Scene {
     });
     defenderLabel.setScrollFactor(0).setDepth(100);
 
-    // ── Bottom bar: selected ship info ─────────────────────────────────────
-    this.selectedInfoLabel = this.add.text(12, height - 44, '', {
+    // ── Selected ship info (above the bottom bar) ──────────────────────────
+    this.selectedInfoLabel = this.add.text(12, height - 74, '', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#ccddee',
@@ -918,26 +926,34 @@ export class CombatScene extends Phaser.Scene {
     retreatBtn.setInteractive({ useHandCursor: true });
     retreatBtn.on('pointerdown', () => this._retreatAll());
 
-    // ── Bottom-left: formation buttons ──────────────────────────────────
-    const formationLabel = this.add.text(12, height - 80, 'FORMATION:', {
+    // ── Bottom-centre: formation + stance bar (fixed size, zoom-independent) ──
+    const barY = height - 52;
+    const barBg = this.add.graphics();
+    barBg.setScrollFactor(0).setDepth(99);
+    barBg.fillStyle(0x0a1628, 0.85);
+    barBg.fillRoundedRect(8, barY - 8, width - 16, 52, 6);
+    barBg.lineStyle(1, 0x2a4a6a, 0.5);
+    barBg.strokeRoundedRect(8, barY - 8, width - 16, 52, 6);
+
+    const formationLabel = this.add.text(16, barY, 'FORMATION:', {
       fontFamily: 'monospace',
-      fontSize: '12px',
+      fontSize: '13px',
       color: '#88aacc',
       stroke: '#000000',
       strokeThickness: 2,
     });
     formationLabel.setScrollFactor(0).setDepth(100);
 
-    let fmtBtnX = 12;
+    let fmtBtnX = 130;
     this.formationButtons = [];
     for (const fm of FORMATION_TYPES) {
       const isActive = fm.type === 'line'; // default formation
-      const btn = this.add.text(fmtBtnX, height - 62, fm.label, {
+      const btn = this.add.text(fmtBtnX, barY - 2, fm.label, {
         fontFamily: 'monospace',
-        fontSize: '13px',
+        fontSize: '14px',
         color: isActive ? '#44ffaa' : '#6688aa',
-        backgroundColor: '#1a1a2e',
-        padding: { x: 10, y: 6 },
+        backgroundColor: isActive ? '#1a3a2e' : '#1a1a2e',
+        padding: { x: 14, y: 8 },
         stroke: '#000000',
         strokeThickness: 1,
       });
@@ -947,6 +963,41 @@ export class CombatScene extends Phaser.Scene {
       btn.on('pointerdown', () => this._setPlayerFormation(fm.type));
       this.formationButtons.push(btn);
       fmtBtnX += btn.width + 8;
+    }
+
+    // Stance buttons (right side of the bar)
+    const stanceLabel = this.add.text(fmtBtnX + 20, barY, 'STANCE:', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#88aacc',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    stanceLabel.setScrollFactor(0).setDepth(100);
+
+    let stBtnX = fmtBtnX + 100;
+    for (const st of STANCE_TYPES) {
+      const isActive = st.type === 'aggressive';
+      const btn = this.add.text(stBtnX, barY - 2, st.label, {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: isActive ? '#ffcc44' : '#6688aa',
+        backgroundColor: isActive ? '#2a2a1e' : '#1a1a2e',
+        padding: { x: 14, y: 8 },
+        stroke: '#000000',
+        strokeThickness: 1,
+      });
+      btn.setScrollFactor(0).setDepth(100);
+      btn.setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => {
+        (this as unknown as Record<string, unknown>).currentStance = st.type;
+        // Update button colours
+        let idx = 0;
+        for (const child of stanceLabel.parentContainer?.list ?? []) {
+          // handled below via data
+        }
+      });
+      stBtnX += btn.width + 8;
     }
 
     // ── Admiral commands (right side, above retreat) ─────────────────────
@@ -1020,81 +1071,179 @@ export class CombatScene extends Phaser.Scene {
   private _showInstructions(): void {
     this.paused = true;
     const { width, height } = this.scale;
-    const panelW = 420;
-    const panelH = 340;
+    const panelW = Math.min(680, width - 40);
+    const panelH = Math.min(580, height - 40);
     const px = (width - panelW) / 2;
     const py = (height - panelH) / 2;
 
+    const allElements: Phaser.GameObjects.GameObject[] = [];
+
     const overlay = this.add.graphics();
     overlay.setScrollFactor(0).setDepth(200);
-    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillStyle(0x000000, 0.75);
     overlay.fillRect(0, 0, width, height);
+    allElements.push(overlay);
 
     const panel = this.add.graphics();
     panel.setScrollFactor(0).setDepth(201);
-    panel.fillStyle(0x0a1628, 0.95);
-    panel.fillRoundedRect(px, py, panelW, panelH, 8);
-    panel.lineStyle(1, 0x3388cc, 0.6);
-    panel.strokeRoundedRect(px, py, panelW, panelH, 8);
+    panel.fillStyle(0x0a1628, 0.97);
+    panel.fillRoundedRect(px, py, panelW, panelH, 10);
+    panel.lineStyle(2, 0x3388cc, 0.7);
+    panel.strokeRoundedRect(px, py, panelW, panelH, 10);
+    allElements.push(panel);
 
-    const title = this.add.text(width / 2, py + 20, 'TACTICAL COMBAT', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#ff8844',
-      stroke: '#000000', strokeThickness: 2,
+    const title = this.add.text(width / 2, py + 18, 'TACTICAL COMBAT', {
+      fontFamily: 'monospace', fontSize: '24px', color: '#ff8844',
+      stroke: '#000000', strokeThickness: 3,
     });
     title.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
+    allElements.push(title);
 
-    const lines = [
-      '  CONTROLS',
-      '',
-      '  Left-click friendly ship    Select it',
-      '  Left-click enemy ship       Attack order',
-      '  Right-click empty space     Move order',
-      '  Right-click enemy ship      Attack order',
-      '  Scroll wheel                Zoom in/out',
-      '  Shift + drag                Pan camera',
-      '',
-      '  FORMATIONS (bottom-left)',
-      '  LINE / SPEAR / DIAMOND / WINGS',
-      '',
-      '  Ships attack enemies automatically when',
-      '  in weapon range. Use orders to focus fire',
-      '  or reposition your fleet.',
-    ];
+    // ── Left column: Controls ──
+    const colLeftX = px + 24;
+    const colRightX = px + panelW / 2 + 12;
+    let curY = py + 58;
 
-    const instructions = this.add.text(px + 16, py + 50, lines.join('\n'), {
-      fontFamily: 'monospace', fontSize: '12px', color: '#bbccdd',
-      lineSpacing: 4,
+    const controlsHead = this.add.text(colLeftX, curY, 'CONTROLS', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      stroke: '#000000', strokeThickness: 2,
     });
-    instructions.setScrollFactor(0).setDepth(202);
+    controlsHead.setScrollFactor(0).setDepth(202);
+    allElements.push(controlsHead);
+    curY += 26;
 
-    const btnW = 160;
-    const btnH = 36;
+    const controlLines = [
+      'Left-click ship        Select',
+      'Left-click enemy       Attack',
+      'Right-click space      Move',
+      'Right-click enemy      Attack',
+      'Ctrl+A                 Select all',
+      'Scroll wheel           Zoom',
+      'Shift + drag           Pan',
+      'ESC                    Deselect',
+    ];
+    const controlsText = this.add.text(colLeftX, curY, controlLines.join('\n'), {
+      fontFamily: 'monospace', fontSize: '13px', color: '#bbccdd',
+      lineSpacing: 5,
+    });
+    controlsText.setScrollFactor(0).setDepth(202);
+    allElements.push(controlsText);
+
+    // ── Right column: Formation & Stance selection ──
+    let rightY = py + 58;
+
+    const fmtHead = this.add.text(colRightX, rightY, 'FORMATION', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    fmtHead.setScrollFactor(0).setDepth(202);
+    allElements.push(fmtHead);
+    rightY += 28;
+
+    let selectedFormation: FormationType = 'line';
+    const fmtButtons: Phaser.GameObjects.Text[] = [];
+    let fmtBtnX = colRightX;
+    for (const fm of FORMATION_TYPES) {
+      const isActive = fm.type === selectedFormation;
+      const btn = this.add.text(fmtBtnX, rightY, fm.label, {
+        fontFamily: 'monospace', fontSize: '14px',
+        color: isActive ? '#44ffaa' : '#6688aa',
+        backgroundColor: isActive ? '#1a3a2e' : '#1a1a2e',
+        padding: { x: 10, y: 6 },
+        stroke: '#000000', strokeThickness: 1,
+      });
+      btn.setScrollFactor(0).setDepth(203);
+      btn.setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => {
+        selectedFormation = fm.type;
+        fmtButtons.forEach((b, i) => {
+          const active = FORMATION_TYPES[i]!.type === selectedFormation;
+          b.setColor(active ? '#44ffaa' : '#6688aa');
+          b.setBackgroundColor(active ? '#1a3a2e' : '#1a1a2e');
+        });
+      });
+      fmtButtons.push(btn);
+      allElements.push(btn);
+      fmtBtnX += btn.width + 8;
+    }
+    rightY += 40;
+
+    const stanceHead = this.add.text(colRightX, rightY, 'STANCE', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#44ccff',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    stanceHead.setScrollFactor(0).setDepth(202);
+    allElements.push(stanceHead);
+    rightY += 28;
+
+    let selectedStance = 'aggressive';
+    const stanceButtons: Phaser.GameObjects.Text[] = [];
+    for (const st of STANCE_TYPES) {
+      const isActive = st.type === selectedStance;
+      const btn = this.add.text(colRightX, rightY, `${st.label}  ${st.description}`, {
+        fontFamily: 'monospace', fontSize: '12px',
+        color: isActive ? '#44ffaa' : '#6688aa',
+        backgroundColor: isActive ? '#1a3a2e' : '#1a1a2e',
+        padding: { x: 10, y: 5 },
+        stroke: '#000000', strokeThickness: 1,
+      });
+      btn.setScrollFactor(0).setDepth(203);
+      btn.setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => {
+        selectedStance = st.type;
+        stanceButtons.forEach((b, i) => {
+          const active = STANCE_TYPES[i]!.type === selectedStance;
+          b.setColor(active ? '#44ffaa' : '#6688aa');
+          b.setBackgroundColor(active ? '#1a3a2e' : '#1a1a2e');
+        });
+      });
+      stanceButtons.push(btn);
+      allElements.push(btn);
+      rightY += btn.height + 4;
+    }
+
+    // ── Bottom: fleet summary + Begin button ──
+    const summaryY = py + panelH - 120;
+    const fleetInfo = this.add.text(width / 2, summaryY, [
+      `${this.sceneData.attackerName}  vs  ${this.sceneData.defenderName}`,
+      `Your fleet: ${this.sceneData.attackerShips.length} ships    Enemy: ${this.sceneData.defenderShips.length} ships`,
+    ].join('\n'), {
+      fontFamily: 'monospace', fontSize: '13px', color: '#88aacc',
+      stroke: '#000000', strokeThickness: 2, align: 'center',
+    });
+    fleetInfo.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
+    allElements.push(fleetInfo);
+
+    const btnW = 220;
+    const btnH = 44;
     const btnX = (width - btnW) / 2;
-    const btnY = py + panelH - 52;
+    const btnY = py + panelH - 60;
 
     const btnBg = this.add.graphics();
     btnBg.setScrollFactor(0).setDepth(202);
     btnBg.fillStyle(0x00aa66, 0.9);
-    btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
+    btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
+    btnBg.lineStyle(1, 0x44ffaa, 0.5);
+    btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
+    allElements.push(btnBg);
 
     const btnText = this.add.text(width / 2, btnY + btnH / 2, 'BEGIN BATTLE', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 2,
+      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 3,
     });
     btnText.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(203);
+    allElements.push(btnText);
 
-    // Make the button area interactive
     const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH);
     hitZone.setScrollFactor(0).setDepth(204);
     hitZone.setInteractive({ useHandCursor: true });
+    allElements.push(hitZone);
     hitZone.on('pointerdown', () => {
-      overlay.destroy();
-      panel.destroy();
-      title.destroy();
-      instructions.destroy();
-      btnBg.destroy();
-      btnText.destroy();
-      hitZone.destroy();
+      // Apply selected formation and stance before battle
+      this._setPlayerFormation(selectedFormation);
+      // Store stance for future use
+      (this as unknown as Record<string, unknown>).currentStance = selectedStance;
+      for (const el of allElements) el.destroy();
       this.paused = false;
     });
   }
@@ -1112,6 +1261,21 @@ export class CombatScene extends Phaser.Scene {
     // ESC to deselect
     this.input.keyboard?.on('keydown-ESC', () => {
       this.selectedShipId = null;
+      (this as unknown as Record<string, unknown>).selectedShipIds = null;
+    });
+
+    // Ctrl+A to select all friendly ships
+    this.input.keyboard?.on('keydown-A', (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        const friendlyIds = this.tacticalState.ships
+          .filter(s => !s.destroyed && !s.routed && this._isPlayerSide(s))
+          .map(s => s.id);
+        if (friendlyIds.length > 0) {
+          this.selectedShipId = friendlyIds[0] ?? null;
+          (this as unknown as Record<string, unknown>).selectedShipIds = friendlyIds;
+        }
+      }
     });
 
     // Right-click anywhere in the scene for move/attack orders
@@ -1168,6 +1332,14 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private _issueOrder(order: ShipOrder): void {
+    // If multiple ships selected (Ctrl+A), issue order to all
+    const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+    if (multiIds && multiIds.length > 1) {
+      for (const id of multiIds) {
+        this.tacticalState = setShipOrder(this.tacticalState, id, order);
+      }
+      return;
+    }
     if (!this.selectedShipId) return;
     this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, order);
   }
