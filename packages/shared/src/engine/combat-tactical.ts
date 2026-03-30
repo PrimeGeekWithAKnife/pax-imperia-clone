@@ -1586,7 +1586,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         .sort((a, b) => dist({ x: missile.x, y: missile.y }, a.position) - dist({ x: missile.x, y: missile.y }, b.position))[0];
       if (newTarget) {
         // Retarget — missile continues flying toward new target
-        survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed });
+        const retargetSpeed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
+        survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed: retargetSpeed });
       }
       // If no enemies left, missile dissipates
       continue;
