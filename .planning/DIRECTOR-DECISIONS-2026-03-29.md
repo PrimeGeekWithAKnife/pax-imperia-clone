@@ -1209,3 +1209,13 @@
 - Planets at 1M+ (City tier and above) get the full dashboard: workforce allocation rows, species composition, age/wealth/faith/loyalty bars, political faction clout bars, health/crime indicators, sparkline trends
 - This maps naturally to the settlement tier system: habitats, settlements, colonies, and small cities get the simple view; cities, metropolises, megatropolises, and planetary-scale populations get the full view
 - Reduces information overload on frontier colonies while providing deep insight on developed worlds
+
+### Combat Balance Philosophy
+
+**Decision:** Ship designer responsibility. Under-armed ships are the player's problem.
+
+- If a player builds a ship with 1 weapon and heavy shields, battles will be slow stalemates. That's on them.
+- The game does not enforce minimum weapon counts per hull class
+- Good ship design is part of the strategy — reward players who design effective loadouts
+- The auto-design/suggested loadouts feature should produce well-balanced ships as a baseline for new players
+- Shield recharge at 1% per tick is correct — multiple weapons stack linearly, properly armed ships kill in reasonable time
