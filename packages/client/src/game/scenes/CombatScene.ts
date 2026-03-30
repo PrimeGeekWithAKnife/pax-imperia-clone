@@ -364,7 +364,13 @@ export class CombatScene extends Phaser.Scene {
     const gfx = this.add.graphics();
     gfx.setDepth(0);
 
-    // Subtle grid lines for spatial reference
+    // Fill a VERY large area with background so there's no black even when
+    // the browser window is much larger than the battlefield
+    const pad = 2000;
+    gfx.fillStyle(0x06081a, 1);
+    gfx.fillRect(-pad, -pad, BATTLEFIELD_WIDTH + pad * 2, BATTLEFIELD_HEIGHT + pad * 2);
+
+    // Subtle grid lines within the battlefield only
     gfx.lineStyle(1, 0x1a1a3a, 0.25);
     for (let x = 0; x <= BATTLEFIELD_WIDTH; x += 200) {
       gfx.lineBetween(x, 0, x, BATTLEFIELD_HEIGHT);
@@ -373,12 +379,12 @@ export class CombatScene extends Phaser.Scene {
       gfx.lineBetween(0, y, BATTLEFIELD_WIDTH, y);
     }
 
-    // Stars — brighter and larger than before
-    for (let i = 0; i < STAR_COUNT; i++) {
-      const x = Phaser.Math.FloatBetween(0, BATTLEFIELD_WIDTH);
-      const y = Phaser.Math.FloatBetween(0, BATTLEFIELD_HEIGHT);
-      const alpha = Phaser.Math.FloatBetween(0.2, 0.6);
-      const radius = Phaser.Math.FloatBetween(0.5, 1.5);
+    // Stars spread across the full extended area
+    for (let i = 0; i < STAR_COUNT * 3; i++) {
+      const x = Phaser.Math.FloatBetween(-pad, BATTLEFIELD_WIDTH + pad);
+      const y = Phaser.Math.FloatBetween(-pad, BATTLEFIELD_HEIGHT + pad);
+      const alpha = Phaser.Math.FloatBetween(0.15, 0.5);
+      const radius = Phaser.Math.FloatBetween(0.4, 1.2);
       gfx.fillStyle(0xffffff, alpha);
       gfx.fillCircle(x, y, radius);
     }
@@ -482,17 +488,21 @@ export class CombatScene extends Phaser.Scene {
 
   private _setupCamera(): void {
     const cam = this.cameras.main;
+    // Expand camera bounds well beyond battlefield so the starfield background
+    // fills any screen size without black borders
+    const camPad = 1000;
     cam.setBounds(
-      -MARGIN,
-      -MARGIN,
-      BATTLEFIELD_WIDTH + MARGIN * 2,
-      BATTLEFIELD_HEIGHT + MARGIN * 2,
+      -camPad,
+      -camPad,
+      BATTLEFIELD_WIDTH + camPad * 2,
+      BATTLEFIELD_HEIGHT + camPad * 2,
     );
 
-    // Fit battlefield into view
+    // Fit battlefield into view with some padding for the boundary zones
     const { width, height } = this.scale;
-    const scaleX = width / (BATTLEFIELD_WIDTH + MARGIN * 2);
-    const scaleY = height / (BATTLEFIELD_HEIGHT + MARGIN * 2);
+    const viewPad = 100; // extra breathing room around the battlefield
+    const scaleX = width / (BATTLEFIELD_WIDTH + viewPad * 2);
+    const scaleY = height / (BATTLEFIELD_HEIGHT + viewPad * 2);
     const fitZoom = Math.min(scaleX, scaleY);
     cam.setZoom(fitZoom);
     cam.centerOn(BATTLEFIELD_WIDTH / 2, BATTLEFIELD_HEIGHT / 2);
