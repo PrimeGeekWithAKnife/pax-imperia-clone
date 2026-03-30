@@ -151,6 +151,16 @@ export type ShipOrder =
   | { type: 'move'; x: number; y: number }
   | { type: 'flee' };
 
+/**
+ * Combat stance — determines autonomous behaviour.
+ * - aggressive: hold position, fire at will at anything in range. Only move when commanded.
+ * - defensive: hold position, fire only when taking damage.
+ * - at_ease: ship captain decides autonomously (AI-controlled movement + targeting).
+ * - evasive: maintain distance from enemies, fire if opportunity arises.
+ * - flee: head for map edge, no firing.
+ */
+export type CombatStance = 'aggressive' | 'defensive' | 'at_ease' | 'evasive' | 'flee';
+
 export type CrewExperience = 'recruit' | 'trained' | 'regular' | 'seasoned' | 'veteran' | 'hardened' | 'elite' | 'ace' | 'legendary';
 
 export interface Crew {
@@ -176,8 +186,11 @@ export interface TacticalShip {
   weapons: TacticalWeapon[];
   sensorRange: number;   // battlefield units
   order: ShipOrder;
+  stance: CombatStance;
   destroyed: boolean;
   routed: boolean;
+  /** Damage received this tick — used by defensive stance to trigger return fire. */
+  damageTakenThisTick: number;
   crew: Crew;
 }
 
@@ -848,8 +861,10 @@ export function initializeTacticalCombat(
         weapons: extracted.weapons,
         sensorRange: extracted.sensorRange,
         order: { type: 'idle' } as ShipOrder,
+        stance: 'aggressive' as CombatStance,
         destroyed: false,
         routed: false,
+        damageTakenThisTick: 0,
         crew: {
           morale: 80,
           health: 100,
@@ -907,8 +922,10 @@ export function initializeTacticalCombat(
         }],
         sensorRange: 600,
         order: { type: 'idle' } as ShipOrder,
+        stance: 'aggressive' as CombatStance,
         destroyed: false,
         routed: false,
+        damageTakenThisTick: 0,
         crew: {
           morale: 90,
           health: 100,
@@ -1158,8 +1175,31 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   };
 
   switch (ship.order.type) {
-    case 'idle':
+    case 'idle': {
+      // At ease stance: ship captain acts autonomously — find and engage enemies
+      if (ship.stance === 'at_ease') {
+        const target = findTarget(ship, state.ships);
+        if (target != null) {
+          return moveToward(updated, target.position, engageDistance(ship));
+        }
+      }
+      // Evasive stance: move away from nearest enemy
+      if (ship.stance === 'evasive') {
+        const nearest = findTarget(ship, state.ships);
+        if (nearest != null) {
+          const d = dist(ship.position, nearest.position);
+          const maxWeaponRange = ship.weapons.length > 0 ? Math.max(...ship.weapons.map(w => w.range)) : 200;
+          if (d < maxWeaponRange * 1.2) {
+            // Too close — move away
+            const awayX = ship.position.x + (ship.position.x - nearest.position.x);
+            const awayY = ship.position.y + (ship.position.y - nearest.position.y);
+            return moveToward(updated, { x: awayX, y: awayY }, 0);
+          }
+        }
+      }
+      // Aggressive and defensive: hold position on idle
       return updated;
+    }
 
     case 'attack': {
       const target = findTarget(ship, state.ships);
@@ -1183,14 +1223,15 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       const target = { x: ship.order.x, y: ship.order.y };
       const d = dist(updated.position, target);
       if (d <= 5) {
-        // Arrived at destination — switch to attack so ship engages enemies
-        return { ...updated, order: { type: 'attack', targetId: '' } };
+        // Arrived at destination — go idle (hold position)
+        // Stance determines what happens next (at_ease will auto-engage)
+        return { ...updated, order: { type: 'idle' } };
       }
-      // Timeout: if ship has been trying to reach formation for >30 ticks, give up and attack
+      // Timeout: if ship has been trying to reach position for >30 ticks, give up
       if (state.tick > 30 && ship.order.type === 'move') {
         const enemies = state.ships.filter(s => s.side !== ship.side && !s.destroyed && !s.routed);
-        if (enemies.length > 0) {
-          return { ...updated, order: { type: 'attack', targetId: '' } };
+        if (enemies.length > 0 && ship.stance === 'at_ease') {
+          return { ...updated, order: { type: 'idle' } }; // at_ease idle will auto-engage
         }
       }
       return moveToward(updated, target, 2);
@@ -1275,6 +1316,23 @@ export function setShipOrder(
         ? { ...s, order }
         : s,
     ),
+  };
+}
+
+/** Set the combat stance for a ship or all ships on a side. */
+export function setShipStance(
+  state: TacticalState,
+  shipIdOrSide: string,
+  stance: CombatStance,
+): TacticalState {
+  return {
+    ...state,
+    ships: state.ships.map((s) => {
+      if (s.id === shipIdOrSide || s.sourceShipId === shipIdOrSide || s.side === shipIdOrSide) {
+        return { ...s, stance };
+      }
+      return s;
+    }),
   };
 }
 
@@ -1390,14 +1448,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   const env = state.environment ?? [];
   const newEnvironment = [...env];
 
-  // 0b. AI ships: switch from idle to attack after tick 5
-  // (gives the player a few seconds to set up before AI engages)
+  // 0b. AI ships: switch to at_ease stance after tick 5
+  // (gives the player a few seconds to set up before AI engages autonomously)
   if (state.tick === 5) {
     state = {
       ...state,
       ships: state.ships.map(s => {
         if (s.side === 'defender' && s.order.type === 'idle' && !s.destroyed && !s.routed) {
-          return { ...s, order: { type: 'attack' as const, targetId: '' } };
+          return { ...s, stance: 'at_ease' as CombatStance };
         }
         return s;
       }),
@@ -1414,9 +1472,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     .map((e) => ({ ...e, ticksRemaining: e.ticksRemaining - 1 }))
     .filter((e) => e.ticksRemaining > 0);
 
-  // 1c. Shield recharge for all active ships
+  // 1c. Shield recharge for all active ships + reset damage tracking
   let ships = state.ships.map((ship) => {
-    if (ship.destroyed || ship.routed || ship.maxShields <= 0) return ship;
+    // Reset per-tick damage counter (used by defensive stance)
+    const reset = { ...ship, damageTakenThisTick: 0 };
+    if (reset.destroyed || reset.routed || reset.maxShields <= 0) return reset;
     const recharged = Math.min(
       ship.maxShields,
       ship.shields + ship.maxShields * SHIELD_RECHARGE_FRACTION,
@@ -1708,6 +1768,16 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
+
+    // Stance-based firing restrictions
+    if (ship.stance === 'flee') {
+      // Flee stance: no firing, just tick cooldowns
+      return { ...ship, weapons: ship.weapons.map(w => ({ ...w, cooldownLeft: Math.max(0, w.cooldownLeft - 1) })) };
+    }
+    if (ship.stance === 'defensive' && ship.damageTakenThisTick <= 0) {
+      // Defensive stance: only fire when fired upon — skip if no damage taken this tick
+      return { ...ship, weapons: ship.weapons.map(w => ({ ...w, cooldownLeft: Math.max(0, w.cooldownLeft - 1) })) };
+    }
 
     const target = findTarget(ship, ships);
     if (target == null) {
@@ -2072,6 +2142,7 @@ export function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip
     armour: newArmour,
     hull: newHull,
     destroyed,
+    damageTakenThisTick: (ship.damageTakenThisTick ?? 0) + rawDamage,
     position: { ...ship.position },
     weapons: ship.weapons.map((w) => ({ ...w })),
   };

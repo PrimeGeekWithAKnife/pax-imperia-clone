@@ -4,6 +4,7 @@ import {
   initializeTacticalCombat,
   processTacticalTick,
   setShipOrder,
+  setShipStance,
   setFormation,
   admiralRally,
   admiralEmergencyRepair,
@@ -12,6 +13,7 @@ import {
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
+import { getAudioEngine, SfxGenerator } from '../../audio';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
@@ -184,10 +186,10 @@ const FORMATION_TYPES: { label: string; type: FormationType }[] = [
 
 /** Available combat stances. */
 const STANCE_TYPES: { label: string; type: string; description: string }[] = [
-  { label: 'AGGRESSIVE', type: 'aggressive', description: 'Maximum damage, close range' },
-  { label: 'DEFENSIVE', type: 'defensive', description: 'Hold position, prioritise survival' },
-  { label: 'FLANKING', type: 'flanking', description: 'Outmanoeuvre, target weak sides' },
-  { label: 'EVASIVE', type: 'evasive', description: 'Minimise losses, maintain distance' },
+  { label: 'AGGRESSIVE', type: 'aggressive', description: 'Fire at will, hold position unless commanded' },
+  { label: 'AT EASE', type: 'at_ease', description: 'Ship captains act independently' },
+  { label: 'DEFENSIVE', type: 'defensive', description: 'Fire only when fired upon' },
+  { label: 'EVASIVE', type: 'evasive', description: 'Maintain distance, fire if opportunity' },
   { label: 'FLEE', type: 'flee', description: 'Withdraw from battle immediately' },
 ];
 
@@ -235,6 +237,19 @@ export class CombatScene extends Phaser.Scene {
   /** Cached ship size per ship id (computed once at creation). */
   private shipSizes = new Map<string, { base: number; height: number }>();
 
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  private sfx: SfxGenerator | null = null;
+  /** Number of beam effects last tick — used to detect new beams for sound. */
+  private prevBeamCount = 0;
+  /** Set of beam source+target keys last tick — detect genuinely new beams. */
+  private prevBeamKeys = new Set<string>();
+  /** Number of projectiles last tick. */
+  private prevProjectileCount = 0;
+  /** Number of missiles last tick. */
+  private prevMissileCount = 0;
+  /** Previous shield values per ship id — detect shield hits. */
+  private prevShields = new Map<string, number>();
+
   // ── HUD elements ───────────────────────────────────────────────────────────
   private tickLabel!: Phaser.GameObjects.Text;
   private selectedInfoLabel!: Phaser.GameObjects.Text;
@@ -275,10 +290,21 @@ export class CombatScene extends Phaser.Scene {
       data.planetData,
     );
 
-    // Track initial hull values for damage detection
+    // Track initial hull and shield values for damage/hit detection
     for (const ship of this.tacticalState.ships) {
       this.prevHull.set(ship.id, ship.hull);
+      this.prevShields.set(ship.id, ship.shields);
     }
+
+    // ── Audio ──────────────────────────────────────────────────────────────
+    const audioEngine = getAudioEngine();
+    if (audioEngine) {
+      this.sfx = new SfxGenerator(audioEngine);
+    }
+    this.prevBeamCount = 0;
+    this.prevBeamKeys.clear();
+    this.prevProjectileCount = 0;
+    this.prevMissileCount = 0;
 
     // ── Background ─────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(BG_COLOR);
@@ -1550,7 +1576,9 @@ export class CombatScene extends Phaser.Scene {
       btn.setInteractive({ useHandCursor: true });
       btn.on('pointerdown', () => {
         (this as unknown as Record<string, unknown>).currentStance = st.type;
-        // If FLEE stance selected, issue flee orders to all friendly ships
+        // Apply stance to all player ships
+        this.tacticalState = setShipStance(this.tacticalState, 'attacker', st.type as import('@nova-imperia/shared').CombatStance);
+        // Flee stance also issues flee orders
         if (st.type === 'flee') {
           for (const ship of this.tacticalState.ships) {
             if (!ship.destroyed && !ship.routed && this._isPlayerSide(ship)) {
@@ -2105,8 +2133,115 @@ export class CombatScene extends Phaser.Scene {
     this.tacticalState = processTacticalTick(this.tacticalState);
     this.tickLabel.setText(`Tick: ${this.tacticalState.tick}`);
 
+    // Trigger weapon sounds for this tick
+    this._playCombatSounds();
+
     // Check for battle end
     this._checkBattleEnd();
+  }
+
+  // =========================================================================
+  // Combat audio — triggered each tick after tactical processing
+  // =========================================================================
+
+  private _playCombatSounds(): void {
+    if (!this.sfx) return;
+
+    const state = this.tacticalState;
+
+    // ── New beam effects → beam sounds (max 3 per tick) ───────────────────
+    const currentBeamKeys = new Set<string>();
+    for (const beam of state.beamEffects) {
+      currentBeamKeys.add(`${beam.sourceShipId}→${beam.targetShipId}`);
+    }
+    let beamSoundsPlayed = 0;
+    for (const beam of state.beamEffects) {
+      if (beamSoundsPlayed >= 3) break;
+      const key = `${beam.sourceShipId}→${beam.targetShipId}`;
+      if (this.prevBeamKeys.has(key)) continue; // not a new beam
+
+      const style: BeamStyle = BEAM_STYLE_MAP[beam.componentId ?? ''] ?? 'pulse';
+      switch (style) {
+        case 'pulse':      this.sfx.playBeamPulse(); break;
+        case 'particle':
+        case 'radiation':  this.sfx.playBeamParticle(); break;
+        case 'disruptor':  this.sfx.playBeamDisruptor(); break;
+        case 'plasma':     this.sfx.playBeamPlasma(); break;
+      }
+      beamSoundsPlayed++;
+    }
+    this.prevBeamKeys = currentBeamKeys;
+
+    // ── New projectiles → projectile sounds (max 2 per tick) ──────────────
+    const newProjectiles = state.projectiles.length - this.prevProjectileCount;
+    if (newProjectiles > 0) {
+      const projsToPlay = Math.min(newProjectiles, 2);
+      // Use the most recently added projectiles for style selection
+      const recent = state.projectiles.slice(-newProjectiles);
+      for (let i = 0; i < projsToPlay && i < recent.length; i++) {
+        const proj = recent[i]!;
+        const pStyle = PROJECTILE_STYLE_MAP[proj.componentId ?? ''] ?? 'kinetic';
+        switch (pStyle) {
+          case 'kinetic':
+          case 'fusion':
+          case 'battering_ram':  this.sfx.playProjectileKinetic(); break;
+          case 'gauss':
+          case 'antimatter':
+          case 'singularity':    this.sfx.playProjectileGauss(); break;
+          case 'mass_driver':    this.sfx.playProjectileMassDriver(); break;
+        }
+      }
+    }
+    this.prevProjectileCount = state.projectiles.length;
+
+    // ── New missiles → missile launch (max 1 per tick) ────────────────────
+    const newMissiles = state.missiles.length - this.prevMissileCount;
+    if (newMissiles > 0) {
+      this.sfx.playMissileLaunch();
+    }
+    this.prevMissileCount = state.missiles.length;
+
+    // ── Point defence effects → PD burst (max 2 per tick) ─────────────────
+    const pdEffects = state.pointDefenceEffects ?? [];
+    const newPd = pdEffects.filter(pd => pd.ticksRemaining === 2); // freshly created
+    if (newPd.length > 0) {
+      const pdCount = Math.min(newPd.length, 2);
+      for (let i = 0; i < pdCount; i++) {
+        this.sfx.playPointDefence();
+      }
+    }
+
+    // ── Fighters → occasional buzz (max 1 per tick, every 10th tick) ──────
+    const fighters = state.fighters ?? [];
+    if (fighters.length > 0 && state.tick % 10 === 0) {
+      this.sfx.playFighterBuzz();
+    }
+
+    // ── Shield hits → shield sound (max 2 per tick) ───────────────────────
+    let shieldHits = 0;
+    for (const ship of state.ships) {
+      if (shieldHits >= 2) break;
+      if (ship.maxShields <= 0) continue;
+      const prev = this.prevShields.get(ship.id) ?? ship.shields;
+      if (ship.shields < prev) {
+        this.sfx.playShieldHit();
+        shieldHits++;
+      }
+    }
+
+    // ── Destroyed ships → explosion ───────────────────────────────────────
+    for (const ship of state.ships) {
+      if (ship.destroyed && !this.prevDestroyed.has(ship.id)) {
+        this.sfx.playCombatExplosion();
+        // Note: prevDestroyed is updated in _updateShipVisuals, no need to add here
+        break; // only one explosion sound per tick to avoid cacophony
+      }
+    }
+
+    // Update shield tracking for next tick
+    for (const ship of state.ships) {
+      this.prevShields.set(ship.id, ship.shields);
+    }
   }
 
   private _checkBattleEnd(): void {

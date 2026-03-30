@@ -600,6 +600,580 @@ export class SfxGenerator {
     }
   }
 
+  // ── Tactical combat weapon effects ─────────────────────────────────────────
+
+  /**
+   * Beam pulse: short zappy burst.
+   * High-frequency sine (2000 Hz) swept down to 800 Hz in 60 ms, lowpass filtered.
+   * Classic laser-pew sound.
+   */
+  playBeamPulse(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 3000;
+    lp.Q.value = 1.0;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.05, now + 0.003);
+    env.gain.setValueAtTime(0.05, now + 0.03);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+
+    osc.connect(lp);
+    lp.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.08);
+    osc.onended = () => env.disconnect();
+  }
+
+  /**
+   * Beam particle: sustained hum.
+   * Lower frequency (400 Hz) with slight vibrato, 150 ms.
+   * Heavier, more powerful sound for particle beams.
+   */
+  playBeamParticle(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, now);
+
+    // Slight vibrato via LFO
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 30;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 15; // ±15 Hz wobble
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.06, now + 0.01);
+    env.gain.setValueAtTime(0.06, now + 0.10);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+    osc.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    lfo.start(now);
+    osc.stop(now + 0.17);
+    lfo.stop(now + 0.17);
+    osc.onended = () => { env.disconnect(); lfoGain.disconnect(); };
+  }
+
+  /**
+   * Beam disruptor: crackling electric.
+   * White noise filtered through bandpass at 1500 Hz + sine wobble, 100 ms.
+   * Lightning-like disruption effect.
+   */
+  playBeamDisruptor(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // White noise source
+    const bufLen = Math.floor(ctx.sampleRate * 0.1);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1500;
+    bp.Q.value = 2.0;
+
+    // Sine wobble layered on top
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.linearRampToValueAtTime(1800, now + 0.05);
+    osc.frequency.linearRampToValueAtTime(1200, now + 0.10);
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0, now);
+    noiseEnv.gain.linearRampToValueAtTime(0.06, now + 0.005);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+
+    const oscEnv = ctx.createGain();
+    oscEnv.gain.setValueAtTime(0, now);
+    oscEnv.gain.linearRampToValueAtTime(0.03, now + 0.005);
+    oscEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+
+    noiseSrc.connect(bp);
+    bp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+
+    osc.connect(oscEnv);
+    oscEnv.connect(this.bus);
+
+    noiseSrc.start(now);
+    osc.start(now);
+    osc.stop(now + 0.12);
+    osc.onended = () => oscEnv.disconnect();
+    noiseSrc.onended = () => noiseEnv.disconnect();
+  }
+
+  /**
+   * Beam plasma: deep whoosh.
+   * Low sine (200 Hz) swept up to 600 Hz with soft distortion, 200 ms.
+   * Heavy, devastating plasma lance sound.
+   */
+  playBeamPlasma(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+
+    // Soft distortion for grit
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeDistortionCurve(200, 6);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 800;
+    lp.Q.value = 0.8;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.06, now + 0.01);
+    env.gain.setValueAtTime(0.06, now + 0.12);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.20);
+
+    osc.connect(shaper);
+    shaper.connect(lp);
+    lp.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.22);
+    osc.onended = () => env.disconnect();
+  }
+
+  /**
+   * Projectile kinetic: sharp crack.
+   * Very short noise burst (10 ms) with high-pass filter. Gunshot-like.
+   */
+  playProjectileKinetic(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const bufLen = Math.floor(ctx.sampleRate * 0.01);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2000;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.05, now);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.012);
+
+    src.connect(hp);
+    hp.connect(env);
+    env.connect(this.bus);
+    src.start(now);
+    src.onended = () => env.disconnect();
+  }
+
+  /**
+   * Projectile gauss: electromagnetic whine.
+   * Ascending sine from 1000→3000 Hz in 40 ms then cut. Railgun sound.
+   */
+  playProjectileGauss(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1000, now);
+    osc.frequency.exponentialRampToValueAtTime(3000, now + 0.04);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.05, now + 0.003);
+    env.gain.setValueAtTime(0.05, now + 0.035);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+
+    osc.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.06);
+    osc.onended = () => env.disconnect();
+  }
+
+  /**
+   * Projectile mass driver: thump + whizz.
+   * Low noise thump (30 ms) followed by descending sine (2000→500 Hz, 80 ms).
+   */
+  playProjectileMassDriver(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Low thump: short noise burst
+    const bufLen = Math.floor(ctx.sampleRate * 0.03);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2);
+    }
+    const thump = ctx.createBufferSource();
+    thump.buffer = buf;
+
+    const thumpLp = ctx.createBiquadFilter();
+    thumpLp.type = 'lowpass';
+    thumpLp.frequency.value = 400;
+
+    const thumpEnv = ctx.createGain();
+    thumpEnv.gain.setValueAtTime(0.06, now);
+    thumpEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+    thump.connect(thumpLp);
+    thumpLp.connect(thumpEnv);
+    thumpEnv.connect(this.bus);
+    thump.start(now);
+    thump.onended = () => thumpEnv.disconnect();
+
+    // Descending whizz
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, now + 0.02);
+    osc.frequency.exponentialRampToValueAtTime(500, now + 0.10);
+
+    const whizzEnv = ctx.createGain();
+    whizzEnv.gain.setValueAtTime(0, now + 0.02);
+    whizzEnv.gain.linearRampToValueAtTime(0.04, now + 0.025);
+    whizzEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+
+    osc.connect(whizzEnv);
+    whizzEnv.connect(this.bus);
+    osc.start(now + 0.02);
+    osc.stop(now + 0.12);
+    osc.onended = () => whizzEnv.disconnect();
+  }
+
+  /**
+   * Missile launch: whoosh + ignition.
+   * Noise sweep low→high (200 ms) with a rising sine undertone. Rocket launch.
+   */
+  playMissileLaunch(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Whoosh: noise with rising highpass
+    const bufLen = Math.floor(ctx.sampleRate * 0.2);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(i / bufLen, 0.4) * Math.pow(1 - i / bufLen, 1.5);
+    }
+    const whoosh = ctx.createBufferSource();
+    whoosh.buffer = buf;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(100, now);
+    hp.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
+
+    const whooshEnv = ctx.createGain();
+    whooshEnv.gain.setValueAtTime(0.06, now);
+    whooshEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    whoosh.connect(hp);
+    hp.connect(whooshEnv);
+    whooshEnv.connect(this.bus);
+    whoosh.start(now);
+    whoosh.onended = () => whooshEnv.disconnect();
+
+    // Rising sine undertone
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.18);
+
+    const oscEnv = ctx.createGain();
+    oscEnv.gain.setValueAtTime(0, now);
+    oscEnv.gain.linearRampToValueAtTime(0.04, now + 0.03);
+    oscEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+    osc.connect(oscEnv);
+    oscEnv.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.22);
+    osc.onended = () => oscEnv.disconnect();
+  }
+
+  /**
+   * Missile impact: explosion.
+   * Low sine (80 Hz, 50 ms) + noise burst (100 ms) with quick decay. Boom.
+   */
+  playMissileImpact(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Low thud
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+
+    const thudEnv = ctx.createGain();
+    thudEnv.gain.setValueAtTime(0, now);
+    thudEnv.gain.linearRampToValueAtTime(0.07, now + 0.003);
+    thudEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+    osc.connect(thudEnv);
+    thudEnv.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.07);
+    osc.onended = () => thudEnv.disconnect();
+
+    // Noise burst
+    const bufLen = Math.floor(ctx.sampleRate * 0.1);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2.5);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const noiseLp = ctx.createBiquadFilter();
+    noiseLp.type = 'lowpass';
+    noiseLp.frequency.value = 1200;
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0.05, now);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+
+    noiseSrc.connect(noiseLp);
+    noiseLp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+    noiseSrc.start(now);
+    noiseSrc.onended = () => noiseEnv.disconnect();
+  }
+
+  /**
+   * Point defence: rapid staccato.
+   * 3 very quick high-pitched clicks (3000 Hz, 5 ms each, 15 ms apart). PD burst.
+   */
+  playPointDefence(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < 3; i++) {
+      const t = now + i * 0.015;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 3000;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.04, t + 0.001);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 0.005);
+
+      osc.connect(env);
+      env.connect(this.bus);
+      osc.start(t);
+      osc.stop(t + 0.007);
+      osc.onended = () => env.disconnect();
+    }
+  }
+
+  /**
+   * Fighter buzz: tiny engine.
+   * Very quiet high sine (4000 Hz) with rapid amplitude modulation, 50 ms.
+   * Mosquito-like buzz.
+   */
+  playFighterBuzz(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 4000;
+
+    // Rapid AM via LFO for buzz character
+    const lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 120;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.015;
+    lfo.connect(lfoGain);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.03, now + 0.005);
+    env.gain.setValueAtTime(0.03, now + 0.035);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+    // Connect LFO to envelope gain for AM effect
+    lfoGain.connect(env.gain);
+
+    osc.connect(env);
+    env.connect(this.bus);
+    osc.start(now);
+    lfo.start(now);
+    osc.stop(now + 0.06);
+    lfo.stop(now + 0.06);
+    osc.onended = () => { env.disconnect(); lfoGain.disconnect(); };
+  }
+
+  /**
+   * Shield hit: electrical shimmer.
+   * Sine (1200 Hz) with quick tremolo + white noise, 80 ms.
+   * Shield absorption/deflection sound.
+   */
+  playShieldHit(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Shimmer sine with tremolo
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 1200;
+
+    const tremolo = ctx.createOscillator();
+    tremolo.type = 'sine';
+    tremolo.frequency.value = 60;
+    const tremoloGain = ctx.createGain();
+    tremoloGain.gain.value = 0.02;
+    tremolo.connect(tremoloGain);
+
+    const oscEnv = ctx.createGain();
+    oscEnv.gain.setValueAtTime(0, now);
+    oscEnv.gain.linearRampToValueAtTime(0.04, now + 0.005);
+    oscEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+    tremoloGain.connect(oscEnv.gain);
+
+    osc.connect(oscEnv);
+    oscEnv.connect(this.bus);
+    osc.start(now);
+    tremolo.start(now);
+    osc.stop(now + 0.10);
+    tremolo.stop(now + 0.10);
+
+    // White noise layer
+    const bufLen = Math.floor(ctx.sampleRate * 0.08);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const noiseBp = ctx.createBiquadFilter();
+    noiseBp.type = 'bandpass';
+    noiseBp.frequency.value = 2000;
+    noiseBp.Q.value = 1.5;
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0.03, now);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+    noiseSrc.connect(noiseBp);
+    noiseBp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+    noiseSrc.start(now);
+    noiseSrc.onended = () => noiseEnv.disconnect();
+    osc.onended = () => { oscEnv.disconnect(); tremoloGain.disconnect(); };
+  }
+
+  /**
+   * Explosion: ship destruction.
+   * Heavy low boom (50 Hz, 200 ms) + noise burst + descending sweep. Big kaboom.
+   */
+  playCombatExplosion(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Heavy low boom
+    const boom = ctx.createOscillator();
+    boom.type = 'sine';
+    boom.frequency.setValueAtTime(50, now);
+    boom.frequency.exponentialRampToValueAtTime(25, now + 0.2);
+
+    const boomEnv = ctx.createGain();
+    boomEnv.gain.setValueAtTime(0, now);
+    boomEnv.gain.linearRampToValueAtTime(0.08, now + 0.01);
+    boomEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+    boom.connect(boomEnv);
+    boomEnv.connect(this.bus);
+    boom.start(now);
+    boom.stop(now + 0.22);
+    boom.onended = () => boomEnv.disconnect();
+
+    // Noise burst
+    const bufLen = Math.floor(ctx.sampleRate * 0.15);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const noiseLp = ctx.createBiquadFilter();
+    noiseLp.type = 'lowpass';
+    noiseLp.frequency.value = 800;
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0.06, now);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+    noiseSrc.connect(noiseLp);
+    noiseLp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+    noiseSrc.start(now);
+    noiseSrc.onended = () => noiseEnv.disconnect();
+
+    // Descending sweep
+    const sweep = ctx.createOscillator();
+    sweep.type = 'sawtooth';
+    sweep.frequency.setValueAtTime(300, now + 0.02);
+    sweep.frequency.exponentialRampToValueAtTime(60, now + 0.25);
+
+    const sweepLp = ctx.createBiquadFilter();
+    sweepLp.type = 'lowpass';
+    sweepLp.frequency.value = 500;
+
+    const sweepEnv = ctx.createGain();
+    sweepEnv.gain.setValueAtTime(0, now + 0.02);
+    sweepEnv.gain.linearRampToValueAtTime(0.04, now + 0.04);
+    sweepEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+    sweep.connect(sweepLp);
+    sweepLp.connect(sweepEnv);
+    sweepEnv.connect(this.bus);
+    sweep.start(now + 0.02);
+    sweep.stop(now + 0.27);
+    sweep.onended = () => sweepEnv.disconnect();
+  }
+
   // ── Internal builders ───────────────────────────────────────────────────────
 
   /**
