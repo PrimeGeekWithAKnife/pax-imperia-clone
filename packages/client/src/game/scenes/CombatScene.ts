@@ -1808,10 +1808,32 @@ export class CombatScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
         this._handleRightClick(pointer);
+        return;
+      }
+
+      // Left-click on empty space: move selected ships to that position
+      if (pointer.leftButtonDown()) {
+        // Check if we clicked on a ship container first
+        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        let clickedOnShip = false;
+        for (const ship of this.tacticalState.ships) {
+          if (ship.destroyed || ship.routed) continue;
+          const dx = worldPoint.x - ship.position.x;
+          const dy = worldPoint.y - ship.position.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 30) {
+            clickedOnShip = true;
+            break;
+          }
+        }
+
+        if (!clickedOnShip && this.selectedShipId) {
+          // Move selected ships to clicked position
+          this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
+        }
       }
     });
 
-    // Left-click on ship containers
+    // Left-click on ship containers for selection
     for (const [, container] of this.shipContainers) {
       container.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         if (pointer.leftButtonDown()) {
