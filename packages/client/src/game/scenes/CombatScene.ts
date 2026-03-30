@@ -13,7 +13,8 @@ import {
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
-import { getAudioEngine, SfxGenerator } from '../../audio';
+import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
+import type { MusicTrack } from '../../audio';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
@@ -239,6 +240,9 @@ export class CombatScene extends Phaser.Scene {
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   private sfx: SfxGenerator | null = null;
+  private music: MusicGenerator | null = null;
+  /** Track that was active before combat — restored on shutdown. */
+  private preCombatTrack: MusicTrack | null = null;
   /** Number of beam effects last tick — used to detect new beams for sound. */
   private prevBeamCount = 0;
   /** Set of beam source+target keys last tick — detect genuinely new beams. */
@@ -300,11 +304,35 @@ export class CombatScene extends Phaser.Scene {
     const audioEngine = getAudioEngine();
     if (audioEngine) {
       this.sfx = new SfxGenerator(audioEngine);
+
+      // Start battle music — save the previous track so we can restore it
+      if (!this.music) {
+        this.music = new MusicGenerator(audioEngine);
+      }
+      const sessionTrack = (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ as MusicTrack | undefined;
+      this.preCombatTrack = sessionTrack ?? 'deep_space';
+
+      // Randomly pick between the two battle tracks
+      const battleTrack: MusicTrack = Math.random() < 0.5 ? 'battle_intense' : 'battle_epic';
+      this.music.setTrack(battleTrack);
+      this.music.startMusic('system'); // scene mode is secondary — track drives the layers
     }
     this.prevBeamCount = 0;
     this.prevBeamKeys.clear();
     this.prevProjectileCount = 0;
     this.prevMissileCount = 0;
+
+    // Restore previous music track on scene shutdown
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (this.music) {
+        this.music.stopMusic();
+        // Restore the pre-combat track for the next scene to pick up
+        if (this.preCombatTrack) {
+          (window as unknown as Record<string, unknown>).__EX_NIHILO_MUSIC_TRACK__ = this.preCombatTrack;
+        }
+        this.music = null;
+      }
+    });
 
     // ── Background ─────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(BG_COLOR);

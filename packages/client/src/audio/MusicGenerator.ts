@@ -18,7 +18,7 @@ import type { AudioEngine } from './AudioEngine';
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type MusicScene = 'menu' | 'galaxy' | 'system';
-export type MusicTrack = 'deep_space' | 'exploration' | 'tension' | 'serenity' | 'stellar_drift' | 'void_pulse' | 'nebula_flow';
+export type MusicTrack = 'deep_space' | 'exploration' | 'tension' | 'serenity' | 'stellar_drift' | 'void_pulse' | 'nebula_flow' | 'battle_intense' | 'battle_epic';
 
 interface ActiveLayer {
   nodes: AudioNode[];
@@ -34,7 +34,7 @@ const FADE_IN_TIME  = 3.0;   // seconds
 /** Auto-rotate to a different track every 5–10 minutes */
 const TRACK_ROTATE_MIN_MS = 5 * 60 * 1000;
 const TRACK_ROTATE_MAX_MS = 10 * 60 * 1000;
-const ALL_TRACKS: MusicTrack[] = ['deep_space', 'exploration', 'tension', 'serenity', 'stellar_drift', 'void_pulse', 'nebula_flow'];
+const ALL_TRACKS: MusicTrack[] = ['deep_space', 'exploration', 'tension', 'serenity', 'stellar_drift', 'void_pulse', 'nebula_flow', 'battle_intense', 'battle_epic'];
 
 // Pentatonic C-major scale (MIDI note numbers for the motif)
 const PENTATONIC = [48, 50, 52, 55, 57]; // C3 D3 E3 G3 A3
@@ -47,6 +47,19 @@ const EXPLORATION_ARPEGGIO = [60, 64, 67, 69, 72]; // C4 E4 G4 A4 C5
 const DS_CHORD_ROOTS = [48, 53, 56, 51]; // C3 F3 Ab3 Eb3
 const DS_CHORD_TYPE  = ['minor', 'minor', 'major', 'major'] as const; // chord quality
 const DS_CHORD_DURATION = 30; // seconds per chord
+
+// Battle Intense — E minor pentatonic with tritone for aggression
+// E3 G3 A3 Bb3 B3 D4 E4 (minor pentatonic + tritone Bb)
+const BATTLE_INTENSE_MELODY = [52, 55, 57, 58, 59, 62, 64];
+// Bass line roots: Em → Cm → Dm → Bbm (dark, aggressive minor progression)
+const BATTLE_INTENSE_BASS = [40, 36, 38, 34]; // E2 C2 D2 Bb1
+
+// Battle Epic — D minor, heroic and grand
+// Heroic 4-note ascending horn call: D4 F4 A4 D5
+const BATTLE_EPIC_HORN_CALL = [62, 65, 69, 74];
+// String chord progression: Dm → Bb → Gm → A (dramatic minor)
+const BATTLE_EPIC_CHORD_ROOTS = [50, 46, 43, 45]; // D3 Bb2 G2 A2
+const BATTLE_EPIC_CHORD_TYPE = ['minor', 'major', 'minor', 'major'] as const;
 
 function midiToHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
@@ -202,6 +215,22 @@ export class MusicGenerator {
         layers.push(this._createNebulaFlowKick());
         layers.push(this._createNebulaFlowSequence());
         layers.push(this._createNebulaFlowPad());
+        break;
+
+      case 'battle_intense':
+        layers.push(this._createBattleIntenseKick());
+        layers.push(this._createBattleIntenseBass());
+        layers.push(this._createBattleIntenseHiHat());
+        layers.push(this._createBattleIntensePowerChords());
+        layers.push(this._createBattleIntenseMelody());
+        break;
+
+      case 'battle_epic':
+        layers.push(this._createBattleEpicWarDrums());
+        layers.push(this._createBattleEpicStringPad());
+        layers.push(this._createBattleEpicBrassStabs());
+        layers.push(this._createBattleEpicRisingTension());
+        layers.push(this._createBattleEpicHornCall());
         break;
     }
 
@@ -1214,6 +1243,623 @@ export class MusicGenerator {
     }
 
     return { nodes: [...oscs, gain], gain, stop: () => oscs.forEach(o => o.stop()) };
+  }
+
+  // ── Battle Intense — fast aggressive combat at 140 BPM (~430ms per beat) ──
+
+  /**
+   * Driving kick drum: 4-on-the-floor at 140 BPM.
+   * Low sine burst with fast pitch sweep — punchy and urgent.
+   */
+  private _createBattleIntenseKick(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.06;
+    gain.connect(this.masterFade);
+
+    let stopped = false;
+    const BEAT_MS = 429; // ~140 BPM
+
+    const scheduleKick = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.6, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      setTimeout(scheduleKick, BEAT_MS);
+    };
+    scheduleKick();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Aggressive bass line: minor key, fast staccato sawtooth notes.
+   * Filtered to keep it warm but biting. One note per beat, cycling
+   * through a dark Em → Cm → Dm → Bbm progression.
+   */
+  private _createBattleIntenseBass(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.04;
+    gain.connect(this.masterFade);
+
+    let noteIdx = 0;
+    let stopped = false;
+    const BEAT_MS = 429;
+
+    const scheduleNote = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const midi = BATTLE_INTENSE_BASS[noteIdx % BATTLE_INTENSE_BASS.length]!;
+      const freq = midiToHz(midi);
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+
+      // Resonant lowpass filter — opens on attack, closes quickly for staccato
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(600, now);
+      lp.frequency.linearRampToValueAtTime(150, now + 0.15);
+      lp.Q.value = 6;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.6, now);
+      env.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+      osc.connect(lp);
+      lp.connect(env);
+      env.connect(gain);
+      osc.start(now);
+      osc.stop(now + 0.35);
+      noteIdx++;
+      // Advance root every 4 beats
+      setTimeout(scheduleNote, BEAT_MS);
+    };
+    scheduleNote();
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Hi-hat percussion: noise bursts on the offbeats (halfway between kicks).
+   * Short, crisp high-passed white noise — drives the energy forward.
+   */
+  private _createBattleIntenseHiHat(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.025;
+    gain.connect(this.masterFade);
+
+    // Pre-generate a noise buffer for re-use
+    const bufLen = Math.floor(ctx.sampleRate * 0.06);
+    const noiseBuf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const noiseData = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3);
+    }
+
+    let stopped = false;
+    const BEAT_MS = 429;
+    const OFFSET_MS = Math.floor(BEAT_MS / 2); // offbeat
+
+    const scheduleHat = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuf;
+
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 7000;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.5, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+      src.connect(hp);
+      hp.connect(env);
+      env.connect(gain);
+      src.start(now);
+
+      setTimeout(scheduleHat, BEAT_MS);
+    };
+    // Start offset from the kick by half a beat
+    setTimeout(scheduleHat, OFFSET_MS);
+
+    return { nodes: [gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Power chord stabs: root + 5th (power chord) hitting every 2 beats.
+   * Sawtooth oscillators through distortion for aggressive edge.
+   */
+  private _createBattleIntensePowerChords(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.03;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(3, 2);
+    reverb.connect(gain);
+
+    // E minor power chord progression — root + perfect 5th
+    const chordRoots = [40, 36, 38, 34]; // E2 C2 D2 Bb1
+    let chordIdx = 0;
+    let stopped = false;
+    const TWO_BEATS_MS = 429 * 2;
+
+    const scheduleChord = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const root = chordRoots[chordIdx % chordRoots.length]!;
+
+      // Root oscillator
+      const osc1 = ctx.createOscillator();
+      osc1.type = 'sawtooth';
+      osc1.frequency.value = midiToHz(root + 12); // one octave up for presence
+
+      // Fifth above
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'sawtooth';
+      osc2.frequency.value = midiToHz(root + 12 + 7);
+
+      // Soft-clip distortion for aggression
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = makeSoftClipCurve(256);
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(1200, now);
+      lp.frequency.linearRampToValueAtTime(400, now + 0.3);
+      lp.Q.value = 2;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.4, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc1.connect(shaper);
+      osc2.connect(shaper);
+      shaper.connect(lp);
+      lp.connect(env);
+      env.connect(reverb);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.4);
+      osc2.stop(now + 0.4);
+
+      chordIdx++;
+      setTimeout(scheduleChord, TWO_BEATS_MS);
+    };
+    scheduleChord();
+
+    return { nodes: [reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Tension melody: short aggressive phrases using minor pentatonic with
+   * occasional tritone. Fast, stabbing notes — 16th-note bursts every 4 beats.
+   */
+  private _createBattleIntenseMelody(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.02;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(2, 1.5);
+    reverb.connect(gain);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 3500;
+    lp.Q.value = 2;
+    lp.connect(reverb);
+
+    let stopped = false;
+    const BEAT_MS = 429;
+    const SIXTEENTH_MS = Math.floor(BEAT_MS / 4);
+
+    const schedulePhrase = () => {
+      if (stopped) return;
+      // Play a burst of 3-5 notes
+      const phraseLen = 3 + Math.floor(Math.random() * 3);
+      let noteDelay = 0;
+
+      for (let i = 0; i < phraseLen; i++) {
+        if (stopped) return;
+        const playNote = (delay: number) => {
+          if (stopped) return;
+          setTimeout(() => {
+            if (stopped) return;
+            const now = ctx.currentTime;
+            const midi = BATTLE_INTENSE_MELODY[
+              Math.floor(Math.random() * BATTLE_INTENSE_MELODY.length)
+            ]!;
+
+            const osc = ctx.createOscillator();
+            osc.type = 'square';
+            osc.frequency.value = midiToHz(midi);
+
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.3, now);
+            env.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+            osc.connect(env);
+            env.connect(lp);
+            osc.start(now);
+            osc.stop(now + 0.15);
+          }, delay);
+        };
+        playNote(noteDelay);
+        noteDelay += SIXTEENTH_MS;
+      }
+
+      // Next phrase in 4 beats
+      setTimeout(schedulePhrase, BEAT_MS * 4);
+    };
+    // First phrase after 2 beats
+    setTimeout(schedulePhrase, BEAT_MS * 2);
+
+    return { nodes: [lp, reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  // ── Battle Epic — grand, slower combat at 100 BPM (~600ms per beat) ───────
+
+  /**
+   * War drums: big booming hits at 100 BPM with reverb.
+   * Deep sine burst with longer decay — powerful and grand.
+   */
+  private _createBattleEpicWarDrums(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.06;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(4, 3);
+    reverb.connect(gain);
+
+    let stopped = false;
+    const BEAT_MS = 600; // 100 BPM
+    let beatCount = 0;
+
+    const scheduleDrum = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+
+      // Main boom — low sine with pitch sweep
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(90, now);
+      osc.frequency.exponentialRampToValueAtTime(25, now + 0.2);
+
+      const env = ctx.createGain();
+      // Accent on beat 1 of each bar (every 4 beats)
+      const accent = (beatCount % 4 === 0) ? 0.7 : 0.4;
+      env.gain.setValueAtTime(accent, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      // Noise layer for attack transient — gives the "skin" sound
+      const noiseLen = Math.floor(ctx.sampleRate * 0.04);
+      const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+      const noiseData = noiseBuf.getChannelData(0);
+      for (let i = 0; i < noiseLen; i++) {
+        noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / noiseLen, 4);
+      }
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = noiseBuf;
+      const noiseEnv = ctx.createGain();
+      noiseEnv.gain.setValueAtTime(0.25, now);
+      noiseEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      const noiseLp = ctx.createBiquadFilter();
+      noiseLp.type = 'lowpass';
+      noiseLp.frequency.value = 500;
+
+      osc.connect(env);
+      env.connect(reverb);
+      noiseSrc.connect(noiseLp);
+      noiseLp.connect(noiseEnv);
+      noiseEnv.connect(reverb);
+
+      osc.start(now);
+      osc.stop(now + 0.6);
+      noiseSrc.start(now);
+
+      beatCount++;
+      setTimeout(scheduleDrum, BEAT_MS);
+    };
+    scheduleDrum();
+
+    return { nodes: [reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Orchestral-style string pad: sustained minor chords, slowly evolving.
+   * Multiple detuned sawtooth oscillators through lowpass — lush and wide.
+   * Chord changes every 4 bars (9.6s at 100 BPM).
+   */
+  private _createBattleEpicStringPad(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.035;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(8, 5);
+    reverb.connect(gain);
+
+    let stopped = false;
+    let chordIndex = 0;
+    let currentOscs: OscillatorNode[] = [];
+    let currentEnvGain: GainNode | null = null;
+
+    const CHORD_INTERVALS: Record<string, number[]> = {
+      minor: [0, 3, 7, 12],
+      major: [0, 4, 7, 12],
+    };
+    const CHORD_DURATION_MS = 9600; // 4 bars at 100 BPM
+
+    const buildChord = (): void => {
+      if (stopped) return;
+      const root = BATTLE_EPIC_CHORD_ROOTS[chordIndex % BATTLE_EPIC_CHORD_ROOTS.length]!;
+      const quality = BATTLE_EPIC_CHORD_TYPE[chordIndex % BATTLE_EPIC_CHORD_TYPE.length]!;
+      const intervals = CHORD_INTERVALS[quality]!;
+      const t = ctx.currentTime;
+
+      // Fade out previous chord
+      if (currentEnvGain) {
+        const old = currentEnvGain;
+        old.gain.linearRampToValueAtTime(0, t + 3);
+        setTimeout(() => {
+          for (const o of currentOscs) {
+            try { o.stop(); } catch { /* */ }
+          }
+        }, 4000);
+      }
+
+      const envGain = ctx.createGain();
+      envGain.gain.setValueAtTime(0, t);
+      envGain.gain.linearRampToValueAtTime(0.7, t + 3); // slow swell in
+      envGain.connect(reverb);
+
+      const oscs: OscillatorNode[] = [];
+      for (const interval of intervals) {
+        const midi = root + interval;
+        // Two detuned sawtooths per voice for ensemble width
+        for (const detune of [-5, 5]) {
+          const osc = ctx.createOscillator();
+          osc.type = 'sawtooth';
+          osc.frequency.value = midiToHz(midi);
+          osc.detune.value = detune + (Math.random() - 0.5) * 3;
+
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 500;
+          lp.Q.value = 0.5;
+
+          osc.connect(lp);
+          lp.connect(envGain);
+          osc.start(t);
+          oscs.push(osc);
+        }
+      }
+
+      currentOscs = oscs;
+      currentEnvGain = envGain;
+      chordIndex++;
+
+      setTimeout(buildChord, CHORD_DURATION_MS);
+    };
+
+    buildChord();
+
+    return {
+      nodes: [reverb, gain],
+      gain,
+      stop: () => {
+        stopped = true;
+        for (const o of currentOscs) {
+          try { o.stop(); } catch { /* */ }
+        }
+      },
+    };
+  }
+
+  /**
+   * Brass-like stabs: low sawtooth bursts on beat 1 of each bar.
+   * Thick, filtered sawtooth with fast attack — like a brass section accent.
+   */
+  private _createBattleEpicBrassStabs(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.035;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(3, 2.5);
+    reverb.connect(gain);
+
+    let stopped = false;
+    let chordIdx = 0;
+    const BAR_MS = 600 * 4; // 4 beats per bar at 100 BPM
+
+    const scheduleStab = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const root = BATTLE_EPIC_CHORD_ROOTS[chordIdx % BATTLE_EPIC_CHORD_ROOTS.length]!;
+
+      // Two oscillators: root and octave above for brass thickness
+      const osc1 = ctx.createOscillator();
+      osc1.type = 'sawtooth';
+      osc1.frequency.value = midiToHz(root);
+
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'sawtooth';
+      osc2.frequency.value = midiToHz(root + 12);
+      osc2.detune.value = 3;
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(1500, now);
+      lp.frequency.linearRampToValueAtTime(300, now + 0.25);
+      lp.Q.value = 3;
+
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.5, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      osc1.connect(lp);
+      osc2.connect(lp);
+      lp.connect(env);
+      env.connect(reverb);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.5);
+      osc2.stop(now + 0.5);
+
+      chordIdx++;
+      setTimeout(scheduleStab, BAR_MS);
+    };
+    scheduleStab();
+
+    return { nodes: [reverb, gain], gain, stop: () => { stopped = true; } };
+  }
+
+  /**
+   * Rising tension: slowly ascending pitch over 30 seconds, then reset.
+   * Filtered noise + sine tone that sweeps upward — builds anticipation.
+   */
+  private _createBattleEpicRisingTension(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.018;
+    gain.connect(this.masterFade);
+
+    // Continuous sine that sweeps from 80 Hz to 400 Hz over 30s, then resets
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 80;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 600;
+
+    osc.connect(lp);
+    lp.connect(gain);
+    osc.start();
+
+    let stopped = false;
+    const CYCLE_MS = 30000;
+
+    const scheduleSweep = () => {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      osc.frequency.cancelScheduledValues(now);
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.linearRampToValueAtTime(400, now + 30);
+
+      // Also sweep the filter up to let more harmonics through at the peak
+      lp.frequency.cancelScheduledValues(now);
+      lp.frequency.setValueAtTime(200, now);
+      lp.frequency.linearRampToValueAtTime(800, now + 30);
+
+      setTimeout(scheduleSweep, CYCLE_MS);
+    };
+    scheduleSweep();
+
+    return {
+      nodes: [osc, lp, gain],
+      gain,
+      stop: () => { stopped = true; osc.stop(); },
+    };
+  }
+
+  /**
+   * Heroic motif: simple 4-note ascending phrase (D4 → F4 → A4 → D5)
+   * that repeats every 8 beats. Like a horn call — sine tone with
+   * warm reverb and gentle attack.
+   */
+  private _createBattleEpicHornCall(): ActiveLayer {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.025;
+    gain.connect(this.masterFade);
+
+    const reverb = this._createReverb(6, 4);
+    reverb.connect(gain);
+
+    let stopped = false;
+    const BEAT_MS = 600;
+    const PHRASE_INTERVAL_MS = BEAT_MS * 8; // every 2 bars
+
+    const schedulePhrase = () => {
+      if (stopped) return;
+      let noteDelay = 0;
+
+      for (let i = 0; i < BATTLE_EPIC_HORN_CALL.length; i++) {
+        const playNote = (delay: number, noteIdx: number) => {
+          if (stopped) return;
+          setTimeout(() => {
+            if (stopped) return;
+            const now = ctx.currentTime;
+            const midi = BATTLE_EPIC_HORN_CALL[noteIdx]!;
+
+            // Two sines for a warm "horn" tone — fundamental + detuned partial
+            const osc1 = ctx.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.value = midiToHz(midi);
+
+            const osc2 = ctx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = midiToHz(midi) * 1.01; // slight detune for richness
+            osc2.detune.value = 5;
+
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, now);
+            env.gain.linearRampToValueAtTime(0.5, now + 0.05);
+            // Last note holds longer
+            const isLast = noteIdx === BATTLE_EPIC_HORN_CALL.length - 1;
+            const decayTime = isLast ? 1.5 : 0.4;
+            env.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
+
+            const partialEnv = ctx.createGain();
+            partialEnv.gain.setValueAtTime(0, now);
+            partialEnv.gain.linearRampToValueAtTime(0.15, now + 0.05);
+            partialEnv.gain.exponentialRampToValueAtTime(0.001, now + decayTime * 0.6);
+
+            osc1.connect(env);
+            osc2.connect(partialEnv);
+            env.connect(reverb);
+            partialEnv.connect(reverb);
+
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + decayTime + 0.1);
+            osc2.stop(now + decayTime + 0.1);
+          }, delay);
+        };
+        playNote(noteDelay, i);
+        noteDelay += BEAT_MS; // one note per beat
+      }
+
+      setTimeout(schedulePhrase, PHRASE_INTERVAL_MS);
+    };
+    // Start the horn call after 4 beats to let the drums and strings establish first
+    setTimeout(schedulePhrase, BEAT_MS * 4);
+
+    return { nodes: [reverb, gain], gain, stop: () => { stopped = true; } };
   }
 
   // ── Reverb helper ───────────────────────────────────────────────────────────
