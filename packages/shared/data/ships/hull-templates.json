@@ -46,7 +46,7 @@
     "maxSlots": 4,
     "slotLayout": [
       {
-        "id": "scout_weapon_1",
+        "id": "scout_fore_1",
         "x": 0,
         "y": 0,
         "facing": "fore",
@@ -60,19 +60,27 @@
         "category": "weapon"
       },
       {
-        "id": "scout_defence_1",
+        "id": "scout_turret_1",
         "x": 1,
         "y": 0,
         "facing": "turret",
         "size": "small",
         "allowedTypes": [
           "shield",
-          "armor"
+          "armor",
+          "sensor",
+          "repair_drone",
+          "special",
+          "life_support",
+          "targeting_computer",
+          "advanced_sensors",
+          "damage_control",
+          "ecm_suite"
         ],
         "category": "defence"
       },
       {
-        "id": "scout_engine_1",
+        "id": "scout_aft_1",
         "x": 2,
         "y": 0,
         "facing": "aft",
