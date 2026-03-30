@@ -1503,19 +1503,33 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   for (const proj of state.projectiles) {
     const target = ships.find((s) => s.id === proj.targetShipId || s.sourceShipId === proj.targetShipId);
 
-    // If target is gone, try friendly fire — find any bystander near the projectile
+    // If target is gone, projectile continues in its direction (pool ball)
+    // and hits the first ship in its path
     if (target == null || target.destroyed || target.routed) {
-      const excludeIds = new Set([proj.sourceShipId, proj.targetShipId]);
-      const bystander = checkCollateralDamage(
-        proj.position.x, proj.position.y,
-        proj.position.x, proj.position.y,
-        ships, excludeIds,
-        FRIENDLY_FIRE_PROJECTILE_RADIUS,
+      // Continue moving in current direction
+      const facing = Math.atan2(
+        (proj as unknown as Record<string, number>).prevDy ?? 0,
+        (proj as unknown as Record<string, number>).prevDx ?? 1,
       );
-      if (bystander != null) {
-        ships = ships.map((s) => (s.id === bystander.id ? applyDamage(s, proj.damage) : s));
+      const newX = proj.position.x + Math.cos(facing) * proj.speed;
+      const newY = proj.position.y + Math.sin(facing) * proj.speed;
+
+      // Check if it hits any ship in its path
+      let hitSomeone = false;
+      for (const s of ships) {
+        if (s.id === proj.sourceShipId || s.destroyed || s.routed) continue;
+        const d = dist({ x: newX, y: newY }, s.position);
+        if (d < hitRadius + proj.speed) {
+          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage) : sh));
+          hitSomeone = true;
+          break;
+        }
       }
-      // Projectile consumed either way (hit bystander or dissipated)
+
+      // If off the battlefield, discard
+      if (!hitSomeone && newX >= -50 && newX <= BATTLEFIELD_WIDTH + 50 && newY >= -50 && newY <= BATTLEFIELD_HEIGHT + 50) {
+        survivingProjectiles.push({ ...proj, position: { x: newX, y: newY } });
+      }
       continue;
     }
 
@@ -1564,19 +1578,18 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   for (const missile of (state.missiles ?? [])) {
     const target = ships.find((s) => s.id === missile.targetShipId && !s.destroyed);
 
-    // If target destroyed mid-flight, try friendly fire
+    // If target destroyed mid-flight, retarget nearest enemy
     if (target == null) {
-      const excludeIds = new Set([missile.sourceShipId, missile.targetShipId]);
-      const bystander = checkCollateralDamage(
-        missile.x, missile.y,
-        missile.x, missile.y,
-        ships, excludeIds,
-        FRIENDLY_FIRE_PROJECTILE_RADIUS,
-      );
-      if (bystander != null) {
-        ships = ships.map((s) => (s.id === bystander.id ? applyDamage(s, missile.damage) : s));
+      const sourceSide = ships.find(s => s.id === missile.sourceShipId)?.side;
+      const newTarget = ships
+        .filter(s => s.side !== sourceSide && !s.destroyed && !s.routed)
+        .sort((a, b) => dist({ x: missile.x, y: missile.y }, a.position) - dist({ x: missile.x, y: missile.y }, b.position))[0];
+      if (newTarget) {
+        // Retarget — missile continues flying toward new target
+        survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed });
       }
-      continue; // missile consumed
+      // If no enemies left, missile dissipates
+      continue;
     }
 
     // Accelerate
@@ -1596,10 +1609,22 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue; // dodged
       }
 
-      // Hit!
+      // Hit! Apply direct damage to target
       const targetIdx = ships.findIndex((s) => s.id === missile.targetShipId);
       if (targetIdx >= 0) {
         ships[targetIdx] = applyDamage(ships[targetIdx]!, missile.damage);
+      }
+      // AOE splash: nearby ships take 30% damage (within 40px radius)
+      const MISSILE_AOE_RADIUS = 40;
+      const MISSILE_AOE_FRACTION = 0.30;
+      for (let si = 0; si < ships.length; si++) {
+        const s = ships[si]!;
+        if (s.id === missile.targetShipId || s.id === missile.sourceShipId) continue;
+        if (s.destroyed || s.routed) continue;
+        const splashD = dist({ x: missile.x, y: missile.y }, s.position);
+        if (splashD < MISSILE_AOE_RADIUS) {
+          ships[si] = applyDamage(s, missile.damage * MISSILE_AOE_FRACTION);
+        }
       }
       continue; // missile consumed
     }
@@ -1898,27 +1923,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           beamDamage *= NEBULA_BEAM_DAMAGE_FACTOR;
         }
 
-        // Beam collateral: check if beam clips a bystander ship
-        const excludeIds = new Set([ship.id, target.id]);
-        const collateral = checkCollateralDamage(
-          ship.position.x, ship.position.y,
-          target.position.x, target.position.y,
-          ships, excludeIds,
-          FRIENDLY_FIRE_BEAM_RADIUS,
-        );
-        if (collateral != null && Math.random() < BEAM_COLLATERAL_CHANCE) {
-          const cIdx = ships.indexOf(collateral);
-          if (cIdx >= 0) {
-            pendingBeamDamage.push({ targetIdx: cIdx, damage: beamDamage });
-          }
-          newBeamEffects.push({
-            sourceShipId: ship.id,
-            targetShipId: collateral.id,
-            damage: beamDamage,
-            ticksRemaining: BEAM_EFFECT_DURATION,
-            componentId: weapon.componentId,
-          });
-        }
+        // Beams have NO splash/collateral damage — they hit their target precisely
 
         // Queue damage for the intended target (applied after .map() completes)
         const idx = ships.indexOf(target);
