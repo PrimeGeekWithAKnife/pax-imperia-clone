@@ -1398,13 +1398,14 @@ export class CombatScene extends Phaser.Scene {
       (this as unknown as Record<string, unknown>).selectedShipIds = null;
     });
 
-    // Ctrl+A to select all friendly ships
-    this.input.keyboard?.on('keydown-A', (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey) {
+    // Ctrl+A to select all friendly ships — use native listener because
+    // Phaser keyboard events don't reliably pass ctrlKey
+    window.addEventListener('keydown', (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
         event.preventDefault();
-        const friendlyIds = this.tacticalState.ships
-          .filter(s => !s.destroyed && !s.routed && this._isPlayerSide(s))
-          .map(s => s.id);
+        const friendlyIds = this.tacticalState?.ships
+          ?.filter(s => !s.destroyed && !s.routed && this._isPlayerSide(s))
+          .map(s => s.id) ?? [];
         if (friendlyIds.length > 0) {
           this.selectedShipId = friendlyIds[0] ?? null;
           (this as unknown as Record<string, unknown>).selectedShipIds = friendlyIds;

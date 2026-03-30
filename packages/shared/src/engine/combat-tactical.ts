@@ -794,10 +794,15 @@ export function initializeTacticalCombat(
     const facing = side === 'attacker' ? 0 : Math.PI;
 
     return ships.map((ship, index) => {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
+      // Line formation: ships spread perpendicular to the enemy (vertical spread)
+      // so all ships face the enemy and can fire simultaneously
+      const lineSpacing = 50;
+      const totalHeight = (ships.length - 1) * lineSpacing;
+      const startY = baseY - totalHeight / 2;
+      const col = Math.floor(index / 8); // stagger overflow into depth
+      const row = index % 8;
       const x = baseX + col * 60;
-      const y = baseY + row * 60;
+      const y = startY + row * lineSpacing;
 
       const design = designs.get(ship.designId);
       const extracted = extractShipStats(design, componentById);
