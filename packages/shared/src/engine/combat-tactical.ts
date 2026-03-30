@@ -1228,8 +1228,11 @@ function moveToward(
  */
 function engageDistance(ship: TacticalShip): number {
   if (ship.weapons.length === 0) return 100;
-  const maxRange = Math.max(...ship.weapons.map((w) => w.range));
-  return maxRange * ENGAGE_RANGE_FRACTION;
+  // Use the SHORTEST weapon range so ALL weapons can fire, not just the longest-ranged
+  const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
+  if (nonPD.length === 0) return 100;
+  const minRange = Math.min(...nonPD.map((w) => w.range));
+  return minRange * ENGAGE_RANGE_FRACTION;
 }
 
 // ---------------------------------------------------------------------------
