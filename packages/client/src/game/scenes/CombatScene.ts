@@ -800,7 +800,10 @@ export class CombatScene extends Phaser.Scene {
   private _drawProjectiles(): void {
     this.projectileGraphics.clear();
     for (const proj of this.tacticalState.projectiles) {
-      this.projectileGraphics.fillStyle(PROJECTILE_COLOR, 0.9);
+      // Colour projectiles by faction so players can tell who fired what
+      const source = this.tacticalState.ships.find(s => s.id === proj.sourceShipId);
+      const color = source && this._isPlayerSide(source) ? 0x44ddff : PROJECTILE_COLOR;
+      this.projectileGraphics.fillStyle(color, 0.9);
       this.projectileGraphics.fillCircle(proj.position.x, proj.position.y, PROJECTILE_RADIUS);
     }
   }
