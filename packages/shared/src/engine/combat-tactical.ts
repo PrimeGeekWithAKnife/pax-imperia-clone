@@ -669,10 +669,11 @@ export function setFormation(
 
     if (instant) {
       // Snap to formation position immediately (pre-battle)
+      // Ships hold position (idle) — player commands them when ready
       return {
         ...s,
         position: { x: targetX, y: targetY },
-        order: { type: 'attack' as const, targetId: '' },
+        order: { type: 'idle' as const },
       };
     }
     // During battle: move to position, then auto-attack on arrival
@@ -846,7 +847,7 @@ export function initializeTacticalCombat(
         armour: extracted.armour,
         weapons: extracted.weapons,
         sensorRange: extracted.sensorRange,
-        order: { type: 'attack', targetId: '' } as ShipOrder,
+        order: { type: 'idle' } as ShipOrder,
         destroyed: false,
         routed: false,
         crew: {
@@ -905,7 +906,7 @@ export function initializeTacticalCombat(
           maxAmmo: 200,
         }],
         sensorRange: 600,
-        order: { type: 'attack', targetId: '' } as ShipOrder,
+        order: { type: 'idle' } as ShipOrder,
         destroyed: false,
         routed: false,
         crew: {
@@ -1388,6 +1389,20 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   const env = state.environment ?? [];
   const newEnvironment = [...env];
+
+  // 0b. AI ships: switch from idle to attack after tick 5
+  // (gives the player a few seconds to set up before AI engages)
+  if (state.tick === 5) {
+    state = {
+      ...state,
+      ships: state.ships.map(s => {
+        if (s.side === 'defender' && s.order.type === 'idle' && !s.destroyed && !s.routed) {
+          return { ...s, order: { type: 'attack' as const, targetId: '' } };
+        }
+        return s;
+      }),
+    };
+  }
 
   // 1. Decay beam effects
   const beamEffects = state.beamEffects

@@ -1629,10 +1629,11 @@ export class CombatScene extends Phaser.Scene {
 
     const controlLines = [
       'Left-click ship        Select',
-      'Left-click enemy       Attack',
-      'Right-click space      Move',
+      'Left-click space       Move fleet',
       'Right-click enemy      Attack',
+      'Right-click space      Move fleet',
       'Ctrl+A                 Select all',
+      'H                      Halt fleet',
       'Scroll wheel           Zoom',
       'Shift + drag           Pan',
       'ESC                    Deselect',
@@ -1778,6 +1779,11 @@ export class CombatScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => {
       this.selectedShipId = null;
       (this as unknown as Record<string, unknown>).selectedShipIds = null;
+    });
+
+    // H to halt — selected ships stop dead and hold position
+    this.input.keyboard?.on('keydown-H', () => {
+      this._issueOrder({ type: 'idle' });
     });
 
     // Ctrl+A to select all friendly ships
