@@ -38,7 +38,7 @@ const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
 const BEAM_EFFECT_DURATION = 3;
 /** Fraction of max shields recharged per tick. */
-const SHIELD_RECHARGE_FRACTION = 0.03;
+const SHIELD_RECHARGE_FRACTION = 0.01;
 /** Armour absorbs up to this fraction of remaining damage per hit. */
 const ARMOUR_ABSORPTION_FRACTION = 0.25;
 /** Armour degrades by this fraction of the absorbed amount per hit. */
