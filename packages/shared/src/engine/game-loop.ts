@@ -199,8 +199,13 @@ import {
 } from './marketplace.js';
 import {
   processDiplomacyTick,
+  proposeTreaty,
+  declareWar,
+  evaluateTreatyProposal,
+  getRelation,
   type DiplomacyState,
 } from './diplomacy.js';
+import { createNotification } from './notifications.js';
 import {
   processPoliticalTick,
   processElection,
@@ -2307,7 +2312,12 @@ function executeAIDecision(
     case 'colonize':
       return executeAIColonize(state, empireId, decision);
 
-    // diplomacy and war are not yet wired — skip silently
+    case 'diplomacy':
+      return executeAIDiplomacy(state, empireId, decision);
+
+    case 'war':
+      return executeAIWar(state, empireId, decision);
+
     default:
       return state;
   }
@@ -2349,6 +2359,144 @@ function executeAIColonize(
   // Use startMigration to set up colonisation
   const migrationOrder = startMigration(system, sourcePlanet.id, planetId, empireId, empire.species);
   return { ...state, migrationOrders: [...state.migrationOrders, migrationOrder] };
+}
+
+// ---------------------------------------------------------------------------
+// Diplomacy: AI proposes a treaty to another empire
+// ---------------------------------------------------------------------------
+
+function executeAIDiplomacy(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { targetEmpireId, action, treatyType } = decision.params as {
+    targetEmpireId: string;
+    action: string;
+    treatyType: string;
+  };
+  if (!targetEmpireId || !treatyType) return state;
+
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+    | DiplomacyState
+    | undefined;
+  if (!diplomacyState) return state;
+
+  const tick = state.gameState.currentTick;
+
+  if (action === 'propose_treaty') {
+    // Check if the target would accept (based on attitude/trust)
+    const relation = getRelation(diplomacyState, empireId, targetEmpireId);
+    if (!relation) return state;
+
+    // Don't propose treaties to empires we're at war with
+    if (relation.status === 'at_war') return state;
+
+    // Don't duplicate existing treaties
+    const hasTreatyType = relation.treaties.some(t => t.type === treatyType);
+    if (hasTreatyType) return state;
+
+    // AI-to-AI: auto-accept if attitude > threshold
+    const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
+    if (!targetEmpire) return state;
+
+    if (targetEmpire.isAI) {
+      // AI accepts trade at attitude > 10, non-aggression at > 0, alliance at > 40
+      const thresholds: Record<string, number> = {
+        trade: 10,
+        non_aggression: 0,
+        alliance: 40,
+        research_agreement: 20,
+      };
+      const threshold = thresholds[treatyType] ?? 20;
+      if (relation.attitude < threshold) return state;
+
+      // Accept: sign the treaty
+      const updatedDiplomacy = proposeTreaty(diplomacyState, {
+        fromEmpireId: empireId,
+        toEmpireId: targetEmpireId,
+        treatyType: treatyType as 'trade' | 'non_aggression' | 'alliance' | 'research_agreement',
+      }, tick);
+
+      return {
+        ...state,
+        diplomacyState: updatedDiplomacy,
+      } as GameTickState;
+    }
+
+    // AI-to-player: create a notification for the player to accept/reject
+    const empireObj = state.gameState.empires.find(e => e.id === empireId);
+    const empireName = empireObj?.name ?? empireId;
+    const notification = createNotification(
+      'diplomatic_proposal',
+      `${empireName} proposes ${treatyType.replace('_', ' ')}`,
+      `The ${empireName} would like to establish a ${treatyType.replace('_', ' ')} agreement with your empire.`,
+      tick,
+      [
+        { id: `accept_${treatyType}_${empireId}`, label: 'Accept', description: `Sign the ${treatyType.replace('_', ' ')} treaty` },
+        { id: `reject_${treatyType}_${empireId}`, label: 'Decline', description: 'Refuse the proposal' },
+      ],
+      { systemId: '', empireId, treatyType },
+    );
+
+    return {
+      ...state,
+      notifications: [...state.notifications, notification],
+    };
+  }
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// War: AI declares war on another empire
+// ---------------------------------------------------------------------------
+
+function executeAIWar(
+  state: GameTickState,
+  empireId: string,
+  decision: AIDecision,
+): GameTickState {
+  const { targetEmpireId } = decision.params as { targetEmpireId: string };
+  if (!targetEmpireId) return state;
+
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+    | DiplomacyState
+    | undefined;
+  if (!diplomacyState) return state;
+
+  const tick = state.gameState.currentTick;
+
+  // Check we're not already at war
+  const relation = getRelation(diplomacyState, empireId, targetEmpireId);
+  if (!relation || relation.status === 'at_war') return state;
+
+  // Execute the war declaration
+  const updatedDiplomacy = declareWar(diplomacyState, empireId, targetEmpireId, tick);
+
+  // Notify the target empire (if it's the player)
+  const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
+  const empireObj = state.gameState.empires.find(e => e.id === empireId);
+  const empireName = empireObj?.name ?? empireId;
+
+  let notifications = state.notifications;
+  if (targetEmpire && !targetEmpire.isAI) {
+    const notification = createNotification(
+      'under_attack',
+      `${empireName} has declared war!`,
+      `The ${empireName} have declared war on your empire. Prepare your defences.`,
+      tick,
+      undefined,
+      { empireId },
+    );
+    notifications = [...notifications, notification];
+  }
+
+  return {
+    ...state,
+    diplomacyState: updatedDiplomacy,
+    notifications,
+  } as GameTickState;
 }
 
 // ---------------------------------------------------------------------------
