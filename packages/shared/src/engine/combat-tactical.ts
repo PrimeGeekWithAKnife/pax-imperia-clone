@@ -643,13 +643,11 @@ export function setFormation(
   const sideShips = state.ships.filter(
     (s) => s.side === side && !s.destroyed && !s.routed,
   );
-  // Centre formation on the side's current average position (not a fixed x)
-  // so formations don't push ships to the map edge
+  // Centre formation on the side's current average position
   let avgX = 0, avgY = 0;
   for (const s of sideShips) { avgX += s.position.x; avgY += s.position.y; }
   avgX /= sideShips.length || 1;
   avgY /= sideShips.length || 1;
-  // Clamp to keep formation within battlefield bounds
   const margin = 200;
   const centreX = Math.max(margin, Math.min(state.battlefieldWidth - margin, avgX));
   const centreY = Math.max(margin, Math.min(state.battlefieldHeight - margin, avgY));
@@ -658,14 +656,26 @@ export function setFormation(
   const sideShipIds = new Set(sideShips.map((s) => s.id));
   let sideIdx = 0;
 
+  // Before battle starts (tick <= 1): set positions INSTANTLY
+  // During battle: give move orders that timeout after 30 ticks
+  const instant = state.tick <= 1;
+
   const updatedShips = state.ships.map((s) => {
     if (!sideShipIds.has(s.id)) return s;
     const pos = positions[sideIdx] ?? { offsetX: 0, offsetY: 0 };
     sideIdx++;
     const targetX = centreX + pos.offsetX;
     const targetY = centreY + pos.offsetY;
-    // Give a move order to the formation position; once the ship arrives
-    // it will resume attacking via the auto-target logic in moveShip()
+
+    if (instant) {
+      // Snap to formation position immediately (pre-battle)
+      return {
+        ...s,
+        position: { x: targetX, y: targetY },
+        order: { type: 'attack' as const, targetId: '' },
+      };
+    }
+    // During battle: move to position, then auto-attack on arrival
     return {
       ...s,
       order: { type: 'move' as const, x: targetX, y: targetY },
@@ -792,17 +802,18 @@ export function initializeTacticalCombat(
   // Attackers on the left third, defenders on the right third.
   const defenderBaseX = layout === 'planetary_assault'
     ? BATTLEFIELD_WIDTH - 250
-    : BATTLEFIELD_WIDTH * 0.65;
+    : BATTLEFIELD_WIDTH - 120;
   const defenderBaseY = layout === 'planetary_assault'
     ? BATTLEFIELD_HEIGHT - 200
-    : BATTLEFIELD_HEIGHT * 0.4;
+    : BATTLEFIELD_HEIGHT * 0.5;
 
   function buildSide(
     ships: Ship[],
     side: 'attacker' | 'defender',
   ): TacticalShip[] {
-    const baseX = side === 'attacker' ? BATTLEFIELD_WIDTH * 0.25 : defenderBaseX;
-    const baseY = side === 'attacker' ? BATTLEFIELD_HEIGHT * 0.4 : defenderBaseY;
+    // Ships start at opposite edges of the battlefield
+    const baseX = side === 'attacker' ? 120 : defenderBaseX;
+    const baseY = side === 'attacker' ? BATTLEFIELD_HEIGHT * 0.5 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 
     return ships.map((ship, index) => {
@@ -1173,6 +1184,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       if (d <= 5) {
         // Arrived at destination — switch to attack so ship engages enemies
         return { ...updated, order: { type: 'attack', targetId: '' } };
+      }
+      // Timeout: if ship has been trying to reach formation for >30 ticks, give up and attack
+      if (state.tick > 30 && ship.order.type === 'move') {
+        const enemies = state.ships.filter(s => s.side !== ship.side && !s.destroyed && !s.routed);
+        if (enemies.length > 0) {
+          return { ...updated, order: { type: 'attack', targetId: '' } };
+        }
       }
       return moveToward(updated, target, 2);
     }

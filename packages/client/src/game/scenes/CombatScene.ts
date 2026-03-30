@@ -1286,6 +1286,30 @@ export class CombatScene extends Phaser.Scene {
 
   private _drawSelectionRing(): void {
     this.selectionRing.clear();
+
+    // Multi-selection: draw rings on ALL selected ships
+    const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+    if (multiIds && multiIds.length > 0) {
+      // Remove destroyed/routed ships from selection
+      const alive = multiIds.filter(id => {
+        const s = this.tacticalState.ships.find(sh => sh.id === id);
+        return s && !s.destroyed && !s.routed;
+      });
+      (this as unknown as Record<string, unknown>).selectedShipIds = alive.length > 0 ? alive : null;
+      if (alive.length > 0) this.selectedShipId = alive[0] ?? null;
+
+      for (const id of alive) {
+        const ship = this.tacticalState.ships.find(s => s.id === id);
+        if (!ship) continue;
+        const selSize = this.shipSizes.get(ship.id) ?? SHIP_SIZE_SMALL;
+        const ringRadius = Math.max(SELECTION_RING_RADIUS, selSize.height * 0.6);
+        this.selectionRing.lineStyle(2, SELECTION_RING_COLOR, SELECTION_RING_ALPHA);
+        this.selectionRing.strokeCircle(ship.position.x, ship.position.y, ringRadius);
+      }
+      return;
+    }
+
+    // Single selection
     if (!this.selectedShipId) return;
     const ship = this.tacticalState.ships.find(s => s.id === this.selectedShipId);
     if (!ship || ship.destroyed || ship.routed) {
