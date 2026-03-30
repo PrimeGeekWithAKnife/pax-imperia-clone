@@ -3,6 +3,7 @@
 import type { FleetStance } from './ships.js';
 import type { TreatyType } from './species.js';
 import type { GameSpeedName } from '../constants/game.js';
+import type { EspionageEvent } from '../engine/espionage.js';
 
 // ---------------------------------------------------------------------------
 // Game Actions (client -> server)
@@ -278,7 +279,7 @@ export interface GovernorAppointedEvent {
 /** Emitted when an espionage mission produces a result. */
 export interface EspionageResultEvent {
   type: 'EspionageResult';
-  espionageEvent: unknown;
+  espionageEvent: EspionageEvent;
   tick: number;
 }
 

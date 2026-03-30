@@ -11,7 +11,8 @@ export function generateId(): string {
     // e.g. "550e8400-e29b-41d4-a716-446655440000" -> "550e8400"
     return crypto.randomUUID().split('-')[0];
   }
-  // Fallback: 8 random hex chars
+  // Fallback: 8 random hex chars — NOT cryptographically secure
+  console.warn('[generateId] crypto.randomUUID unavailable; falling back to Math.random (not cryptographically secure)');
   return Math.floor(Math.random() * 0xffffffff)
     .toString(16)
     .padStart(8, '0');
@@ -24,7 +25,8 @@ export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  // RFC 4122 version 4 UUID fallback
+  // RFC 4122 version 4 UUID fallback — NOT cryptographically secure
+  console.warn('[generateUUID] crypto.randomUUID unavailable; falling back to Math.random (not cryptographically secure)');
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
