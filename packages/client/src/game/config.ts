@@ -12,12 +12,12 @@ import { GroundCombatScene } from './scenes/GroundCombatScene';
 export function createGameConfig(): Phaser.Types.Core.GameConfig {
   return {
     type: Phaser.WEBGL,
-    width: 1280,
-    height: 720,
+    width: window.innerWidth,
+    height: window.innerHeight,
     backgroundColor: '#05050f',
     parent: 'game-container',
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: [BootScene, MainMenuScene, GalaxyMapScene, SystemViewScene, CombatScene, GroundCombatScene],
