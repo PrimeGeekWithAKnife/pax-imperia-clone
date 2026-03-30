@@ -498,12 +498,11 @@ export class CombatScene extends Phaser.Scene {
       BATTLEFIELD_HEIGHT + camPad * 2,
     );
 
-    // Fit battlefield into view with some padding for the boundary zones
+    // Scale battlefield to FILL the screen (use max, not min, so no empty borders)
     const { width, height } = this.scale;
-    const viewPad = 100; // extra breathing room around the battlefield
-    const scaleX = width / (BATTLEFIELD_WIDTH + viewPad * 2);
-    const scaleY = height / (BATTLEFIELD_HEIGHT + viewPad * 2);
-    const fitZoom = Math.min(scaleX, scaleY);
+    const scaleX = width / BATTLEFIELD_WIDTH;
+    const scaleY = height / BATTLEFIELD_HEIGHT;
+    const fitZoom = Math.max(scaleX, scaleY);
     cam.setZoom(fitZoom);
     cam.centerOn(BATTLEFIELD_WIDTH / 2, BATTLEFIELD_HEIGHT / 2);
 
