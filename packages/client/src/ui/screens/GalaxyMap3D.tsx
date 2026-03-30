@@ -119,6 +119,27 @@ const NEBULA_PALETTE = [
   '#223388', '#553399', '#882244', '#114466',
 ];
 
+/** Create a soft radial gradient texture for nebula sprites. */
+function createNebulaTexture(): THREE.Texture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.2)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.05)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const nebulaTexture = createNebulaTexture();
+
 function NebulaClouds({ galaxy }: { galaxy: Galaxy }) {
   const clouds = useMemo(() => {
     const result: Array<{ x: number; z: number; colour: string; scale: number; rotSpeed: number }> = [];
@@ -197,9 +218,10 @@ function NebulaSprite({ x, z, colour, scale, rotSpeed }: {
   return (
     <sprite ref={ref} position={[x, -2, z]} scale={[scale, scale, 1]}>
       <spriteMaterial
+        map={nebulaTexture}
         color={colour}
         transparent
-        opacity={0.08}
+        opacity={0.15}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
@@ -224,8 +246,10 @@ function Hyperlanes({ systems }: { systems: StarSystem[] }) {
         seen.add(key);
         const target = systemMap.get(targetId);
         if (!target) continue;
-        verts.push(sys.position.x, 0, sys.position.y);
-        verts.push(target.position.x, 0, target.position.y);
+        const y1 = (Math.sin(sys.position.x * 0.1) * Math.cos(sys.position.y * 0.1)) * 3;
+        const y2 = (Math.sin(target.position.x * 0.1) * Math.cos(target.position.y * 0.1)) * 3;
+        verts.push(sys.position.x, y1, sys.position.y);
+        verts.push(target.position.x, y2, target.position.y);
       }
     }
 
@@ -252,7 +276,9 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
     if (!meshRef.current) return;
     systems.forEach((sys, i) => {
       const s = (STAR_SCALE[sys.starType] ?? 1.0) * 4;
-      dummy.position.set(sys.position.x, 0, sys.position.y);
+      // Add subtle vertical offset based on position hash for depth
+      const yOffset = (Math.sin(sys.position.x * 0.1) * Math.cos(sys.position.y * 0.1)) * 3;
+      dummy.position.set(sys.position.x, yOffset, sys.position.y);
       dummy.scale.set(s, s, s);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
@@ -316,7 +342,8 @@ function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
     if (!meshRef.current) return;
     systems.forEach((sys, i) => {
       const s = STAR_SCALE[sys.starType] ?? 1.0;
-      dummy.position.set(sys.position.x, 0, sys.position.y);
+      const yOffset = (Math.sin(sys.position.x * 0.1) * Math.cos(sys.position.y * 0.1)) * 3;
+      dummy.position.set(sys.position.x, yOffset, sys.position.y);
       dummy.scale.setScalar(s);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
@@ -542,7 +569,9 @@ export function GalaxyMap3D({ galaxy, onSystemSelected, onClose }: GalaxyMap3DPr
   const focusTarget = useMemo<[number, number, number] | null>(() => {
     if (!selectedId) return null;
     const sys = systemMap.get(selectedId);
-    return sys ? [sys.position.x, 0, sys.position.y] : null;
+    if (!sys) return null;
+    const yOffset = (Math.sin(sys.position.x * 0.1) * Math.cos(sys.position.y * 0.1)) * 3;
+    return [sys.position.x, yOffset, sys.position.y];
   }, [selectedId, systemMap]);
 
   const handleStarClick = useCallback((systemId: string) => {
