@@ -1921,7 +1921,24 @@ function stepShipProduction(state: GameTickState): GameTickState {
       continue;
     }
 
-    const result = processShipProduction(order);
+    // Apply species construction trait to ship production speed
+    let constructionSpeedMultiplier = 1.0;
+    for (const system of systems) {
+      const planet = system.planets.find(p => p.id === order.planetId);
+      if (planet?.ownerId) {
+        const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
+        if (empire) {
+          constructionSpeedMultiplier = (empire.species.traits.construction ?? 5) / 5;
+        }
+        break;
+      }
+    }
+    // Advance production by species-modified amount (floored to at least 1)
+    const ticksToAdvance = Math.max(1, Math.round(constructionSpeedMultiplier));
+    const advancedOrder = { ...order, ticksRemaining: order.ticksRemaining - ticksToAdvance };
+    const result = advancedOrder.ticksRemaining <= 0
+      ? { order: null as ShipProductionOrder | null, completed: true }
+      : { order: advancedOrder, completed: false };
 
     if (result.completed) {
       // Find the planet to determine its system and owning empire
