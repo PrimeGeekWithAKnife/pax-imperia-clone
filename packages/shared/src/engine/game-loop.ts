@@ -2550,14 +2550,18 @@ function stepAIDecisions(
       ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war'].includes(d.type)
     );
 
-    // Guarantee at least 1 research decision per tick to prevent starvation from
-    // high-priority colonise/build decisions consuming all slots
-    const researchDecisions = executableDecisions.filter(d => d.type === 'research');
-    const nonResearchDecisions = executableDecisions.filter(d => d.type !== 'research');
-    const guaranteedResearch = researchDecisions.length > 0 ? [researchDecisions[0]] : [];
-    const remainingSlots = AI_DECISIONS_PER_TICK - guaranteedResearch.length;
-    const topOther = selectTopDecisions(nonResearchDecisions, remainingSlots);
-    const topDecisions = [...guaranteedResearch, ...topOther];
+    // Guarantee at least 1 research and 1 move_fleet decision per tick to prevent
+    // starvation from high-priority build/colonise decisions consuming all slots
+    const guaranteedTypes = new Set<string>();
+    const guaranteed: AIDecision[] = [];
+    const researchDecision = executableDecisions.find(d => d.type === 'research');
+    if (researchDecision) { guaranteed.push(researchDecision); guaranteedTypes.add('research'); }
+    const moveDecision = executableDecisions.find(d => d.type === 'move_fleet');
+    if (moveDecision) { guaranteed.push(moveDecision); guaranteedTypes.add('move_fleet'); }
+    const remaining = executableDecisions.filter(d => !guaranteedTypes.has(d.type) || d !== guaranteed.find(g => g.type === d.type));
+    const remainingSlots = Math.max(0, AI_DECISIONS_PER_TICK - guaranteed.length);
+    const topOther = selectTopDecisions(remaining, remainingSlots);
+    const topDecisions = [...guaranteed, ...topOther];
 
     // 4. Execute each decision
     for (const decision of topDecisions) {
@@ -2637,7 +2641,7 @@ function executeAIColonize(
   // Check the empire has a source planet with enough population to transfer
   const sourcePlanet = state.gameState.galaxy.systems
     .flatMap(s => s.planets)
-    .filter(p => p.ownerId === empireId && p.currentPopulation >= 10000)
+    .filter(p => p.ownerId === empireId && p.currentPopulation >= 2000)
     .sort((a, b) => b.currentPopulation - a.currentPopulation)[0];
   if (!sourcePlanet) return state;
 
