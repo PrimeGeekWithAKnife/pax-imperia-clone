@@ -184,9 +184,9 @@ describe('calculateTradeRouteIncome', () => {
     expect(calculateTradeRouteIncome(route, 0)).toBe(1);
   });
 
-  it('returns 10 credits/tick for distance 100 (normalisation distance)', () => {
+  it('returns 40 credits/tick for distance 100 (normalisation distance)', () => {
     const route = makeRoute();
-    expect(calculateTradeRouteIncome(route, 100)).toBe(10);
+    expect(calculateTradeRouteIncome(route, 100)).toBe(40);
   });
 
   it('doubles income for double the distance', () => {
