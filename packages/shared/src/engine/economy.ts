@@ -36,6 +36,35 @@ import { ZONE_MAINTENANCE_MULTIPLIER } from './colony.js';
 import { isBuildingFunctional } from './building-condition.js';
 
 // ---------------------------------------------------------------------------
+// Naval Capacity
+// ---------------------------------------------------------------------------
+
+/** Base naval capacity per colony + bonus from spaceports and military buildings. */
+const BASE_NAVAL_CAP_PER_COLONY = 3;
+const NAVAL_CAP_PER_SPACEPORT_LEVEL = 5;
+const NAVAL_CAP_PER_MILITARY_BUILDING = 2;
+
+const MILITARY_BUILDING_TYPES = new Set([
+  'shipyard', 'planetary_defence', 'orbital_defence', 'military_academy',
+  'fortress', 'ground_defence', 'missile_battery', 'starbase',
+]);
+
+export function calculateNavalCapacity(planets: Planet[]): number {
+  let cap = 0;
+  for (const planet of planets) {
+    cap += BASE_NAVAL_CAP_PER_COLONY;
+    for (const building of planet.buildings) {
+      if (building.type === 'spaceport') {
+        cap += NAVAL_CAP_PER_SPACEPORT_LEVEL * building.level;
+      } else if (MILITARY_BUILDING_TYPES.has(building.type)) {
+        cap += NAVAL_CAP_PER_MILITARY_BUILDING;
+      }
+    }
+  }
+  return Math.max(cap, 5); // Minimum 5 to avoid immediate over-cap at game start
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -254,9 +283,12 @@ export function calculateUpkeep(
 ): ResourceProduction {
   const upkeep = zeroProduction();
 
-  // Ship upkeep
-  const shipUpkeepCredits = (FLEET_UPKEEP_PER_SHIP.credits ?? 0) * fleetCount;
-  const shipUpkeepEnergy = (FLEET_UPKEEP_PER_SHIP.energy ?? 0) * fleetCount;
+  // Ship upkeep — scales when over naval capacity
+  const navalCap = planets ? calculateNavalCapacity(planets) : fleetCount;
+  const overCapRatio = fleetCount > navalCap ? fleetCount / navalCap : 1;
+  const upkeepMultiplier = overCapRatio > 1 ? 1 + (overCapRatio - 1) * 2 : 1; // 2x penalty per 100% over cap
+  const shipUpkeepCredits = (FLEET_UPKEEP_PER_SHIP.credits ?? 0) * fleetCount * upkeepMultiplier;
+  const shipUpkeepEnergy = (FLEET_UPKEEP_PER_SHIP.energy ?? 0) * fleetCount * upkeepMultiplier;
   upkeep.credits -= shipUpkeepCredits;
   upkeep.energy -= shipUpkeepEnergy;
 
