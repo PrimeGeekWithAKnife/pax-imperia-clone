@@ -203,6 +203,7 @@ import {
   declareWar,
   evaluateTreatyProposal,
   getRelation,
+  initializeDiplomacy,
   type DiplomacyState,
 } from './diplomacy.js';
 import { createNotification } from './notifications.js';
@@ -4036,7 +4037,8 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     shipComponents: [...SHIP_COMPONENTS],
     espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
     espionageEventLog: [],
-  };
+    diplomacyState: initializeDiplomacy(gameState.empires.map(e => e.id)),
+  } as GameTickState;
 }
 
 // ---------------------------------------------------------------------------

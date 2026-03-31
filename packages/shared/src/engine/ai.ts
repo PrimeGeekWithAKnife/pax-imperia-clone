@@ -782,17 +782,18 @@ export function evaluateBuildingPriority(
       });
     }
 
-    // Reactive: build power plant if buildings exceed power capacity (max 3)
+    // Reactive: build power plant when energy is low (critical infrastructure)
     const powerPlants = planet.buildings.filter(b => b.type === 'power_plant').length;
     const powerQueued = planet.productionQueue.filter(q => q.templateId === 'power_plant').length;
     if (
       powerPlants < 3 &&
       powerQueued === 0 &&
-      planet.buildings.length > 5 * (powerPlants + 1)
+      planet.buildings.length > 3 * (powerPlants + 1)
     ) {
+      // High priority — energy deficit halves all production
       decisions.push({
         type: 'build',
-        priority: applyWeight(55, 'build', personality),
+        priority: applyWeight(70, 'build', personality),
         params: { planetId: planet.id, buildingType: 'power_plant' as BuildingType },
         reasoning: `Build power plant on ${planet.name} (${planet.buildings.length} buildings need power)`,
       });
@@ -957,20 +958,50 @@ export function generateAIDecisions(
 
   const building = evaluateBuildingPriority(empire, ownedPlanets, personality);
 
-  // Ship building: ensure the empire has at least a small standing fleet
+  // Ship building: ensure the empire has a standing fleet and colony ships for expansion
   const shipDecisions: AIDecision[] = [];
   const empireFleets = getEmpireFleets(empire, gameState.fleets);
   const totalShips = empireFleets.reduce((sum, f) => sum + f.ships.length, 0);
-  const shipTarget = personality === 'aggressive' ? 8 : personality === 'defensive' ? 6 : 3;
+  const shipTarget = personality === 'aggressive' ? 10 : personality === 'defensive' ? 6 : 4;
 
-  if (totalShips < shipTarget) {
-    const shipyard = ownedPlanets.find(p => p.buildings.some(b => b.type === 'shipyard'));
-    if (shipyard) {
+  const shipyard = ownedPlanets.find(p => p.buildings.some(b => b.type === 'shipyard'));
+  if (shipyard) {
+    // Build warships when below target
+    if (totalShips < shipTarget) {
       shipDecisions.push({
         type: 'build_ship',
         priority: applyWeight(55, 'build_ship', personality),
         params: { planetId: shipyard.id, hullClass: 'destroyer' },
         reasoning: `Build ships: have ${totalShips}/${shipTarget} target ships`,
+      });
+    }
+
+    // Build a colony ship if we have none and can afford it (expansion priority)
+    const allShips = gameState.ships.filter(s => empireFleets.some(f => f.ships.includes(s.id)));
+    const hasColoniser = allShips.some(s => {
+      const design = shipDesigns.get(s.designId);
+      return design?.hullClass === 'coloniser';
+    });
+    if (!hasColoniser && ownedPlanets.length < 5) {
+      shipDecisions.push({
+        type: 'build_ship',
+        priority: applyWeight(personality === 'expansionist' ? 75 : 50, 'build_ship', personality),
+        params: { planetId: shipyard.id, hullClass: 'coloniser' },
+        reasoning: `Build colony ship for expansion (${ownedPlanets.length} planets)`,
+      });
+    }
+
+    // Build a scout if we have no probes/scouts for exploration
+    const hasScout = allShips.some(s => {
+      const design = shipDesigns.get(s.designId);
+      return design?.hullClass === 'scout' || design?.hullClass === 'deep_space_probe';
+    });
+    if (!hasScout) {
+      shipDecisions.push({
+        type: 'build_ship',
+        priority: applyWeight(45, 'build_ship', personality),
+        params: { planetId: shipyard.id, hullClass: 'scout' },
+        reasoning: 'Build scout for exploration (no scouts available)',
       });
     }
   }
