@@ -46,6 +46,7 @@ const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   first_contact:           { priority: 'info', autoPause: true, canSilence: true },
   minor_species_found:     { priority: 'info', autoPause: true, canSilence: true },
   anomaly_discovered:      { priority: 'info', autoPause: true, canSilence: true },
+  planet_captured:         { priority: 'info', autoPause: true, canSilence: true },
 };
 
 // ---------------------------------------------------------------------------

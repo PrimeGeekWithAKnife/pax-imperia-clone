@@ -911,6 +911,9 @@ function stepFleetMovement(
 
       // Check if there are enemy fleets in the arrived system
       const empireId = fleet.empireId;
+      const combatDiplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+        | DiplomacyState
+        | undefined;
       const enemyFleetsInSystem = fleets.filter(
         f =>
           f.id !== fleet.id &&
@@ -919,6 +922,12 @@ function stepFleetMovement(
       );
 
       for (const enemyFleet of enemyFleetsInSystem) {
+        // Only trigger combat if the two empires are at war
+        if (combatDiplomacyState) {
+          const rel = getRelation(combatDiplomacyState, empireId, enemyFleet.empireId);
+          if (!rel || rel.status !== 'at_war') continue;
+        }
+
         // Only queue combat once per pair per tick
         const alreadyQueued = newPendingCombats.some(
           c =>
@@ -1111,9 +1120,11 @@ function stepCombatResolution(
   const tick = state.gameState.currentTick;
   let ships = [...state.gameState.ships];
   let fleets = [...state.gameState.fleets];
+  let combatSystems = [...state.gameState.galaxy.systems];
   const designs = state.shipDesigns ?? new Map<string, ShipDesign>();
   const components = state.shipComponents ?? [];
   const deferredCombats: typeof state.pendingCombats = [];
+  const capturedPlanets: { planetName: string; systemId: string; winnerEmpireId: string }[] = [];
 
   for (const combat of state.pendingCombats) {
     const attackerFleet = fleets.find(f => f.id === combat.attackerFleetId);
@@ -1257,20 +1268,63 @@ function stepCombatResolution(
       tick,
     };
     events.push(combatResolvedEvent);
+
+    // Planet capture: winner takes undefended enemy planets in the system
+    const loserEmpireId = winnerEmpireId === attackerFleet.empireId
+      ? defenderFleet.empireId
+      : attackerFleet.empireId;
+    const loserHasFleets = fleets.some(
+      f => f.empireId === loserEmpireId &&
+           f.position.systemId === combat.systemId &&
+           f.ships.length > 0,
+    );
+    if (!loserHasFleets) {
+      const sys = combatSystems.find(s => s.id === combat.systemId);
+      if (sys) {
+        const updatedPlanets = sys.planets.map(p => {
+          if (p.ownerId !== loserEmpireId) return p;
+          capturedPlanets.push({ planetName: p.name, systemId: combat.systemId, winnerEmpireId });
+          return {
+            ...p,
+            ownerId: winnerEmpireId,
+            currentPopulation: Math.floor(p.currentPopulation * 0.5),
+            productionQueue: [],
+          };
+        });
+        combatSystems = combatSystems.map(s => s.id === sys.id ? { ...s, planets: updatedPlanets } : s);
+      }
+    }
   }
 
   // Remove empty fleets
   fleets = fleets.filter(f => f.ships.length > 0);
 
+  // Emit notifications for captured planets
+  let notifications = [...(state.notifications ?? [])];
+  for (const capture of capturedPlanets) {
+    notifications.push(
+      createNotification(
+        'planet_captured',
+        `${capture.planetName} captured!`,
+        `Your forces have captured ${capture.planetName} after winning the space battle.`,
+        tick,
+        undefined,
+        { systemId: capture.systemId },
+      ),
+    );
+  }
+
   return {
     ...state,
     pendingCombats: deferredCombats,
+    notifications,
     gameState: {
       ...state.gameState,
       fleets,
       ships,
+      galaxy: { ...state.gameState.galaxy, systems: combatSystems },
     },
-  };
+  } as GameTickState;
 }
 
 // ---------------------------------------------------------------------------
