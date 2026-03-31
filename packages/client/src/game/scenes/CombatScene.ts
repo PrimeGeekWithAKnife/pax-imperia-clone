@@ -117,6 +117,35 @@ const PROJECTILE_STYLE_MAP: Record<string, ProjectileStyle> = {
   fusion_autocannon: 'fusion',
 };
 
+/** Missile style lookup by componentId */
+type MissileStyle = 'basic' | 'torpedo' | 'guided' | 'fusion' | 'antimatter' | 'singularity';
+const MISSILE_STYLE_MAP: Record<string, MissileStyle> = {
+  basic_missile: 'basic',
+  basic_torpedo: 'torpedo',
+  guided_torpedo: 'guided',
+  fusion_torpedo: 'fusion',
+  antimatter_torpedo: 'antimatter',
+  singularity_torpedo: 'singularity',
+};
+
+/** Per-missile-type visual properties */
+const MISSILE_VISUALS: Record<MissileStyle, {
+  size: number;
+  trailLen: number;
+  bodyColor: number;
+  exhaustColor: number;
+  glowColor: number;
+  glowAlpha: number;
+  exhaustSegments: number;
+}> = {
+  basic:       { size: 4, trailLen: 8,  bodyColor: 0xcccccc, exhaustColor: 0x999999, glowColor: 0xdddddd, glowAlpha: 0,    exhaustSegments: 2 },
+  torpedo:     { size: 6, trailLen: 12, bodyColor: 0xcc5533, exhaustColor: 0x993322, glowColor: 0xdd6644, glowAlpha: 0,    exhaustSegments: 3 },
+  guided:      { size: 6, trailLen: 14, bodyColor: 0xffcc33, exhaustColor: 0xddaa11, glowColor: 0xffee66, glowAlpha: 0.12, exhaustSegments: 4 },
+  fusion:      { size: 8, trailLen: 18, bodyColor: 0xffaa33, exhaustColor: 0xff7711, glowColor: 0xffcc44, glowAlpha: 0.18, exhaustSegments: 4 },
+  antimatter:  { size: 8, trailLen: 16, bodyColor: 0xffccee, exhaustColor: 0xff66aa, glowColor: 0xff88cc, glowAlpha: 0.22, exhaustSegments: 4 },
+  singularity: { size: 10, trailLen: 22, bodyColor: 0xbb88ff, exhaustColor: 0x8844cc, glowColor: 0x9955ff, glowAlpha: 0.28, exhaustSegments: 5 },
+};
+
 /** Health bar dimensions (drawn above each ship) */
 const HEALTH_BAR_WIDTH = 28;
 const HEALTH_BAR_HEIGHT = 3;
@@ -559,6 +588,7 @@ export class CombatScene extends Phaser.Scene {
 
   private _setupCamera(): void {
     const cam = this.cameras.main;
+    cam.setRoundPixels(true);
     // Expand camera bounds well beyond battlefield so the starfield background
     // fills any screen size without black borders
     const camPad = 1000;
@@ -1177,48 +1207,17 @@ export class CombatScene extends Phaser.Scene {
         );
       }
 
-      // Damage-based tier scaling: 18 (basic) to 95 (singularity)
-      const dmgFrac = Math.min(1, missile.damage / 95);
-      const size = MISSILE_SIZE * (0.8 + dmgFrac * 0.6);   // 8-14 pixels
-      const trailLen = MISSILE_TRAIL_LENGTH * (0.8 + dmgFrac * 0.4);
-
-      // Colour by damage tier
-      let bodyColor: number;
-      let exhaustColor: number;
-      let glowColor: number;
-      if (missile.damage >= 80) {
-        // Singularity tier — purple-white
-        bodyColor = 0xbb88ff;
-        exhaustColor = 0x8844cc;
-        glowColor = 0x9955ff;
-      } else if (missile.damage >= 55) {
-        // Antimatter tier — hot orange-red
-        bodyColor = 0xff6622;
-        exhaustColor = 0xff4400;
-        glowColor = 0xff8844;
-      } else if (missile.damage >= 35) {
-        // Fusion tier — bright yellow-orange
-        bodyColor = 0xffaa33;
-        exhaustColor = 0xff7711;
-        glowColor = 0xffcc44;
-      } else if (missile.damage >= 25) {
-        // Guided tier — standard orange
-        bodyColor = 0xff8833;
-        exhaustColor = 0xcc5511;
-        glowColor = 0xffaa55;
-      } else {
-        // Basic tier — dull red-orange
-        bodyColor = 0xcc5533;
-        exhaustColor = 0x993322;
-        glowColor = 0xdd6644;
-      }
+      // Look up per-type visual style via componentId
+      const mStyle: MissileStyle = MISSILE_STYLE_MAP[missile.componentId ?? ''] ?? 'torpedo';
+      const vis = MISSILE_VISUALS[mStyle];
+      const { size, trailLen, bodyColor, exhaustColor, glowColor, glowAlpha, exhaustSegments } = vis;
 
       const cos = Math.cos(heading);
       const sin = Math.sin(heading);
 
-      // ── Exhaust trail: 3-4 fading dots behind the missile ────────────────
-      for (let i = 1; i <= MISSILE_EXHAUST_SEGMENTS; i++) {
-        const t = i / (MISSILE_EXHAUST_SEGMENTS + 1);
+      // ── Exhaust trail: fading dots behind the missile ────────────────────
+      for (let i = 1; i <= exhaustSegments; i++) {
+        const t = i / (exhaustSegments + 1);
         const ex = missile.x - cos * (trailLen * t);
         const ey = missile.y - sin * (trailLen * t);
         const dotR = size * 0.25 * (1 - t * 0.6);
@@ -1232,10 +1231,18 @@ export class CombatScene extends Phaser.Scene {
       this.missileGraphics.lineStyle(1.5, exhaustColor, 0.35);
       this.missileGraphics.lineBetween(tailX, tailY, missile.x, missile.y);
 
-      // ── Outer glow for high-tier missiles ────────────────────────────────
-      if (dmgFrac > 0.5) {
-        this.missileGraphics.fillStyle(glowColor, 0.15 * dmgFrac);
+      // ── Outer glow (only for styles that warrant it) ─────────────────────
+      if (glowAlpha > 0) {
+        this.missileGraphics.fillStyle(glowColor, glowAlpha);
         this.missileGraphics.fillCircle(missile.x, missile.y, size * 1.2);
+      }
+
+      // ── Singularity warp ring ────────────────────────────────────────────
+      if (mStyle === 'singularity') {
+        const warpPhase = (Date.now() % 400) / 400;
+        const warpR = size * (1.0 + warpPhase * 0.8);
+        this.missileGraphics.lineStyle(1, 0xaa66ff, 0.3 * (1 - warpPhase));
+        this.missileGraphics.strokeCircle(missile.x, missile.y, warpR);
       }
 
       // ── Missile body triangle ────────────────────────────────────────────
@@ -1254,9 +1261,10 @@ export class CombatScene extends Phaser.Scene {
       this.missileGraphics.closePath();
       this.missileGraphics.fillPath();
 
-      // ── Bright nose tip ──────────────────────────────────────────────────
-      this.missileGraphics.fillStyle(0xffffff, 0.6 + dmgFrac * 0.3);
-      this.missileGraphics.fillCircle(noseX, noseY, 1.5);
+      // ── Bright nose tip (brighter for heavier ordnance) ──────────────────
+      const noseBrightness = mStyle === 'basic' ? 0.5 : mStyle === 'singularity' ? 0.9 : 0.7;
+      this.missileGraphics.fillStyle(0xffffff, noseBrightness);
+      this.missileGraphics.fillCircle(noseX, noseY, mStyle === 'basic' ? 1 : 1.5);
     }
   }
 
@@ -1556,7 +1564,7 @@ export class CombatScene extends Phaser.Scene {
     retreatBtn.on('pointerdown', () => this._retreatAll());
 
     // ── Bottom-centre: formation + stance bar (fixed size, zoom-independent) ──
-    const barY = height - 52;
+    const barY = height - 46;
     const barBg = this.add.graphics();
     barBg.setScrollFactor(0).setDepth(99);
     barBg.fillStyle(0x0a1628, 0.85);
@@ -2380,15 +2388,28 @@ export class CombatScene extends Phaser.Scene {
     }
     this.prevProjectileCount = state.projectiles.length;
 
-    // ── New missiles → missile launch (max 1 per tick) ────────────────────
+    // ── New missiles → per-type missile launch sounds (max 2 per tick) ────
     const currentMissileIds = new Set<string>();
     for (const m of (state.missiles ?? [])) {
       currentMissileIds.add(m.id);
     }
 
-    const newMissiles = state.missiles.length - this.prevMissileCount;
-    if (newMissiles > 0) {
-      this.sfx.playMissileLaunch();
+    const newMissileCount = state.missiles.length - this.prevMissileCount;
+    if (newMissileCount > 0) {
+      const recentMissiles = state.missiles.slice(-newMissileCount);
+      const launchCount = Math.min(newMissileCount, 2);
+      for (let i = 0; i < launchCount && i < recentMissiles.length; i++) {
+        const m = recentMissiles[i]!;
+        const mStyle: MissileStyle = MISSILE_STYLE_MAP[m.componentId ?? ''] ?? 'torpedo';
+        switch (mStyle) {
+          case 'basic':       this.sfx.playMissileLaunchRapid(); break;
+          case 'torpedo':
+          case 'guided':      this.sfx.playMissileLaunch(); break;
+          case 'fusion':      this.sfx.playMissileLaunchHeavy(); break;
+          case 'antimatter':  this.sfx.playMissileLaunchHeavy(); break;
+          case 'singularity': this.sfx.playMissileLaunchSingularity(); break;
+        }
+      }
     }
 
     // ── Missile impacts — missiles that vanished since last tick ──────────

@@ -1582,14 +1582,15 @@ describe('point defence mechanics', () => {
 // ---------------------------------------------------------------------------
 
 describe('ammo system', () => {
-  it('missile weapons have 6 ammo by default', () => {
+  it('missile weapons use per-type ammo from profiles', () => {
+    // basic_missile has 12 ammo (rapid salvo profile)
     const missileDesign = makeMissileDesign('d-ammo-missile', 'empire-1');
     const state = setupOnePair({ attacker: missileDesign });
     const atk = state.ships.find((s) => s.side === 'attacker')!;
     const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
     expect(missileWeapon).toBeDefined();
-    expect(missileWeapon!.ammo).toBe(6);
-    expect(missileWeapon!.maxAmmo).toBe(6);
+    expect(missileWeapon!.ammo).toBe(12);
+    expect(missileWeapon!.maxAmmo).toBe(12);
   });
 
   it('projectile weapons have 50 ammo by default', () => {
@@ -1638,7 +1639,7 @@ describe('ammo system', () => {
     const next = processTacticalTick(state);
     const atk = next.ships.find((s) => s.side === 'attacker')!;
     const missileWeapon = atk.weapons.find((w) => w.type === 'missile');
-    expect(missileWeapon!.ammo).toBe(5); // started at 6, fired once
+    expect(missileWeapon!.ammo).toBe(11); // basic_missile starts at 12, fired once
   });
 
   it('no firing when ammo is 0', () => {

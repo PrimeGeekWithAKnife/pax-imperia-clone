@@ -62,6 +62,16 @@ const PROJECTILE_DEFAULT_AMMO = 50;
 /** Default ammo for point defence weapons. */
 const POINT_DEFENSE_DEFAULT_AMMO = 100;
 
+/** Per-missile-type physics and ammo profiles. */
+const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number }> = {
+  basic_missile:       { initSpeed: 4, maxSpeed: 10, accel: 1.0, ammo: 12, cooldown: 8 },   // rapid salvo
+  basic_torpedo:       { initSpeed: 2, maxSpeed: 12, accel: 0.5, ammo: 6, cooldown: 25 },   // standard
+  guided_torpedo:      { initSpeed: 2, maxSpeed: 14, accel: 0.6, ammo: 4, cooldown: 25 },   // precise tracker
+  fusion_torpedo:      { initSpeed: 1, maxSpeed: 10, accel: 0.3, ammo: 3, cooldown: 25 },   // slow heavy
+  antimatter_torpedo:  { initSpeed: 1, maxSpeed: 8, accel: 0.2, ammo: 2, cooldown: 25 },    // very slow, devastating
+  singularity_torpedo: { initSpeed: 0.5, maxSpeed: 6, accel: 0.15, ammo: 1, cooldown: 25 }, // crawls then locks
+};
+
 /** Duration in ticks that a point defence effect persists (visual only). */
 const PD_EFFECT_DURATION = 2;
 
@@ -208,6 +218,7 @@ export interface Missile {
   id: string;
   sourceShipId: string;
   targetShipId: string;
+  componentId: string;
   x: number;
   y: number;
   speed: number;
@@ -1030,7 +1041,7 @@ function extractShipStats(
           });
         } else {
           const dmg = comp.stats['damage'] ?? 0;
-          const ammo = computeAmmo(weaponType);
+          const ammo = computeAmmo(weaponType, comp.id);
           weapons.push({
             componentId: comp.id,
             type: weaponType,
@@ -1107,12 +1118,16 @@ function extractShipStats(
 /**
  * Compute cooldown in ticks from component stats.
  * Beams fire faster, projectiles/missiles slower.
+ * Missiles use per-type profiles (e.g. basic_missile fires rapidly).
  */
 function computeCooldown(comp: ShipComponent): number {
   switch (comp.type) {
     case 'weapon_beam': return 10;
     case 'weapon_projectile': return 15;
-    case 'weapon_missile': return 25;
+    case 'weapon_missile': {
+      const profile = MISSILE_PROFILES[comp.id];
+      return profile?.cooldown ?? 25;
+    }
     case 'weapon_point_defense': return 8;
     case 'fighter_bay': return 30;
     default: return 15;
@@ -1122,10 +1137,17 @@ function computeCooldown(comp: ShipComponent): number {
 /**
  * Compute starting ammo for a weapon type.
  * Beams are energy-based (unlimited), everything else has finite ammo.
+ * Missiles use per-type ammo from MISSILE_PROFILES when a componentId is provided.
  */
-function computeAmmo(weaponType: WeaponType): number | undefined {
+function computeAmmo(weaponType: WeaponType, componentId?: string): number | undefined {
   switch (weaponType) {
-    case 'missile': return MISSILE_DEFAULT_AMMO;
+    case 'missile': {
+      if (componentId) {
+        const profile = MISSILE_PROFILES[componentId];
+        if (profile) return profile.ammo;
+      }
+      return MISSILE_DEFAULT_AMMO;
+    }
     case 'projectile': return PROJECTILE_DEFAULT_AMMO;
     case 'point_defense': return POINT_DEFENSE_DEFAULT_AMMO;
     case 'beam': return undefined; // unlimited
@@ -1983,15 +2005,18 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           componentId: weapon.componentId,
         });
       } else if (weapon.type === 'missile') {
+        // Use per-type physics from MISSILE_PROFILES; fall back to defaults
+        const mProfile = MISSILE_PROFILES[weapon.componentId];
         newMissiles.push({
           id: `missile-${state.tick}-${ship.id}-${weapon.componentId}`,
           sourceShipId: ship.id,
           targetShipId: target.id,
+          componentId: weapon.componentId,
           x: ship.position.x,
           y: ship.position.y,
-          speed: MISSILE_INITIAL_SPEED,
-          maxSpeed: MISSILE_MAX_SPEED,
-          acceleration: MISSILE_ACCELERATION,
+          speed: mProfile?.initSpeed ?? MISSILE_INITIAL_SPEED,
+          maxSpeed: mProfile?.maxSpeed ?? MISSILE_MAX_SPEED,
+          acceleration: mProfile?.accel ?? MISSILE_ACCELERATION,
           damage: weapon.damage,
           damageType: 'explosive',
         });

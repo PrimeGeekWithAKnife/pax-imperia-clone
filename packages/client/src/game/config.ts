@@ -16,6 +16,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
     height: window.innerHeight,
     backgroundColor: '#05050f',
     parent: 'game-container',
+    roundPixels: true,
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,

@@ -925,6 +925,162 @@ export class SfxGenerator {
   }
 
   /**
+   * Rapid missile launch: short quiet "pfft" for basic_missile salvos.
+   * Quick noise burst (60 ms) with minimal undertone — sounds rapid and lightweight.
+   */
+  playMissileLaunchRapid(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Short noise puff
+    const bufLen = Math.floor(ctx.sampleRate * 0.06);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2000;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.03, now);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    src.connect(hp);
+    hp.connect(env);
+    env.connect(this.bus);
+    src.start(now);
+    src.onended = () => env.disconnect();
+  }
+
+  /**
+   * Heavy missile launch: deep whoosh for fusion/antimatter torpedoes.
+   * Longer noise sweep (300 ms) with a low bass undertone. Feels weighty.
+   */
+  playMissileLaunchHeavy(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Deep whoosh: noise with lowpass emphasis
+    const bufLen = Math.floor(ctx.sampleRate * 0.3);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(i / bufLen, 0.3) * Math.pow(1 - i / bufLen, 1.2);
+    }
+    const whoosh = ctx.createBufferSource();
+    whoosh.buffer = buf;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(600, now);
+    lp.frequency.exponentialRampToValueAtTime(1500, now + 0.3);
+
+    const whooshEnv = ctx.createGain();
+    whooshEnv.gain.setValueAtTime(0.07, now);
+    whooshEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    whoosh.connect(lp);
+    lp.connect(whooshEnv);
+    whooshEnv.connect(this.bus);
+    whoosh.start(now);
+    whoosh.onended = () => whooshEnv.disconnect();
+
+    // Bass rumble undertone (sawtooth 80 Hz)
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.25);
+
+    const oscEnv = ctx.createGain();
+    oscEnv.gain.setValueAtTime(0, now);
+    oscEnv.gain.linearRampToValueAtTime(0.03, now + 0.04);
+    oscEnv.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+    osc.connect(oscEnv);
+    oscEnv.connect(this.bus);
+    osc.start(now);
+    osc.stop(now + 0.32);
+    osc.onended = () => oscEnv.disconnect();
+  }
+
+  /**
+   * Singularity torpedo launch: eerie warbling sound.
+   * Two detuned oscillators creating a beating/warble effect (400 ms).
+   * Unsettling sci-fi feel for the ultimate weapon.
+   */
+  playMissileLaunchSingularity(): void {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Primary oscillator — sine sweeping down
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(500, now);
+    osc1.frequency.exponentialRampToValueAtTime(180, now + 0.4);
+
+    // Second oscillator — slightly detuned for warble/beating
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(507, now);
+    osc2.frequency.exponentialRampToValueAtTime(185, now + 0.4);
+
+    const env1 = ctx.createGain();
+    env1.gain.setValueAtTime(0, now);
+    env1.gain.linearRampToValueAtTime(0.04, now + 0.03);
+    env1.gain.setValueAtTime(0.04, now + 0.15);
+    env1.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+    const env2 = ctx.createGain();
+    env2.gain.setValueAtTime(0, now);
+    env2.gain.linearRampToValueAtTime(0.03, now + 0.05);
+    env2.gain.setValueAtTime(0.03, now + 0.15);
+    env2.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+    osc1.connect(env1);
+    env1.connect(this.bus);
+    osc2.connect(env2);
+    env2.connect(this.bus);
+
+    osc1.start(now);
+    osc1.stop(now + 0.42);
+    osc2.start(now);
+    osc2.stop(now + 0.42);
+
+    osc1.onended = () => env1.disconnect();
+    osc2.onended = () => env2.disconnect();
+
+    // Subtle noise layer for texture
+    const bufLen = Math.floor(ctx.sampleRate * 0.3);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 400;
+    bp.Q.value = 3;
+
+    const noiseEnv = ctx.createGain();
+    noiseEnv.gain.setValueAtTime(0.015, now);
+    noiseEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    noiseSrc.connect(bp);
+    bp.connect(noiseEnv);
+    noiseEnv.connect(this.bus);
+    noiseSrc.start(now);
+    noiseSrc.onended = () => noiseEnv.disconnect();
+  }
+
+  /**
    * Missile impact: explosion.
    * Low sine (80 Hz, 50 ms) + noise burst (100 ms) with quick decay. Boom.
    */
