@@ -370,16 +370,21 @@ export function evaluateMilitaryActions(
     }
   }
 
-  // Scout unexplored systems — always valuable, especially for expansionist
+  // Scout unexplored systems — pick the smallest fleet (probes/scouts) for scouting
   if (unexplored.length > 0) {
     const scoutTarget = unexplored[0]!;
     const personality = empire.aiPersonality ?? 'defensive';
     const basePriority = personality === 'expansionist' ? 55 : 35;
+    // Prefer smallest fleet for scouting (likely a probe)
+    const idleFleets = empireFleets.filter(f => !f.destination);
+    const scoutFleet = idleFleets.length > 0
+      ? idleFleets.reduce((a, b) => a.ships.length <= b.ships.length ? a : b)
+      : empireFleets[0]!;
     decisions.push({
       type: 'move_fleet',
       priority: applyWeight(basePriority, 'move_fleet', personality),
       params: {
-        fleetId: empireFleets[0]!.id,
+        fleetId: scoutFleet.id,
         destinationSystemId: scoutTarget,
         purpose: 'scout',
       },
@@ -401,17 +406,21 @@ export function evaluateMilitaryActions(
         ? evaluation.militaryPower / opponentMilitary
         : evaluation.militaryPower > 0 ? 3 : 0;
 
-      // At war: always reinforce / move to attack
+      // At war: move the largest idle fleet to attack
       const relation = empire.diplomacy.find(d => d.empireId === opponentId);
       if (relation?.status === 'at_war' && empireFleets.length > 0) {
-        // Find opponent-owned systems to target
         const targetSystem = galaxy.systems.find(s => s.ownerId === opponentId);
         if (targetSystem) {
+          // Pick the largest idle fleet for attack
+          const idleAttackFleets = empireFleets.filter(f => !f.destination);
+          const attackFleet = idleAttackFleets.length > 0
+            ? idleAttackFleets.reduce((a, b) => a.ships.length >= b.ships.length ? a : b)
+            : empireFleets[0]!;
           decisions.push({
             type: 'move_fleet',
             priority: applyWeight(70, 'move_fleet', personality),
             params: {
-              fleetId: empireFleets[0]!.id,
+              fleetId: attackFleet.id,
               destinationSystemId: targetSystem.id,
               purpose: 'attack',
               targetEmpireId: opponentId,
@@ -451,11 +460,16 @@ export function evaluateMilitaryActions(
             s.wormholes.some(w => threatSystems.some(ts => ts.id === w)),
         );
         if (borderSystem) {
+          // Pick a different fleet than the one scouting/attacking (second-largest idle, or first)
+          const idleDefFleets = empireFleets.filter(f => !f.destination);
+          const defFleet = idleDefFleets.length > 1
+            ? idleDefFleets.sort((a, b) => b.ships.length - a.ships.length)[1]!
+            : empireFleets[0]!;
           decisions.push({
             type: 'move_fleet',
             priority: applyWeight(45, 'move_fleet', personality),
             params: {
-              fleetId: empireFleets[0]!.id,
+              fleetId: defFleet.id,
               destinationSystemId: borderSystem.id,
               purpose: 'reinforce',
               threatEmpireId: topThreatId,
@@ -563,8 +577,12 @@ export function evaluateDiplomaticActions(
     const alreadyHasNonAggression = relation?.treaties.some(t => t.type === 'non_aggression') ?? false;
     const alreadyHasTrade = relation?.treaties.some(t => t.type === 'trade') ?? false;
 
+    const alreadyHasResearch = relation?.treaties.some(t => t.type === 'research_sharing') ?? false;
+    const alreadyHasDefence = relation?.treaties.some(t => t.type === 'mutual_defence') ?? false;
+    const alreadyHasAlliance = relation?.treaties.some(t => t.type === 'alliance') ?? false;
+
     if (personality === 'diplomatic') {
-      // Diplomatic: propose trade and alliances broadly
+      // Diplomatic: propose the full treaty ladder based on current relationship
       if (!alreadyHasTrade) {
         decisions.push({
           type: 'diplomacy',
@@ -573,12 +591,36 @@ export function evaluateDiplomaticActions(
           reasoning: `Propose trade treaty with ${opponentId} (diplomatic strategy)`,
         });
       }
-      if (threatLevel < 40 && status !== 'hostile') {
+      if (!alreadyHasNonAggression && status !== 'hostile') {
         decisions.push({
           type: 'diplomacy',
-          priority: applyWeight(55, 'diplomacy', personality),
+          priority: applyWeight(60, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'non_aggression' },
+          reasoning: `Propose non-aggression with ${opponentId} (diplomatic strategy)`,
+        });
+      }
+      if (alreadyHasTrade && !alreadyHasResearch) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(50, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'research_sharing' },
+          reasoning: `Propose research sharing with ${opponentId} (existing trade)`,
+        });
+      }
+      if (alreadyHasNonAggression && !alreadyHasDefence && threatLevel < 50) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(45, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'mutual_defence' },
+          reasoning: `Propose mutual defence with ${opponentId} (existing non-aggression)`,
+        });
+      }
+      if (alreadyHasDefence && !alreadyHasAlliance && threatLevel < 40 && status !== 'hostile') {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(40, 'diplomacy', personality),
           params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'alliance' },
-          reasoning: `Propose alliance with ${opponentId} (low threat, diplomatic strategy)`,
+          reasoning: `Propose alliance with ${opponentId} (established relationship)`,
         });
       }
     }
@@ -591,6 +633,35 @@ export function evaluateDiplomaticActions(
           priority: applyWeight(50 + threatLevel * 0.2, 'diplomacy', personality),
           params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'non_aggression' },
           reasoning: `Propose non-aggression with ${opponentId} (threat: ${threatLevel})`,
+        });
+      }
+      // Economic: also propose trade
+      if (personality === 'economic' && !alreadyHasTrade && status !== 'hostile') {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(55, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'trade' },
+          reasoning: `Propose trade with ${opponentId} (economic strategy)`,
+        });
+      }
+    }
+
+    if (personality === 'researcher') {
+      // Researcher: propose research sharing with anyone not hostile
+      if (!alreadyHasResearch && status !== 'hostile') {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(60, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'research_sharing' },
+          reasoning: `Propose research sharing with ${opponentId} (researcher strategy)`,
+        });
+      }
+      if (!alreadyHasTrade && status !== 'hostile') {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(45, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'trade' },
+          reasoning: `Propose trade with ${opponentId} (funding research)`,
         });
       }
     }
