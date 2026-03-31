@@ -15,7 +15,7 @@ import {
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
 // ---------------------------------------------------------------------------
@@ -212,6 +212,10 @@ export class CombatScene extends Phaser.Scene {
   /** Currently selected friendly TacticalShip id (or null) */
   private selectedShipId: string | null = null;
 
+  /** Attack-move mode: next click issues move + sets stance to at_ease */
+  private attackMoveMode = false;
+  private attackMoveLabel: Phaser.GameObjects.Text | null = null;
+
   // ── Speed control ──────────────────────────────────────────────────────────
   private speedIndex = 0;
   private tickTimer!: Phaser.Time.TimerEvent;
@@ -277,6 +281,8 @@ export class CombatScene extends Phaser.Scene {
     this.battleEnded = false;
     this.paused = false;
     this.selectedShipId = null;
+    this.attackMoveMode = false;
+    this.attackMoveLabel = null;
     this.speedIndex = 0;
     this.shipContainers.clear();
     this.prevHull.clear();
@@ -627,8 +633,12 @@ export class CombatScene extends Phaser.Scene {
             (this as unknown as Record<string, unknown>).selectedShipIds = selected.map(s => s.id);
           }
         } else if (this.selectedShipId) {
-          // Small click (no drag) on empty space — move selected ships there
-          this._issueOrder({ type: 'move', x: worldEnd.x, y: worldEnd.y });
+          // Small click (no drag) on empty space
+          if (this.attackMoveMode) {
+            this._applyAttackMove(worldEnd.x, worldEnd.y);
+          } else {
+            this._issueOrder({ type: 'move', x: worldEnd.x, y: worldEnd.y });
+          }
         }
 
         this.dragSelecting = false;
@@ -1604,13 +1614,35 @@ export class CombatScene extends Phaser.Scene {
       btn.setInteractive({ useHandCursor: true });
       btn.on('pointerdown', () => {
         (this as unknown as Record<string, unknown>).currentStance = st.type;
-        // Apply stance to all player ships
-        this.tacticalState = setShipStance(this.tacticalState, 'attacker', st.type as import('@nova-imperia/shared').CombatStance);
+        const stance = st.type as CombatStance;
+        // Apply stance to selected ships only, or all player ships if none selected
+        const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+        if (multiIds && multiIds.length > 0) {
+          for (const id of multiIds) {
+            this.tacticalState = setShipStance(this.tacticalState, id, stance);
+          }
+        } else if (this.selectedShipId) {
+          this.tacticalState = setShipStance(this.tacticalState, this.selectedShipId, stance);
+        } else {
+          const side = this._getPlayerSide();
+          this.tacticalState = setShipStance(this.tacticalState, side, stance);
+        }
         // Flee stance also issues flee orders
         if (st.type === 'flee') {
-          for (const ship of this.tacticalState.ships) {
-            if (!ship.destroyed && !ship.routed && this._isPlayerSide(ship)) {
-              this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
+          if (multiIds && multiIds.length > 0) {
+            for (const id of multiIds) {
+              const ship = this.tacticalState.ships.find(s => s.id === id);
+              if (ship && !ship.destroyed && !ship.routed) {
+                this.tacticalState = setShipOrder(this.tacticalState, id, { type: 'flee' });
+              }
+            }
+          } else if (this.selectedShipId) {
+            this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, { type: 'flee' });
+          } else {
+            for (const ship of this.tacticalState.ships) {
+              if (!ship.destroyed && !ship.routed && this._isPlayerSide(ship)) {
+                this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
+              }
             }
           }
         }
@@ -1890,15 +1922,39 @@ export class CombatScene extends Phaser.Scene {
       e.preventDefault();
     });
 
-    // ESC to deselect
+    // ESC to deselect and cancel attack-move
     this.input.keyboard?.on('keydown-ESC', () => {
       this.selectedShipId = null;
       (this as unknown as Record<string, unknown>).selectedShipIds = null;
+      this._cancelAttackMove();
     });
 
     // H to halt — selected ships stop dead and hold position
     this.input.keyboard?.on('keydown-H', () => {
       this._issueOrder({ type: 'idle' });
+    });
+
+    // A to toggle attack-move mode (advance to position whilst engaging enemies)
+    this.input.keyboard?.on('keydown-A', (event: KeyboardEvent) => {
+      // Ignore if Ctrl/Meta is held (that's select-all)
+      if (event.ctrlKey || event.metaKey) return;
+      if (!this.selectedShipId) return;
+      if (this.attackMoveMode) {
+        this._cancelAttackMove();
+      } else {
+        this.attackMoveMode = true;
+        // Show visual feedback label
+        const { width } = this.cameras.main;
+        this.attackMoveLabel = this.add.text(width / 2, 50, 'ATTACK-MOVE — click to set destination (ESC to cancel)', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#ff8844',
+          stroke: '#000000',
+          strokeThickness: 2,
+          align: 'center',
+        });
+        this.attackMoveLabel.setOrigin(0.5, 0).setScrollFactor(0).setDepth(110);
+      }
     });
 
     // Ctrl+A to select all friendly ships
@@ -1963,6 +2019,12 @@ export class CombatScene extends Phaser.Scene {
           }
         }
 
+        // Attack-move: left-click on empty space applies attack-move immediately
+        if (this.attackMoveMode && this.selectedShipId) {
+          this._applyAttackMove(worldPoint.x, worldPoint.y);
+          return;
+        }
+
         // Start drag selection box — will complete on pointerup
         this.dragSelecting = true;
         this.dragStartWorld = { x: worldPoint.x, y: worldPoint.y };
@@ -2011,21 +2073,74 @@ export class CombatScene extends Phaser.Scene {
       }
     }
 
+    // Attack-move: set stance to at_ease then issue move
+    if (this.attackMoveMode) {
+      this._applyAttackMove(worldPoint.x, worldPoint.y);
+      return;
+    }
+
     // Otherwise — move order
     this._issueOrder({ type: 'move', x: worldPoint.x, y: worldPoint.y });
   }
 
   private _issueOrder(order: ShipOrder): void {
-    // If multiple ships selected (Ctrl+A), issue order to all
+    // If multiple ships selected, issue order to all
     const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
     if (multiIds && multiIds.length > 1) {
-      for (const id of multiIds) {
-        this.tacticalState = setShipOrder(this.tacticalState, id, order);
+      // For move orders, preserve relative offsets so ships don't stack
+      if (order.type === 'move') {
+        const selectedShips = multiIds
+          .map(id => this.tacticalState.ships.find(s => s.id === id))
+          .filter((s): s is TacticalShip => !!s && !s.destroyed && !s.routed);
+        if (selectedShips.length > 0) {
+          // Calculate centroid of selected ships
+          const cx = selectedShips.reduce((sum, s) => sum + s.position.x, 0) / selectedShips.length;
+          const cy = selectedShips.reduce((sum, s) => sum + s.position.y, 0) / selectedShips.length;
+          for (const ship of selectedShips) {
+            const offsetX = ship.position.x - cx;
+            const offsetY = ship.position.y - cy;
+            this.tacticalState = setShipOrder(this.tacticalState, ship.id, {
+              type: 'move',
+              x: order.x! + offsetX,
+              y: order.y! + offsetY,
+            });
+          }
+        }
+      } else {
+        // Attack / flee / idle — same order for all
+        for (const id of multiIds) {
+          this.tacticalState = setShipOrder(this.tacticalState, id, order);
+        }
       }
       return;
     }
     if (!this.selectedShipId) return;
     this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, order);
+  }
+
+  /** Attack-move: set selected ships to at_ease stance then issue move order. */
+  private _applyAttackMove(targetX: number, targetY: number): void {
+    // Set at_ease stance on selected ships
+    const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+    if (multiIds && multiIds.length > 0) {
+      for (const id of multiIds) {
+        this.tacticalState = setShipStance(this.tacticalState, id, 'at_ease');
+      }
+    } else if (this.selectedShipId) {
+      this.tacticalState = setShipStance(this.tacticalState, this.selectedShipId, 'at_ease');
+    }
+    // Issue move order (uses offset-preserving logic for multi-ship)
+    this._issueOrder({ type: 'move', x: targetX, y: targetY });
+    this._cancelAttackMove();
+  }
+
+  /** Cancel attack-move mode and remove the HUD label. */
+  private _cancelAttackMove(): void {
+    this.attackMoveMode = false;
+    if (this.attackMoveLabel) {
+      this.attackMoveLabel.destroy();
+      this.attackMoveLabel = null;
+    }
   }
 
   // =========================================================================
@@ -2100,7 +2215,13 @@ export class CombatScene extends Phaser.Scene {
 
   private _setPlayerFormation(formation: FormationType): void {
     const side = this._getPlayerSide();
-    this.tacticalState = setFormation(this.tacticalState, side, formation);
+    // If ships are selected, apply formation only to those ships
+    const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
+    if (multiIds && multiIds.length > 0) {
+      this.tacticalState = setFormation(this.tacticalState, side, formation, multiIds);
+    } else {
+      this.tacticalState = setFormation(this.tacticalState, side, formation);
+    }
 
     // Update button highlight colours
     for (const btn of this.formationButtons) {

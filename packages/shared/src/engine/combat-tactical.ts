@@ -647,36 +647,48 @@ function wingsFormation(count: number): FormationPosition[] {
 /**
  * Change the formation for one side, repositioning surviving ships.
  * Ships receive move orders toward their new formation positions.
+ *
+ * When `shipIds` is provided, only those ships are repositioned and
+ * the formation is centred on the centroid of the selected subset.
+ * All other ships on the side keep their existing orders untouched.
  */
 export function setFormation(
   state: TacticalState,
   side: 'attacker' | 'defender',
   formation: FormationType,
+  shipIds?: string[],
 ): TacticalState {
-  const sideShips = state.ships.filter(
+  const allSideShips = state.ships.filter(
     (s) => s.side === side && !s.destroyed && !s.routed,
   );
-  // Centre formation on the side's current average position
+
+  // Determine which ships to reposition
+  const selectedSet = shipIds ? new Set(shipIds) : null;
+  const targetShips = selectedSet
+    ? allSideShips.filter((s) => selectedSet.has(s.id))
+    : allSideShips;
+
+  // Centre formation on the selected ships' current average position
   let avgX = 0, avgY = 0;
-  for (const s of sideShips) { avgX += s.position.x; avgY += s.position.y; }
-  avgX /= sideShips.length || 1;
-  avgY /= sideShips.length || 1;
+  for (const s of targetShips) { avgX += s.position.x; avgY += s.position.y; }
+  avgX /= targetShips.length || 1;
+  avgY /= targetShips.length || 1;
   const margin = 200;
   const centreX = Math.max(margin, Math.min(state.battlefieldWidth - margin, avgX));
   const centreY = Math.max(margin, Math.min(state.battlefieldHeight - margin, avgY));
-  const positions = getFormationPositions(formation, sideShips.length);
+  const positions = getFormationPositions(formation, targetShips.length);
 
-  const sideShipIds = new Set(sideShips.map((s) => s.id));
-  let sideIdx = 0;
+  const targetShipIds = new Set(targetShips.map((s) => s.id));
+  let targetIdx = 0;
 
   // Before battle starts (tick <= 1): set positions INSTANTLY
   // During battle: give move orders that timeout after 30 ticks
   const instant = state.tick <= 1;
 
   const updatedShips = state.ships.map((s) => {
-    if (!sideShipIds.has(s.id)) return s;
-    const pos = positions[sideIdx] ?? { offsetX: 0, offsetY: 0 };
-    sideIdx++;
+    if (!targetShipIds.has(s.id)) return s;
+    const pos = positions[targetIdx] ?? { offsetX: 0, offsetY: 0 };
+    targetIdx++;
     const targetX = centreX + pos.offsetX;
     const targetY = centreY + pos.offsetY;
 
@@ -1227,11 +1239,27 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         // Stance determines what happens next (at_ease will auto-engage)
         return { ...updated, order: { type: 'idle' } };
       }
+      // Attack-move: at_ease ships engage nearby enemies along the way while
+      // keeping their move order. Only divert if enemy is within detection
+      // range (2x max weapon range). Once nearby enemies are dead, resume
+      // course to the original destination.
+      if (ship.stance === 'at_ease') {
+        const enemy = findTarget(ship, state.ships);
+        if (enemy != null) {
+          const eDist = dist(ship.position, enemy.position);
+          const detectionRange = engageDistance(ship) * 2.5;
+          if (eDist < detectionRange) {
+            // Divert to engage — approach to weapon range, keep move order
+            return moveToward(updated, enemy.position, engageDistance(ship));
+          }
+        }
+      }
       // Timeout: if ship has been trying to reach position for >30 ticks, give up
+      // (Does not apply to at_ease — they use attack-move above)
       if (state.tick > 30 && ship.order.type === 'move') {
         const enemies = state.ships.filter(s => s.side !== ship.side && !s.destroyed && !s.routed);
-        if (enemies.length > 0 && ship.stance === 'at_ease') {
-          return { ...updated, order: { type: 'idle' } }; // at_ease idle will auto-engage
+        if (enemies.length > 0 && ship.stance !== 'at_ease') {
+          return { ...updated, order: { type: 'idle' } };
         }
       }
       return moveToward(updated, target, 2);
