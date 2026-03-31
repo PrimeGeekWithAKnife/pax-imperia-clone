@@ -432,12 +432,29 @@ describe('evaluateMilitaryActions', () => {
   });
 
   it('suggests war against weakest enemy when aggressive and strong', () => {
-    const galaxy = makeGalaxy([makeSystem()]);
+    // Set up a border system so the strategy engine sees geographic exposure
+    const homeSystem = makeSystem({ id: 'sys-1', ownerId: 'empire-1', wormholes: ['sys-enemy'] });
+    const enemySystem = makeSystem({ id: 'sys-enemy', ownerId: 'weak-enemy', wormholes: ['sys-1'] });
+    const galaxy = makeGalaxy([homeSystem, enemySystem]);
+
+    // Use a warlike species (high combat, low diplomacy) to push warScore up
+    const warlikeSpecies = makeSpecies({
+      id: 'khazari',
+      traits: { construction: 9, reproduction: 5, research: 3, espionage: 2, economy: 6, combat: 9, diplomacy: 2 },
+    });
     const empire = makeEmpire({
       aiPersonality: 'aggressive',
+      species: warlikeSpecies,
+      credits: 3000,
+      knownSystems: ['sys-1', 'sys-enemy'],
+      government: 'autocracy',
       diplomacy: [
         { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
+    });
+    const weakEnemy = makeEmpire({
+      id: 'weak-enemy',
+      species: makeSpecies({ traits: { construction: 3, reproduction: 5, research: 5, espionage: 5, economy: 5, combat: 3, diplomacy: 5 } }),
     });
     const fleet = makeFleet({ empireId: 'empire-1' });
     const ship = makeShip();
@@ -451,7 +468,8 @@ describe('evaluateMilitaryActions', () => {
       threatAssessment: new Map([['weak-enemy', 25]]),
     };
 
-    const decisions = evaluateMilitaryActions(empire, galaxy, [fleet], [ship], strongEval);
+    const gameState = makeGameState(galaxy, [empire, weakEnemy], [fleet], [ship]);
+    const decisions = evaluateMilitaryActions(empire, galaxy, [fleet], [ship], strongEval, gameState, 60);
     const warDecision = decisions.find(d => d.type === 'war');
     expect(warDecision).toBeDefined();
     expect(warDecision!.params['targetEmpireId']).toBe('weak-enemy');
@@ -976,18 +994,35 @@ describe('AI with multiple enemies', () => {
   });
 
   it('aggressive AI targets the weakest enemy when attacking', () => {
-    const weakSystem = makeSystem({ id: 'sys-weak', ownerId: 'weak-enemy' });
-    const strongSystem = makeSystem({ id: 'sys-strong', ownerId: 'strong-enemy' });
-    const homeSystem = makeSystem({ id: 'sys-home', ownerId: 'empire-1' });
+    // Set up connected systems so the strategy engine sees border exposure
+    const homeSystem = makeSystem({ id: 'sys-home', ownerId: 'empire-1', wormholes: ['sys-weak', 'sys-strong'] });
+    const weakSystem = makeSystem({ id: 'sys-weak', ownerId: 'weak-enemy', wormholes: ['sys-home'] });
+    const strongSystem = makeSystem({ id: 'sys-strong', ownerId: 'strong-enemy', wormholes: ['sys-home'] });
     const galaxy = makeGalaxy([homeSystem, weakSystem, strongSystem]);
 
+    // Warlike species with high combat, low diplomacy
+    const warlikeSpecies = makeSpecies({
+      id: 'khazari',
+      traits: { construction: 9, reproduction: 5, research: 3, espionage: 2, economy: 6, combat: 9, diplomacy: 2 },
+    });
     const empire = makeEmpire({
       aiPersonality: 'aggressive',
+      species: warlikeSpecies,
+      credits: 3000,
+      government: 'autocracy',
       knownSystems: ['sys-home', 'sys-weak', 'sys-strong'],
       diplomacy: [
         { empireId: 'weak-enemy', status: 'neutral', treaties: [], attitude: -30, tradeRoutes: 0, communicationLevel: 'none' as const },
         { empireId: 'strong-enemy', status: 'neutral', treaties: [], attitude: -20, tradeRoutes: 0, communicationLevel: 'none' as const },
       ],
+    });
+    const weakEnemy = makeEmpire({
+      id: 'weak-enemy',
+      species: makeSpecies({ traits: { construction: 3, reproduction: 5, research: 5, espionage: 5, economy: 5, combat: 3, diplomacy: 5 } }),
+    });
+    const strongEnemy = makeEmpire({
+      id: 'strong-enemy',
+      species: makeSpecies({ traits: { construction: 7, reproduction: 5, research: 5, espionage: 5, economy: 5, combat: 7, diplomacy: 5 } }),
     });
     const fleet = makeFleet({ empireId: 'empire-1', position: { systemId: 'sys-home' } });
     const ship = makeShip();
@@ -1002,7 +1037,8 @@ describe('AI with multiple enemies', () => {
       threatAssessment: new Map([['weak-enemy', 25], ['strong-enemy', 45]]),
     };
 
-    const decisions = evaluateMilitaryActions(empire, galaxy, [fleet], [ship], eval_);
+    const gameState = makeGameState(galaxy, [empire, weakEnemy, strongEnemy], [fleet], [ship]);
+    const decisions = evaluateMilitaryActions(empire, galaxy, [fleet], [ship], eval_, gameState, 60);
     const warDecisions = decisions.filter(d => d.type === 'war');
     // Should target at least the weak enemy (attack ratio is very high against them)
     expect(warDecisions.some(d => d.params['targetEmpireId'] === 'weak-enemy')).toBe(true);

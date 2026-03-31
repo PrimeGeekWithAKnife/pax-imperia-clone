@@ -6,15 +6,16 @@
  * bonuses. All functions are side-effect-free.
  */
 
-import type { Empire, Species, AIPersonality, DiplomaticStatus } from '../types/species.js';
+import type { Empire, Species, AIPersonality, DiplomaticStatus, GovernmentType } from '../types/species.js';
 import type { Galaxy, Planet, BuildingType } from '../types/galaxy.js';
-import type { GameState } from '../types/game-state.js';
+import type { GameState, VictoryCriteria } from '../types/game-state.js';
 import type { Fleet, Ship } from '../types/ships.js';
 import type { Technology } from '../types/technology.js';
 import { calculateHabitability, canColonize, getUpgradeCost, getMaxLevelForAge } from './colony.js';
 import { getFleetStrength } from './fleet.js';
 import { getAvailableTechs, type ResearchState } from './research.js';
 import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import { GOVERNMENTS } from '../types/government.js';
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -46,6 +47,41 @@ export interface AIEvaluation {
   expansionPotential: number;
   /** Threat level per opponent empire, 0–100. */
   threatAssessment: Map<string, number>;
+}
+
+// ---------------------------------------------------------------------------
+// War strategy types
+// ---------------------------------------------------------------------------
+
+/**
+ * Classification of war intensity — from cold posturing through to
+ * existential conflict. The AI escalates or de-escalates dynamically.
+ */
+export type WarType =
+  | 'total_war'        // Existential — fight to the death (homeworld threatened, conquered planets)
+  | 'limited_war'      // Specific objective (take one system, punish an aggression)
+  | 'cold_war'         // Hostile stance, occasional skirmishes, no major offensives
+  | 'border_skirmish'  // Low-intensity, testing defences
+  | 'none';            // No war warranted
+
+/**
+ * The result of the multi-factor war decision analysis.
+ *
+ * Returned by `evaluateWarStrategy()` — a pure function that weighs
+ * military calculus, victory alignment, species nature, domestic opinion
+ * and geographic factors to produce a nuanced war/peace recommendation.
+ */
+export interface WarStrategy {
+  /** Whether the AI should declare war this tick. */
+  shouldDeclareWar: boolean;
+  /** Whether the AI should actively seek peace (when already at war). */
+  shouldSeekPeace: boolean;
+  /** The appropriate intensity level for the conflict. */
+  warType: WarType;
+  /** Confidence in the decision, 0–1. Low confidence → cautious behaviour. */
+  confidence: number;
+  /** Human-readable explanation of the decision factors. */
+  reasoning: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +211,591 @@ function computeExpansionPotential(empire: Empire, galaxy: Galaxy, species: Spec
 }
 
 
+// ---------------------------------------------------------------------------
+// War strategy: multi-factor decision engine
+// ---------------------------------------------------------------------------
+
+/**
+ * Government types considered "democratic" for war-weariness calculations.
+ * These governments face stronger domestic pressure from unhappy populations.
+ */
+const DEMOCRATIC_GOVERNMENTS: ReadonlySet<GovernmentType> = new Set([
+  'democracy', 'republic', 'federation', 'equality',
+]);
+
+/**
+ * Government types that suppress domestic opinion — war-weariness has
+ * negligible political impact under authoritarian rule.
+ */
+const AUTHORITARIAN_GOVERNMENTS: ReadonlySet<GovernmentType> = new Set([
+  'autocracy', 'empire', 'military_junta', 'dictatorship', 'forced_labour', 'hive_mind',
+]);
+
+/**
+ * Species-specific war behaviour overrides keyed by species ID.
+ *
+ * These capture lore-driven personality quirks that override or modify
+ * the generic trait-based calculations:
+ *
+ * - Khazari: honour culture with a grudge-ledger. NEVER surrender willingly.
+ * - Vaelori: reluctant warriors, seek peace at the earliest opportunity.
+ * - Drakmari: pragmatic hunters — fight when advantageous, retreat when not.
+ * - Nexari: cold calculators, no emotional attachment to war or peace.
+ * - Zorvathi: hive-mind, war is merely efficient resource acquisition.
+ */
+interface SpeciesWarModifiers {
+  /** Multiplier on the peace-seeking score. 0 = never seek peace, 2 = very eager. */
+  peaceSeeking: number;
+  /** Multiplier on the war-declaration score. 2 = very hawkish, 0.5 = dovish. */
+  warHawkishness: number;
+  /** Minimum military ratio before this species will consider surrender. */
+  minimumSurrenderRatio: number;
+  /** Flavour tag for reasoning strings. */
+  loreNote: string;
+}
+
+const SPECIES_WAR_MODIFIERS: Record<string, SpeciesWarModifiers> = {
+  khazari: {
+    peaceSeeking: 0.1,        // Almost never seek peace — honour demands perseverance
+    warHawkishness: 1.6,
+    minimumSurrenderRatio: 0, // Will fight to the last ship
+    loreNote: 'Khazari honour forbids surrender — the grudge-ledger demands satisfaction',
+  },
+  vaelori: {
+    peaceSeeking: 2.0,        // Reluctant warriors, seek peace swiftly
+    warHawkishness: 0.4,
+    minimumSurrenderRatio: 0.9,
+    loreNote: 'The Vaelori seek harmony — war is dissonance in the Lattice',
+  },
+  drakmari: {
+    peaceSeeking: 1.0,        // Pragmatic — will disengage when outmatched
+    warHawkishness: 1.2,
+    minimumSurrenderRatio: 0.6,
+    loreNote: 'The Deep Law: strike precisely, retreat when the hunt turns',
+  },
+  nexari: {
+    peaceSeeking: 1.0,        // Calculated — no emotional bias either way
+    warHawkishness: 1.0,
+    minimumSurrenderRatio: 0.5,
+    loreNote: 'The collective calculates without sentiment',
+  },
+  zorvathi: {
+    peaceSeeking: 0.6,        // Hive sees war as resource acquisition — slow to stop
+    warHawkishness: 1.3,
+    minimumSurrenderRatio: 0.4,
+    loreNote: 'The hive expands; stasis is decay',
+  },
+  sylvani: {
+    peaceSeeking: 1.8,        // Deeply peaceful, will endure much before fighting
+    warHawkishness: 0.3,
+    minimumSurrenderRatio: 0.8,
+    loreNote: 'The Sylvani grow — they do not destroy',
+  },
+  teranos: {
+    peaceSeeking: 1.0,        // Adaptable — no fixed bias
+    warHawkishness: 1.0,
+    minimumSurrenderRatio: 0.5,
+    loreNote: 'Humanity adapts; the question is which version is deciding',
+  },
+};
+
+/**
+ * Get species-specific war modifiers, falling back to neutral defaults
+ * for species without explicit lore overrides.
+ */
+function getSpeciesWarModifiers(speciesId: string): SpeciesWarModifiers {
+  return SPECIES_WAR_MODIFIERS[speciesId] ?? {
+    peaceSeeking: 1.0,
+    warHawkishness: 1.0,
+    minimumSurrenderRatio: 0.5,
+    loreNote: '',
+  };
+}
+
+/**
+ * Determine the best victory strategy for an AI given its personality and
+ * the active victory criteria. Returns the criterion the AI should pursue.
+ *
+ * This drives war/peace calculus: a conquest-focused AI is far more
+ * willing to fight than one pursuing a diplomatic or research victory.
+ */
+function inferVictoryGoal(
+  personality: AIPersonality,
+  activeCriteria: VictoryCriteria[] | undefined,
+): VictoryCriteria {
+  // Default: all criteria enabled
+  const criteria = activeCriteria && activeCriteria.length > 0
+    ? activeCriteria
+    : ['conquest', 'economic', 'research', 'diplomatic'] as VictoryCriteria[];
+
+  // Personality → preferred victory path
+  const preferenceOrder: Record<AIPersonality, VictoryCriteria[]> = {
+    aggressive:   ['conquest', 'economic', 'research', 'diplomatic'],
+    defensive:    ['diplomatic', 'economic', 'research', 'conquest'],
+    economic:     ['economic', 'diplomatic', 'research', 'conquest'],
+    diplomatic:   ['diplomatic', 'economic', 'research', 'conquest'],
+    expansionist: ['conquest', 'economic', 'diplomatic', 'research'],
+    researcher:   ['research', 'economic', 'diplomatic', 'conquest'],
+  };
+
+  const preferred = preferenceOrder[personality];
+  for (const goal of preferred) {
+    if (criteria.includes(goal)) return goal;
+  }
+  // Fallback: first available
+  return criteria[0]!;
+}
+
+/**
+ * Count how many systems the target empire owns that are adjacent to
+ * systems owned by the evaluating empire. Higher values mean more
+ * geographic exposure and vulnerability.
+ */
+function countBorderSystems(
+  empireId: string,
+  targetId: string,
+  galaxy: Galaxy,
+): number {
+  let borderCount = 0;
+  const empireSystemIds = new Set(
+    galaxy.systems.filter(s => s.ownerId === empireId).map(s => s.id),
+  );
+
+  for (const system of galaxy.systems) {
+    if (system.ownerId !== targetId) continue;
+    // Check if any wormhole connects to an empire-owned system
+    const touchesEmpire = system.wormholes.some(w => empireSystemIds.has(w));
+    if (touchesEmpire) borderCount++;
+  }
+  return borderCount;
+}
+
+/**
+ * Count how many "buffer" systems (unowned or owned by third parties)
+ * separate two empires. More buffers = less geographic pressure.
+ */
+function countBufferSystems(
+  empireId: string,
+  targetId: string,
+  galaxy: Galaxy,
+): number {
+  const empireSystemIds = new Set(
+    galaxy.systems.filter(s => s.ownerId === empireId).map(s => s.id),
+  );
+  const targetSystemIds = new Set(
+    galaxy.systems.filter(s => s.ownerId === targetId).map(s => s.id),
+  );
+
+  let buffers = 0;
+  for (const system of galaxy.systems) {
+    if (system.ownerId === empireId || system.ownerId === targetId) continue;
+    // A buffer system is one connected to both empires' territory
+    const touchesEmpire = system.wormholes.some(w => empireSystemIds.has(w));
+    const touchesTarget = system.wormholes.some(w => targetSystemIds.has(w));
+    if (touchesEmpire && touchesTarget) buffers++;
+  }
+  return buffers;
+}
+
+/**
+ * Determine whether the empire's homeworld (first owned planet) is
+ * under direct threat — i.e. an enemy system is adjacent to the
+ * homeworld's system.
+ */
+function isHomeworldThreatened(
+  empire: Empire,
+  targetId: string,
+  galaxy: Galaxy,
+): boolean {
+  // Find the empire's home system (first owned system as heuristic)
+  const homeSystem = galaxy.systems.find(s => s.ownerId === empire.id);
+  if (!homeSystem) return false;
+
+  return homeSystem.wormholes.some(w => {
+    const neighbour = galaxy.systems.find(s => s.id === w);
+    return neighbour?.ownerId === targetId;
+  });
+}
+
+/**
+ * Classify the appropriate war intensity based on the situation.
+ *
+ * Escalation path: none → border_skirmish → cold_war → limited_war → total_war
+ *
+ * Factors:
+ * - Homeworld threatened → total_war
+ * - Lost planets to this enemy → limited_war (punitive)
+ * - Large border exposure → cold_war
+ * - Minor friction → border_skirmish
+ */
+function classifyWarType(
+  empire: Empire,
+  targetId: string,
+  galaxy: Galaxy,
+  warScore: number,
+): WarType {
+  // Existential: homeworld under direct threat
+  if (isHomeworldThreatened(empire, targetId, galaxy)) return 'total_war';
+
+  // Check if the target owns systems that border many of our systems
+  const borderExposure = countBorderSystems(empire.id, targetId, galaxy);
+  const buffers = countBufferSystems(empire.id, targetId, galaxy);
+
+  // Heavy border contact with no buffer → elevated intensity
+  if (borderExposure >= 3 && buffers === 0) return 'total_war';
+  if (borderExposure >= 2 && warScore > 60) return 'limited_war';
+  if (borderExposure >= 1 && warScore > 40) return 'cold_war';
+  if (warScore > 30) return 'border_skirmish';
+
+  return 'none';
+}
+
+/**
+ * Evaluate whether an empire should declare war on, continue fighting, or
+ * seek peace with a specific opponent.
+ *
+ * This is a multi-factor decision that considers:
+ *  1. **Military calculus** — power ratio, projected trend, economic sustainability
+ *  2. **Victory goal alignment** — does war serve our strategic objective?
+ *  3. **Species nature** — lore-driven personality (Khazari honour, Vaelori reluctance, etc.)
+ *  4. **Domestic opinion** — happiness, war-weariness, government type
+ *  5. **Geographic vulnerability** — border exposure, buffer systems, homeworld safety
+ *
+ * Pure function — no side effects. All inputs are read-only.
+ *
+ * @param empire        The AI empire making the decision.
+ * @param targetId      The opponent empire being evaluated.
+ * @param galaxy        Current galaxy state (for geographic analysis).
+ * @param fleets        All fleets in the game.
+ * @param ships         All ships in the game.
+ * @param evaluation    Pre-computed AIEvaluation for this empire.
+ * @param gameState     Full game state (for victory criteria, empire lookup).
+ * @param avgHappiness  Average happiness across empire's planets (0–100), or null if unknown.
+ */
+export function evaluateWarStrategy(
+  empire: Empire,
+  targetId: string,
+  galaxy: Galaxy,
+  fleets: Fleet[],
+  ships: Ship[],
+  evaluation: AIEvaluation,
+  gameState: GameState,
+  avgHappiness: number | null,
+): WarStrategy {
+  const personality: AIPersonality = empire.aiPersonality ?? 'defensive';
+  const species = empire.species;
+  const speciesMod = getSpeciesWarModifiers(species.id);
+  const relation = empire.diplomacy.find(d => d.empireId === targetId);
+  const currentlyAtWar = relation?.status === 'at_war';
+  const isAllied = relation?.status === 'allied';
+
+  // Short-circuit: never attack allies
+  if (isAllied && !currentlyAtWar) {
+    return {
+      shouldDeclareWar: false,
+      shouldSeekPeace: false,
+      warType: 'none',
+      confidence: 0.95,
+      reasoning: 'Allied — war not considered.',
+    };
+  }
+
+  const reasons: string[] = [];
+  let warScore = 0;     // Positive = pro-war, negative = pro-peace
+  let peaceScore = 0;   // Separate track for peace-seeking (when already at war)
+
+  // =========================================================================
+  // 1. MILITARY CALCULUS
+  // =========================================================================
+
+  // --- Current power ratio ---
+  const empireFleets = getEmpireFleets(empire, fleets);
+  const opponentFleets = fleets.filter(f => f.empireId === targetId);
+  const ourMilitary = computeMilitaryPower(empireFleets, ships);
+  const theirMilitary = computeMilitaryPower(opponentFleets, ships);
+  const attackRatio = theirMilitary > 0
+    ? ourMilitary / theirMilitary
+    : (ourMilitary > 0 ? 3.0 : 0);
+
+  // Strong military advantage → pro-war; disadvantage → pro-peace
+  if (attackRatio >= 2.0) {
+    warScore += 25;
+    reasons.push(`Overwhelming military advantage (${attackRatio.toFixed(1)}x)`);
+  } else if (attackRatio >= 1.5) {
+    warScore += 15;
+    reasons.push(`Significant military advantage (${attackRatio.toFixed(1)}x)`);
+  } else if (attackRatio >= 1.0) {
+    warScore += 5;
+    reasons.push(`Slight military advantage (${attackRatio.toFixed(1)}x)`);
+  } else if (attackRatio >= 0.7) {
+    warScore -= 10;
+    peaceScore += 10;
+    reasons.push(`Military parity or slight disadvantage (${attackRatio.toFixed(1)}x)`);
+  } else {
+    warScore -= 25;
+    peaceScore += 25;
+    reasons.push(`Military disadvantage (${attackRatio.toFixed(1)}x) — caution advised`);
+  }
+
+  // --- Projected trend: construction trait comparison ---
+  // A species that builds faster will close or widen the gap over time.
+  const targetEmpire = gameState.empires.find(e => e.id === targetId);
+  if (targetEmpire) {
+    const ourConstruction = species.traits.construction;
+    const theirConstruction = targetEmpire.species.traits.construction;
+    const constructionDelta = ourConstruction - theirConstruction;
+
+    if (constructionDelta >= 3) {
+      warScore += 10;
+      reasons.push(`Construction advantage (+${constructionDelta}) — we outproduce them`);
+    } else if (constructionDelta <= -3) {
+      warScore -= 10;
+      peaceScore += 5;
+      reasons.push(`Construction disadvantage (${constructionDelta}) — they outproduce us`);
+    }
+  }
+
+  // --- Economic sustainability: can we afford a war? ---
+  // Rough heuristic: credits represent war chest, planets represent income
+  const ownedPlanets = getEmpirePlanets(empire, galaxy);
+  const creditReserves = empire.credits;
+  const planetCount = ownedPlanets.length;
+
+  // Estimated income: ~50 credits/tick per planet (rough approximation)
+  const estimatedIncome = planetCount * 50;
+  // Estimated fleet upkeep: ~20 credits/tick per fleet
+  const estimatedUpkeep = empireFleets.length * 20;
+  const netIncome = estimatedIncome - estimatedUpkeep;
+
+  if (creditReserves > 2000 && netIncome > 0) {
+    warScore += 8;
+    reasons.push(`Strong war chest (${creditReserves} credits, +${netIncome}/tick)`);
+  } else if (creditReserves < 500 || netIncome < 0) {
+    warScore -= 15;
+    peaceScore += 10;
+    reasons.push(`Economic strain (${creditReserves} credits, ${netIncome}/tick) — war unsustainable`);
+  }
+
+  // --- Reserves: how many ticks can we sustain before bankruptcy? ---
+  const ticksUntilBankrupt = netIncome >= 0 ? Infinity : Math.abs(creditReserves / netIncome);
+  if (ticksUntilBankrupt < 50) {
+    warScore -= 10;
+    peaceScore += 8;
+    reasons.push(`Near bankruptcy (~${Math.round(ticksUntilBankrupt)} ticks of reserves)`);
+  }
+
+  // =========================================================================
+  // 2. VICTORY GOAL ALIGNMENT
+  // =========================================================================
+
+  const victoryGoal = inferVictoryGoal(personality, gameState.victoryCriteria);
+
+  switch (victoryGoal) {
+    case 'conquest':
+      warScore += 20;
+      reasons.push('Pursuing conquest victory — war serves our objective');
+      break;
+    case 'economic':
+      // War drains resources; only fight if economically necessary
+      warScore -= 10;
+      peaceScore += 10;
+      reasons.push('Pursuing economic victory — war drains resources');
+      break;
+    case 'research':
+      // Research is slowed by combat; avoid war
+      warScore -= 15;
+      peaceScore += 12;
+      reasons.push('Pursuing research victory — war disrupts progress');
+      break;
+    case 'diplomatic':
+      // Diplomats avoid war unless attacked
+      warScore -= 20;
+      peaceScore += 15;
+      reasons.push('Pursuing diplomatic victory — war damages standing');
+      break;
+  }
+
+  // =========================================================================
+  // 3. SPECIES NATURE (traits + lore)
+  // =========================================================================
+
+  // --- Combat trait: warlike species fight on principle ---
+  if (species.traits.combat > 7) {
+    warScore += 12;
+    reasons.push(`Warlike nature (combat trait ${species.traits.combat})`);
+  } else if (species.traits.combat <= 3) {
+    warScore -= 8;
+    reasons.push(`Peaceful nature (combat trait ${species.traits.combat})`);
+  }
+
+  // --- Diplomacy trait: diplomatic species prefer negotiation ---
+  if (species.traits.diplomacy > 7) {
+    warScore -= 12;
+    peaceScore += 10;
+    reasons.push(`Diplomatic nature (diplomacy trait ${species.traits.diplomacy})`);
+  } else if (species.traits.diplomacy <= 2) {
+    warScore += 5;
+    reasons.push(`Low diplomatic inclination (diplomacy trait ${species.traits.diplomacy})`);
+  }
+
+  // --- Espionage trait: prefer shadow wars over direct conflict ---
+  if (species.traits.espionage > 7) {
+    warScore -= 8;
+    reasons.push(`Espionage-oriented (trait ${species.traits.espionage}) — prefers covert action`);
+  }
+
+  // --- Species-specific lore modifiers ---
+  warScore *= speciesMod.warHawkishness;
+  peaceScore *= speciesMod.peaceSeeking;
+
+  if (speciesMod.loreNote) {
+    reasons.push(speciesMod.loreNote);
+  }
+
+  // =========================================================================
+  // 4. DOMESTIC OPINION
+  // =========================================================================
+
+  const happiness = avgHappiness ?? 60; // Default to neutral if unknown
+  const govModifiers = GOVERNMENTS[empire.government]?.modifiers;
+  const isDemocratic = DEMOCRATIC_GOVERNMENTS.has(empire.government);
+  const isAuthoritarian = AUTHORITARIAN_GOVERNMENTS.has(empire.government);
+
+  // War-weariness: low happiness makes war politically costly
+  if (happiness < 40) {
+    // Population is war-weary
+    const wearinessPenalty = isDemocratic ? 20 : isAuthoritarian ? 5 : 12;
+    warScore -= wearinessPenalty;
+    peaceScore += wearinessPenalty;
+    reasons.push(
+      `War-weary population (happiness ${Math.round(happiness)})` +
+      (isDemocratic ? ' — democratic pressure amplified' : ''),
+    );
+  } else if (happiness > 70) {
+    // Happy population can tolerate conflict
+    warScore += 5;
+    reasons.push(`Content population (happiness ${Math.round(happiness)}) — can absorb conflict`);
+  }
+
+  // --- High reproduction absorbs casualties better ---
+  if (species.traits.reproduction >= 7) {
+    warScore += 5;
+    reasons.push(`High reproduction (trait ${species.traits.reproduction}) — casualty-tolerant`);
+  } else if (species.traits.reproduction <= 3) {
+    warScore -= 5;
+    peaceScore += 3;
+    reasons.push(`Low reproduction (trait ${species.traits.reproduction}) — casualties hurt more`);
+  }
+
+  // --- Government happiness modifier: very unhappy governments break faster ---
+  if (govModifiers && govModifiers.happiness < -15) {
+    peaceScore += 5;
+    reasons.push('Government structure creates baseline unhappiness');
+  }
+
+  // =========================================================================
+  // 5. GEOGRAPHIC VULNERABILITY
+  // =========================================================================
+
+  const borderExposure = countBorderSystems(empire.id, targetId, galaxy);
+  const bufferSystems = countBufferSystems(empire.id, targetId, galaxy);
+  const homeworldThreatened = isHomeworldThreatened(empire, targetId, galaxy);
+
+  if (homeworldThreatened) {
+    // Existential threat — if already at war, fight harder; if not, think twice
+    if (currentlyAtWar) {
+      warScore += 30;
+      peaceScore -= 20; // Fight for survival
+      reasons.push('CRITICAL: Homeworld under direct threat — existential defence');
+    } else {
+      // Pre-emptive strike consideration
+      warScore += 10;
+      reasons.push('Homeworld exposed to potential strike — elevated concern');
+    }
+  }
+
+  if (borderExposure >= 3) {
+    warScore += 8;
+    reasons.push(`High border exposure (${borderExposure} shared borders) — conflict likely`);
+  } else if (borderExposure === 0) {
+    warScore -= 10;
+    reasons.push('No shared borders — limited strategic interest');
+  }
+
+  if (bufferSystems >= 2) {
+    warScore -= 8;
+    reasons.push(`Buffer systems (${bufferSystems}) provide geographic safety`);
+  }
+
+  // =========================================================================
+  // SYNTHESIS: combine all factors into a final decision
+  // =========================================================================
+
+  // --- Personality base thresholds ---
+  // These represent how much "push" each personality needs before declaring war.
+  const warThresholds: Record<AIPersonality, number> = {
+    aggressive:   15,  // Low bar — needs only modest justification
+    defensive:    40,  // Fights only when clearly threatened
+    economic:     45,  // Very reluctant — war is wasteful
+    diplomatic:   50,  // Strongest reluctance
+    expansionist: 25,  // Medium — war is a tool for territory
+    researcher:   45,  // Dislikes war, prefers labs to battlefields
+  };
+
+  // --- Peace thresholds (when already at war) ---
+  const peaceThresholds: Record<AIPersonality, number> = {
+    aggressive:   60,  // Very reluctant to sue for peace
+    defensive:    25,  // Quick to accept a reasonable peace
+    economic:     20,  // Peace is profit
+    diplomatic:   15,  // Always looking for peace
+    expansionist: 35,  // Will stop if the cost exceeds the gain
+    researcher:   20,  // War distracts from research
+  };
+
+  const warThreshold = warThresholds[personality];
+  const peaceThreshold = peaceThresholds[personality];
+
+  // Khazari override: enforce minimum surrender ratio (honour culture)
+  if (currentlyAtWar && attackRatio >= speciesMod.minimumSurrenderRatio) {
+    // Species is not desperate enough to surrender
+    peaceScore = Math.min(peaceScore, peaceThreshold - 1);
+  }
+
+  const shouldDeclareWar = !currentlyAtWar && warScore >= warThreshold;
+  const shouldSeekPeace = currentlyAtWar && peaceScore >= peaceThreshold;
+
+  // Classify war type based on intensity
+  const warType = (shouldDeclareWar || currentlyAtWar)
+    ? classifyWarType(empire, targetId, galaxy, warScore)
+    : 'none' as WarType;
+
+  // Confidence: how certain are we? High |warScore| or |peaceScore| = high confidence.
+  const maxScore = Math.max(Math.abs(warScore), Math.abs(peaceScore));
+  const confidence = Math.min(1.0, maxScore / 80);
+
+  // Build reasoning summary
+  const action = shouldDeclareWar
+    ? `DECLARE WAR (${warType})`
+    : shouldSeekPeace
+      ? 'SEEK PEACE'
+      : currentlyAtWar
+        ? `CONTINUE WAR (${warType})`
+        : 'MAINTAIN PEACE';
+
+  const reasoning = [
+    `${action} — warScore: ${Math.round(warScore)}, peaceScore: ${Math.round(peaceScore)}, ` +
+    `threshold: ${warThreshold}/${peaceThreshold}, confidence: ${confidence.toFixed(2)}`,
+    ...reasons,
+  ].join('. ');
+
+  return {
+    shouldDeclareWar,
+    shouldSeekPeace,
+    warType,
+    confidence,
+    reasoning,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Public: evaluateEmpireState
@@ -339,12 +960,24 @@ export function evaluateResearchPriority(
 }
 
 /**
- * Evaluate military actions: scouting, fleet movements, and attack decisions.
+ * Evaluate military actions: scouting, fleet movements, war declarations, and
+ * peace-seeking.
  *
- * - Aggressive personality: attack the weakest neighbour when own military is
- *   at least 1.5x theirs.
- * - All personalities: move fleets toward threatened borders.
- * - Scout unexplored connected systems when no immediate threats exist.
+ * War and peace decisions are delegated to `evaluateWarStrategy()`, which
+ * performs a multi-factor analysis considering military calculus, victory
+ * alignment, species nature, domestic opinion and geographic vulnerability.
+ *
+ * All personalities can now declare war or seek peace — the strategy engine
+ * weighs each factor and produces a nuanced recommendation rather than
+ * relying on hardcoded personality checks.
+ *
+ * @param empire      The AI empire making decisions.
+ * @param galaxy      Current galaxy state.
+ * @param fleets      All fleets in the game.
+ * @param ships       All ships in the game.
+ * @param evaluation  Pre-computed AIEvaluation for this empire.
+ * @param gameState   Full game state (needed for war strategy analysis).
+ * @param avgHappiness Average happiness across the empire's planets (0–100), or null.
  */
 export function evaluateMilitaryActions(
   empire: Empire,
@@ -352,6 +985,8 @@ export function evaluateMilitaryActions(
   fleets: Fleet[],
   ships: Ship[],
   evaluation: AIEvaluation,
+  gameState?: GameState,
+  avgHappiness?: number | null,
 ): AIDecision[] {
   const decisions: AIDecision[] = [];
   const empireFleets = getEmpireFleets(empire, fleets);
@@ -392,22 +1027,63 @@ export function evaluateMilitaryActions(
     });
   }
 
-  // Evaluate offensive opportunities (aggressive personality)
+  // Evaluate war/peace strategy per opponent using the multi-factor engine
   const personality = empire.aiPersonality ?? 'defensive';
   const highestThreat = Array.from(evaluation.threatAssessment.entries()).sort(
     ([, a], [, b]) => b - a,
   );
 
   if (highestThreat.length > 0) {
-    for (const [opponentId, threatLevel] of highestThreat) {
-      const opponentFleets = fleets.filter(f => f.empireId === opponentId);
-      const opponentMilitary = computeMilitaryPower(opponentFleets, ships);
-      const attackRatio = opponentMilitary > 0
-        ? evaluation.militaryPower / opponentMilitary
-        : evaluation.militaryPower > 0 ? 3 : 0;
+    for (const [opponentId] of highestThreat) {
+      const relation = empire.diplomacy.find(d => d.empireId === opponentId);
+
+      // --- War strategy: use the sophisticated multi-factor engine ---
+      if (gameState) {
+        const strategy = evaluateWarStrategy(
+          empire,
+          opponentId,
+          galaxy,
+          fleets,
+          ships,
+          evaluation,
+          gameState,
+          avgHappiness ?? null,
+        );
+
+        // War declaration
+        if (strategy.shouldDeclareWar && relation?.status !== 'at_war') {
+          // Scale priority by confidence: high-confidence decisions execute sooner
+          const basePriority = 40 + strategy.confidence * 40;
+          decisions.push({
+            type: 'war',
+            priority: applyWeight(basePriority, 'war', personality),
+            params: {
+              targetEmpireId: opponentId,
+              warType: strategy.warType,
+              confidence: strategy.confidence,
+            },
+            reasoning: strategy.reasoning,
+          });
+        }
+
+        // Peace-seeking
+        if (strategy.shouldSeekPeace && relation?.status === 'at_war') {
+          const basePriority = 30 + strategy.confidence * 40;
+          decisions.push({
+            type: 'diplomacy',
+            priority: applyWeight(basePriority, 'diplomacy', personality),
+            params: {
+              targetEmpireId: opponentId,
+              action: 'seek_peace',
+              warType: strategy.warType,
+              confidence: strategy.confidence,
+            },
+            reasoning: strategy.reasoning,
+          });
+        }
+      }
 
       // At war: move the largest idle fleet to attack
-      const relation = empire.diplomacy.find(d => d.empireId === opponentId);
       if (relation?.status === 'at_war' && empireFleets.length > 0) {
         const targetSystem = galaxy.systems.find(s => s.ownerId === opponentId);
         if (targetSystem) {
@@ -428,33 +1104,6 @@ export function evaluateMilitaryActions(
             reasoning: `Attack ${opponentId} in system ${targetSystem.id} (at war)`,
           });
         }
-      }
-
-      // Declare war: aggressive personalities attack weaker neighbours
-      if (
-        personality === 'aggressive' &&
-        attackRatio >= 1.5 &&
-        threatLevel > 20 &&
-        relation?.status !== 'at_war' &&
-        relation?.status !== 'allied'
-      ) {
-        decisions.push({
-          type: 'war',
-          priority: applyWeight(50 + Math.min(attackRatio * 10, 30), 'war', personality),
-          params: { targetEmpireId: opponentId, attackRatio },
-          reasoning: `Declare war on ${opponentId} (attack ratio ${attackRatio.toFixed(1)}x)`,
-        });
-      }
-
-      // Seek peace: when losing a war (outgunned or lost territory)
-      if (relation?.status === 'at_war' && attackRatio < 0.8) {
-        const peacePriority = personality === 'aggressive' ? 20 : personality === 'defensive' ? 60 : 40;
-        decisions.push({
-          type: 'diplomacy',
-          priority: applyWeight(peacePriority, 'diplomacy', personality),
-          params: { targetEmpireId: opponentId, action: 'seek_peace' },
-          reasoning: `Seek peace with ${opponentId} (outgunned, ratio ${attackRatio.toFixed(1)}x)`,
-        });
       }
     }
   }
@@ -952,12 +1601,30 @@ export function generateAIDecisions(
 
   const research = evaluateResearchPriority(empire, researchState, personality, allTechs);
 
+  // Compute average empire happiness for war strategy analysis
+  const empireHappinessScores = ownedPlanets
+    .filter(p => p.currentPopulation > 0)
+    .map(p => {
+      // Rough happiness estimate: base 60, penalise overcrowding and war
+      const density = p.maxPopulation > 0 ? p.currentPopulation / p.maxPopulation : 0;
+      let score = 60;
+      if (density > 0.8) score -= 10;
+      if (density > 0.95) score -= 10;
+      if (empire.diplomacy.some(d => d.status === 'at_war')) score -= 10;
+      return Math.max(0, Math.min(100, score));
+    });
+  const avgHappiness = empireHappinessScores.length > 0
+    ? empireHappinessScores.reduce((a, b) => a + b, 0) / empireHappinessScores.length
+    : null;
+
   const military = evaluateMilitaryActions(
     empire,
     gameState.galaxy,
     gameState.fleets,
     gameState.ships,
     evaluation,
+    gameState,
+    avgHappiness,
   );
 
   const economic = evaluateEconomicActions(empire, gameState.galaxy).map(d => ({
