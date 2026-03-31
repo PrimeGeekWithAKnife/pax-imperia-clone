@@ -174,6 +174,17 @@ export function calculatePlanetHappiness(
     factors.push({ label: 'At war', points: pts });
   }
 
+  // ── Faith bonus ───────────────────────────────────────────────────────────
+  // Species with faith-producing buildings benefit from spiritual fulfilment.
+  // Faith > 50 gives a modest happiness boost, scaling up to +15 at 200+.
+  if (empireResources.faith > 50) {
+    const pts = Math.min(15, Math.floor((empireResources.faith - 50) / 10));
+    if (pts > 0) {
+      score += pts;
+      factors.push({ label: 'Spiritual fulfilment', points: pts });
+    }
+  }
+
   // ── Tax burden ────────────────────────────────────────────────────────────
   // Flat penalty representing general taxation discontent.
   {
