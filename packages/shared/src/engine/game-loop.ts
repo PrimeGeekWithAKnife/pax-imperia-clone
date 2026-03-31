@@ -204,6 +204,7 @@ import {
   evaluateTreatyProposal,
   getRelation,
   initializeDiplomacy,
+  makeFirstContact,
   type DiplomacyState,
 } from './diplomacy.js';
 import { createNotification } from './notifications.js';
@@ -908,6 +909,34 @@ function stepFleetMovement(
             ? { ...e, knownSystems: [...e.knownSystems, arrivedSystemId] }
             : e,
         );
+      }
+
+      // First contact: establish diplomatic relations with empires present in this system
+      const arrivedSystem = state.gameState.galaxy.systems.find(s => s.id === arrivedSystemId);
+      if (arrivedSystem) {
+        const foreignEmpireIds = new Set<string>();
+        // Check planet owners
+        for (const p of arrivedSystem.planets) {
+          if (p.ownerId && p.ownerId !== fleet.empireId) foreignEmpireIds.add(p.ownerId);
+        }
+        // Check fleet owners
+        for (const f of fleets) {
+          if (f.position.systemId === arrivedSystemId && f.empireId !== fleet.empireId) {
+            foreignEmpireIds.add(f.empireId);
+          }
+        }
+        // Establish first contact for any new encounters
+        let dipState = (state as unknown as Record<string, unknown>).diplomacyState as
+          | DiplomacyState | undefined;
+        if (dipState) {
+          for (const foreignId of foreignEmpireIds) {
+            const rel = getRelation(dipState, fleet.empireId, foreignId);
+            if (rel && rel.firstContact === -1) {
+              dipState = makeFirstContact(dipState, fleet.empireId, foreignId, tick);
+              (state as unknown as Record<string, unknown>).diplomacyState = dipState;
+            }
+          }
+        }
       }
 
       // Check if there are enemy fleets in the arrived system
@@ -2869,7 +2898,10 @@ function executeAIBuildShip(
   empireId: string,
   decision: AIDecision,
 ): GameTickState {
-  const { planetId } = decision.params as { planetId: string };
+  const { planetId, hullClass: requestedHull } = decision.params as {
+    planetId: string;
+    hullClass?: string;
+  };
 
   // Verify the planet exists and has a shipyard owned by this empire
   let systems = state.gameState.galaxy.systems;
@@ -2895,15 +2927,36 @@ function executeAIBuildShip(
   const designsMap = state.shipDesigns ?? new Map<string, ShipDesign>();
   const empireDesigns = Array.from(designsMap.values()).filter(d => d.empireId === empireId);
 
-  // Prefer a combat-capable design (destroyer or larger); fall back to anything
-  const combatDesign = empireDesigns.find(d => d.hull === 'destroyer')
-    ?? empireDesigns.find(d => d.hull === 'cruiser')
-    ?? empireDesigns.find(d => d.hull === 'scout')
-    ?? empireDesigns[0];
-  if (!combatDesign) return state;
+  // Pick a design matching the requested hull class, or fall back to combat ships
+  let chosenDesign: ShipDesign | undefined;
+  if (requestedHull) {
+    chosenDesign = empireDesigns.find(d => d.hull === requestedHull);
+    // If no design exists for the requested hull, auto-generate one
+    if (!chosenDesign) {
+      const startingComponents = (state.shipComponents ?? []).filter(
+        (c: { requiredTech: string | null }) => c.requiredTech === null,
+      );
+      const newDesigns = generateDefaultDesigns(
+        empire.currentAge, empireId, designsMap, startingComponents,
+      );
+      chosenDesign = newDesigns.find(d => d.hull === requestedHull);
+      if (chosenDesign) {
+        const updatedDesigns = new Map(designsMap);
+        for (const d of newDesigns) updatedDesigns.set(d.id, d);
+        state = { ...state, shipDesigns: updatedDesigns };
+      }
+    }
+  }
+  if (!chosenDesign) {
+    chosenDesign = empireDesigns.find(d => d.hull === 'destroyer')
+      ?? empireDesigns.find(d => d.hull === 'cruiser')
+      ?? empireDesigns.find(d => d.hull === 'scout')
+      ?? empireDesigns[0];
+  }
+  if (!chosenDesign) return state;
 
   // Check if we can afford a ship
-  const shipCost = combatDesign.totalCost > 0 ? combatDesign.totalCost : 50;
+  const shipCost = chosenDesign.totalCost > 0 ? chosenDesign.totalCost : 50;
   const res = getEmpireResources(state, empireId);
   if (res.credits < shipCost) return state;
 
@@ -2913,7 +2966,7 @@ function executeAIBuildShip(
 
   // Queue the production order (build time scales with cost, minimum 3 ticks)
   const buildTime = Math.max(3, Math.ceil(shipCost / 15));
-  const order = startShipProduction(combatDesign.id, planetId, buildTime);
+  const order = startShipProduction(chosenDesign.id, planetId, buildTime);
 
   return {
     ...state,

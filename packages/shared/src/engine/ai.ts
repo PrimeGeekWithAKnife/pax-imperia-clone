@@ -977,10 +977,14 @@ export function generateAIDecisions(
     }
 
     // Build a colony ship if we have none and can afford it (expansion priority)
-    const allShips = gameState.ships.filter(s => empireFleets.some(f => f.ships.includes(s.id)));
-    const hasColoniser = allShips.some(s => {
-      const design = shipDesigns.get(s.designId);
-      return design?.hullClass === 'coloniser';
+    // Check designs directly from the state's shipDesigns map
+    const stateDesigns = (gameState as unknown as Record<string, unknown>).shipDesigns as
+      | Map<string, { hull: string }> | undefined;
+    const empireShipIds = new Set(empireFleets.flatMap(f => f.ships));
+    const empireShips = gameState.ships.filter(s => empireShipIds.has(s.id));
+    const hasColoniser = empireShips.some(s => {
+      const design = stateDesigns?.get(s.designId);
+      return design?.hull === 'coloniser';
     });
     if (!hasColoniser && ownedPlanets.length < 5) {
       shipDecisions.push({
@@ -992,9 +996,9 @@ export function generateAIDecisions(
     }
 
     // Build a scout if we have no probes/scouts for exploration
-    const hasScout = allShips.some(s => {
-      const design = shipDesigns.get(s.designId);
-      return design?.hullClass === 'scout' || design?.hullClass === 'deep_space_probe';
+    const hasScout = empireShips.some(s => {
+      const design = stateDesigns?.get(s.designId);
+      return design?.hull === 'scout' || design?.hull === 'deep_space_probe';
     });
     if (!hasScout) {
       shipDecisions.push({
