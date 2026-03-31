@@ -1008,6 +1008,96 @@ function stepFleetMovement(
 }
 
 // ---------------------------------------------------------------------------
+// Step 1b: Ship Repair — ships at friendly systems with spaceports heal
+// ---------------------------------------------------------------------------
+
+/** Repair rate per tick: 2% hull, 3% system damage healed per spaceport level. */
+const REPAIR_HULL_RATE = 0.02;
+const REPAIR_SYSTEM_RATE = 0.03;
+
+function stepShipRepair(state: GameTickState): GameTickState {
+  const systems = state.gameState.galaxy.systems;
+  let ships = state.gameState.ships;
+  let anyChanged = false;
+
+  // Build a map of systemId -> spaceport level for systems with friendly colonies
+  const spaceportBySystem = new Map<string, { level: number; ownerId: string }>();
+  for (const system of systems) {
+    for (const planet of system.planets) {
+      if (!planet.ownerId) continue;
+      const spaceport = planet.buildings.find(b => b.type === 'spaceport');
+      if (spaceport) {
+        const existing = spaceportBySystem.get(system.id);
+        if (!existing || spaceport.level > existing.level) {
+          spaceportBySystem.set(system.id, { level: spaceport.level, ownerId: planet.ownerId });
+        }
+      }
+    }
+  }
+
+  if (spaceportBySystem.size === 0) return state;
+
+  // For each fleet, check if it's stationary at a friendly system with a spaceport
+  for (const fleet of state.gameState.fleets) {
+    // Skip fleets that are actively moving
+    if (fleet.destination) continue;
+
+    const port = spaceportBySystem.get(fleet.position.systemId);
+    if (!port || port.ownerId !== fleet.empireId) continue;
+
+    const repairMultiplier = port.level;
+
+    for (const shipId of fleet.ships) {
+      const ship = ships.find(s => s.id === shipId);
+      if (!ship) continue;
+
+      const needsHullRepair = ship.hullPoints < ship.maxHullPoints;
+      const needsSystemRepair = ship.systemDamage.engines > 0 ||
+        ship.systemDamage.weapons > 0 || ship.systemDamage.shields > 0 ||
+        ship.systemDamage.sensors > 0 || ship.systemDamage.warpDrive > 0;
+
+      if (!needsHullRepair && !needsSystemRepair) continue;
+
+      // Repair hull
+      const newHull = Math.min(
+        ship.maxHullPoints,
+        ship.hullPoints + ship.maxHullPoints * REPAIR_HULL_RATE * repairMultiplier,
+      );
+
+      // Repair systems
+      const repairSystem = (dmg: number) => Math.max(0, dmg - REPAIR_SYSTEM_RATE * repairMultiplier);
+      const newSystemDamage: typeof ship.systemDamage = {
+        engines: repairSystem(ship.systemDamage.engines),
+        weapons: repairSystem(ship.systemDamage.weapons),
+        shields: repairSystem(ship.systemDamage.shields),
+        sensors: repairSystem(ship.systemDamage.sensors),
+        warpDrive: repairSystem(ship.systemDamage.warpDrive),
+      };
+
+      if (!anyChanged) {
+        ships = [...ships];
+        anyChanged = true;
+      }
+      ships = ships.map(s => s.id === shipId ? {
+        ...s,
+        hullPoints: newHull,
+        systemDamage: newSystemDamage,
+      } : s);
+    }
+  }
+
+  if (!anyChanged) return state;
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      ships,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 2: Combat Resolution
 // ---------------------------------------------------------------------------
 
@@ -3647,6 +3737,9 @@ export function processGameTick(
 
   // 1. Fleet Movement
   s = stepFleetMovement(s, events);
+
+  // 1b. Ship Repair (ships at friendly systems with spaceports heal)
+  s = stepShipRepair(s);
 
   // 2. Combat Resolution
   s = stepCombatResolution(s, events, playerEmpireId);
