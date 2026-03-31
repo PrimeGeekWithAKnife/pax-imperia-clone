@@ -135,10 +135,10 @@ export class SaveManager {
    * Call this inside the GameEngine tick loop; it is a cheap no-op for
    * most ticks since it compares wall-clock timestamps.
    */
-  autoSave(tickState: GameTickState): void {
+  autoSave(tickState: GameTickState): boolean {
     const now = Date.now();
     if (this.lastAutoSaveTime > 0 && now - this.lastAutoSaveTime < AUTO_SAVE_INTERVAL_MS) {
-      return;
+      return false;
     }
 
     // Always update timestamp to prevent retry storms on persistent failure
@@ -149,8 +149,10 @@ export class SaveManager {
       const slotName = `${AUTO_SAVE_PREFIX}1__`;
       // Auto-saves always use compression to minimise quota usage.
       this.save(slotName, tickState, true);
+      return true;
     } catch (err) {
       console.warn('[SaveManager.autoSave] Auto-save failed:', err);
+      return false;
     }
   }
 

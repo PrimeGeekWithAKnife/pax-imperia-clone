@@ -1673,6 +1673,10 @@ export function App(): React.ReactElement {
   useGameEvent<MigrationOrder[]>('engine:migrations_updated', handleMigrationsUpdated);
   useGameEvent<void>('engine:migration_started', handleMigrationStarted);
   useGameEvent<MigrationOrder>('engine:migration_completed', handleMigrationCompleted);
+  useGameEvent<void>('engine:autosaved', useCallback(() => {
+    setBuildNotification('Auto-saved');
+    setTimeout(() => setBuildNotification(null), 1500);
+  }, []));
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
   useGameEvent<unknown>('engine:combat_pending', handleCombatPending);

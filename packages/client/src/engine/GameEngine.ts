@@ -416,7 +416,10 @@ export class GameEngine {
 
     // ── Auto-save (time-based, every 60 seconds of real time) ──────────────
     try {
-      getSaveManager().autoSave(this.tickState);
+      const saved = getSaveManager().autoSave(this.tickState);
+      if (saved) {
+        this.game.events.emit('engine:autosaved');
+      }
     } catch {
       // Auto-save failures are non-fatal; silently swallow.
     }
