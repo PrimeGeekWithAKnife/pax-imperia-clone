@@ -15,6 +15,13 @@
 
 import type { Planet } from '../types/galaxy.js';
 import type { EmpireResources } from '../types/resources.js';
+import type { Species } from '../types/species.js';
+import type { GovernmentType } from '../types/government.js';
+import {
+  calculateWarHappinessImpact,
+  createEmpireWarState,
+  type EmpireWarState,
+} from './war-response.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -105,11 +112,19 @@ function clamp(value: number, min: number, max: number): number {
  * @param planet           The planet to evaluate.
  * @param empireResources  The owning empire's current resource stockpiles.
  * @param isAtWar          True when the empire is actively at war with any other empire.
+ * @param species          The owning empire's species (optional — enables species-specific war response).
+ * @param warState         The owning empire's war state (optional — enables war weariness and momentum).
+ * @param government       The owning empire's government type (optional — affects Orivani war response).
+ * @param currentTick      Current game tick (optional — for battle record age calculations).
  */
 export function calculatePlanetHappiness(
   planet: Planet,
   empireResources: EmpireResources,
   isAtWar: boolean,
+  species?: Species,
+  warState?: EmpireWarState,
+  government?: GovernmentType,
+  currentTick?: number,
 ): HappinessReport {
   const factors: HappinessFactor[] = [];
   let score = 60; // Baseline for a stable colony
@@ -167,8 +182,25 @@ export function calculatePlanetHappiness(
     factors.push({ label: 'Food abundance', points: pts });
   }
 
-  // ── War ───────────────────────────────────────────────────────────────────
-  if (isAtWar) {
+  // ── War — species-specific response ────────────────────────────────────
+  // When species and war state are provided, use the full war response model.
+  // Otherwise fall back to the original flat -10 for backwards compatibility.
+  if (species && warState != null && government && currentTick != null) {
+    const warImpact = calculateWarHappinessImpact(
+      species,
+      isAtWar,
+      warState,
+      government,
+      currentTick,
+    );
+    if (warImpact.total !== 0) {
+      score += warImpact.total;
+      for (const f of warImpact.factors) {
+        factors.push({ label: f.label, points: f.points });
+      }
+    }
+  } else if (isAtWar) {
+    // Legacy fallback — flat penalty when species data is not available.
     const pts = -10;
     score += pts;
     factors.push({ label: 'At war', points: pts });

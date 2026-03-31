@@ -211,6 +211,13 @@ import {
 import { createNotification } from './notifications.js';
 import { processGalacticEvents, type GalacticEvent } from './galactic-events.js';
 import {
+  createEmpireWarState,
+  tickWarState,
+  recordBattle,
+  recordCasualties,
+  type EmpireWarState,
+} from './war-response.js';
+import {
   processPoliticalTick,
   processElection,
   initialisePoliticalState,
@@ -1739,7 +1746,9 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
       // Apply happiness growth bonus: high-happiness planets grow faster.
       const empireResources = getEmpireResources(state, empire.id);
       const isAtWar = empireIsAtWar(empire);
-      const happiness = calculatePlanetHappiness(planet, empireResources, isAtWar);
+      const warStateMap = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+      const warState = warStateMap.get(empire.id);
+      const happiness = calculatePlanetHappiness(planet, empireResources, isAtWar, empire.species, warState, empire.government, state.gameState.currentTick);
 
       if (happiness.growthModifier !== 0) {
         growth = Math.floor(growth * (1 + happiness.growthModifier));
@@ -1903,6 +1912,25 @@ function stepMigrations(
  * The production penalty (happiness < 30 → ×0.5 output) is applied inside
  * `stepResourceProduction` where per-planet production is calculated.
  */
+// ---------------------------------------------------------------------------
+// Step 3c-pre: War State Processing
+// ---------------------------------------------------------------------------
+
+function stepWarState(state: GameTickState): GameTickState {
+  const warStateMap = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as DiplomacyState | undefined;
+  const updatedMap = new Map(warStateMap);
+
+  for (const empire of state.gameState.empires) {
+    const isAtWar = empire.diplomacy.some(r => r.status === 'at_war');
+    let ws = updatedMap.get(empire.id) ?? createEmpireWarState();
+    ws = tickWarState(ws, isAtWar, empire.species);
+    updatedMap.set(empire.id, ws);
+  }
+
+  return { ...state, warStateMap: updatedMap } as GameTickState;
+}
+
 function stepHappiness(state: GameTickState): GameTickState {
   let systems = state.gameState.galaxy.systems;
 
@@ -1915,7 +1943,8 @@ function stepHappiness(state: GameTickState): GameTickState {
 
       const empireResources = getEmpireResources(state, empire.id);
       const isAtWar = empireIsAtWar(empire);
-      const happinessBase = calculatePlanetHappiness(planet, empireResources, isAtWar);
+      const wsMap = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+      const happinessBase = calculatePlanetHappiness(planet, empireResources, isAtWar, empire.species, wsMap.get(empire.id), empire.government, state.gameState.currentTick);
 
       // Apply government flat happiness modifier.
       const govHappiness = GOVERNMENTS[empire.government]?.modifiers.happiness ?? 0;
@@ -2002,7 +2031,8 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     const govHappiness = GOVERNMENTS[empire.government]?.modifiers.happiness ?? 0;
     const happinessMultipliers = new Map<string, number>();
     for (const planet of ownedPlanets) {
-      const happiness = calculatePlanetHappiness(planet, currentResources, isAtWar);
+      const wsMap3 = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+      const happiness = calculatePlanetHappiness(planet, currentResources, isAtWar, empire.species, wsMap3.get(empire.id), empire.government, state.gameState.currentTick);
       const adjustedScore = Math.min(100, Math.max(0, happiness.score + govHappiness));
       const unrestThreshold = 30;
       const adjustedMult = adjustedScore < unrestThreshold ? 0.5 : 1.0;
@@ -4366,6 +4396,9 @@ export function processGameTick(
   // 3b. Migration Processing (after population growth so wave logistics are current)
   s = stepMigrations(s, events);
 
+  // 3c-pre. War State Processing (advance weariness before happiness uses it)
+  s = stepWarState(s);
+
   // 3c. Happiness Processing (revolt population loss; production multipliers collected next step)
   s = stepHappiness(s);
 
@@ -4582,6 +4615,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
     espionageEventLog: [],
     diplomacyState: initializeDiplomacy(gameState.empires.map(e => e.id)),
+    warStateMap: new Map(gameState.empires.map(e => [e.id, createEmpireWarState()])),
   } as GameTickState;
 }
 
