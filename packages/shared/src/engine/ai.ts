@@ -1010,6 +1010,46 @@ export function generateAIDecisions(
     }
   }
 
+  // Cross-system colonisation: send colony ship fleets to uncolonised habitable systems
+  const stateDesignsOuter = (gameState as unknown as Record<string, unknown>).shipDesigns as
+    | Map<string, { hull: string }> | undefined;
+  const empireShipIdsOuter = new Set(empireFleets.flatMap(f => f.ships));
+  const hasAnyColoniser = gameState.ships
+    .filter(s => empireShipIdsOuter.has(s.id))
+    .some(s => stateDesignsOuter?.get(s.designId)?.hull === 'coloniser');
+  if (hasAnyColoniser) {
+    // Find a fleet with a coloniser ship
+    const coloniserFleet = empireFleets.find(f => {
+      if (f.destination) return false; // Already moving
+      return f.ships.some(shipId => {
+        const ship = gameState.ships.find(s => s.id === shipId);
+        if (!ship) return false;
+        const design = stateDesignsOuter?.get(ship.designId);
+        return design?.hull === 'coloniser';
+      });
+    });
+    if (coloniserFleet) {
+      // Find a known system with an uncolonised habitable planet
+      const targetSystem = galaxy.systems.find(s =>
+        empire.knownSystems.includes(s.id) &&
+        !s.planets.some(p => p.ownerId === empire.id) &&
+        s.planets.some(p => !p.ownerId && p.habitability >= 40),
+      );
+      if (targetSystem) {
+        shipDecisions.push({
+          type: 'move_fleet',
+          priority: applyWeight(personality === 'expansionist' ? 80 : 60, 'move_fleet', personality),
+          params: {
+            fleetId: coloniserFleet.id,
+            destinationSystemId: targetSystem.id,
+            purpose: 'colonise',
+          },
+          reasoning: `Send colony ship to ${targetSystem.name ?? targetSystem.id} for colonisation`,
+        });
+      }
+    }
+  }
+
   // Espionage: recruit spies and assign missions against rival empires
   const espionageDecisions = evaluateEspionageActions(empire, gameState, personality, evaluation);
 

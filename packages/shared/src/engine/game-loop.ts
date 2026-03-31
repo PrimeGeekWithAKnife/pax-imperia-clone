@@ -1030,6 +1030,57 @@ function stepFleetMovement(
           );
         }
       }
+
+      // Auto-colonisation: AI fleets with coloniser ships that arrive at
+      // systems with uncolonised habitable planets automatically colonise
+      const arrivedFleetForColonise = fleets.find(f => f.id === order.fleetId);
+      if (arrivedFleetForColonise) {
+        const arrEmpire = empires.find(e => e.id === arrivedFleetForColonise.empireId);
+        if (arrEmpire?.isAI) {
+          const designsMap = state.shipDesigns ?? new Map<string, ShipDesign>();
+          const coloniserShip = arrivedFleetForColonise.ships
+            .map(sid => ships.find(s => s.id === sid))
+            .find(s => {
+              if (!s) return false;
+              const d = designsMap.get(s.designId);
+              return d?.hull === 'coloniser';
+            });
+          if (coloniserShip) {
+            const arrSystem = state.gameState.galaxy.systems.find(
+              s => s.id === arrivedFleetForColonise.position.systemId,
+            );
+            const habitablePlanet = arrSystem?.planets.find(
+              p => !p.ownerId && p.habitability >= 40,
+            );
+            if (habitablePlanet && arrSystem) {
+              // Colonise: set planet ownership, consume coloniser ship
+              const updatedPlanet = {
+                ...habitablePlanet,
+                ownerId: arrivedFleetForColonise.empireId,
+                currentPopulation: 5000,
+                buildings: [{ type: 'population_center' as any, level: 1, condition: 100 }],
+                productionQueue: [],
+              };
+              const updatedSystems = state.gameState.galaxy.systems.map(s =>
+                s.id === arrSystem.id
+                  ? { ...s, planets: s.planets.map(p => p.id === habitablePlanet.id ? updatedPlanet : p) }
+                  : s,
+              );
+              state = {
+                ...state,
+                gameState: { ...state.gameState, galaxy: { ...state.gameState.galaxy, systems: updatedSystems } },
+              };
+              // Remove coloniser ship
+              ships = ships.filter(s => s.id !== coloniserShip!.id);
+              fleets = fleets.map(f =>
+                f.id === arrivedFleetForColonise.id
+                  ? { ...f, ships: f.ships.filter(sid => sid !== coloniserShip!.id) }
+                  : f,
+              );
+            }
+          }
+        }
+      }
     }
   }
 
@@ -2636,13 +2687,22 @@ function executeAIDiplomacy(
 
     if (targetEmpire.isAI) {
       // Use the full personality-driven treaty evaluation
+      const proposerEmpire = state.gameState.empires.find(e => e.id === empireId);
+      if (!proposerEmpire) return state;
+      const relation = getRelation(diplomacyState, empireId, targetEmpireId);
+      if (!relation) return state;
+      const proposal = {
+        fromEmpireId: empireId,
+        toEmpireId: targetEmpireId,
+        treatyType: treatyType as 'trade' | 'non_aggression' | 'alliance' | 'research_agreement',
+      };
       const evalResult = evaluateTreatyProposal(
-        diplomacyState,
-        { fromEmpireId: empireId, toEmpireId: targetEmpireId, treatyType: treatyType as any },
-        targetEmpire.aiPersonality ?? 'defensive',
-        targetEmpire.species,
+        proposerEmpire,
+        targetEmpire,
+        relation,
+        proposal,
       );
-      if (!evalResult.accepted) return state;
+      if (!evalResult.accept) return state;
 
       // Accept: sign the treaty
       const updatedDiplomacy = proposeTreaty(diplomacyState, {
