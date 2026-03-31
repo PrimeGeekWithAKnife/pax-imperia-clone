@@ -2270,9 +2270,48 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
   const tick = state.gameState.currentTick;
   const updatedDiplomacy = processDiplomacyTick(diplomacyState, tick);
 
+  // Sync diplomacyState back to empire.diplomacy so AI and victory checks see it
+  const syncedEmpires = state.gameState.empires.map(empire => {
+    const empireRelations: Array<{
+      empireId: string;
+      status: string;
+      attitude: number;
+      trust: number;
+      treaties: Array<{ id: string; type: string; startTick: number; duration: number }>;
+      tradeRoutes: number;
+      firstContact: number;
+    }> = [];
+
+    for (const otherEmpire of state.gameState.empires) {
+      if (otherEmpire.id === empire.id) continue;
+      const rel = getRelation(updatedDiplomacy, empire.id, otherEmpire.id);
+      if (!rel) continue;
+      empireRelations.push({
+        empireId: otherEmpire.id,
+        status: rel.status,
+        attitude: rel.attitude,
+        trust: rel.trust,
+        treaties: rel.treaties.map(t => ({
+          id: t.id,
+          type: t.type,
+          startTick: t.startTick,
+          duration: t.duration,
+        })),
+        tradeRoutes: rel.tradeRoutes,
+        firstContact: rel.firstContact,
+      });
+    }
+
+    return { ...empire, diplomacy: empireRelations };
+  });
+
   return {
     ...state,
     diplomacyState: updatedDiplomacy,
+    gameState: {
+      ...state.gameState,
+      empires: syncedEmpires,
+    },
   } as GameTickState;
 }
 
@@ -2440,9 +2479,13 @@ function stepAIDecisions(
     );
 
     // 2. Generate and rank all possible decisions
+    // Attach shipDesigns to gameState so AI can check existing ship types
+    const gameStateForAI = Object.assign({}, state.gameState, {
+      shipDesigns: state.shipDesigns,
+    });
     const allDecisions = generateAIDecisions(
       empire,
-      state.gameState,
+      gameStateForAI,
       personality,
       evaluation,
       allTechs,
@@ -2592,15 +2635,14 @@ function executeAIDiplomacy(
     if (!targetEmpire) return state;
 
     if (targetEmpire.isAI) {
-      // AI accepts trade at attitude > 10, non-aggression at > 0, alliance at > 40
-      const thresholds: Record<string, number> = {
-        trade: 10,
-        non_aggression: 0,
-        alliance: 40,
-        research_agreement: 20,
-      };
-      const threshold = thresholds[treatyType] ?? 20;
-      if (relation.attitude < threshold) return state;
+      // Use the full personality-driven treaty evaluation
+      const evalResult = evaluateTreatyProposal(
+        diplomacyState,
+        { fromEmpireId: empireId, toEmpireId: targetEmpireId, treatyType: treatyType as any },
+        targetEmpire.aiPersonality ?? 'defensive',
+        targetEmpire.species,
+      );
+      if (!evalResult.accepted) return state;
 
       // Accept: sign the treaty
       const updatedDiplomacy = proposeTreaty(diplomacyState, {
