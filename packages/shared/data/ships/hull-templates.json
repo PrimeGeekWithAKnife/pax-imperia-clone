@@ -91,22 +91,15 @@
         "category": "engine"
       },
       {
-        "id": "scout_internal_1",
-        "x": 1,
+        "id": "scout_warp_1",
+        "x": 2,
         "y": 1,
-        "facing": "turret",
+        "facing": "aft",
         "size": "small",
         "allowedTypes": [
-          "sensor",
-          "repair_drone",
-          "special",
-          "life_support",
-          "targeting_computer",
-          "advanced_sensors",
-          "damage_control",
-          "ecm_suite"
+          "warp_drive"
         ],
-        "category": "internal"
+        "category": "warp_drive"
       }
     ],
     "baseCost": 500,
@@ -157,22 +150,15 @@
         "category": "engine"
       },
       {
-        "id": "transport_internal_1",
-        "x": 1,
+        "id": "transport_warp_1",
+        "x": 2,
         "y": 1,
-        "facing": "turret",
+        "facing": "aft",
         "size": "small",
         "allowedTypes": [
-          "sensor",
-          "repair_drone",
-          "special",
-          "life_support",
-          "targeting_computer",
-          "advanced_sensors",
-          "damage_control",
-          "ecm_suite"
+          "warp_drive"
         ],
-        "category": "internal"
+        "category": "warp_drive"
       }
     ],
     "baseCost": 1000,
@@ -183,7 +169,7 @@
     "class": "destroyer",
     "name": "Destroyer",
     "baseHullPoints": 100,
-    "maxSlots": 6,
+    "maxSlots": 7,
     "slotLayout": [
       {
         "id": "destroyer_weapon_1",
@@ -271,6 +257,17 @@
           "ecm_suite"
         ],
         "category": "internal"
+      },
+      {
+        "id": "destroyer_warp_1",
+        "x": 2,
+        "y": 1,
+        "facing": "aft",
+        "size": "small",
+        "allowedTypes": [
+          "warp_drive"
+        ],
+        "category": "warp_drive"
       }
     ],
     "baseCost": 1000,

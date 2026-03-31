@@ -81,6 +81,21 @@ const ATTITUDE_DECAY_FRACTION = 0.02;
 /** Minimum absolute attitude shift per tick (so attitude always moves). */
 const ATTITUDE_DECAY_MIN = 0.5;
 
+/** Per-tick attitude bonus for each active treaty of a given type. */
+const TREATY_PER_TICK_ATTITUDE: Partial<Record<TreatyType, number>> = {
+  trade: 0.3,
+  non_aggression: 0.1,
+  alliance: 0.5,
+  research_sharing: 0.2,
+  mutual_defence: 0.3,
+  mutual_defense: 0.3,
+  trade_agreement: 0.3,
+  military_alliance: 0.5,
+};
+
+/** Per-tick trust bonus for each active treaty (all types). */
+const TREATY_PER_TICK_TRUST = 0.1;
+
 const FIRST_CONTACT_ATTITUDE = 0;
 const FIRST_CONTACT_TRUST = 20;
 
@@ -706,6 +721,15 @@ export function processDiplomacyTick(state: DiplomacyState, tick: number): Diplo
 
   for (const targets of next.relations.values()) {
     for (const rel of targets.values()) {
+      // --- Per-tick treaty bonuses (counteracts decay) ---
+      for (const treaty of rel.treaties) {
+        const attitudeGain = TREATY_PER_TICK_ATTITUDE[treaty.type] ?? 0;
+        if (attitudeGain > 0) {
+          rel.attitude = clampAttitude(rel.attitude + attitudeGain);
+        }
+        rel.trust = clampTrust(rel.trust + TREATY_PER_TICK_TRUST);
+      }
+
       // --- Attitude decay toward 0 ---
       if (rel.attitude !== 0) {
         const decay =

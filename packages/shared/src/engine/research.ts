@@ -252,10 +252,11 @@ export function processResearchTick(
   allTechs: Technology[],
   empire?: Empire,
 ): { newState: ResearchState; completed: Technology[] } {
-  const speciesBonus = species.traits.research / 5;
+  // Species research trait is already applied in economy.ts when computing
+  // research lab output — do NOT apply it again here (was causing double-dipping).
   const govDef = empire ? GOVERNMENTS[empire.government] : undefined;
   const govResearchMultiplier = govDef?.modifiers.researchSpeed ?? 1.0;
-  const effectivePoints = researchPointsGenerated * speciesBonus * govResearchMultiplier;
+  const effectivePoints = researchPointsGenerated * govResearchMultiplier;
 
   const techMap = new Map(allTechs.map(t => [t.id, t]));
 

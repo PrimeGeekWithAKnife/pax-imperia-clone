@@ -188,11 +188,15 @@ export function calculateVictoryProgress(
     scores.diplomatic;
 
   // ── Victory condition statuses ────────────────────────────────────────────
+  // Estimate total tech count from all empires' max tech count (best available proxy)
+  const maxTechCount = Math.max(1, ...allEmpires.map(e => e.technologies.length), 300);
   const victoryConditions = buildVictoryConditionStatuses(
     empire,
     gameState,
     allEmpires,
     resourcesMap,
+    undefined, // economicLeadTicks
+    maxTechCount,
   );
 
   return { empireId: empire.id, scores, totalScore, victoryConditions };
