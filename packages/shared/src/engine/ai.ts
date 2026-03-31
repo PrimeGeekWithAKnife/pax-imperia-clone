@@ -445,6 +445,17 @@ export function evaluateMilitaryActions(
           reasoning: `Declare war on ${opponentId} (attack ratio ${attackRatio.toFixed(1)}x)`,
         });
       }
+
+      // Seek peace: when losing a war (outgunned or lost territory)
+      if (relation?.status === 'at_war' && attackRatio < 0.8) {
+        const peacePriority = personality === 'aggressive' ? 20 : personality === 'defensive' ? 60 : 40;
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(peacePriority, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'seek_peace' },
+          reasoning: `Seek peace with ${opponentId} (outgunned, ratio ${attackRatio.toFixed(1)}x)`,
+        });
+      }
     }
   }
 

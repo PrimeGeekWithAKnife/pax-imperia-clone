@@ -209,6 +209,7 @@ import {
   type DiplomacyState,
 } from './diplomacy.js';
 import { createNotification } from './notifications.js';
+import { processGalacticEvents, type GalacticEvent } from './galactic-events.js';
 import {
   processPoliticalTick,
   processElection,
@@ -3047,6 +3048,40 @@ function executeAIDiplomacy(
     };
   }
 
+  // Peace-seeking: AI makes peace when losing a war
+  if (action === 'seek_peace') {
+    const relation = getRelation(diplomacyState, empireId, targetEmpireId);
+    if (!relation || relation.status !== 'at_war') return state;
+
+    const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
+    if (!targetEmpire) return state;
+
+    // AI-to-AI: auto-accept peace if the winner is also tired (attack ratio > 2 means dominant)
+    if (targetEmpire.isAI) {
+      // Winner accepts peace unless they're overwhelmingly dominant
+      const updatedDiplomacy = makePeace(diplomacyState, empireId, targetEmpireId, tick);
+      return { ...state, diplomacyState: updatedDiplomacy } as GameTickState;
+    }
+
+    // AI-to-player: offer peace via notification
+    const empireObj = state.gameState.empires.find(e => e.id === empireId);
+    const empireName = empireObj?.name ?? empireId;
+    const notification = createNotification(
+      'diplomatic_proposal',
+      `${empireName} seeks peace`,
+      `The ${empireName} request an end to hostilities. They appear weakened and wish to negotiate.`,
+      tick,
+      [
+        { id: `accept_peace_${empireId}`, label: 'Accept Peace', description: 'End the war and return to neutral relations' },
+        { id: `reject_peace_${empireId}`, label: 'Refuse', description: 'Continue the war' },
+      ],
+      { empireId },
+    );
+    let notifications = [...((state as unknown as Record<string, unknown>).notifications as any[] ?? [])];
+    notifications.push(notification);
+    return { ...state, notifications } as GameTickState;
+  }
+
   return state;
 }
 
@@ -3547,6 +3582,45 @@ function stepWaste(state: GameTickState): GameTickState {
  * Updates the buildings array on each planet (immutably) and writes condition
  * values back into the galaxy state.
  */
+// ---------------------------------------------------------------------------
+// Step 9e: Galactic Events (solar storms, asteroid showers, etc.)
+// ---------------------------------------------------------------------------
+
+function stepGalacticEvents(state: GameTickState, events: GameEvent[]): GameTickState {
+  const tick = state.gameState.currentTick;
+  const activeEvents = ((state as unknown as Record<string, unknown>).galacticEvents ?? []) as GalacticEvent[];
+  const systemIds = state.gameState.galaxy.systems.map(s => s.id);
+
+  const result = processGalacticEvents(activeEvents, tick, systemIds.length, systemIds);
+
+  if (result.newEvent) {
+    const evt = result.newEvent;
+    const notifications = [...((state as unknown as Record<string, unknown>).notifications as any[] ?? [])];
+    notifications.push(
+      createNotification(
+        'warning' as any,
+        evt.name,
+        evt.description,
+        tick,
+      ),
+    );
+    return {
+      ...state,
+      galacticEvents: result.activeEvents,
+      notifications,
+    } as GameTickState;
+  }
+
+  return {
+    ...state,
+    galacticEvents: result.activeEvents,
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
+// Step 9c: Building Condition
+// ---------------------------------------------------------------------------
+
 function stepBuildingCondition(state: GameTickState): GameTickState {
   let systems = state.gameState.galaxy.systems;
 
@@ -4360,6 +4434,9 @@ export function processGameTick(
 
   // 9c. Building Condition (decay unpaid buildings, update condition values)
   s = stepBuildingCondition(s);
+
+  // 9e. Galactic Events (solar storms, asteroid showers, etc.)
+  s = stepGalacticEvents(s, events);
 
   // 10. Victory Check — update economic lead counters then evaluate all conditions
   s = {
