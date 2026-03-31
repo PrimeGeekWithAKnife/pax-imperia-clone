@@ -42,7 +42,7 @@ export interface CanEstablishResult {
  * Base credits per tick for a trade route of distance 1.
  * Income scales linearly: income = BASE_TRADE_INCOME * distance / DISTANCE_SCALE.
  */
-const BASE_TRADE_INCOME = 10;
+const BASE_TRADE_INCOME = 40;
 
 /**
  * Normalisation divisor for distance → income scaling.
