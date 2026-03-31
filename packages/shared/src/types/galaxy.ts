@@ -8,6 +8,16 @@ export interface Position2D {
   y: number;
 }
 
+/** Persistent orbital debris field — created by combat, decays over time. */
+export interface OrbitalDebris {
+  /** Debris density: 0 = clean, 100 = Kessler locked */
+  density: number;
+  /** Tick when debris was last added (for decay calculation) */
+  lastEventTick: number;
+  /** Source of debris: 'combat' | 'asat' | 'breakup' */
+  sources: Array<{ type: 'combat' | 'asat' | 'breakup'; tick: number; amount: number }>;
+}
+
 export interface StarSystem {
   id: string;
   name: string;
@@ -17,6 +27,8 @@ export interface StarSystem {
   wormholes: string[]; // IDs of connected star systems
   ownerId: string | null;
   discovered: Record<string, boolean>; // empireId -> discovered
+  /** Orbital debris field — absent or undefined means clean space. */
+  debris?: OrbitalDebris;
 }
 
 export type StarType =

@@ -8,7 +8,8 @@
  * Processing order per tick:
  *  0.   Player Actions       (colonise/start migration, build, speed change)
  *  1.   Fleet Movement
- *  2.   Combat Resolution
+ *  1c.  Orbital Debris       (decay, ship/building damage, Kessler cascade)
+ *  2.   Combat Resolution    (destroyed ships create debris)
  *  3.   Population Growth    (applies happiness growth bonus/revolt loss)
  *  3a.  Healthcare           (disease, pandemics, medical infrastructure)
  *  3b.  Migration Processing (wave departures, arrivals, colony establishment)
@@ -40,7 +41,7 @@
  */
 
 import type { GameState } from '../types/game-state.js';
-import type { StarSystem, Planet, BuildingType } from '../types/galaxy.js';
+import type { StarSystem, Planet, BuildingType, OrbitalDebris } from '../types/galaxy.js';
 import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
 import { getEffectiveHullPoints } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
@@ -1188,6 +1189,273 @@ function stepShipRepair(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 1c: Orbital Debris Processing
+// ---------------------------------------------------------------------------
+
+/** Hull class debris contribution — larger ships create more debris when destroyed. */
+const HULL_CLASS_DEBRIS_SIZE: Record<string, number> = {
+  scout: 1,
+  destroyer: 3,
+  transport: 2,
+  cruiser: 5,
+  carrier: 6,
+  battleship: 8,
+  coloniser: 3,
+  dreadnought: 12,
+  battle_station: 10,
+  deep_space_probe: 0,
+};
+
+/** Natural debris decay rate per tick (0.5%). */
+const DEBRIS_DECAY_RATE = 0.005;
+
+/** Enhanced decay rate when a cleanup facility is present (2%). */
+const DEBRIS_CLEANUP_DECAY_RATE = 0.02;
+
+/** Minimum density before debris is removed entirely. */
+const DEBRIS_CLEANUP_THRESHOLD = 1;
+
+/** Density above which ships take debris damage. */
+const DEBRIS_DAMAGE_THRESHOLD = 10;
+
+/** Damage multiplier: damagePerTick = density * this * ship.maxHullPoints */
+const DEBRIS_DAMAGE_FACTOR = 0.002;
+
+/** Density above which orbital buildings take condition damage. */
+const DEBRIS_BUILDING_DAMAGE_THRESHOLD = 50;
+
+/** Condition damage rate for orbital buildings per tick (fraction). */
+const DEBRIS_BUILDING_DAMAGE_RATE = 0.005;
+
+/** Density above which trade routes through the system are disrupted. */
+const DEBRIS_TRADE_DISRUPTION_THRESHOLD = 80;
+
+/** Density above which Kessler cascade can occur. */
+const DEBRIS_CASCADE_THRESHOLD = 75;
+
+/** Chance per tick of a cascade event at critical density (2%). */
+const DEBRIS_CASCADE_CHANCE = 0.02;
+
+/** Density added by a cascade event. */
+const DEBRIS_CASCADE_AMOUNT = 10;
+
+/** Maximum debris density. */
+const DEBRIS_MAX_DENSITY = 100;
+
+/** Density threshold for debris warning notification. */
+const DEBRIS_WARNING_THRESHOLD = 30;
+
+function stepOrbitalDebris(state: GameTickState): GameTickState {
+  const tick = state.gameState.currentTick;
+  let systems = state.gameState.galaxy.systems;
+  let ships = state.gameState.ships;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- notifications is a dynamic property on GameTickState
+  let notifications = [...((state as any).notifications ?? [])] as ReturnType<typeof createNotification>[];
+  let anySystemChanged = false;
+  let anyShipChanged = false;
+
+  // Track which systems have already had notifications emitted this tick
+  // to avoid duplicates when density crosses multiple thresholds.
+  const notifiedSystems = new Set<string>();
+
+  for (let sysIdx = 0; sysIdx < systems.length; sysIdx++) {
+    const system = systems[sysIdx];
+    if (!system.debris || system.debris.density <= 0) continue;
+
+    let debris = { ...system.debris, sources: [...system.debris.sources] };
+
+    // ── Decay ──────────────────────────────────────────────────────────────
+    // Check if any planet in the system has an orbital_platform (debris cleanup)
+    const hasCleanupFacility = system.planets.some(p =>
+      p.ownerId !== null && p.buildings.some(b => b.type === 'orbital_platform'),
+    );
+    const decayRate = hasCleanupFacility ? DEBRIS_CLEANUP_DECAY_RATE : DEBRIS_DECAY_RATE;
+    debris.density -= debris.density * decayRate;
+
+    // ── Cascade check ──────────────────────────────────────────────────────
+    if (debris.density > DEBRIS_CASCADE_THRESHOLD) {
+      // Deterministic-ish RNG from tick + system index
+      const cascadeRoll = ((tick * 31 + sysIdx * 17) % 1000) / 1000;
+      if (cascadeRoll < DEBRIS_CASCADE_CHANCE) {
+        const cascadeAmount = Math.min(DEBRIS_CASCADE_AMOUNT, DEBRIS_MAX_DENSITY - debris.density);
+        debris.density += cascadeAmount;
+        debris.lastEventTick = tick;
+        debris.sources.push({ type: 'breakup', tick, amount: cascadeAmount });
+
+        notifications.push(
+          createNotification(
+            'debris_cascade',
+            `Kessler cascade in ${system.name}`,
+            `A Kessler cascade has occurred in ${system.name} — debris is expanding uncontrollably.`,
+            tick,
+            undefined,
+            { systemId: system.id },
+          ),
+        );
+        notifiedSystems.add(system.id);
+      }
+    }
+
+    // ── Clean up negligible debris ─────────────────────────────────────────
+    if (debris.density < DEBRIS_CLEANUP_THRESHOLD) {
+      // Remove debris entirely
+      if (!anySystemChanged) {
+        systems = [...systems];
+        anySystemChanged = true;
+      }
+      systems[sysIdx] = { ...system, debris: undefined };
+      continue;
+    }
+
+    // Cap at maximum
+    debris.density = Math.min(debris.density, DEBRIS_MAX_DENSITY);
+
+    // ── Ship damage ────────────────────────────────────────────────────────
+    if (debris.density > DEBRIS_DAMAGE_THRESHOLD) {
+      for (const fleet of state.gameState.fleets) {
+        if (fleet.position.systemId !== system.id) continue;
+
+        for (const shipId of fleet.ships) {
+          const shipIdx = ships.findIndex(s => s.id === shipId);
+          if (shipIdx === -1) continue;
+          const ship = ships[shipIdx];
+
+          const damage = debris.density * DEBRIS_DAMAGE_FACTOR * ship.maxHullPoints;
+          const newHull = Math.max(0, ship.hullPoints - damage);
+
+          if (newHull !== ship.hullPoints) {
+            if (!anyShipChanged) {
+              ships = [...ships];
+              anyShipChanged = true;
+            }
+            ships[shipIdx] = { ...ship, hullPoints: newHull };
+          }
+        }
+      }
+    }
+
+    // ── Orbital building condition damage ──────────────────────────────────
+    if (debris.density > DEBRIS_BUILDING_DAMAGE_THRESHOLD) {
+      let planetsChanged = false;
+      let updatedPlanets = system.planets;
+
+      for (let pIdx = 0; pIdx < updatedPlanets.length; pIdx++) {
+        const planet = updatedPlanets[pIdx];
+        if (planet.ownerId === null) continue;
+
+        let buildingsChanged = false;
+        let updatedBuildings = planet.buildings;
+
+        for (let bIdx = 0; bIdx < updatedBuildings.length; bIdx++) {
+          const building = updatedBuildings[bIdx];
+          if (building.slotZone !== 'orbital') continue;
+
+          const currentCondition = building.condition ?? 100;
+          const newCondition = Math.max(0, currentCondition - DEBRIS_BUILDING_DAMAGE_RATE * 100);
+
+          if (newCondition !== currentCondition) {
+            if (!buildingsChanged) {
+              updatedBuildings = [...updatedBuildings];
+              buildingsChanged = true;
+            }
+            updatedBuildings[bIdx] = { ...building, condition: newCondition };
+          }
+        }
+
+        if (buildingsChanged) {
+          if (!planetsChanged) {
+            updatedPlanets = [...updatedPlanets];
+            planetsChanged = true;
+          }
+          updatedPlanets[pIdx] = { ...planet, buildings: updatedBuildings };
+        }
+      }
+
+      if (planetsChanged) {
+        if (!anySystemChanged) {
+          systems = [...systems];
+          anySystemChanged = true;
+        }
+        systems[sysIdx] = { ...system, planets: updatedPlanets, debris };
+        continue; // Already updated this system entry
+      }
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────────
+    if (!notifiedSystems.has(system.id)) {
+      if (debris.density > DEBRIS_CASCADE_THRESHOLD) {
+        notifications.push(
+          createNotification(
+            'debris_critical',
+            `Critical debris density in ${system.name}`,
+            `Critical debris density in ${system.name} — Kessler cascade imminent.`,
+            tick,
+            undefined,
+            { systemId: system.id },
+          ),
+        );
+        notifiedSystems.add(system.id);
+      } else if (debris.density > DEBRIS_WARNING_THRESHOLD) {
+        // Emit every 50 ticks to avoid notification spam
+        if (tick % 50 === 0) {
+          notifications.push(
+            createNotification(
+              'debris_warning',
+              `Debris warning in ${system.name}`,
+              `Debris warning in ${system.name} — orbital hazard increasing.`,
+              tick,
+              undefined,
+              { systemId: system.id },
+            ),
+          );
+        }
+      }
+    }
+
+    // Update system with new debris state
+    if (!anySystemChanged) {
+      systems = [...systems];
+      anySystemChanged = true;
+    }
+    systems[sysIdx] = { ...system, debris };
+  }
+
+  // ── Trade route disruption ─────────────────────────────────────────────
+  // Filter out trade routes that pass through systems with density > 80
+  let tradeRoutes = state.tradeRoutes;
+  const disruptedSystemIds = new Set<string>();
+  for (const system of systems) {
+    if (system.debris && system.debris.density > DEBRIS_TRADE_DISRUPTION_THRESHOLD) {
+      disruptedSystemIds.add(system.id);
+    }
+  }
+  if (disruptedSystemIds.size > 0) {
+    const filteredRoutes = tradeRoutes.filter(route =>
+      !disruptedSystemIds.has(route.originSystemId) &&
+      !disruptedSystemIds.has(route.destinationSystemId),
+    );
+    if (filteredRoutes.length !== tradeRoutes.length) {
+      tradeRoutes = filteredRoutes;
+    }
+  }
+
+  if (!anySystemChanged && !anyShipChanged && tradeRoutes === state.tradeRoutes) return state;
+
+  return {
+    ...state,
+    notifications,
+    tradeRoutes,
+    gameState: {
+      ...state.gameState,
+      galaxy: anySystemChanged
+        ? { ...state.gameState.galaxy, systems }
+        : state.gameState.galaxy,
+      ships: anyShipChanged ? ships : state.gameState.ships,
+    },
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
 // Step 2: Combat Resolution
 // ---------------------------------------------------------------------------
 
@@ -1349,6 +1617,40 @@ function stepCombatResolution(
       tick,
     };
     events.push(combatResolvedEvent);
+
+    // ── Create orbital debris from destroyed ships ─────────────────────────
+    if (destroyedIds.size > 0) {
+      let debrisAmount = 0;
+      for (const destroyedId of destroyedIds) {
+        const destroyedShip = [...attackerShips, ...defenderShips].find(s => s.id === destroyedId);
+        if (!destroyedShip) continue;
+        const design = designs.get(destroyedShip.designId);
+        const hullClass = design?.hull ?? 'scout';
+        debrisAmount += (HULL_CLASS_DEBRIS_SIZE[hullClass] ?? 1) * 2;
+      }
+
+      if (debrisAmount > 0) {
+        const sys = combatSystems.find(s => s.id === combat.systemId);
+        if (sys) {
+          const existingDebris = sys.debris;
+          const newDensity = Math.min(
+            DEBRIS_MAX_DENSITY,
+            (existingDebris?.density ?? 0) + debrisAmount,
+          );
+          const newDebris: OrbitalDebris = {
+            density: newDensity,
+            lastEventTick: tick,
+            sources: [
+              ...(existingDebris?.sources ?? []),
+              { type: 'combat', tick, amount: debrisAmount },
+            ],
+          };
+          combatSystems = combatSystems.map(s =>
+            s.id === combat.systemId ? { ...s, debris: newDebris } : s,
+          );
+        }
+      }
+    }
 
     // Planet capture: winner takes undefended enemy planets in the system
     const loserEmpireId = winnerEmpireId === attackerFleet.empireId
@@ -3975,7 +4277,10 @@ export function processGameTick(
   // 1b. Ship Repair (ships at friendly systems with spaceports heal)
   s = stepShipRepair(s);
 
-  // 2. Combat Resolution
+  // 1c. Orbital Debris Processing (decay, damage, cascade)
+  s = stepOrbitalDebris(s);
+
+  // 2. Combat Resolution (may create new debris from destroyed ships)
   s = stepCombatResolution(s, events, playerEmpireId);
 
   // 3. Population Growth

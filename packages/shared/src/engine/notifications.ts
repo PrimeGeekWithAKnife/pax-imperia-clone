@@ -47,6 +47,11 @@ const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   minor_species_found:     { priority: 'info', autoPause: true, canSilence: true },
   anomaly_discovered:      { priority: 'info', autoPause: true, canSilence: true },
   planet_captured:         { priority: 'info', autoPause: true, canSilence: true },
+
+  // Orbital debris warnings
+  debris_warning:          { priority: 'warning', autoPause: false, canSilence: true },
+  debris_critical:         { priority: 'critical', autoPause: true, canSilence: true },
+  debris_cascade:          { priority: 'critical', autoPause: true, canSilence: true },
 };
 
 // ---------------------------------------------------------------------------
