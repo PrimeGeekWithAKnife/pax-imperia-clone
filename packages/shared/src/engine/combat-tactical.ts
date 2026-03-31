@@ -1880,6 +1880,22 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
+      // Evasion check — moving ships are harder to hit, especially small fast ones
+      // Stationary ships get no evasion bonus
+      if (weapon.type !== 'fighter_bay') {
+        const isMoving = target.order.type !== 'idle' || target.stance === 'at_ease' || target.stance === 'evasive';
+        if (isMoving) {
+          const speedFactor = target.speed / 5; // normalise to baseline speed of 5
+          const sizeFactor = target.maxHull < 60 ? 0.3 : target.maxHull < 200 ? 0.15 : target.maxHull < 400 ? 0.05 : 0;
+          const evasionChance = Math.min(0.4, speedFactor * 0.1 + sizeFactor);
+          if (Math.random() < evasionChance) {
+            // Evaded — weapon missed
+            updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax });
+            continue;
+          }
+        }
+      }
+
       // Accuracy roll — experience and morale affect hit chance
       // Fighter bays always launch (accuracy is per-fighter, handled elsewhere)
       if (weapon.type !== 'fighter_bay') {

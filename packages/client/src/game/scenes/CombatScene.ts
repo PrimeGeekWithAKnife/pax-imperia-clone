@@ -6,16 +6,18 @@ import {
   setShipOrder,
   setShipStance,
   setFormation,
+  getFormationPositions,
   admiralRally,
   admiralEmergencyRepair,
   admiralPause,
+  calculateExperienceGain,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance, CrewExperience } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
 // ---------------------------------------------------------------------------
@@ -76,9 +78,9 @@ const PROJECTILE_MAX_RADIUS = 6;
 const PROJECTILE_TRAIL_LENGTH = 3; // number of trail segments for high-damage projectiles
 
 /** Missile visual constants */
-const MISSILE_SIZE = 10;
-const MISSILE_TRAIL_LENGTH = 20;
-const MISSILE_EXHAUST_SEGMENTS = 4; // fading trail dots behind the missile
+const MISSILE_SIZE = 6;
+const MISSILE_TRAIL_LENGTH = 12;
+const MISSILE_EXHAUST_SEGMENTS = 3; // fading trail dots behind the missile
 
 /** Fighter visual constants */
 const FIGHTER_SIZE = 5;
@@ -255,6 +257,8 @@ export class CombatScene extends Phaser.Scene {
   private prevProjectileCount = 0;
   /** Number of missiles last tick. */
   private prevMissileCount = 0;
+  /** Set of missile IDs last tick — detect impacts (disappeared missiles). */
+  private prevMissileIds = new Set<string>();
   /** Previous shield values per ship id — detect shield hits. */
   private prevShields = new Map<string, number>();
 
@@ -264,6 +268,7 @@ export class CombatScene extends Phaser.Scene {
   private speedButtons: Phaser.GameObjects.Text[] = [];
   private pauseButton!: Phaser.GameObjects.Text;
   private formationButtons: Phaser.GameObjects.Text[] = [];
+  private stanceButtons: Phaser.GameObjects.Text[] = [];
   private rallyButton!: Phaser.GameObjects.Text;
   private repairButton!: Phaser.GameObjects.Text;
   private pauseCountLabel!: Phaser.GameObjects.Text;
@@ -327,6 +332,7 @@ export class CombatScene extends Phaser.Scene {
     this.prevBeamKeys.clear();
     this.prevProjectileCount = 0;
     this.prevMissileCount = 0;
+    this.prevMissileIds.clear();
 
     // Restore previous music track on scene shutdown
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -1598,6 +1604,7 @@ export class CombatScene extends Phaser.Scene {
     });
     stanceLabel.setScrollFactor(0).setDepth(100);
 
+    this.stanceButtons = [];
     let stBtnX = fmtBtnX + 100;
     for (const st of STANCE_TYPES) {
       const isActive = st.type === 'aggressive';
@@ -1612,6 +1619,7 @@ export class CombatScene extends Phaser.Scene {
       });
       btn.setScrollFactor(0).setDepth(100);
       btn.setInteractive({ useHandCursor: true });
+      btn.setData('stanceType', st.type);
       btn.on('pointerdown', () => {
         (this as unknown as Record<string, unknown>).currentStance = st.type;
         const stance = st.type as CombatStance;
@@ -1627,7 +1635,8 @@ export class CombatScene extends Phaser.Scene {
           const side = this._getPlayerSide();
           this.tacticalState = setShipStance(this.tacticalState, side, stance);
         }
-        // Flee stance also issues flee orders
+        // Flee stance issues flee orders; all other stances reset orders to idle
+        // so the new stance's idle behaviour takes over immediately
         if (st.type === 'flee') {
           if (multiIds && multiIds.length > 0) {
             for (const id of multiIds) {
@@ -1645,8 +1654,31 @@ export class CombatScene extends Phaser.Scene {
               }
             }
           }
+        } else {
+          // Reset orders to idle so new stance behaviour takes over
+          if (multiIds && multiIds.length > 0) {
+            for (const id of multiIds) {
+              this.tacticalState = setShipOrder(this.tacticalState, id, { type: 'idle' });
+            }
+          } else if (this.selectedShipId) {
+            this.tacticalState = setShipOrder(this.tacticalState, this.selectedShipId, { type: 'idle' });
+          } else {
+            for (const ship of this.tacticalState.ships) {
+              if (!ship.destroyed && !ship.routed && this._isPlayerSide(ship)) {
+                this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'idle' });
+              }
+            }
+          }
+        }
+        // Update stance button highlighting
+        for (const b of this.stanceButtons) {
+          const btnType = b.getData('stanceType') as string;
+          const active = btnType === st.type;
+          b.setColor(active ? '#ffcc44' : '#6688aa');
+          b.setBackgroundColor(active ? '#2a2a1e' : '#1a1a2e');
         }
       });
+      this.stanceButtons.push(btn);
       stBtnX += btn.width + 8;
     }
 
@@ -2087,22 +2119,27 @@ export class CombatScene extends Phaser.Scene {
     // If multiple ships selected, issue order to all
     const multiIds = (this as unknown as Record<string, unknown>).selectedShipIds as string[] | null;
     if (multiIds && multiIds.length > 1) {
-      // For move orders, preserve relative offsets so ships don't stack
+      // For move orders, use formation offsets so ships advance in formation shape
       if (order.type === 'move') {
         const selectedShips = multiIds
           .map(id => this.tacticalState.ships.find(s => s.id === id))
           .filter((s): s is TacticalShip => !!s && !s.destroyed && !s.routed);
         if (selectedShips.length > 0) {
-          // Calculate centroid of selected ships
-          const cx = selectedShips.reduce((sum, s) => sum + s.position.x, 0) / selectedShips.length;
-          const cy = selectedShips.reduce((sum, s) => sum + s.position.y, 0) / selectedShips.length;
-          for (const ship of selectedShips) {
-            const offsetX = ship.position.x - cx;
-            const offsetY = ship.position.y - cy;
-            this.tacticalState = setShipOrder(this.tacticalState, ship.id, {
+          // Get the current formation type for the player's side
+          const side = this._getPlayerSide();
+          const formation = side === 'attacker'
+            ? this.tacticalState.attackerFormation
+            : this.tacticalState.defenderFormation;
+
+          // Get formation offsets for this many ships
+          const positions = getFormationPositions(formation, selectedShips.length);
+
+          for (let i = 0; i < selectedShips.length; i++) {
+            const pos = positions[i] ?? { offsetX: 0, offsetY: 0 };
+            this.tacticalState = setShipOrder(this.tacticalState, selectedShips[i].id, {
               type: 'move',
-              x: order.x! + offsetX,
-              y: order.y! + offsetY,
+              x: order.x! + pos.offsetX,
+              y: order.y! + pos.offsetY,
             });
           }
         }
@@ -2344,11 +2381,32 @@ export class CombatScene extends Phaser.Scene {
     this.prevProjectileCount = state.projectiles.length;
 
     // ── New missiles → missile launch (max 1 per tick) ────────────────────
+    const currentMissileIds = new Set<string>();
+    for (const m of (state.missiles ?? [])) {
+      currentMissileIds.add(m.id);
+    }
+
     const newMissiles = state.missiles.length - this.prevMissileCount;
     if (newMissiles > 0) {
       this.sfx.playMissileLaunch();
     }
+
+    // ── Missile impacts — missiles that vanished since last tick ──────────
+    // Point defence interceptions are handled separately, so any missile
+    // that disappeared without a PD effect is an impact.
+    let impactCount = 0;
+    for (const prevId of this.prevMissileIds) {
+      if (impactCount >= 2) break;
+      if (!currentMissileIds.has(prevId)) {
+        impactCount++;
+      }
+    }
+    if (impactCount > 0) {
+      this.sfx.playMissileImpact();
+    }
+
     this.prevMissileCount = state.missiles.length;
+    this.prevMissileIds = currentMissileIds;
 
     // ── Point defence effects → PD burst (max 2 per tick) ─────────────────
     const pdEffects = state.pointDefenceEffects ?? [];
@@ -2400,82 +2458,384 @@ export class CombatScene extends Phaser.Scene {
     this.battleEnded = true;
     this.tickTimer.paused = true;
 
+    // Show the full battle summary overlay instead of a simple label
+    this._showBattleSummary();
+  }
+
+  // =========================================================================
+  // Post-battle summary overlay
+  // =========================================================================
+
+  private _showBattleSummary(): void {
+    const { width, height } = this.scale;
+    const allElements: Phaser.GameObjects.GameObject[] = [];
+
     const playerIsAttacker =
       this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
     const playerWon = playerIsAttacker
       ? this.tacticalState.outcome === 'attacker_wins'
       : this.tacticalState.outcome === 'defender_wins';
 
-    const resultText = playerWon ? 'VICTORY' : 'DEFEAT';
-    const resultColor = playerWon ? '#44ff88' : '#ff4444';
+    // --- Classify ships by side ---
+    const playerShips = this.tacticalState.ships.filter(s => this._isPlayerSide(s));
+    const enemyShips = this.tacticalState.ships.filter(s => !this._isPlayerSide(s));
+    const playerSurvived = playerShips.filter(s => !s.destroyed && !s.routed);
+    const playerDestroyed = playerShips.filter(s => s.destroyed);
+    const enemySurvived = enemyShips.filter(s => !s.destroyed && !s.routed);
+    const enemyDestroyed = enemyShips.filter(s => s.destroyed);
 
-    const { width, height } = this.scale;
+    // --- Determine battle result label ---
+    let resultText: string;
+    let resultColor: string;
+    if (playerDestroyed.length === playerShips.length && enemyDestroyed.length === enemyShips.length) {
+      resultText = 'MUTUAL DESTRUCTION';
+      resultColor = '#ff8844';
+    } else if (playerWon && playerDestroyed.length > playerShips.length * 0.6) {
+      resultText = 'PYRRHIC VICTORY';
+      resultColor = '#ddaa44';
+    } else if (playerWon) {
+      resultText = 'VICTORY';
+      resultColor = '#44ff88';
+    } else {
+      resultText = 'DEFEAT';
+      resultColor = '#ff4444';
+    }
 
-    const label = this.add.text(width / 2, height / 2, resultText, {
-      fontFamily: 'serif',
-      fontSize: '64px',
-      color: resultColor,
-      stroke: '#000000',
-      strokeThickness: 4,
-      shadow: {
-        offsetX: 0,
-        offsetY: 0,
-        color: resultColor,
-        blur: 24,
-        fill: true,
-      },
+    // --- Experience calculations for surviving player ships ---
+    const xpGains = new Map<string, { from: CrewExperience; to: CrewExperience }>();
+    for (const ship of playerSurvived) {
+      const newXp = calculateExperienceGain(
+        ship,
+        playerWon,
+        enemyShips.length,
+        playerShips.length,
+      );
+      if (newXp !== ship.crew.experience) {
+        xpGains.set(ship.id, { from: ship.crew.experience, to: newXp });
+      }
+    }
+
+    // --- Panel sizing ---
+    const panelW = Math.min(820, width - 40);
+    const panelH = Math.min(640, height - 40);
+    const px = (width - panelW) / 2;
+    const py = (height - panelH) / 2;
+
+    // --- Dark overlay ---
+    const overlay = this.add.graphics();
+    overlay.setScrollFactor(0).setDepth(200);
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, width, height);
+    allElements.push(overlay);
+
+    // --- Panel background ---
+    const panel = this.add.graphics();
+    panel.setScrollFactor(0).setDepth(201);
+    panel.fillStyle(0x0a1628, 0.97);
+    panel.fillRoundedRect(px, py, panelW, panelH, 10);
+    panel.lineStyle(2, 0x3388cc, 0.7);
+    panel.strokeRoundedRect(px, py, panelW, panelH, 10);
+    allElements.push(panel);
+
+    // --- Title ---
+    const title = this.add.text(width / 2, py + 20, 'BATTLE SUMMARY', {
+      fontFamily: 'monospace', fontSize: '28px', color: '#ff8844',
+      stroke: '#000000', strokeThickness: 3,
     });
-    label.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(200);
+    title.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
+    allElements.push(title);
 
-    // After 2 seconds, check whether to transition to ground combat or end
-    this.time.delayedCall(2000, () => {
-      // If attacker won a planetary assault, transition to ground combat
-      if (
-        this.tacticalState.outcome === 'attacker_wins' &&
-        this.tacticalState.layout === 'planetary_assault' &&
-        this.tacticalState.planetData
-      ) {
-        // First emit tactical complete so the engine can apply ship losses
-        this.game.events.emit('combat:tactical_complete', this.tacticalState);
+    // --- Result label ---
+    const resultLabel = this.add.text(width / 2, py + 56, resultText, {
+      fontFamily: 'monospace', fontSize: '22px', color: resultColor,
+      stroke: '#000000', strokeThickness: 2,
+    });
+    resultLabel.setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
+    allElements.push(resultLabel);
 
-        // Gather hull classes from surviving attacker ships to determine transport capacity
-        const survivingAttackers = this.tacticalState.ships.filter(
-          s => s.side === 'attacker' && !s.destroyed,
+    // --- Two-column layout ---
+    const colLeftX = px + 20;
+    const colRightX = px + panelW / 2 + 10;
+    const colW = panelW / 2 - 30;
+    let leftY = py + 94;
+    let rightY = py + 94;
+
+    // ── YOUR FLEET column ─────────────────────────────────────────────────
+    const yourHead = this.add.text(colLeftX, leftY, 'YOUR FLEET', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#44ccff',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    yourHead.setScrollFactor(0).setDepth(202);
+    allElements.push(yourHead);
+    leftY += 24;
+
+    // Surviving player ships with hull bars, shields, morale, XP
+    for (const ship of playerSurvived) {
+      const hullPct = Math.round((ship.hull / ship.maxHull) * 100);
+      const shieldPct = ship.maxShields > 0
+        ? Math.round((ship.shields / ship.maxShields) * 100)
+        : -1;
+
+      // Ship name
+      const hullColor = hullPct >= 80 ? '#44ff88' : hullPct >= 30 ? '#ffcc44' : '#ff4444';
+      const nameLabel = this.add.text(colLeftX + 4, leftY, ship.name, {
+        fontFamily: 'monospace', fontSize: '12px', color: '#ccddee',
+      });
+      nameLabel.setScrollFactor(0).setDepth(202);
+      allElements.push(nameLabel);
+      leftY += 16;
+
+      // Hull bar
+      const barWidth = Math.min(colW - 8, 180);
+      const barGfx = this.add.graphics();
+      barGfx.setScrollFactor(0).setDepth(202);
+      barGfx.fillStyle(0x1a1a2e, 1);
+      barGfx.fillRect(colLeftX + 4, leftY, barWidth, 8);
+      const hullFillColor = hullPct >= 80 ? 0x44ff88 : hullPct >= 30 ? 0xffcc44 : 0xff4444;
+      barGfx.fillStyle(hullFillColor, 1);
+      barGfx.fillRect(colLeftX + 4, leftY, barWidth * (hullPct / 100), 8);
+      allElements.push(barGfx);
+
+      const hullLabel = this.add.text(colLeftX + barWidth + 10, leftY - 2, `Hull ${hullPct}%`, {
+        fontFamily: 'monospace', fontSize: '10px', color: hullColor,
+      });
+      hullLabel.setScrollFactor(0).setDepth(202);
+      allElements.push(hullLabel);
+      leftY += 12;
+
+      // Status line: shields + morale
+      const parts: string[] = [];
+      if (shieldPct >= 0) parts.push(`Shields ${shieldPct}%`);
+      parts.push(`Morale ${Math.round(ship.crew.morale)}%`);
+      const statusLabel = this.add.text(colLeftX + 4, leftY, parts.join('  |  '), {
+        fontFamily: 'monospace', fontSize: '10px', color: '#88aacc',
+      });
+      statusLabel.setScrollFactor(0).setDepth(202);
+      allElements.push(statusLabel);
+      leftY += 14;
+
+      // XP gain line
+      const xp = xpGains.get(ship.id);
+      if (xp) {
+        const xpLabel = this.add.text(
+          colLeftX + 4, leftY,
+          `Crew: ${_capitalise(xp.from)} \u2192 ${_capitalise(xp.to)}`,
+          { fontFamily: 'monospace', fontSize: '10px', color: '#ffdd66' },
         );
-        const attackerHullClasses: HullClass[] = [];
-        for (const ts of survivingAttackers) {
-          const sourceShip = this.sceneData.attackerShips.find(s => s.id === ts.sourceShipId);
-          if (sourceShip) {
-            const design = this.sceneData.designs.get(sourceShip.designId);
-            if (design) {
-              attackerHullClasses.push(design.hull);
-            }
-          }
-        }
-
-        const groundData: GroundCombatSceneData = {
-          planetName: this.tacticalState.planetData.name,
-          planetType: this.tacticalState.planetData.type,
-          attackerHullClasses,
-          defenderPopulation: 10000, // Default — will be populated from planet data in future
-          defenderBuildings: [],
-          attackerExperience: 'regular',
-          defenderExperience: 'green',
-          attackerEmpireId: this.sceneData.attackerFleet.empireId,
-          defenderEmpireId: this.sceneData.defenderFleet.empireId,
-          playerEmpireId: this.sceneData.playerEmpireId,
-          attackerColor: this.sceneData.attackerColor,
-          defenderColor: this.sceneData.defenderColor,
-          attackerName: this.sceneData.attackerName,
-          defenderName: this.sceneData.defenderName,
-        };
-
-        this.scene.start('GroundCombatScene', groundData);
-        return;
+        xpLabel.setScrollFactor(0).setDepth(202);
+        allElements.push(xpLabel);
+        leftY += 14;
       }
 
-      this.game.events.emit('combat:tactical_complete', this.tacticalState);
-      this.scene.start('GalaxyMapScene', {});
+      leftY += 4; // gap between ships
+    }
+
+    // Destroyed player ships
+    if (playerDestroyed.length > 0) {
+      leftY += 4;
+      const lossHead = this.add.text(colLeftX, leftY, 'LOSSES', {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ff6666',
+        stroke: '#000000', strokeThickness: 1,
+      });
+      lossHead.setScrollFactor(0).setDepth(202);
+      allElements.push(lossHead);
+      leftY += 18;
+
+      for (const ship of playerDestroyed) {
+        const lossLabel = this.add.text(colLeftX + 4, leftY, `\u2620 ${ship.name}`, {
+          fontFamily: 'monospace', fontSize: '11px', color: '#cc4444',
+        });
+        lossLabel.setScrollFactor(0).setDepth(202);
+        allElements.push(lossLabel);
+        leftY += 16;
+      }
+    }
+
+    // ── ENEMY FLEET column ────────────────────────────────────────────────
+    const enemyHead = this.add.text(colRightX, rightY, 'ENEMY FLEET', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ff6666',
+      stroke: '#000000', strokeThickness: 2,
+    });
+    enemyHead.setScrollFactor(0).setDepth(202);
+    allElements.push(enemyHead);
+    rightY += 24;
+
+    // Enemy summary counts
+    const enemySummary = this.add.text(colRightX + 4, rightY,
+      `Ships engaged: ${enemyShips.length}\n` +
+      `Destroyed:     ${enemyDestroyed.length}\n` +
+      `Survived:      ${enemySurvived.length}`,
+      { fontFamily: 'monospace', fontSize: '12px', color: '#ccbbaa', lineSpacing: 4 },
+    );
+    enemySummary.setScrollFactor(0).setDepth(202);
+    allElements.push(enemySummary);
+    rightY += 56;
+
+    // Surviving enemy ships
+    if (enemySurvived.length > 0) {
+      const eHead = this.add.text(colRightX, rightY, 'SURVIVING', {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ff9966',
+        stroke: '#000000', strokeThickness: 1,
+      });
+      eHead.setScrollFactor(0).setDepth(202);
+      allElements.push(eHead);
+      rightY += 18;
+
+      for (const ship of enemySurvived) {
+        const hullPct = Math.round((ship.hull / ship.maxHull) * 100);
+        const hullColor = hullPct >= 80 ? '#44ff88' : hullPct >= 30 ? '#ffcc44' : '#ff4444';
+        const eLine = this.add.text(colRightX + 4, rightY,
+          `${ship.name}  Hull ${hullPct}%`,
+          { fontFamily: 'monospace', fontSize: '11px', color: hullColor },
+        );
+        eLine.setScrollFactor(0).setDepth(202);
+        allElements.push(eLine);
+        rightY += 16;
+      }
+    }
+
+    // Destroyed enemy ships
+    if (enemyDestroyed.length > 0) {
+      rightY += 4;
+      const eLossHead = this.add.text(colRightX, rightY, 'DESTROYED', {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ff6666',
+        stroke: '#000000', strokeThickness: 1,
+      });
+      eLossHead.setScrollFactor(0).setDepth(202);
+      allElements.push(eLossHead);
+      rightY += 18;
+
+      for (const ship of enemyDestroyed) {
+        const eLoss = this.add.text(colRightX + 4, rightY, `\u2620 ${ship.name}`, {
+          fontFamily: 'monospace', fontSize: '11px', color: '#cc4444',
+        });
+        eLoss.setScrollFactor(0).setDepth(202);
+        allElements.push(eLoss);
+        rightY += 16;
+      }
+    }
+
+    // ── Damage assessment ─────────────────────────────────────────────────
+    const damagedShips = playerSurvived.filter(s => (s.hull / s.maxHull) < 0.8);
+    const criticalShips = playerSurvived.filter(s => (s.hull / s.maxHull) < 0.3);
+
+    if (damagedShips.length > 0) {
+      const assessY = Math.max(leftY, rightY) + 8;
+      const divider = this.add.graphics();
+      divider.setScrollFactor(0).setDepth(202);
+      divider.lineStyle(1, 0x3388cc, 0.4);
+      divider.lineBetween(px + 20, assessY, px + panelW - 20, assessY);
+      allElements.push(divider);
+
+      const assessHead = this.add.text(px + 20, assessY + 6, 'DAMAGE ASSESSMENT', {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ffaa44',
+        stroke: '#000000', strokeThickness: 1,
+      });
+      assessHead.setScrollFactor(0).setDepth(202);
+      allElements.push(assessHead);
+
+      const repairLines = damagedShips.map(s => {
+        const pct = Math.round((s.hull / s.maxHull) * 100);
+        const tag = (s.hull / s.maxHull) < 0.3 ? ' [CRITICAL]' : '';
+        return `  ${s.name}: ${pct}% hull${tag}`;
+      });
+      const assessText = this.add.text(px + 20, assessY + 24,
+        `${damagedShips.length} ship${damagedShips.length > 1 ? 's' : ''} requiring repairs` +
+        (criticalShips.length > 0 ? ` (${criticalShips.length} critical)` : '') +
+        '\n' + repairLines.join('\n'),
+        { fontFamily: 'monospace', fontSize: '11px', color: '#ccbbaa', lineSpacing: 3 },
+      );
+      assessText.setScrollFactor(0).setDepth(202);
+      allElements.push(assessText);
+    }
+
+    // ── Continue button ───────────────────────────────────────────────────
+    const btnW = 260;
+    const btnH = 48;
+    const btnX = (width - btnW) / 2;
+    const btnY = py + panelH - 64;
+
+    const btnBg = this.add.graphics();
+    btnBg.setScrollFactor(0).setDepth(202);
+    btnBg.fillStyle(0x00aa66, 0.9);
+    btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
+    btnBg.lineStyle(1, 0x44ffaa, 0.5);
+    btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
+    allElements.push(btnBg);
+
+    const btnText = this.add.text(width / 2, btnY + btnH / 2, 'CONTINUE', {
+      fontFamily: 'monospace', fontSize: '20px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 3,
+    });
+    btnText.setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(203);
+    allElements.push(btnText);
+
+    const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH);
+    hitZone.setScrollFactor(0).setDepth(204);
+    hitZone.setInteractive({ useHandCursor: true });
+    allElements.push(hitZone);
+    hitZone.on('pointerdown', () => {
+      for (const el of allElements) el.destroy();
+      this._transitionAfterBattle();
     });
   }
+
+  /**
+   * Handle scene transition after the player dismisses the battle summary.
+   * Delegates to ground combat if applicable, otherwise returns to the galaxy map.
+   */
+  private _transitionAfterBattle(): void {
+    // If attacker won a planetary assault, transition to ground combat
+    if (
+      this.tacticalState.outcome === 'attacker_wins' &&
+      this.tacticalState.layout === 'planetary_assault' &&
+      this.tacticalState.planetData
+    ) {
+      this.game.events.emit('combat:tactical_complete', this.tacticalState);
+
+      const survivingAttackers = this.tacticalState.ships.filter(
+        s => s.side === 'attacker' && !s.destroyed,
+      );
+      const attackerHullClasses: HullClass[] = [];
+      for (const ts of survivingAttackers) {
+        const sourceShip = this.sceneData.attackerShips.find(s => s.id === ts.sourceShipId);
+        if (sourceShip) {
+          const design = this.sceneData.designs.get(sourceShip.designId);
+          if (design) {
+            attackerHullClasses.push(design.hull);
+          }
+        }
+      }
+
+      const groundData: GroundCombatSceneData = {
+        planetName: this.tacticalState.planetData.name,
+        planetType: this.tacticalState.planetData.type,
+        attackerHullClasses,
+        defenderPopulation: 10000, // Default — will be populated from planet data in future
+        defenderBuildings: [],
+        attackerExperience: 'regular',
+        defenderExperience: 'green',
+        attackerEmpireId: this.sceneData.attackerFleet.empireId,
+        defenderEmpireId: this.sceneData.defenderFleet.empireId,
+        playerEmpireId: this.sceneData.playerEmpireId,
+        attackerColor: this.sceneData.attackerColor,
+        defenderColor: this.sceneData.defenderColor,
+        attackerName: this.sceneData.attackerName,
+        defenderName: this.sceneData.defenderName,
+      };
+
+      this.scene.start('GroundCombatScene', groundData);
+      return;
+    }
+
+    this.game.events.emit('combat:tactical_complete', this.tacticalState);
+    this.scene.start('GalaxyMapScene', {});
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Utility — capitalise first letter of a crew experience level
+// ---------------------------------------------------------------------------
+function _capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
