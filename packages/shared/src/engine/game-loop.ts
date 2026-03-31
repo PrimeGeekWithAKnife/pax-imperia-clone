@@ -1050,7 +1050,7 @@ function stepFleetMovement(
               s => s.id === arrivedFleetForColonise.position.systemId,
             );
             const habitablePlanet = arrSystem?.planets.find(
-              p => !p.ownerId && p.habitability >= 40,
+              p => !p.ownerId && calculateHabitability(p, arrEmpire!.species).score >= 40,
             );
             if (habitablePlanet && arrSystem) {
               // Colonise: set planet ownership, consume coloniser ship
@@ -1058,7 +1058,7 @@ function stepFleetMovement(
                 ...habitablePlanet,
                 ownerId: arrivedFleetForColonise.empireId,
                 currentPopulation: 5000,
-                buildings: [{ type: 'population_center' as any, level: 1, condition: 100 }],
+                buildings: [{ id: generateId(), type: 'population_center' as any, level: 1, condition: 100 }],
                 productionQueue: [],
               };
               const updatedSystems = state.gameState.galaxy.systems.map(s =>
@@ -1444,10 +1444,13 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
       }
 
       // Apply government population growth multiplier.
+      // Guarantee at least 1 growth per tick so low-reproduction species can still expand.
       const govGrowthMult = GOVERNMENTS[empire.government]?.modifiers.populationGrowth ?? 1.0;
       if (govGrowthMult !== 1.0) {
         growth = Math.floor(growth * govGrowthMult);
-        if (growth < 0) growth = 0;
+      }
+      if (growth <= 0 && planet.currentPopulation < getEffectiveMaxPopulation(planet)) {
+        growth = 1;
       }
 
       const effectiveMax = getEffectiveMaxPopulation(planet);
@@ -2510,7 +2513,7 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
  * Keeps per-tick processing bounded and prevents the AI from executing
  * an overwhelming burst of actions in a single frame.
  */
-const AI_DECISIONS_PER_TICK = 3;
+const AI_DECISIONS_PER_TICK = 5;
 
 function stepAIDecisions(
   state: GameTickState,

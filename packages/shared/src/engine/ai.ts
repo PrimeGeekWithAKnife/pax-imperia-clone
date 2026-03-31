@@ -1030,10 +1030,10 @@ export function generateAIDecisions(
     });
     if (coloniserFleet) {
       // Find a known system with an uncolonised habitable planet
-      const targetSystem = galaxy.systems.find(s =>
+      const targetSystem = gameState.galaxy.systems.find(s =>
         empire.knownSystems.includes(s.id) &&
         !s.planets.some(p => p.ownerId === empire.id) &&
-        s.planets.some(p => !p.ownerId && p.habitability >= 40),
+        s.planets.some(p => !p.ownerId && calculateHabitability(p, empire.species).score >= 40),
       );
       if (targetSystem) {
         shipDecisions.push({
