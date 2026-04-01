@@ -299,23 +299,30 @@ export class GameEngine {
           }
           break;
         }
-        case 'TechResearched':
-          this.game.events.emit('engine:tech_researched', event as TechResearchedEvent);
+        case 'TechResearched': {
+          const tre = event as TechResearchedEvent;
+          if (tre.empireId === this.getPlayerEmpireId()) {
+            this.game.events.emit('engine:tech_researched', tre);
+          }
           break;
+        }
         case 'ColonyEstablished': {
           const ce = event as ColonyEstablishedEvent;
-          this.game.events.emit('engine:planet_colonised', {
-            planetName: ce.planetName,
-            systemId: ce.systemId,
-            planetId: ce.planetId,
-          });
-          // Also emit migration_completed so the React UI can show the
-          // colonisation notification and refresh the planet panel.
-          this.game.events.emit('engine:migration_completed', {
-            targetPlanetId: ce.planetId,
-            systemId: ce.systemId,
-            empireId: ce.empireId,
-          });
+          // Only notify the player about their own colonies, not AI ones
+          if (ce.empireId === this.getPlayerEmpireId()) {
+            this.game.events.emit('engine:planet_colonised', {
+              planetName: ce.planetName,
+              systemId: ce.systemId,
+              planetId: ce.planetId,
+            });
+            // Also emit migration_completed so the React UI can show the
+            // colonisation notification and refresh the planet panel.
+            this.game.events.emit('engine:migration_completed', {
+              targetPlanetId: ce.planetId,
+              systemId: ce.systemId,
+              empireId: ce.empireId,
+            });
+          }
           break;
         }
         case 'MigrationStarted': {
@@ -350,9 +357,15 @@ export class GameEngine {
       espionageEventLog: this.tickState.espionageEventLog,
     });
 
-    // ── Emit ship-produced notifications for each newly spawned ship ────────
+    // ── Emit ship-produced notifications for player's newly spawned ships only ──
+    const playerId = this.getPlayerEmpireId();
+    const playerFleetIds = new Set(
+      this.tickState.gameState.fleets
+        .filter(f => f.empireId === playerId)
+        .map(f => f.id),
+    );
     for (const ship of this.tickState.gameState.ships) {
-      if (!prevShipIds.has(ship.id)) {
+      if (!prevShipIds.has(ship.id) && ship.fleetId && playerFleetIds.has(ship.fleetId)) {
         const systemId = ship.position.systemId;
         this.game.events.emit('engine:ship_produced', {
           shipName: ship.name,
