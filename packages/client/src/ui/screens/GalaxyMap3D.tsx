@@ -495,11 +495,124 @@ function GalacticCentreGlow({ galaxy }: { galaxy: Galaxy }) {
     return galaxy.width * 0.15;
   }, [galaxy]);
 
+  const discMatRef = useRef<THREE.ShaderMaterial>(null!);
+  const haloMatRef = useRef<THREE.ShaderMaterial>(null!);
+  const coreRadius = bulgeRadius * 0.12;
+  const discRadius = bulgeRadius * 0.5;
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (discMatRef.current) discMatRef.current.uniforms.uTime.value = t;
+    if (haloMatRef.current) haloMatRef.current.uniforms.uTime.value = t;
+  });
+
   return (
     <group position={centre}>
-      {/* Large soft outer glow */}
+      {/* Dark event horizon — absorbs light */}
       <mesh>
-        <sphereGeometry args={[bulgeRadius, 32, 32]} />
+        <sphereGeometry args={[coreRadius, 32, 32]} />
+        <meshBasicMaterial color="#000000" toneMapped={false} />
+      </mesh>
+
+      {/* Accretion disc — hot ring of infalling matter (Interstellar style) */}
+      <mesh rotation={[-Math.PI * 0.42, 0, 0.15]}>
+        <ringGeometry args={[coreRadius * 1.3, discRadius, 128]} />
+        <shaderMaterial
+          ref={discMatRef}
+          transparent
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          uniforms={{
+            uTime: { value: 0 },
+            uInnerRadius: { value: coreRadius * 1.3 },
+            uOuterRadius: { value: discRadius },
+          }}
+          vertexShader={`
+            varying vec2 vUv;
+            varying float vRadius;
+            uniform float uInnerRadius;
+            uniform float uOuterRadius;
+            void main() {
+              vUv = uv;
+              // Calculate radial position for colour gradient
+              vec4 worldPos = modelMatrix * vec4(position, 1.0);
+              vRadius = length(position.xy);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform float uTime;
+            uniform float uInnerRadius;
+            uniform float uOuterRadius;
+            varying vec2 vUv;
+            varying float vRadius;
+            void main() {
+              // Radial gradient: hot white-orange near centre, cooler red-orange at edge
+              float radialT = clamp((vRadius - uInnerRadius) / (uOuterRadius - uInnerRadius), 0.0, 1.0);
+
+              // Inner: bright white-yellow, outer: deep orange-red
+              vec3 innerCol = vec3(1.0, 0.95, 0.8);
+              vec3 midCol = vec3(1.0, 0.6, 0.2);
+              vec3 outerCol = vec3(0.8, 0.2, 0.05);
+              vec3 col = radialT < 0.4
+                ? mix(innerCol, midCol, radialT / 0.4)
+                : mix(midCol, outerCol, (radialT - 0.4) / 0.6);
+
+              // Swirling pattern from angular position + time
+              float angle = atan(vUv.y - 0.5, vUv.x - 0.5);
+              float swirl = sin(angle * 8.0 + uTime * 0.5 + radialT * 12.0) * 0.3 + 0.7;
+
+              // Fade at edges
+              float edgeFade = smoothstep(0.0, 0.15, radialT) * smoothstep(1.0, 0.7, radialT);
+
+              float alpha = edgeFade * swirl * 0.7;
+              gl_FragColor = vec4(col * 1.5, alpha);
+            }
+          `}
+        />
+      </mesh>
+
+      {/* Gravitational lensing halo — the iconic bright ring around the shadow */}
+      <mesh rotation={[-Math.PI * 0.42, 0, 0.15]}>
+        <ringGeometry args={[coreRadius * 0.95, coreRadius * 1.4, 64]} />
+        <shaderMaterial
+          ref={haloMatRef}
+          transparent
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          uniforms={{ uTime: { value: 0 } }}
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform float uTime;
+            varying vec2 vUv;
+            void main() {
+              // Bright photon ring — the light trapped at the event horizon edge
+              float radialT = vUv.y; // 0 = inner edge, 1 = outer edge
+              float ring = exp(-pow((radialT - 0.5) * 4.0, 2.0));
+
+              // Shimmer
+              float angle = atan(vUv.y - 0.5, vUv.x - 0.5);
+              float shimmer = 0.85 + 0.15 * sin(angle * 12.0 + uTime * 2.0);
+
+              vec3 col = mix(vec3(1.0, 0.85, 0.5), vec3(1.0, 1.0, 0.95), ring);
+              float alpha = ring * shimmer * 0.9;
+              gl_FragColor = vec4(col * 2.0, alpha);
+            }
+          `}
+        />
+      </mesh>
+
+      {/* Soft outer gravitational glow — dim purple-blue haze */}
+      <mesh>
+        <sphereGeometry args={[bulgeRadius * 0.6, 32, 32]} />
         <shaderMaterial
           transparent
           depthWrite={false}
@@ -520,42 +633,9 @@ function GalacticCentreGlow({ galaxy }: { galaxy: Galaxy }) {
             varying vec3 vViewDir;
             void main() {
               float rim = dot(vViewDir, vNormal);
-              float glow = pow(max(rim, 0.0), 1.5);
-              vec3 col = vec3(0.6, 0.55, 0.9) * glow * 0.12;
-              gl_FragColor = vec4(col, glow * 0.15);
-            }
-          `}
-        />
-      </mesh>
-
-      {/* Bright inner core */}
-      <mesh>
-        <sphereGeometry args={[bulgeRadius * 0.25, 24, 24]} />
-        <shaderMaterial
-          transparent
-          depthWrite={false}
-          side={THREE.FrontSide}
-          blending={THREE.AdditiveBlending}
-          vertexShader={`
-            varying vec3 vNormal;
-            varying vec3 vViewDir;
-            void main() {
-              vNormal = normalize(normalMatrix * normal);
-              vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-              vViewDir = normalize(-mvPos.xyz);
-              gl_Position = projectionMatrix * mvPos;
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vNormal;
-            varying vec3 vViewDir;
-            void main() {
-              float fresnel = 1.0 - abs(dot(vViewDir, vNormal));
-              float core = pow(1.0 - fresnel, 2.0);
-              vec3 col = mix(vec3(0.7, 0.6, 1.0), vec3(1.0, 0.95, 0.8), core);
-              float alpha = (core * 0.4 + 0.05) * 0.6;
-              // Push colour above 1.0 to trigger bloom
-              gl_FragColor = vec4(col * 1.8, alpha);
+              float glow = pow(max(rim, 0.0), 2.5);
+              vec3 col = vec3(0.3, 0.2, 0.5) * glow * 0.08;
+              gl_FragColor = vec4(col, glow * 0.08);
             }
           `}
         />
@@ -708,7 +788,7 @@ function StarSprites({ systems, knownSystemIds }: { systems: StarSystem[]; known
       col[i * 3 + 2] = b * intensity;
 
       const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
-      sz[i] = isKnown ? baseScale * 12 : baseScale * 6;
+      sz[i] = isKnown ? baseScale * 40 : baseScale * 20;
     });
     return { positions: pos, colors: col, sizes: sz };
   }, [systems, knownSystemIds]);
