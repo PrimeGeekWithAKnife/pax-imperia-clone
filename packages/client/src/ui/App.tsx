@@ -491,9 +491,22 @@ export function App(): React.ReactElement {
       // Global shortcuts: M and F1–F6 work from any screen
       if (!gameStarted) return;
       switch (e.key.toLowerCase()) {
-        case 'm':
+        case 'm': {
           setCurrentScreen('game');
+          // Tell Phaser to return to galaxy map if we're inside a system view
+          const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+            | { events: { emit: (e: string) => void }; scene: { isActive: (k: string) => boolean } }
+            | undefined;
+          if (game?.scene?.isActive('SystemViewScene')) {
+            game.events.emit('system:exit_to_galaxy');
+          }
+          // Close any open planet/system panels
+          setSelectedSystem(null);
+          setSelectedPlanet(null);
+          setManagedPlanet(null);
+          setActiveSystemId(null);
           break;
+        }
         case 'f1':
           e.preventDefault();
           setCurrentScreen('research');
