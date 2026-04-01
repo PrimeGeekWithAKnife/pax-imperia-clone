@@ -29,3 +29,5 @@ export { MultiplayerLobbyScreen } from './MultiplayerLobbyScreen';
 export type { MultiplayerLobbyScreenProps } from './MultiplayerLobbyScreen';
 export { CombatTriggerDialog } from './CombatTriggerDialog';
 export type { CombatTriggerDialogProps } from './CombatTriggerDialog';
+export { CouncilScreen } from './CouncilScreen';
+export type { CouncilScreenProps } from './CouncilScreen';
