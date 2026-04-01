@@ -159,9 +159,9 @@ export function VictoryScreen({
   );
 
   const ticksToTurns = (ticks: number): string => {
-    if (ticks < 60) return `${ticks} ticks`;
+    if (ticks < 60) return `${ticks} turns`;
     const mins = Math.floor(ticks / 60);
-    return `${mins} min ${ticks % 60} ticks`;
+    return `${mins} min ${ticks % 60} turns`;
   };
 
   return (

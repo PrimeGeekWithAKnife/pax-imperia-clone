@@ -883,7 +883,7 @@ export function MarketScreen({
                       color: COLOURS.textMuted,
                       marginBottom: '8px',
                     }}>
-                      Last {selectedCommodity.priceHistory.length} tick{selectedCommodity.priceHistory.length !== 1 ? 's' : ''}
+                      Last {selectedCommodity.priceHistory.length} turn{selectedCommodity.priceHistory.length !== 1 ? 's' : ''}
                     </div>
                     {renderMiniChart(selectedCommodity.priceHistory)}
                     <div style={{

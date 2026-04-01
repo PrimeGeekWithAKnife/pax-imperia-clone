@@ -27,6 +27,13 @@ const STANCE_LABELS: Record<FleetStance, string> = {
   patrol:     'Patrol',
 };
 
+const STANCE_DESCRIPTIONS: Record<FleetStance, string> = {
+  aggressive: 'Aggressive \u2014 Full damage, no protection',
+  defensive:  'Defensive \u2014 Reduced damage, increased protection',
+  evasive:    'Evasive \u2014 Minimal damage, may flee from combat',
+  patrol:     'Patrol \u2014 Cycles through waypoints, engages nearby hostiles',
+};
+
 const STANCES: FleetStance[] = ['aggressive', 'defensive', 'evasive', 'patrol'];
 
 function resolveHullClass(ship: Ship, designs: ShipDesign[]): HullClass {
@@ -86,7 +93,7 @@ function FleetListItem({ fleet, ships, movementOrders, allSystems, isSelected, o
     >
       <div className="fleet-screen__fleet-item-header">
         <span className="fleet-screen__fleet-item-name">{fleet.name}</span>
-        <span className={`fleet-screen__stance-badge fleet-screen__stance-badge--${fleet.stance}`}>
+        <span className={`fleet-screen__stance-badge fleet-screen__stance-badge--${fleet.stance}`} title={STANCE_DESCRIPTIONS[fleet.stance]}>
           {STANCE_ICONS[fleet.stance]}
         </span>
       </div>
@@ -479,7 +486,7 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                         type="button"
                         className={`fleet-screen__stance-btn${selectedFleet.stance === s ? ' fleet-screen__stance-btn--active' : ''}`}
                         onClick={() => handleStanceChange(s)}
-                        title={STANCE_LABELS[s]}
+                        title={STANCE_DESCRIPTIONS[s]}
                       >
                         {STANCE_ICONS[s]}
                         <span className="fleet-screen__stance-label">{STANCE_LABELS[s]}</span>

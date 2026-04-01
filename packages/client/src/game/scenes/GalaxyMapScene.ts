@@ -367,6 +367,10 @@ export class GalaxyMapScene extends Phaser.Scene {
 
       const tickState = initializeTickState(gameState, UNIVERSAL_TECHNOLOGIES.length);
       const engine = createGameEngine(this.game, tickState);
+      // Start paused on the very first turn so the player can orient themselves
+      if (gameState.currentTick === 0) {
+        engine.setSpeed('paused');
+      }
       engine.start();
     }
 

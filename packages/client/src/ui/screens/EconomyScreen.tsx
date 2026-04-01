@@ -2,7 +2,7 @@
  * EconomyScreen — full-screen overlay showing the empire's economic overview.
  *
  * Sections:
- *  - Income Summary (top):  total credits per tick, expenses, net income with trend arrow.
+ *  - Income Summary (top):  total credits per turn, expenses, net income with trend arrow.
  *  - Resource Stocks (middle): bar charts for all 8 resource types with production rates.
  *  - Planet Contributions (bottom): sortable table of colonies ranked by economic output.
  *  - Trade Routes (right panel): active routes with "Establish Route" controls.
@@ -57,13 +57,13 @@ const RESOURCE_LABELS: Record<keyof EmpireResources, string> = {
 };
 
 const RESOURCE_ICONS: Record<keyof EmpireResources, string> = {
-  credits: 'C',
-  minerals: 'M',
+  credits: 'CR',
+  minerals: 'MN',
   rareElements: 'RE',
-  energy: 'E',
-  organics: 'O',
+  energy: 'EN',
+  organics: 'OR',
   exoticMaterials: 'EX',
-  faith: 'F',
+  faith: 'FT',
   researchPoints: 'RP',
 };
 
@@ -174,7 +174,7 @@ function ResourceBar({
           className="econ-resource-row__rate"
           style={{ color: isDeficit ? '#ff4444' : colour }}
         >
-          {sign(productionPerTick)}/tick
+          {sign(productionPerTick)}/turn
           {isDeficit && <span className="econ-resource-row__warn"> !</span>}
         </span>
       </div>
@@ -473,7 +473,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
 
             {/* Income Summary */}
             <div>
-              <div className="pm-section-label">Income per tick</div>
+              <div className="pm-section-label">Income per turn</div>
               <BreakdownRow label="Taxation" value={taxIncome} />
               <BreakdownRow label="Buildings" value={buildingIncome} />
               <BreakdownRow label="Trade routes" value={tradeIncome} />
@@ -482,7 +482,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
             </div>
 
             <div>
-              <div className="pm-section-label">Expenses per tick</div>
+              <div className="pm-section-label">Expenses per turn</div>
               {UPKEEP_LABELS.map(({ key, label }) => (
                 <BreakdownRow
                   key={key}
@@ -498,7 +498,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
             <div className="econ-net-income" style={{ color: netIncome >= 0 ? '#88ffcc' : '#ff6666' }}>
               <span className="econ-net-income__label">Net income</span>
               <span className="econ-net-income__value">
-                {sign(netIncome)} C/tick
+                {sign(netIncome)} CR/turn
                 {netIncome > 0 ? ' ▲' : netIncome < 0 ? ' ▼' : ''}
               </span>
             </div>
@@ -540,9 +540,9 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
                           ['name', 'Planet'],
                           ['system', 'System'],
                           ['population', 'Pop'],
-                          ['credits', 'C/tick'],
-                          ['minerals', 'M/tick'],
-                          ['energy', 'E/tick'],
+                          ['credits', 'CR/turn'],
+                          ['minerals', 'MN/turn'],
+                          ['energy', 'EN/turn'],
                         ] as Array<[SortKey, string]>
                       ).map(([key, label]) => (
                         <th
@@ -673,7 +673,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
                           </span>
                         </div>
                         <div className="econ-trade-route-card__income">
-                          +{fmt(route.income)} C/tick
+                          +{fmt(route.income)} CR/turn
                         </div>
                         <button
                           type="button"
