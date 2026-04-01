@@ -2585,6 +2585,7 @@ export function App(): React.ReactElement {
         <GalaxyMap3D
           galaxy={(galaxy || getGameEngine()?.getState().gameState.galaxy)!}
           playerEmpireId={playerEmpire.id}
+          knownSystems={playerEmpire.knownSystems}
           onSystemSelected={(sys) => {
             const game = (window as any).__EX_NIHILO_GAME__;
             if (game?.events) game.events.emit('system:selected', sys);

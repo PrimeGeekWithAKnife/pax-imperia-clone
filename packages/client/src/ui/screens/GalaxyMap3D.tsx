@@ -666,7 +666,7 @@ function Hyperlanes({ systems }: { systems: StarSystem[] }) {
 
 // ── Star glow spheres (Fresnel-based 3D volumetric glow) ────────────────────
 
-function StarGlows({ systems }: { systems: StarSystem[] }) {
+function StarGlows({ systems, knownSystemIds }: { systems: StarSystem[]; knownSystemIds?: Set<string> }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colour = useMemo(() => new THREE.Color(), []);
@@ -674,7 +674,10 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
   useEffect(() => {
     if (!meshRef.current) return;
     systems.forEach((sys, i) => {
-      const s = (STAR_SCALE[sys.starType] ?? 1.0) * 5;
+      const isKnown = !knownSystemIds || knownSystemIds.has(sys.id);
+      // Known systems get a moderate glow; unknown systems get a smaller, dimmer glow
+      const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
+      const s = isKnown ? baseScale * 3 : baseScale * 1.8;
       const yOffset = systemYOffset(sys);
       dummy.position.set(sys.position.x, yOffset, sys.position.y);
       dummy.scale.setScalar(s);
@@ -682,13 +685,15 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
       const [r, g, b] = STAR_COLOURS[sys.starType] ?? [1, 1, 1];
-      const intensity = (STAR_EMISSIVE[sys.starType] ?? 2.0) * 1.2;
+      // Known systems: full colour intensity; unknown: dimmer generic glow
+      const emissive = STAR_EMISSIVE[sys.starType] ?? 2.0;
+      const intensity = isKnown ? emissive * 0.8 : emissive * 0.3;
       colour.setRGB(r * intensity, g * intensity, b * intensity);
       meshRef.current.setColorAt(i, colour);
     });
     meshRef.current.instanceMatrix.needsUpdate = true;
     if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  }, [systems, dummy, colour]);
+  }, [systems, knownSystemIds, dummy, colour]);
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, systems.length]} raycast={() => null}>
@@ -699,7 +704,7 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
         blending={THREE.AdditiveBlending}
         toneMapped={false}
         vertexColors
-        opacity={0.7}
+        opacity={0.5}
       />
     </instancedMesh>
   );
@@ -713,7 +718,7 @@ interface StarFieldProps {
   onStarHover: (systemId: string | null, screenPos?: { x: number; y: number }) => void;
 }
 
-function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
+function StarCores({ systems, onStarClick, onStarHover, knownSystemIds }: StarFieldProps & { knownSystemIds?: Set<string> }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colour = useMemo(() => new THREE.Color(), []);
@@ -721,7 +726,10 @@ function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
   useEffect(() => {
     if (!meshRef.current) return;
     systems.forEach((sys, i) => {
-      const s = STAR_SCALE[sys.starType] ?? 1.0;
+      const isKnown = !knownSystemIds || knownSystemIds.has(sys.id);
+      const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
+      // All stars visible; known ones slightly larger
+      const s = isKnown ? baseScale * 0.9 : baseScale * 0.6;
       const yOffset = systemYOffset(sys);
       dummy.position.set(sys.position.x, yOffset, sys.position.y);
       dummy.scale.setScalar(s);
@@ -729,7 +737,9 @@ function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
       const [r, g, b] = STAR_COLOURS[sys.starType] ?? [1, 1, 1];
-      const intensity = STAR_EMISSIVE[sys.starType] ?? 2.0;
+      const emissive = STAR_EMISSIVE[sys.starType] ?? 2.0;
+      // Known: full colour; unknown: visible but dimmer
+      const intensity = isKnown ? emissive * 1.2 : emissive * 0.5;
       colour.setRGB(r * intensity, g * intensity, b * intensity);
       meshRef.current.setColorAt(i, colour);
     });
@@ -796,7 +806,7 @@ function EmpireRings({ systems, playerEmpireId }: { systems: StarSystem[]; playe
             <meshBasicMaterial
               color={empireCol}
               transparent
-              opacity={0.75}
+              opacity={0.5}
               toneMapped={false}
               side={THREE.DoubleSide}
               blending={THREE.AdditiveBlending}
@@ -939,9 +949,9 @@ function PostFX() {
   return (
     <EffectComposer>
       <Bloom
-        intensity={1.5}
-        luminanceThreshold={0.6}
-        luminanceSmoothing={0.4}
+        intensity={0.8}
+        luminanceThreshold={0.8}
+        luminanceSmoothing={0.3}
         mipmapBlur
       />
       <Vignette offset={0.3} darkness={0.6} />
@@ -1001,11 +1011,12 @@ function StarTooltip({ info, playerEmpireId }: { info: TooltipInfo; playerEmpire
 interface GalaxyMap3DProps {
   galaxy: Galaxy;
   playerEmpireId?: string;
+  knownSystems?: string[];
   onSystemSelected?: (system: StarSystem) => void;
   onClose?: () => void;
 }
 
-export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose }: GalaxyMap3DProps) {
+export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSelected, onClose }: GalaxyMap3DProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
   const [viewingSystem, setViewingSystem] = useState<StarSystem | null>(null);
@@ -1017,6 +1028,11 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose 
     galaxy.systems.forEach((s: StarSystem) => map.set(s.id, s));
     return map;
   }, [galaxy]);
+
+  const knownSystemIdSet = useMemo(
+    () => knownSystems ? new Set(knownSystems) : undefined,
+    [knownSystems],
+  );
 
   const galaxyCentre = useMemo<[number, number, number]>(() => {
     const meta = galaxy.shapeMetadata;
@@ -1130,14 +1146,15 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, onSystemSelected, onClose 
         {/* Empire ownership rings */}
         <EmpireRings systems={galaxy.systems} playerEmpireId={playerEmpireId} />
 
-        {/* Star glow spheres (Fresnel volumetric) */}
-        <StarGlows systems={galaxy.systems} />
+        {/* Star glow spheres (Fresnel volumetric) — all stars visible, known ones brighter */}
+        <StarGlows systems={galaxy.systems} knownSystemIds={knownSystemIdSet} />
 
-        {/* Interactive star cores */}
+        {/* Interactive star cores — all stars visible, known ones brighter */}
         <StarCores
           systems={galaxy.systems}
           onStarClick={handleStarClick}
           onStarHover={handleStarHover}
+          knownSystemIds={knownSystemIdSet}
         />
 
         {/* Selection ring */}
