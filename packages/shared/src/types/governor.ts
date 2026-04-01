@@ -13,6 +13,10 @@ export interface Governor {
   modifiers: GovernorModifiers;
   /** Personality flavour text */
   trait: string;
+  /** Accumulated experience 0-100, grows with service */
+  experience: number;
+  /** Whether this governor auto-manages the construction queue */
+  autoManage: boolean;
 }
 
 export interface GovernorModifiers {

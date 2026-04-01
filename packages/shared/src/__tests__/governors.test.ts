@@ -225,6 +225,8 @@ describe('processGovernorsTick', () => {
         trade: 2,
       },
       trait: 'Methodical planner',
+      experience: 0,
+      autoManage: false,
     };
   }
 
@@ -299,6 +301,8 @@ describe('applyGovernorModifiers', () => {
         ...mods,
       },
       trait: 'Test',
+      experience: 0,
+      autoManage: false,
     };
   }
 

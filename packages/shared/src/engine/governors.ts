@@ -10,7 +10,10 @@
  */
 
 import type { Governor, GovernorModifiers } from '../types/governor.js';
+import type { Planet, BuildingType } from '../types/galaxy.js';
 import type { ResourceProduction } from '../types/resources.js';
+import { BUILDING_DEFINITIONS } from '../constants/buildings.js';
+import { PLANET_SIZE_SLOTS, PLANET_BUILDING_SLOTS } from '../constants/planets.js';
 import { generateId } from '../utils/id.js';
 
 // ---------------------------------------------------------------------------
@@ -166,6 +169,8 @@ export function generateGovernor(
     lifespan,
     modifiers,
     trait,
+    experience: 0,
+    autoManage: false,
   };
 }
 
@@ -271,6 +276,363 @@ export function applyGovernorModifiers(
     faith:            production.faith,
     researchPoints:   Math.round(production.researchPoints   * researchFactor       * 100) / 100,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public: tickGovernorExperience
+// ---------------------------------------------------------------------------
+
+/**
+ * Tick governor experience: +0.1 per tick, capped at 100.
+ * Returns a new Governor object (does not mutate the original).
+ */
+export function tickGovernorExperience(gov: Governor): Governor {
+  return {
+    ...gov,
+    experience: Math.min(100, gov.experience + 0.1),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public: calculateOverallRating
+// ---------------------------------------------------------------------------
+
+/**
+ * Overall rating 0-100: 60% from modifier average, 40% from experience.
+ *
+ * Modifier values range from -10 to +20.  We normalise each to 0-100 by
+ * mapping the [-10, +20] range linearly: `(value + 10) / 30 * 100`.
+ * The average of all 8 normalised values is then blended with experience.
+ */
+export function calculateOverallRating(gov: Governor): number {
+  const m = gov.modifiers;
+  const keys: (keyof GovernorModifiers)[] = [
+    'manufacturing', 'research', 'energyProduction', 'populationGrowth',
+    'happiness', 'construction', 'mining', 'trade',
+  ];
+  let sum = 0;
+  for (const key of keys) {
+    // Normalise from [-10, +20] → [0, 100]
+    sum += ((m[key] + 10) / 30) * 100;
+  }
+  const normalisedModifiers = sum / keys.length;
+  return Math.round((0.6 * normalisedModifiers + 0.4 * gov.experience) * 100) / 100;
+}
+
+// ---------------------------------------------------------------------------
+// Public: governorAutoBuildDecision
+// ---------------------------------------------------------------------------
+
+/**
+ * Governor auto-build AI — decides what to build on a planet based on the
+ * governor's overall rating tier.
+ *
+ * Returns a build or upgrade recommendation, or null if nothing is needed
+ * or affordable.
+ */
+export function governorAutoBuildDecision(
+  planet: Planet,
+  governor: Governor,
+  empireTechs: string[],
+  availableCredits: number,
+  availableMinerals: number,
+): { action: 'build'; type: BuildingType } | { action: 'upgrade'; buildingId: string } | null {
+  const rating = calculateOverallRating(governor);
+  const maxSlots = getMaxBuildingSlots(planet);
+
+  if (rating < 30) {
+    return noviceDecision(planet, empireTechs, availableCredits, availableMinerals, maxSlots);
+  } else if (rating < 60) {
+    return competentDecision(planet, governor, empireTechs, availableCredits, availableMinerals, maxSlots);
+  } else {
+    return expertDecision(planet, governor, empireTechs, availableCredits, availableMinerals, maxSlots);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-build: tier helpers
+// ---------------------------------------------------------------------------
+
+/** Count how many buildings of a given type exist on the planet. */
+function countBuildings(planet: Planet, type: BuildingType): number {
+  return planet.buildings.filter(b => b.type === type).length;
+}
+
+/** Check whether the planet has room for a new building. */
+function hasSlots(planet: Planet, maxSlots: number): boolean {
+  return planet.buildings.length < maxSlots;
+}
+
+/** Check that a building's requiredTech (if any) is researched. */
+function techAvailable(type: BuildingType, empireTechs: string[]): boolean {
+  const def = BUILDING_DEFINITIONS[type];
+  if (!def) return false;
+  if (def.requiredTech && !empireTechs.includes(def.requiredTech)) return false;
+  // Skip race-specific buildings — governors do not know the species
+  if (def.racialSpeciesId) return false;
+  return true;
+}
+
+/** Check the empire can afford a building's base cost. */
+function canAfford(type: BuildingType, credits: number, minerals: number): boolean {
+  const def = BUILDING_DEFINITIONS[type];
+  if (!def) return false;
+  const costCredits = def.baseCost.credits ?? 0;
+  const costMinerals = def.baseCost.minerals ?? 0;
+  return credits >= costCredits && minerals >= costMinerals;
+}
+
+/** Attempt to recommend a specific building type, returning the action or null. */
+function tryBuild(
+  type: BuildingType,
+  planet: Planet,
+  empireTechs: string[],
+  credits: number,
+  minerals: number,
+  maxSlots: number,
+): { action: 'build'; type: BuildingType } | null {
+  if (!hasSlots(planet, maxSlots)) return null;
+  if (!techAvailable(type, empireTechs)) return null;
+  if (!canAfford(type, credits, minerals)) return null;
+  return { action: 'build' as const, type };
+}
+
+/** Find a level-1 building eligible for upgrade, returning an upgrade action or null. */
+function tryUpgradeLevel1(
+  planet: Planet,
+  credits: number,
+  minerals: number,
+): { action: 'upgrade'; buildingId: string } | null {
+  for (const b of planet.buildings) {
+    if (b.level === 1) {
+      const def = BUILDING_DEFINITIONS[b.type];
+      if (!def) continue;
+      if (b.level >= def.maxLevel) continue;
+      // Upgrade costs are roughly the base cost (simplified assumption)
+      const costCredits = def.baseCost.credits ?? 0;
+      const costMinerals = def.baseCost.minerals ?? 0;
+      if (credits >= costCredits && minerals >= costMinerals) {
+        return { action: 'upgrade' as const, buildingId: b.id };
+      }
+    }
+  }
+  return null;
+}
+
+/** Find a building below max level, preferring higher-level buildings. */
+function tryUpgradeAny(
+  planet: Planet,
+  credits: number,
+  minerals: number,
+): { action: 'upgrade'; buildingId: string } | null {
+  // Sort by level descending — prefer upgrading already-levelled buildings
+  const sorted = [...planet.buildings].sort((a, b) => b.level - a.level);
+  for (const b of sorted) {
+    const def = BUILDING_DEFINITIONS[b.type];
+    if (!def) continue;
+    if (b.level >= def.maxLevel) continue;
+    const costCredits = def.baseCost.credits ?? 0;
+    const costMinerals = def.baseCost.minerals ?? 0;
+    if (credits >= costCredits && minerals >= costMinerals) {
+      return { action: 'upgrade' as const, buildingId: b.id };
+    }
+  }
+  return null;
+}
+
+/** Estimate energy balance: power_plant output vs consumers. */
+function hasEnergyDeficit(planet: Planet): boolean {
+  let produced = 0;
+  let consumed = 0;
+  for (const b of planet.buildings) {
+    const def = BUILDING_DEFINITIONS[b.type];
+    if (!def) continue;
+    produced += (def.baseProduction.energy ?? 0) * b.level;
+    consumed += def.energyConsumption * b.level;
+  }
+  return consumed > produced;
+}
+
+/** Check if there are many industrial buildings producing waste. */
+function hasWasteProblem(planet: Planet): boolean {
+  let totalWaste = 0;
+  for (const b of planet.buildings) {
+    const def = BUILDING_DEFINITIONS[b.type];
+    if (!def) continue;
+    totalWaste += def.wasteOutput * b.level;
+  }
+  return totalWaste > 8;
+}
+
+/** Estimate happiness from buildings. */
+function estimateHappiness(planet: Planet): number {
+  let happiness = 50; // base
+  for (const b of planet.buildings) {
+    const def = BUILDING_DEFINITIONS[b.type];
+    if (!def) continue;
+    happiness += def.happinessImpact * b.level;
+  }
+  return happiness;
+}
+
+/** Get maximum building slots for a planet. */
+function getMaxBuildingSlots(planet: Planet): number {
+  if (planet.size) {
+    return PLANET_SIZE_SLOTS[planet.size] ?? 12;
+  }
+  return PLANET_BUILDING_SLOTS[planet.type] ?? 12;
+}
+
+// ---------------------------------------------------------------------------
+// Auto-build: Novice tier (rating 0-30)
+// ---------------------------------------------------------------------------
+
+function noviceDecision(
+  planet: Planet,
+  empireTechs: string[],
+  credits: number,
+  minerals: number,
+  maxSlots: number,
+): { action: 'build'; type: BuildingType } | null {
+  // Priority: power_plant → factory → hydroponics_bay → random from basic set
+  if (countBuildings(planet, 'power_plant') === 0) {
+    const r = tryBuild('power_plant', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+  if (countBuildings(planet, 'factory') === 0) {
+    const r = tryBuild('factory', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+  if (countBuildings(planet, 'hydroponics_bay') === 0) {
+    const r = tryBuild('hydroponics_bay', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Random pick from basic buildings that don't need unavailable tech
+  const basicTypes: BuildingType[] = ['population_center', 'mining_facility', 'research_lab'];
+  // Shuffle deterministically using planet id hash
+  const shuffled = [...basicTypes].sort(() => {
+    return planet.id.length % 2 === 0 ? -1 : 1;
+  });
+  for (const type of shuffled) {
+    const r = tryBuild(type, planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Auto-build: Competent tier (rating 30-60)
+// ---------------------------------------------------------------------------
+
+function competentDecision(
+  planet: Planet,
+  governor: Governor,
+  empireTechs: string[],
+  credits: number,
+  minerals: number,
+  maxSlots: number,
+): { action: 'build'; type: BuildingType } | { action: 'upgrade'; buildingId: string } | null {
+  // Energy deficit — build power_plant first
+  if (hasEnergyDeficit(planet)) {
+    const r = tryBuild('power_plant', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Fewer hydroponics than population_centers
+  if (countBuildings(planet, 'hydroponics_bay') < countBuildings(planet, 'population_center')) {
+    const r = tryBuild('hydroponics_bay', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Need at least 2 factories
+  if (countBuildings(planet, 'factory') < 2) {
+    const r = tryBuild('factory', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Need at least 1 research_lab
+  if (countBuildings(planet, 'research_lab') === 0) {
+    const r = tryBuild('research_lab', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Personality-driven choices
+  const m = governor.modifiers;
+  if (m.manufacturing > 10) {
+    const r = tryBuild('factory', planet, empireTechs, credits, minerals, maxSlots)
+           ?? tryBuild('mining_facility', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+  if (m.research > 10) {
+    const r = tryBuild('research_lab', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+  if (m.trade > 10) {
+    const r = tryBuild('trade_hub', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Consider upgrading a level-1 building before building new
+  const upgrade = tryUpgradeLevel1(planet, credits, minerals);
+  if (upgrade) return upgrade;
+
+  // Fallback: try basic buildings
+  const fallbacks: BuildingType[] = ['mining_facility', 'population_center', 'power_plant'];
+  for (const type of fallbacks) {
+    const r = tryBuild(type, planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Auto-build: Expert tier (rating 60-100)
+// ---------------------------------------------------------------------------
+
+function expertDecision(
+  planet: Planet,
+  governor: Governor,
+  empireTechs: string[],
+  credits: number,
+  minerals: number,
+  maxSlots: number,
+): { action: 'build'; type: BuildingType } | { action: 'upgrade'; buildingId: string } | null {
+  // Prefer upgrades over new builds
+  const upgrade = tryUpgradeAny(planet, credits, minerals);
+
+  // Happiness check — if below 50 and no entertainment_complex, build one
+  if (estimateHappiness(planet) < 50 && countBuildings(planet, 'entertainment_complex') === 0) {
+    const r = tryBuild('entertainment_complex', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Waste check — if accumulating and no recycling_plant, build one
+  if (hasWasteProblem(planet) && countBuildings(planet, 'recycling_plant') === 0) {
+    const r = tryBuild('recycling_plant', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Energy balance — don't build consumers if in deficit
+  if (hasEnergyDeficit(planet)) {
+    const r = tryBuild('power_plant', planet, empireTechs, credits, minerals, maxSlots)
+           ?? tryBuild('fusion_reactor', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Prefer upgrades over new builds for experts
+  if (upgrade) return upgrade;
+
+  // After basics, prioritise trade_hub for income
+  if (countBuildings(planet, 'trade_hub') === 0) {
+    const r = tryBuild('trade_hub', planet, empireTechs, credits, minerals, maxSlots);
+    if (r) return r;
+  }
+
+  // Run through competent logic as fallback
+  return competentDecision(planet, governor, empireTechs, credits, minerals, maxSlots);
 }
 
 // ---------------------------------------------------------------------------
