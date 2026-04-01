@@ -128,16 +128,16 @@ export function TopBar({
       {/* Action buttons */}
       <div className="top-bar__actions" style={{ display: 'flex', gap: '4px', pointerEvents: 'auto' }}>
         {onOpenResearch && (
-          <button className="speed-btn" onClick={onOpenResearch} title="Research (R)">⚗ Research</button>
+          <button className="speed-btn" onClick={onOpenResearch} title="Research (R)" data-tooltip="Research (R)">⚗ Research</button>
         )}
         {onOpenShipDesigner && (
-          <button className="speed-btn" onClick={onOpenShipDesigner} title="Ship Designer (S)">⚙ Ships</button>
+          <button className="speed-btn" onClick={onOpenShipDesigner} title="Ship Designer (S)" data-tooltip="Ship Designer (S)">⚙ Ships</button>
         )}
-        <button className="speed-btn" onClick={onOpenFleet} title="Fleet Overview (F)">⚓ Fleet</button>
-        <button className="speed-btn" onClick={onOpenEconomy} title="Economy Overview (E)">₵ Economy</button>
-        <button className="speed-btn" onClick={onOpenEspionage} title="Espionage (F5)">🕵 Espionage</button>
+        <button className="speed-btn" onClick={onOpenFleet} title="Fleet (F)" data-tooltip="Fleet (F)">⚓ Fleet</button>
+        <button className="speed-btn" onClick={onOpenEconomy} title="Economy (E)" data-tooltip="Economy (E)">₵ Economy</button>
+        <button className="speed-btn" onClick={onOpenEspionage} title="Espionage (I)" data-tooltip="Espionage (I)">🕵 Espionage</button>
         {onOpenDiplomacy && (
-          <button className="speed-btn" onClick={onOpenDiplomacy} title="Diplomacy (D)">☮ Diplomacy</button>
+          <button className="speed-btn" onClick={onOpenDiplomacy} title="Diplomacy (D)" data-tooltip="Diplomacy (D)">☮ Diplomacy</button>
         )}
       </div>
 
