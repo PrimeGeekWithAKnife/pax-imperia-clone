@@ -129,10 +129,41 @@ export function calculatePlanetHappiness(
   const factors: HappinessFactor[] = [];
   let score = 60; // Baseline for a stable colony
 
+  // ── Special ability modifiers ──────────────────────────────────────────────
+  const abilities = species?.specialAbilities ?? [];
+
+  // Hive mind: +10 base happiness (collective contentment)
+  if (abilities.includes('hive_mind')) {
+    const pts = 10;
+    score += pts;
+    factors.push({ label: 'Hive mind collective contentment', points: pts });
+  }
+
+  // Symbiotic: +5 flat bonus (simplified; +10 when multi-species demographics are tracked)
+  if (abilities.includes('symbiotic')) {
+    const pts = 5;
+    score += pts;
+    factors.push({ label: 'Symbiotic harmony', points: pts });
+  }
+
+  // Devout: +5 happiness on planets with grand_cathedral
+  if (abilities.includes('devout')) {
+    const hasCathedral = planet.buildings.some(b => b.type === 'grand_cathedral');
+    if (hasCathedral) {
+      const pts = 5;
+      score += pts;
+      factors.push({ label: 'Grand Cathedral inspiration', points: pts });
+    }
+  }
+
   // ── Entertainment buildings ──────────────────────────────────────────────
   for (const building of planet.buildings) {
     if (building.type === 'entertainment_complex') {
-      const pts = 10 * building.level;
+      let pts = 10 * building.level;
+      // Hive mind: -50% happiness impact from entertainment buildings
+      if (abilities.includes('hive_mind')) {
+        pts = Math.round(pts * 0.5);
+      }
       score += pts;
       factors.push({ label: 'Entertainment Complex', points: pts });
     }

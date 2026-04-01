@@ -200,7 +200,7 @@ export function calculateHabitability(planet: Planet, species: Species): Habitab
   }
 
   // ── Temperature score ─────────────────────────────────────────────────────
-  const temperatureScore = Math.round(
+  let temperatureScore = Math.round(
     linearCompatibility(
       planet.temperature,
       env.idealTemperature,
@@ -219,7 +219,51 @@ export function calculateHabitability(planet: Planet, species: Species): Habitab
     warnings.push('Harsh temperature');
   }
 
-  const score = clamp(atmosphereScore + gravityScore + temperatureScore, 0, 100);
+  let rawScore = atmosphereScore + gravityScore + temperatureScore;
+
+  // ── Special ability modifiers ─────────────────────────────────────────────
+  const abilities = species.specialAbilities ?? [];
+
+  // Aquatic: +20 on ocean worlds, -10 on desert worlds
+  if (abilities.includes('aquatic')) {
+    if (planet.type === 'ocean') {
+      rawScore += 20;
+    } else if (planet.type === 'desert') {
+      rawScore -= 10;
+    }
+  }
+
+  // Silicon-based: +20 on volcanic worlds, double temperature tolerance
+  // (temperature score is recalculated with 2x tolerance)
+  if (abilities.includes('silicon_based')) {
+    if (planet.type === 'volcanic') {
+      rawScore += 20;
+    }
+    // Recalculate temperature with doubled tolerance
+    const doubledTempScore = Math.round(
+      linearCompatibility(
+        planet.temperature,
+        env.idealTemperature,
+        env.temperatureTolerance * 2,
+        HABITABILITY_WEIGHTS.temperature,
+      ),
+    );
+    rawScore = rawScore - temperatureScore + doubledTempScore;
+    // Update the component score for the report
+    temperatureScore = doubledTempScore;
+  }
+
+  // Subterranean: +15 on barren/rocky worlds, +5 on all non-gas-giant worlds
+  if (abilities.includes('subterranean')) {
+    if (planet.type === 'barren') {
+      rawScore += 15;
+    }
+    if (planet.type !== 'gas_giant') {
+      rawScore += 5;
+    }
+  }
+
+  const score = clamp(rawScore, 0, 100);
 
   return {
     score,
@@ -438,7 +482,12 @@ const TRANSFER_MORTALITY_MAX = 0.10;
 export function getColonisationCost(planet: Planet, species: Species): number {
   const report = calculateHabitability(planet, species);
   const effectiveScore = Math.max(report.score, 10);
-  return Math.ceil(BASE_COLONISATION_COST * (100 / effectiveScore));
+  let cost = Math.ceil(BASE_COLONISATION_COST * (100 / effectiveScore));
+  // Nomadic: -20% colony establishment cost
+  if (species.specialAbilities?.includes('nomadic')) {
+    cost = Math.ceil(cost * 0.8);
+  }
+  return cost;
 }
 
 /**

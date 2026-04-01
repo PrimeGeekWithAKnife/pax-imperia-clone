@@ -219,6 +219,43 @@ export function calculatePlanetProduction(
     });
   }
 
+  // ── Special ability modifiers ─────────────────────────────────────────────
+  const abilities = species.specialAbilities ?? [];
+
+  // Photosynthetic: +30% organics production on planets with oxygen_nitrogen atmosphere
+  if (abilities.includes('photosynthetic') && planet.atmosphere === 'oxygen_nitrogen') {
+    production.organics *= 1.3;
+  }
+
+  // Devout: +2 faith per population_center building
+  if (abilities.includes('devout')) {
+    for (const building of planet.buildings) {
+      if (building.type === 'population_center') {
+        production.faith += 2;
+      }
+    }
+  }
+
+  // Cybernetic: +10% construction speed (mineral/factory output boost)
+  if (abilities.includes('cybernetic')) {
+    production.minerals *= 1.1;
+  }
+
+  // Dimensional: +10% exotic materials production
+  if (abilities.includes('dimensional')) {
+    production.exoticMaterials *= 1.1;
+  }
+
+  // Synthetic: +5% construction speed (mineral output boost)
+  if (abilities.includes('synthetic')) {
+    production.minerals *= 1.05;
+  }
+
+  // Nanomorphic: +5% construction speed (mineral output boost)
+  if (abilities.includes('nanomorphic')) {
+    production.minerals *= 1.05;
+  }
+
   return {
     planetId: planet.id,
     production,
@@ -462,14 +499,20 @@ export const ORGANICS_PER_POPULATION = 10_000;
  * for any non-zero population. The racial reproduction trait modifies consumption:
  * trait 5 = normal, trait 10 = double, trait 1 = one-fifth.
  *
+ * Synthetic species consume no food (machine intelligence).
+ *
  * @param totalPopulation Sum of currentPopulation across all empire-owned planets.
  * @param speciesReproductionTrait Species reproduction trait (1-10, default 5).
+ * @param species Optional species object for checking special abilities.
  */
 export function calculateOrganicsConsumption(
   totalPopulation: number,
   speciesReproductionTrait?: number,
+  species?: { specialAbilities?: string[] },
 ): number {
   if (totalPopulation <= 0) return 0;
+  // Synthetic species do not consume food
+  if (species?.specialAbilities?.includes('synthetic')) return 0;
   const base = Math.max(1, Math.ceil(totalPopulation / ORGANICS_PER_POPULATION));
   const racialMod = speciesReproductionTrait ? (speciesReproductionTrait / 5) : 1;
   return Math.ceil(base * racialMod);

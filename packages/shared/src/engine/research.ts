@@ -256,7 +256,13 @@ export function processResearchTick(
   // research lab output — do NOT apply it again here (was causing double-dipping).
   const govDef = empire ? GOVERNMENTS[empire.government] : undefined;
   const govResearchMultiplier = govDef?.modifiers.researchSpeed ?? 1.0;
-  const effectivePoints = researchPointsGenerated * govResearchMultiplier;
+  let abilityResearchMultiplier = 1.0;
+  const abilities = species.specialAbilities ?? [];
+  // Psychic: +15% research speed
+  if (abilities.includes('psychic')) abilityResearchMultiplier *= 1.15;
+  // Cybernetic: +10% research speed
+  if (abilities.includes('cybernetic')) abilityResearchMultiplier *= 1.10;
+  const effectivePoints = researchPointsGenerated * govResearchMultiplier * abilityResearchMultiplier;
 
   const techMap = new Map(allTechs.map(t => [t.id, t]));
 
@@ -275,7 +281,12 @@ export function processResearchTick(
     const pointsThisTick = effectivePoints * (active.allocation / 100);
     const newPointsInvested = active.pointsInvested + pointsThisTick;
 
-    if (newPointsInvested >= tech.cost) {
+    // Dimensional: -10% research cost for propulsion techs
+    const effectiveCost = (abilities.includes('dimensional') && tech.category === 'propulsion')
+      ? tech.cost * 0.9
+      : tech.cost;
+
+    if (newPointsInvested >= effectiveCost) {
       // Tech complete
       completedTechs = [...completedTechs, tech.id];
       completedThisTick.push(tech);
