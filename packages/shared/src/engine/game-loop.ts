@@ -93,6 +93,7 @@ import {
   processMigrationTick,
   canBuildOnPlanet,
   addBuildingToQueue,
+  inferBuildingZone,
   ZONE_COST_MULTIPLIER,
   canColoniseWithShip,
   coloniseWithShip,
@@ -733,7 +734,7 @@ function processPlayerActions(
       // ── ConstructBuilding ────────────────────────────────────────────────
       } else if (action.type === 'ConstructBuilding') {
         const { systemId, planetId, buildingType } = action;
-        const targetZone = action.targetZone ?? 'surface';
+        const targetZone = action.targetZone ?? inferBuildingZone(buildingType);
 
         const systemData = systems.find(s => s.id === systemId);
         if (!systemData) {

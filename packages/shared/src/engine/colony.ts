@@ -1264,6 +1264,10 @@ export function canBuildOnPlanet(
   empireTechs?: string[],
   targetZone: 'surface' | 'orbital' | 'underground' = 'surface',
 ): { allowed: boolean; reason?: string } {
+  // Infer zone from building type when caller passes default 'surface'
+  if (targetZone === 'surface') {
+    targetZone = inferBuildingZone(buildingType);
+  }
   // Gas giant restriction
   if (planet.type === 'gas_giant' && buildingType !== 'spaceport') {
     return {
@@ -1326,6 +1330,28 @@ export function canBuildOnPlanet(
 // ── Construction queue ──────────────────────────────────────────────────────
 
 /**
+ * Infer the correct building zone from the building type name.
+ * - 'underground_complex' → 'underground'  (zone infrastructure)
+ * - 'orbital_platform', 'orbital_waste_ejector' → 'orbital'  (orbital infrastructure)
+ * - Everything else → 'surface'
+ *
+ * Note: Racial buildings like 'deep_hive' or 'tunnel_network' use surface slots
+ * despite their underground theme — only the zone infrastructure buildings
+ * (underground_complex, orbital_platform, orbital_waste_ejector) auto-route.
+ */
+export function inferBuildingZone(
+  buildingType: string,
+): 'surface' | 'orbital' | 'underground' {
+  if (buildingType === 'underground_complex') {
+    return 'underground';
+  }
+  if (buildingType === 'orbital_platform' || buildingType === 'orbital_waste_ejector') {
+    return 'orbital';
+  }
+  return 'surface';
+}
+
+/**
  * Adds a building to the planet's production queue.
  * Returns a new Planet — does not mutate the original.
  *
@@ -1341,6 +1367,14 @@ export function addBuildingToQueue(
   empireTechs?: string[],
   targetZone: 'surface' | 'orbital' | 'underground' = 'surface',
 ): Planet {
+  // Infer the correct zone from the building type name when the caller passes
+  // the default 'surface'.  underground_complex must go underground; orbital_platform
+  // must go orbital.  This prevents save-corruption where zone-specific buildings
+  // occupy the wrong slot.
+  if (targetZone === 'surface') {
+    targetZone = inferBuildingZone(buildingType);
+  }
+
   const check = canBuildOnPlanet(planet, buildingType, species, empireTechs, targetZone);
   if (!check.allowed) {
     throw new Error(`Cannot queue building: ${check.reason}`);

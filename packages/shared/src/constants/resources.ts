@@ -12,20 +12,22 @@ export const BASE_TAX_RATE = 0.01;
  */
 export const PLANET_TYPE_RESOURCE_BONUSES: Record<PlanetType, Partial<ResourceProduction>> = {
   terran: {
-    organics: 2,
+    organics: 5,
     energy: 1,
   },
   ocean: {
-    organics: 6,
+    organics: 10,
     energy: 1,
   },
   desert: {
     minerals: 2,
     energy: 2,
+    organics: 1,
   },
   ice: {
     exoticMaterials: 2,
     minerals: 1,
+    organics: 1,
   },
   volcanic: {
     minerals: 5,

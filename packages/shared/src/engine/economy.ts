@@ -162,6 +162,15 @@ export function calculatePlanetProduction(
   const typeBonuses = PLANET_TYPE_RESOURCE_BONUSES[planet.type] ?? {};
   addPartial(production, typeBonuses);
 
+  // --- Natural food production from planet fertility ---
+  // Fertile planets naturally support population without requiring farms for
+  // every citizen.  A planet with fertility 50 and 500k population naturally
+  // produces 5 organics/tick.  A lush terran (fertility 80) with 1M pop
+  // produces 16.  This supplements hydroponics rather than replacing it.
+  const fertility = planet.fertility ?? 50; // 0-100 scale
+  const naturalFood = Math.floor((fertility / 100) * (planet.currentPopulation / 50_000));
+  production.organics += naturalFood;
+
   // --- Building output ---
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];

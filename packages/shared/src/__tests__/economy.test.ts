@@ -113,8 +113,8 @@ describe('calculatePlanetProduction', () => {
     expect(result.population).toBe(0);
     expect(result.taxIncome).toBe(0);
     expect(result.buildingOutputs).toHaveLength(0);
-    // terran planet bonus: organics +2, energy +1
-    expect(result.production.organics).toBe(2);
+    // terran planet bonus: organics +5, energy +1
+    expect(result.production.organics).toBe(5);
     expect(result.production.energy).toBe(1);
     expect(result.production.minerals).toBe(0);
     expect(result.production.researchPoints).toBe(0);
@@ -215,8 +215,8 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // ocean bonus: organics +6, energy +1
-    expect(result.production.organics).toBeCloseTo(6);
+    // ocean bonus: organics +10, energy +1
+    expect(result.production.organics).toBeCloseTo(10);
     expect(result.production.energy).toBeCloseTo(1);
   });
 
