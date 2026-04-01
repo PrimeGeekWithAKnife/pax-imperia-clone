@@ -706,6 +706,28 @@ export function calculateInequalityIndex(wealth: WealthDistribution): number {
 }
 
 /**
+ * Returns a production multiplier reflecting the economic drag from corruption.
+ *
+ * Formula: `1 - (corruptionLevel * 0.003)`
+ *
+ * At 0% corruption the multiplier is 1.0 (no penalty).
+ * At 10% corruption the multiplier is 0.97 (3% production loss).
+ * At 50% corruption the multiplier is 0.85 (15% production loss).
+ * At 100% corruption the multiplier is 0.70 (30% production loss).
+ *
+ * The curve is intentionally gentle: even deeply corrupt empires can still
+ * function, but the cumulative drag becomes strategically meaningful over
+ * many ticks.
+ *
+ * @param corruptionLevel  Empire-wide or planet-level corruption (0-100).
+ * @returns Production multiplier in the range [0.70, 1.0].
+ */
+export function getCorruptionPenalty(corruptionLevel: number): number {
+  const clamped = clamp(corruptionLevel, 0, 100);
+  return 1 - (clamped * 0.003);
+}
+
+/**
  * Check whether current economic conditions trigger a crisis.
  *
  * Uses an escalating probability model: the worse conditions are, the

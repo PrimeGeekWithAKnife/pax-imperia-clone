@@ -315,7 +315,7 @@ export function validateSaveGame(data: SaveGame): { valid: boolean; errors: stri
   if (!ts.gameState.galaxy?.systems || ts.gameState.galaxy.systems.length === 0) errors.push('No star systems in save data');
   if (typeof ts.gameState.currentTick !== 'number' || ts.gameState.currentTick < 0) errors.push('Invalid tick counter');
   for (const empire of (ts.gameState.empires ?? [])) {
-    if (typeof empire.credits !== 'number' || empire.credits < 0) errors.push(`Empire ${empire.name}: negative credits (${empire.credits})`);
+    if (typeof empire.credits !== 'number') errors.push(`Empire ${empire.name}: invalid credits (${empire.credits})`);
   }
   for (const system of (ts.gameState.galaxy?.systems ?? [])) {
     for (const planet of system.planets) {

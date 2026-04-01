@@ -259,9 +259,12 @@ export function initializeGame(config: GameSetupConfig): GameState {
     // 1. Pick home system
     const homeSystemId = selectHomeSystem(galaxy, playerSetup.species, takenSystemIds);
     if (homeSystemId === null) {
+      // Caller must check for error result — the UI layer (GameSetupScreen)
+      // should validate player count vs galaxy size before reaching this point.
       throw new Error(
-        `No suitable home system found for empire "${playerSetup.empireName}". ` +
-          `Try a larger galaxy or fewer players.`,
+        `Could not find a suitable home system for "${playerSetup.empireName}". ` +
+          `The galaxy is too small for ${config.players.length} players — ` +
+          `please choose a larger galaxy size or reduce the number of players.`,
       );
     }
     takenSystemIds.push(homeSystemId);
