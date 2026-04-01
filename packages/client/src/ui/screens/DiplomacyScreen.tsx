@@ -7,9 +7,30 @@ import type {
   Treaty,
   AIPersonality,
 } from '@nova-imperia/shared';
+import { getRelation } from '@nova-imperia/shared';
+
+// Local type mirrors for the Grievance system (defined in shared/types/diplomacy.ts
+// but not re-exported via the public barrel). Read-only usage; no shared files modified.
+type GrievanceSeverity = 'slight' | 'offence' | 'major' | 'existential';
+
+interface Grievance {
+  id: string;
+  tick: number;
+  severity: GrievanceSeverity;
+  description: string;
+  initialValue: number;
+  currentValue: number;
+  decayRate: number;
+  perpetratorEmpireId: string;
+  victimEmpireId: string;
+  witnesses: string[];
+  evidenceStrength: number;
+  fabricated: boolean;
+}
 import { RelationshipMeter } from '../components/RelationshipMeter';
 import { TreatyCard } from '../components/TreatyCard';
 import { portraitCache } from '../../game/rendering/portraitCache';
+import { getGameEngine } from '../../engine/GameEngine';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -103,6 +124,20 @@ const TREATY_TYPES_ORDERED: TreatyType[] = [
   'assimilation',
 ];
 
+const SEVERITY_LABELS: Record<GrievanceSeverity, string> = {
+  slight:      'Slight',
+  offence:     'Offence',
+  major:       'Major',
+  existential: 'Existential',
+};
+
+const SEVERITY_COLOURS: Record<GrievanceSeverity, string> = {
+  slight:      '#90a4ae',   // muted grey-blue
+  offence:     '#ffa726',   // amber
+  major:       '#ef5350',   // red
+  existential: '#d50000',   // deep red
+};
+
 // ── Sub-types ─────────────────────────────────────────────────────────────────
 
 export interface DiplomaticIncident {
@@ -121,6 +156,12 @@ export interface KnownEmpire {
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
+
+export interface TreatyFeedback {
+  message: string;
+  accepted: boolean;
+  timestamp: number;
+}
 
 export interface DiplomacyScreenProps {
   playerEmpire: Empire;
@@ -170,6 +211,8 @@ interface GraphEdge {
   toId: string;
   status: DiplomaticStatus;
   attitude: number;
+  /** Whether this is an AI-to-AI edge (rendered thinner). */
+  isAiToAi: boolean;
 }
 
 function buildRelationGraph(
@@ -204,12 +247,40 @@ function buildRelationGraph(
     });
   });
 
+  // Player-to-AI edges
   const edges: GraphEdge[] = known.map((ke) => ({
     fromId:   playerEmpire.id,
     toId:     ke.empire.id,
     status:   ke.relation.status,
     attitude: ke.relation.attitude,
+    isAiToAi: false,
   }));
+
+  // AI-to-AI edges: check every pair of AI empires for mutual relations
+  const engine = getGameEngine();
+  const tickState = engine?.getState();
+  const diplomacyState = tickState
+    ? (tickState as unknown as Record<string, unknown>).diplomacyState
+    : undefined;
+
+  if (diplomacyState && known.length > 1) {
+    for (let i = 0; i < known.length; i++) {
+      for (let j = i + 1; j < known.length; j++) {
+        const empA = known[i].empire.id;
+        const empB = known[j].empire.id;
+        const rel = getRelation(diplomacyState as import('@nova-imperia/shared').DiplomacyState, empA, empB);
+        if (rel && rel.firstContact >= 0 && rel.status !== 'unknown') {
+          edges.push({
+            fromId:   empA,
+            toId:     empB,
+            status:   rel.status,
+            attitude: rel.attitude,
+            isAiToAi: true,
+          });
+        }
+      }
+    }
+  }
 
   return { nodes, edges };
 }
@@ -257,11 +328,14 @@ function RelationGraph({
       viewBox="0 0 100 100"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* Edges */}
+      {/* Edges — AI-to-AI rendered behind player edges, thinner */}
       {edges.map((edge) => {
         const fromNode = nodes.find((n) => n.id === edge.fromId);
         const toNode   = nodes.find((n) => n.id === edge.toId);
         if (!fromNode || !toNode) return null;
+        const strokeW = edge.isAiToAi
+          ? Math.max(0.3, edgeThickness(edge.attitude) * 0.4)
+          : edgeThickness(edge.attitude);
         return (
           <line
             key={`${edge.fromId}-${edge.toId}`}
@@ -270,8 +344,9 @@ function RelationGraph({
             x2={toNode.x}
             y2={toNode.y}
             stroke={edgeColor(edge.status)}
-            strokeWidth={edgeThickness(edge.attitude)}
-            strokeOpacity={0.7}
+            strokeWidth={strokeW}
+            strokeOpacity={edge.isAiToAi ? 0.45 : 0.7}
+            strokeDasharray={edge.isAiToAi ? '1 1' : undefined}
           />
         );
       })}
@@ -416,6 +491,15 @@ export function DiplomacyScreen({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  // Clean up treaty feedback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (treatyFeedbackTimerRef.current) {
+        clearTimeout(treatyFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
   // ── Local state ──────────────────────────────────────────────────────────
   const [selectedEmpireId, setSelectedEmpireId] = useState<string | null>(
     knownEmpires.length > 0 && knownEmpires[0].isKnown ? knownEmpires[0].empire.id : null,
@@ -424,7 +508,9 @@ export function DiplomacyScreen({
   const [giftAmount, setGiftAmount] = useState<number>(100);
   const [pendingWarTarget, setPendingWarTarget] = useState<string | null>(null);
   const [pendingBreakTreaty, setPendingBreakTreaty] = useState<Treaty | null>(null);
+  const [treatyFeedback, setTreatyFeedback] = useState<TreatyFeedback | null>(null);
   const incidentLogRef = useRef<HTMLDivElement>(null);
+  const treatyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const selectedEntry = useMemo(
@@ -446,6 +532,26 @@ export function DiplomacyScreen({
     return selectedEntry.relation.treaties.some((t) => t.type === selectedTreatyType);
   }, [selectedEntry, selectedTreatyType]);
 
+  // ── Grievances between player and selected empire ───────────────────────
+  const grievancesWithSelected = useMemo((): Grievance[] => {
+    if (!selectedEntry) return [];
+    const engine = getGameEngine();
+    if (!engine) return [];
+    const tickState = engine.getState();
+    const allGrievances = (tickState as unknown as Record<string, unknown>).grievances as
+      | Grievance[]
+      | undefined;
+    if (!allGrievances) return [];
+
+    const playerId = playerEmpire.id;
+    const targetId = selectedEntry.empire.id;
+    return allGrievances.filter(
+      (g) =>
+        (g.victimEmpireId === playerId && g.perpetratorEmpireId === targetId) ||
+        (g.victimEmpireId === targetId && g.perpetratorEmpireId === playerId),
+    );
+  }, [selectedEntry, playerEmpire.id, currentTurn]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleSelectEmpire = useCallback((id: string) => {
@@ -454,7 +560,40 @@ export function DiplomacyScreen({
 
   const handleProposeTreaty = useCallback(() => {
     if (!selectedEntry || !canPropose || alreadyHasTreaty) return;
-    onProposeTreaty?.(selectedEntry.empire.id, selectedTreatyType);
+
+    // Call the engine directly to get accept/reject feedback.
+    // The engine evaluates and, if accepted, signs the treaty in one call.
+    // We capture the result to show inline feedback to the player.
+    const engine = getGameEngine();
+    let alreadyHandled = false;
+    if (engine) {
+      const result = engine.diplomacyProposeTreaty(selectedEntry.empire.id, selectedTreatyType);
+      alreadyHandled = true;
+      const feedback: TreatyFeedback = {
+        message: result.accepted
+          ? 'Treaty Accepted'
+          : `Treaty Rejected: ${result.reason}`,
+        accepted: result.accepted,
+        timestamp: Date.now(),
+      };
+      setTreatyFeedback(feedback);
+
+      // Clear previous timer
+      if (treatyFeedbackTimerRef.current) {
+        clearTimeout(treatyFeedbackTimerRef.current);
+      }
+      // Auto-dismiss after 5 seconds
+      treatyFeedbackTimerRef.current = setTimeout(() => {
+        setTreatyFeedback(null);
+        treatyFeedbackTimerRef.current = null;
+      }, 5000);
+    }
+
+    // Fire the parent callback only if the engine was not available
+    // (avoids double-proposal since the parent also calls the engine).
+    if (!alreadyHandled) {
+      onProposeTreaty?.(selectedEntry.empire.id, selectedTreatyType);
+    }
   }, [selectedEntry, canPropose, alreadyHasTreaty, selectedTreatyType, onProposeTreaty]);
 
   const handleDeclareWar = useCallback(() => {
@@ -679,6 +818,65 @@ export function DiplomacyScreen({
                 )}
               </div>
 
+              {/* Grievances */}
+              <div className="diplo-section">
+                <div className="diplo-section__header">GRIEVANCES</div>
+                {grievancesWithSelected.length === 0 ? (
+                  <div className="diplo-section__empty">No active grievances.</div>
+                ) : (
+                  <div className="diplo-grievance-list">
+                    {grievancesWithSelected
+                      .sort((a, b) => b.currentValue - a.currentValue)
+                      .map((g) => {
+                        const isVictim = g.victimEmpireId === playerEmpire.id;
+                        const decayPct = g.initialValue > 0
+                          ? g.currentValue / g.initialValue
+                          : 1;
+                        const isDecaying = g.decayRate > 0 && g.currentValue < g.initialValue;
+                        return (
+                          <div
+                            key={g.id}
+                            className="diplo-grievance"
+                            style={{
+                              borderLeftColor: SEVERITY_COLOURS[g.severity],
+                              opacity: decayPct < 0.3 ? 0.5 : 1,
+                            }}
+                          >
+                            <div className="diplo-grievance__header">
+                              <span
+                                className="diplo-grievance__severity"
+                                style={{ color: SEVERITY_COLOURS[g.severity] }}
+                              >
+                                {SEVERITY_LABELS[g.severity]}
+                              </span>
+                              <span className="diplo-grievance__direction">
+                                {isVictim ? 'Against us' : 'By us'}
+                              </span>
+                              <span className="diplo-grievance__strength">
+                                Strength: {Math.round(g.currentValue)}/{g.initialValue}
+                              </span>
+                              {isDecaying && (
+                                <span className="diplo-grievance__decay" title="Fading over time">
+                                  {'\u25BC'} {/* down arrow */}
+                                </span>
+                              )}
+                            </div>
+                            <div className="diplo-grievance__desc">{g.description}</div>
+                            {isDecaying && (
+                              <div
+                                className="diplo-grievance__bar"
+                                style={{
+                                  background: `linear-gradient(to right, ${SEVERITY_COLOURS[g.severity]} ${Math.round(decayPct * 100)}%, rgba(255,255,255,0.1) ${Math.round(decayPct * 100)}%)`,
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
               {/* Incident log */}
               <div className="diplo-section diplo-section--log">
                 <div className="diplo-section__header">INCIDENT LOG</div>
@@ -764,6 +962,13 @@ export function DiplomacyScreen({
                   >
                     Send Proposal
                   </button>
+                  {treatyFeedback && (
+                    <div
+                      className={`diplo-treaty-feedback ${treatyFeedback.accepted ? 'diplo-treaty-feedback--accepted' : 'diplo-treaty-feedback--rejected'}`}
+                    >
+                      {treatyFeedback.message}
+                    </div>
+                  )}
                 </div>
               )}
 
