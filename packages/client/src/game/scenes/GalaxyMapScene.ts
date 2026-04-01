@@ -341,19 +341,30 @@ export class GalaxyMapScene extends Phaser.Scene {
         });
       }
 
-      const gameState = initializeGame({
-        galaxyConfig: { seed, size: galaxySize, shape: galaxyShape, playerCount: 1 + aiCount },
-        players: [
-          {
-            species: playerSpecies,
-            empireName: `${playerSpecies.name} Dominion`,
-            color: '#00d4ff',
-            isAI: false,
-          },
-          ...aiPlayers,
-        ],
-        victoryCriteria: setup?.config?.victoryConditions,
-      });
+      let gameState;
+      try {
+        gameState = initializeGame({
+          galaxyConfig: { seed, size: galaxySize, shape: galaxyShape, playerCount: 1 + aiCount },
+          players: [
+            {
+              species: playerSpecies,
+              empireName: `${playerSpecies.name} Dominion`,
+              color: '#00d4ff',
+              isAI: false,
+            },
+            ...aiPlayers,
+          ],
+          victoryCriteria: setup?.config?.victoryConditions,
+        });
+      } catch (err) {
+        console.error('[GalaxyMapScene] Game init failed:', err);
+        // Show error to user and return to main menu
+        this.game.events.emit('ui:game_init_error', {
+          message: err instanceof Error ? err.message : 'Failed to generate galaxy. Try a larger galaxy or different species.',
+        });
+        this.scene.start('MainMenuScene');
+        return;
+      }
 
       this.galaxy = gameState.galaxy;
       const playerEmpire = gameState.empires.find(e => !e.isAI);

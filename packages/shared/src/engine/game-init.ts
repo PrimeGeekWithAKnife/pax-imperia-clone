@@ -80,13 +80,14 @@ function systemsWithinHops(
 function bestHabitablePlanet(
   system: StarSystem,
   species: Species,
+  minHabitability: number = HOME_PLANET_MIN_HABITABILITY,
 ): { planet: Planet; score: number } | null {
   let best: { planet: Planet; score: number } | null = null;
 
   for (const planet of system.planets) {
     if (planet.type === 'gas_giant') continue;
     const report = calculateHabitability(planet, species);
-    if (report.score >= HOME_PLANET_MIN_HABITABILITY) {
+    if (report.score >= minHabitability) {
       if (best === null || report.score > best.score) {
         best = { planet, score: report.score };
       }
@@ -133,14 +134,14 @@ export function selectHomeSystem(
     maxHabitability: number;
   }
 
-  const evaluate = (allowExcluded: boolean): Candidate | null => {
+  const evaluate = (allowExcluded: boolean, minHab: number): Candidate | null => {
     let best: Candidate | null = null;
 
     for (const system of galaxy.systems) {
       if (takenSet.has(system.id)) continue;
       if (!allowExcluded && excludedIds.has(system.id)) continue;
 
-      const result = bestHabitablePlanet(system, species);
+      const result = bestHabitablePlanet(system, species, minHab);
       if (result === null) continue;
 
       if (best === null || result.score > best.maxHabitability) {
@@ -151,13 +152,22 @@ export function selectHomeSystem(
     return best;
   };
 
-  // First pass: strict exclusion (taken + neighbours)
-  const strict = evaluate(false);
+  // First pass: strict exclusion (taken + neighbours), standard threshold
+  const strict = evaluate(false, HOME_PLANET_MIN_HABITABILITY);
   if (strict) return strict.systemId;
 
-  // Fallback: only exclude exact taken systems (ignore neighbour buffer)
-  const relaxed = evaluate(true);
-  return relaxed ? relaxed.systemId : null;
+  // Second pass: relax neighbour exclusion
+  const relaxed = evaluate(true, HOME_PLANET_MIN_HABITABILITY);
+  if (relaxed) return relaxed.systemId;
+
+  // Third pass: lower habitability threshold for extreme species (silicon-based,
+  // aquatic, etc. may struggle to find planets scoring 60+)
+  const lenient = evaluate(true, 20);
+  if (lenient) return lenient.systemId;
+
+  // Last resort: accept ANY non-gas-giant planet
+  const desperate = evaluate(true, 1);
+  return desperate ? desperate.systemId : null;
 }
 
 // ── createStartingFleet ───────────────────────────────────────────────────────
