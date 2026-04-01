@@ -15,11 +15,18 @@
  *   temperature ≈ 67 ticks (1.5 points/tick × level)
  *   biosphere   ≈ 100 ticks (1 point/tick × level)
  *
- * On completion the planet type converts:
- *   barren | desert | ice | toxic → terran
+ * On completion the planet type converts based on the owning species'
+ * environment preferences:
+ *   - Terran species: barren | desert | ice | toxic → terran
+ *   - Volcanic species (Khazari, Pyrenth): → volcanic
+ *   - Ice species (Vaelori): → ice
+ *   - Ocean species (low-gravity O2 breathers): → ocean
+ *
+ * When no species is supplied, falls back to terran (legacy behaviour).
  */
 
 import type { Planet, AtmosphereType, PlanetType } from '../types/galaxy.js';
+import type { EnvironmentPreference } from '../types/species.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -92,7 +99,7 @@ const BIOSPHERE_RESOURCE_BONUS = 20;
 /** How much maxPopulation increases when the biosphere stage completes (absolute). */
 const BIOSPHERE_POPULATION_BONUS = 500_000;
 
-/** Which planet types can be terraformed, and what they become. */
+/** Which planet types can be terraformed, and what they become (legacy, no species). */
 const TERRAFORMABLE_TYPES: Partial<Record<PlanetType, PlanetType>> = {
   barren:  'terran',
   desert:  'terran',
@@ -100,23 +107,109 @@ const TERRAFORMABLE_TYPES: Partial<Record<PlanetType, PlanetType>> = {
   toxic:   'terran',
 };
 
+/** Planet types that are considered "completed" — cannot be further terraformed
+ *  unless the owning species has a different ideal type. */
+const COMPLETED_TYPES: Set<PlanetType> = new Set(['terran', 'ocean', 'volcanic', 'ice']);
+
+// ---------------------------------------------------------------------------
+// Species-aware planet type mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Determines the ideal planet type for a species based on its environment
+ * preferences.
+ *
+ * Rules (evaluated in order):
+ *   1. Atmosphere includes CO2/SO2 AND idealTemp > 500 → volcanic
+ *   2. Atmosphere includes O2/N2 AND idealTemp 250–350 AND idealGravity >= 0.8 → terran
+ *   3. Atmosphere includes O2/N2 AND idealGravity < 0.8 → ocean
+ *   4. Atmosphere includes methane/ammonia → ice
+ *   5. Default → terran
+ */
+export function getIdealPlanetType(
+  prefs: EnvironmentPreference,
+): PlanetType {
+  const atmos = new Set(prefs.preferredAtmospheres);
+
+  // Volcanic species: CO2/SO2 breathers at extreme temperatures
+  if (
+    (atmos.has('carbon_dioxide') || atmos.has('sulfur_dioxide')) &&
+    prefs.idealTemperature > 500
+  ) {
+    return 'volcanic';
+  }
+
+  // Terran species: O2/N2 breathers in moderate conditions
+  if (atmos.has('oxygen_nitrogen') && prefs.idealTemperature >= 250 && prefs.idealTemperature <= 350) {
+    if (prefs.idealGravity < 0.8) return 'ocean';
+    return 'terran';
+  }
+
+  // Ice species: methane/ammonia breathers
+  if (atmos.has('methane') || atmos.has('ammonia')) {
+    return 'ice';
+  }
+
+  return 'terran';
+}
+
 // ---------------------------------------------------------------------------
 // Public helpers
 // ---------------------------------------------------------------------------
 
 /**
  * Returns true if the given planet type can be terraformed.
+ *
+ * When `species` is provided, also considers whether the planet is already
+ * the species' ideal type (in which case it cannot be terraformed further).
+ * A volcanic world IS terraformable by a terran species, but NOT by a
+ * volcanic species for whom it is already ideal.
  */
-export function isTerraformable(type: PlanetType): boolean {
+export function isTerraformable(
+  type: PlanetType,
+  species?: { environmentPreference: EnvironmentPreference },
+): boolean {
+  if (type === 'gas_giant') return false;
+
+  if (species) {
+    const ideal = getIdealPlanetType(species.environmentPreference);
+    if (type === ideal) return false;
+    // Any non-ideal, non-gas-giant planet can be terraformed toward the ideal
+    return true;
+  }
+
+  // Legacy: no species supplied
   return type in TERRAFORMABLE_TYPES;
 }
 
 /**
  * Returns the target planet type for the given origin type, or undefined if
  * the planet cannot be terraformed.
+ *
+ * @deprecated Use getTerraformTargetForSpecies for species-aware results.
  */
 export function getTerraformTarget(type: PlanetType): PlanetType | undefined {
   return TERRAFORMABLE_TYPES[type];
+}
+
+/**
+ * Returns the species-appropriate terraform target for a given planet type,
+ * or undefined if the planet cannot (or need not) be terraformed.
+ */
+export function getTerraformTargetForSpecies(
+  planetType: PlanetType,
+  species?: { environmentPreference: EnvironmentPreference },
+): PlanetType | undefined {
+  if (planetType === 'gas_giant') return undefined;
+
+  if (species) {
+    const ideal = getIdealPlanetType(species.environmentPreference);
+    if (planetType === ideal) return undefined; // Already ideal
+    return ideal;
+  }
+
+  // Fallback: legacy behaviour
+  return TERRAFORMABLE_TYPES[planetType];
 }
 
 /**
@@ -172,6 +265,8 @@ export function estimateTicksRemaining(
  *                             Ignored when hasTerraformingStation is false.
  * @param existingProgress     The planet's existing progress record, or null
  *                             to begin a fresh terraforming project.
+ * @param species              Optional species whose preferences determine the
+ *                             terraform target. When omitted, defaults to terran.
  * @returns                    Updated planet, progress record, and optional event.
  */
 export function processTerraformingTick(
@@ -179,6 +274,7 @@ export function processTerraformingTick(
   hasTerraformingStation: boolean,
   stationLevel: number,
   existingProgress: TerraformingProgress | null = null,
+  species?: { environmentPreference: EnvironmentPreference },
 ): TerraformingTickResult {
   // No station — nothing happens.
   if (!hasTerraformingStation) {
@@ -191,11 +287,21 @@ export function processTerraformingTick(
     return { planet, progress: existingProgress, event: undefined };
   }
 
-  // Planet type must support terraforming.
-  const targetType = getTerraformTarget(planet.type);
+  // Planet type must support terraforming (species-aware).
+  const targetType = species
+    ? getTerraformTargetForSpecies(planet.type, species)
+    : getTerraformTarget(planet.type);
   if (targetType === undefined) {
     return { planet, progress: null, event: undefined };
   }
+
+  // Resolve species-specific atmosphere and temperature for stage completion.
+  const targetAtmosphere: AtmosphereType = species
+    ? (species.environmentPreference.preferredAtmospheres[0] as AtmosphereType ?? TARGET_ATMOSPHERE)
+    : TARGET_ATMOSPHERE;
+  const targetTemperature: number = species
+    ? species.environmentPreference.idealTemperature
+    : TARGET_TEMPERATURE;
 
   // Initialise fresh progress if none exists.
   const progress: TerraformingProgress = existingProgress ?? {
@@ -216,7 +322,7 @@ export function processTerraformingTick(
 
   // Has the stage completed?
   if (newProgressPoints >= STAGE_COST) {
-    return completeStage(planet, progress, targetType);
+    return completeStage(planet, progress, targetType, targetAtmosphere, targetTemperature);
   }
 
   // Stage still in progress.
@@ -237,6 +343,8 @@ function completeStage(
   planet: Planet,
   progress: TerraformingProgress,
   targetType: PlanetType,
+  targetAtmosphere: AtmosphereType = TARGET_ATMOSPHERE,
+  targetTemperature: number = TARGET_TEMPERATURE,
 ): TerraformingTickResult {
   const currentStageIndex = STAGE_ORDER.indexOf(progress.stage);
   const nextStage = STAGE_ORDER[currentStageIndex + 1] ?? 'complete';
@@ -246,13 +354,13 @@ function completeStage(
 
   switch (progress.stage) {
     case 'atmosphere': {
-      updatedPlanet = { ...planet, atmosphere: TARGET_ATMOSPHERE };
-      event = `Terraforming: atmosphere processing complete on ${planet.name} — atmosphere now oxygen-nitrogen`;
+      updatedPlanet = { ...planet, atmosphere: targetAtmosphere };
+      event = `Terraforming: atmosphere processing complete on ${planet.name} — atmosphere now ${targetAtmosphere}`;
       break;
     }
     case 'temperature': {
-      updatedPlanet = { ...planet, temperature: TARGET_TEMPERATURE };
-      event = `Terraforming: thermal regulation complete on ${planet.name} — temperature normalised to ${TARGET_TEMPERATURE}K`;
+      updatedPlanet = { ...planet, temperature: targetTemperature };
+      event = `Terraforming: thermal regulation complete on ${planet.name} — temperature normalised to ${targetTemperature}K`;
       break;
     }
     case 'biosphere': {

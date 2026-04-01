@@ -2733,11 +2733,16 @@ function stepTerraforming(
       const existingProgress = newProgressMap.get(planet.id) ?? null;
       if (!hasTerraformingStation && existingProgress === null) continue;
 
+      // Resolve the owning species so terraforming targets their ideal planet.
+      const ownerEmpire = state.gameState.empires.find(e => e.id === planet.ownerId);
+      const ownerSpecies = ownerEmpire?.species;
+
       const result = processTerraformingTick(
         planet,
         hasTerraformingStation,
         stationLevel,
         existingProgress,
+        ownerSpecies,
       );
 
       if (result.progress === null) {

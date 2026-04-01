@@ -7,7 +7,7 @@
  * (deterministic given a seed).
  */
 
-import type { Galaxy, StarSystem, Planet, Building, BuildingType } from '../types/galaxy.js';
+import type { Galaxy, StarSystem, Planet, Building, BuildingType, AtmosphereType } from '../types/galaxy.js';
 import type { Empire, Species } from '../types/species.js';
 import type { Fleet, Ship, HullClass } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
@@ -17,6 +17,7 @@ import type { AIPersonality } from '../types/species.js';
 import type { GovernmentType } from '../types/government.js';
 import { generateGalaxy } from '../generation/galaxy-generator.js';
 import { calculateHabitability } from './colony.js';
+import { getIdealPlanetType } from './terraforming.js';
 import { generateId } from '../utils/id.js';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js';
 
@@ -252,6 +253,40 @@ export function createStartingFleet(
  */
 export function initializeGame(config: GameSetupConfig): GameState {
   const galaxy = generateGalaxy(config.galaxyConfig);
+
+  // ── Guaranteed home planets ────────────────────────────────────────────────
+  // Ensure at least one suitable planet exists per player species.  Without
+  // this, exotic species (volcanic, ice-loving, etc.) may find zero planets
+  // scoring >= 40 habitability in a randomly generated galaxy.
+  for (const playerSetup of config.players) {
+    const hasGoodPlanet = galaxy.systems.some(sys =>
+      sys.planets.some(p => {
+        if (p.type === 'gas_giant') return false;
+        return calculateHabitability(p, playerSetup.species).score >= 40;
+      }),
+    );
+
+    if (!hasGoodPlanet) {
+      const targetType = getIdealPlanetType(playerSetup.species.environmentPreference);
+      const targetAtmo = (playerSetup.species.environmentPreference.preferredAtmospheres[0]
+        ?? 'oxygen_nitrogen') as AtmosphereType;
+      const targetTemp = playerSetup.species.environmentPreference.idealTemperature;
+      const targetGrav = playerSetup.species.environmentPreference.idealGravity;
+
+      // Pick a random system with a non-gas-giant planet and convert it.
+      for (const sys of galaxy.systems) {
+        const planet = sys.planets.find(p => p.type !== 'gas_giant');
+        if (planet) {
+          planet.type = targetType;
+          planet.atmosphere = targetAtmo;
+          planet.temperature = targetTemp;
+          planet.gravity = targetGrav;
+          break;
+        }
+      }
+    }
+  }
+  // ── End guaranteed home planets ────────────────────────────────────────────
 
   const empires: Empire[] = [];
   const allFleets: Fleet[] = [];
