@@ -2754,14 +2754,51 @@ describe('Experience gain calculation', () => {
     expect(result).toBe('regular');
   });
 
-  it('caps at elite', () => {
+  it('caps at elite for normal victories', () => {
     const ship = makeTacticalShip({
       id: 'elite-ship',
       side: 'attacker',
       crew: { morale: 80, health: 100, experience: 'elite' },
     });
 
+    // Equal numbers: cap stays at elite
+    const result = calculateExperienceGain(ship, true, 3, 3);
+    expect(result).toBe('elite');
+  });
+
+  it('promotes to ace for outnumbered victories (1.5x+)', () => {
+    const ship = makeTacticalShip({
+      id: 'ace-ship',
+      side: 'attacker',
+      crew: { morale: 80, health: 100, experience: 'elite' },
+    });
+
+    // 6 vs 4 = 1.5x outnumbered, victorious => ace reachable
+    const result = calculateExperienceGain(ship, true, 6, 4);
+    expect(result).toBe('ace');
+  });
+
+  it('promotes to legendary for extremely outnumbered victories (2x+)', () => {
+    const ship = makeTacticalShip({
+      id: 'legendary-ship',
+      side: 'attacker',
+      crew: { morale: 80, health: 100, experience: 'elite' },
+    });
+
+    // 10 vs 2 = 5x outnumbered, victorious => legendary reachable
     const result = calculateExperienceGain(ship, true, 10, 2);
+    expect(result).toBe('legendary');
+  });
+
+  it('does not promote past elite on outnumbered loss', () => {
+    const ship = makeTacticalShip({
+      id: 'elite-loser',
+      side: 'attacker',
+      crew: { morale: 80, health: 100, experience: 'hardened' },
+    });
+
+    // Outnumbered (2x) but lost: only difficultyBonus applies, cap stays at elite
+    const result = calculateExperienceGain(ship, false, 6, 3);
     expect(result).toBe('elite');
   });
 
