@@ -104,7 +104,7 @@ function keyStat(component: ShipComponent): string {
       return `scan ${s['scanAccuracy'] ?? 0}%${s['sensorRangeBonus'] ? ` +${s['sensorRangeBonus']} rng` : ''}`;
     case 'repair_drone':
     case 'damage_control':
-      return `${s['repairRate'] ?? 0}/tick`;
+      return `${s['repairRate'] ?? 0}/turn`;
     case 'targeting_computer':
       return `+${s['accuracyBonus'] ?? 0}% acc`;
     case 'ecm_suite':

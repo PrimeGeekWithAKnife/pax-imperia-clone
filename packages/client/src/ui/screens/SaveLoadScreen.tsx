@@ -270,7 +270,7 @@ function LoadTab({ onLoaded }: LoadTabProps): React.ReactElement {
       {autoSave && (
         <div className="sl-autosave-info">
           Last auto-save: {formatTimestamp(autoSave.timestamp)}
-          &ensp;(tick&nbsp;{autoSave.currentTick})
+          &ensp;(turn&nbsp;{autoSave.currentTick})
         </div>
       )}
 
