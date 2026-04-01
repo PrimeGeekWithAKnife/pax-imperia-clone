@@ -12,7 +12,9 @@
  *  - All relations are symmetric: A→B and B→A are both tracked separately
  */
 
-import type { Empire, DiplomaticStatus, TreatyType, AIPersonality } from '../types/species.js';
+import type { Empire, DiplomaticStatus, TreatyType, AIPersonality, CommunicationLevel } from '../types/species.js';
+import type { Galaxy } from '../types/galaxy.js';
+import type { Fleet } from '../types/ships.js';
 import { ATTITUDE_MIN, ATTITUDE_MAX } from '../constants/game.js';
 import { generateId } from '../utils/id.js';
 
@@ -39,6 +41,8 @@ export interface DiplomaticRelationFull {
   firstContact: number;
   /** Game tick of the most recent diplomatic interaction. */
   lastInteraction: number;
+  /** Level of communication established with this empire. */
+  communicationLevel: CommunicationLevel;
   incidentLog: DiplomaticIncident[];
 }
 
@@ -191,6 +195,7 @@ function makeBlankRelation(empireId: string, targetEmpireId: string): Diplomatic
     tradeRoutes: 0,
     firstContact: -1,
     lastInteraction: -1,
+    communicationLevel: 'none',
     incidentLog: [],
   };
 }
@@ -201,6 +206,7 @@ function makeBlankRelation(empireId: string, targetEmpireId: string): Diplomatic
 function copyRelation(rel: DiplomaticRelationFull): DiplomaticRelationFull {
   return {
     ...rel,
+    communicationLevel: rel.communicationLevel ?? 'none',
     treaties: rel.treaties.map((t) => ({ ...t, terms: t.terms ? { ...t.terms } : undefined })),
     incidentLog: rel.incidentLog.map((i) => ({ ...i })),
   };
@@ -267,6 +273,16 @@ function attitudeToStatus(attitude: number, current: DiplomaticStatus): Diplomat
   if (attitude >= 25) return 'friendly';
   if (attitude >= -25) return 'neutral';
   return 'hostile';
+}
+
+// ---------------------------------------------------------------------------
+// Communication level hierarchy
+// ---------------------------------------------------------------------------
+
+const COMM_LEVEL_ORDER: CommunicationLevel[] = ['none', 'basic', 'trade', 'scientific'];
+
+function commLevelIndex(level: CommunicationLevel): number {
+  return COMM_LEVEL_ORDER.indexOf(level);
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +549,79 @@ export function calculateTradeIncome(relation: DiplomaticRelationFull): number {
 }
 
 // ---------------------------------------------------------------------------
+// Communication level upgrades
+// ---------------------------------------------------------------------------
+
+/**
+ * Advance the communication level between two empires by one step.
+ *
+ * Progression: none → basic → trade → scientific.
+ * If already at 'scientific', the state is returned unchanged.
+ * Both sides of the relationship are upgraded symmetrically.
+ */
+export function upgradeCommLevel(
+  state: DiplomacyState,
+  empireA: string,
+  empireB: string,
+): DiplomacyState {
+  const relAB = getRelation(state, empireA, empireB);
+  if (!relAB) return state;
+
+  const currentIndex = commLevelIndex(relAB.communicationLevel ?? 'none');
+  if (currentIndex >= COMM_LEVEL_ORDER.length - 1) return state; // already at max
+
+  const next = copyState(state);
+  const newLevel = COMM_LEVEL_ORDER[currentIndex + 1];
+
+  const relA = getMutableRelation(next, empireA, empireB);
+  const relB = getMutableRelation(next, empireB, empireA);
+  relA.communicationLevel = newLevel;
+  relB.communicationLevel = newLevel;
+
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Empire elimination
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether an empire has been eliminated from the game.
+ *
+ * An empire is eliminated when it owns zero planets AND controls zero fleets
+ * (i.e. has no remaining ships). Both conditions must be true.
+ */
+export function isEmpireEliminated(
+  empire: Empire,
+  galaxy: Galaxy,
+  fleets: Fleet[],
+): boolean {
+  const ownsPlanet = galaxy.systems.some((system) =>
+    system.planets.some((planet) => planet.ownerId === empire.id),
+  );
+  if (ownsPlanet) return false;
+
+  const hasFleet = fleets.some(
+    (fleet) => fleet.empireId === empire.id && fleet.ships.length > 0,
+  );
+  return !hasFleet;
+}
+
+/**
+ * Filter out eliminated empires, returning only those still active in the game.
+ *
+ * An empire is active if it owns at least one planet OR has at least one ship
+ * (via fleets).
+ */
+export function getActiveEmpires(
+  empires: Empire[],
+  galaxy: Galaxy,
+  fleets: Fleet[],
+): Empire[] {
+  return empires.filter((empire) => !isEmpireEliminated(empire, galaxy, fleets));
+}
+
+// ---------------------------------------------------------------------------
 // AI treaty evaluation
 // ---------------------------------------------------------------------------
 
@@ -726,17 +815,49 @@ function getTreatyTypeModifier(treatyType: TreatyType, personality: AIPersonalit
  * Advance all diplomatic relations by one game tick.
  *
  * Per tick:
- *  1. Attitude drifts toward 0 (at a fraction of its current value).
- *  2. Timed treaties that have expired are removed.
- *  3. Status is recalculated from attitude (preserving 'at_war').
+ *  1. Skip eliminated empires (if galaxy/fleets context provided).
+ *  2. Attitude drifts toward 0 (at a fraction of its current value).
+ *  3. Timed treaties that have expired are removed.
+ *  4. Communication levels upgrade automatically based on active treaties.
+ *  5. Status is recalculated from attitude (preserving 'at_war').
+ *
+ * @param state - Current diplomacy state
+ * @param tick - Current game tick
+ * @param empires - All empires (optional; needed for elimination checks)
+ * @param galaxy - Galaxy state (optional; needed for elimination checks)
+ * @param fleets - All fleets (optional; needed for elimination checks)
  */
-export function processDiplomacyTick(state: DiplomacyState, tick: number): DiplomacyState {
+export function processDiplomacyTick(
+  state: DiplomacyState,
+  tick: number,
+  empires?: Empire[],
+  galaxy?: Galaxy,
+  fleets?: Fleet[],
+): DiplomacyState {
   const next = copyState(state);
 
-  for (const targets of next.relations.values()) {
+  // Build a set of eliminated empire IDs for fast lookup
+  const eliminatedIds = new Set<string>();
+  if (empires && galaxy && fleets) {
+    for (const empire of empires) {
+      if (isEmpireEliminated(empire, galaxy, fleets)) {
+        eliminatedIds.add(empire.id);
+      }
+    }
+  }
+
+  for (const [empireId, targets] of next.relations) {
+    // Skip processing for eliminated empires
+    if (eliminatedIds.has(empireId)) continue;
+
     for (const rel of targets.values()) {
+      // Skip relations with eliminated empires
+      if (eliminatedIds.has(rel.targetEmpireId)) continue;
+
       // --- Per-tick treaty bonuses (counteracts decay) ---
       let hasAlliance = false;
+      let hasTradeTreaty = false;
+      let hasResearchSharing = false;
       for (const treaty of rel.treaties) {
         const attitudeGain = TREATY_PER_TICK_ATTITUDE[treaty.type] ?? 0;
         if (attitudeGain > 0) {
@@ -746,11 +867,33 @@ export function processDiplomacyTick(state: DiplomacyState, tick: number): Diplo
         if (treaty.type === 'alliance' || treaty.type === 'military_alliance') {
           hasAlliance = true;
         }
+        if (treaty.type === 'trade' || treaty.type === 'trade_agreement') {
+          hasTradeTreaty = true;
+        }
+        if (treaty.type === 'research_sharing') {
+          hasResearchSharing = true;
+        }
       }
 
       // --- Alliance maintenance bonus (stabilises alliances once formed) ---
       if (hasAlliance) {
         rel.attitude = clampAttitude(rel.attitude + ALLIANCE_MAINTENANCE_BONUS);
+      }
+
+      // --- Auto-upgrade communication level based on treaties ---
+      const currentLevel = rel.communicationLevel ?? 'none';
+      const currentIdx = commLevelIndex(currentLevel);
+      if (hasResearchSharing && currentIdx < commLevelIndex('scientific')) {
+        // Research sharing → scientific (skip intermediate levels)
+        rel.communicationLevel = 'scientific';
+        // Also upgrade the reverse relation
+        const reverseRel = getMutableRelation(next, rel.targetEmpireId, empireId);
+        reverseRel.communicationLevel = 'scientific';
+      } else if (hasTradeTreaty && currentIdx < commLevelIndex('trade')) {
+        // Trade treaty → at least trade level
+        rel.communicationLevel = 'trade';
+        const reverseRel = getMutableRelation(next, rel.targetEmpireId, empireId);
+        reverseRel.communicationLevel = 'trade';
       }
 
       // --- Attitude decay toward 0 ---

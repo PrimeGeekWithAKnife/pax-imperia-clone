@@ -462,6 +462,7 @@ describe('calculateTradeIncome', () => {
       tradeRoutes: 0,
       firstContact: 1,
       lastInteraction: 1,
+      communicationLevel: 'none',
       incidentLog: [],
       ...overrides,
     };
@@ -519,6 +520,7 @@ describe('evaluateTreatyProposal', () => {
       tradeRoutes: 0,
       firstContact: 1,
       lastInteraction: 1,
+      communicationLevel: 'none',
       incidentLog: [],
       ...overrides,
     };
