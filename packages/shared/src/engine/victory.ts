@@ -7,7 +7,7 @@
  *
  * Victory conditions (enabled via GameConfig.victoryCriteria):
  *  - conquest    : Control 75 % of all colonised planets.
- *  - economic    : Hold 10× more credits than any rival for 50 consecutive ticks.
+ *  - economic    : Hold 3× more credits than any rival for 100 consecutive ticks.
  *  - technological: Research the Ascension Project (final tech).
  *  - diplomatic  : Hold an alliance with every surviving empire.
  */
@@ -216,12 +216,24 @@ function buildConquestStatus(empire: Empire, gameState: GameState): VictoryCondi
   // cannot "conquer" anyone.
   const hasRivals = gameState.empires.length >= 2;
 
+  // Prevent early-game ratio manipulation: require a minimum number of
+  // colonised planets before the conquest ratio check is meaningful.
+  const minColonised = Math.max(4, gameState.empires.length * 2);
+  const enoughPlanets = colonised.length >= minColonised;
+
+  // The winner must have actually conquered someone — at least one rival
+  // must have been eliminated (0 planets remaining).  This prevents winning
+  // conquest purely by rapid colonisation without any fighting.
+  const hasConqueredSomeone = gameState.empires.some(
+    e => e.id !== empire.id && getPlanetsOwnedBy(gameState.galaxy, e.id).length === 0,
+  );
+
   return {
     type: 'conquest',
     name: 'Galactic Conquest',
     description: `Control ${Math.round(CONQUEST_THRESHOLD * 100)}% of all colonised planets (${owned} / ${Math.ceil(colonised.length * CONQUEST_THRESHOLD)} needed).`,
     progress,
-    isAchieved: hasRivals && fraction >= CONQUEST_THRESHOLD,
+    isAchieved: hasRivals && enoughPlanets && hasConqueredSomeone && fraction >= CONQUEST_THRESHOLD,
   };
 }
 
@@ -230,9 +242,13 @@ function buildEconomicStatus(
   allEmpires: Empire[],
   resourcesMap?: Map<string, EmpireResources>,
   economicLeadTicks?: Map<string, number>,
+  galaxy?: GameState['galaxy'],
 ): VictoryConditionStatus {
   const myCredits = getCredits(empire, resourcesMap);
-  const rivals = allEmpires.filter(e => e.id !== empire.id);
+  // Exclude eliminated empires (those with 0 planets) from rival calculation.
+  const rivals = allEmpires.filter(e =>
+    e.id !== empire.id && (!galaxy || getPlanetsOwnedBy(galaxy, e.id).length > 0),
+  );
   const maxRivalCredits = rivals.length > 0
     ? Math.max(...rivals.map(e => getCredits(e, resourcesMap)))
     : 0;
@@ -275,8 +291,15 @@ function buildTechStatus(empire: Empire, allTechCount: number): VictoryCondition
   };
 }
 
-function buildDiplomaticStatus(empire: Empire, allEmpires: Empire[]): VictoryConditionStatus {
-  const rivals = allEmpires.filter(e => e.id !== empire.id);
+function buildDiplomaticStatus(
+  empire: Empire,
+  allEmpires: Empire[],
+  galaxy?: GameState['galaxy'],
+): VictoryConditionStatus {
+  // Exclude eliminated empires (those with 0 planets) — you cannot ally with the dead.
+  const rivals = allEmpires.filter(e =>
+    e.id !== empire.id && (!galaxy || getPlanetsOwnedBy(galaxy, e.id).length > 0),
+  );
   const alliedCount = rivals.filter(rival =>
     empire.diplomacy.some(
       rel =>
@@ -308,9 +331,9 @@ function buildVictoryConditionStatuses(
   const techTotal = allTechCount ?? 0;
   return [
     buildConquestStatus(empire, gameState),
-    buildEconomicStatus(empire, allEmpires, resourcesMap, economicLeadTicks),
+    buildEconomicStatus(empire, allEmpires, resourcesMap, economicLeadTicks, gameState.galaxy),
     buildTechStatus(empire, techTotal),
-    buildDiplomaticStatus(empire, allEmpires),
+    buildDiplomaticStatus(empire, allEmpires, gameState.galaxy),
   ];
 }
 
@@ -355,7 +378,7 @@ export function checkVictoryConditions(
 
     // ── Economic ────────────────────────────────────────────────────────────
     if (enabledCriteria.includes('economic')) {
-      const status = buildEconomicStatus(empire, empires, resourcesMap, economicLeadTicks);
+      const status = buildEconomicStatus(empire, empires, resourcesMap, economicLeadTicks, gameState.galaxy);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'economic' };
       }
@@ -371,7 +394,7 @@ export function checkVictoryConditions(
 
     // ── Diplomatic ──────────────────────────────────────────────────────────
     if (enabledCriteria.includes('diplomatic')) {
-      const status = buildDiplomaticStatus(empire, empires);
+      const status = buildDiplomaticStatus(empire, empires, gameState.galaxy);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'diplomatic' };
       }
