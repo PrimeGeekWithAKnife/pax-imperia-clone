@@ -25,6 +25,8 @@ export type NotificationType =
   | 'minor_species_found'     // Discovered pre-spaceflight civilisation
   | 'anomaly_discovered'      // Found space anomaly
   | 'planet_captured'         // Enemy planet captured after winning space combat
+  | 'invasion_repelled'       // Ground invasion failed — planet defence held
+  | 'orbital_superiority'     // Won space battle but no transports to invade fortified planet
   | 'debris_warning'          // Orbital debris density > 30
   | 'debris_critical'         // Orbital debris density > 75 — Kessler cascade imminent
   | 'debris_cascade'          // Kessler cascade event occurred

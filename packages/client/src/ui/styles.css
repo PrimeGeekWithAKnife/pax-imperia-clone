@@ -8564,6 +8564,28 @@
   cursor: not-allowed;
 }
 
+.occ-policy-btn--locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.occ-policy-btn--locked .occ-policy-label {
+  color: #555;
+}
+
+.occ-policy-btn--locked .occ-policy-desc {
+  color: #444;
+}
+
+.occ-policy-locked-text {
+  font-size: 10px;
+  color: #886644;
+  margin: 4px 0 0;
+  letter-spacing: 0.08em;
+  font-style: italic;
+}
+
 /* ===========================================================================
    Economy Screen
    =========================================================================== */
@@ -8753,8 +8775,9 @@
 
 .econ-trade-route-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 6px 8px;
   background: rgba(0, 20, 40, 0.5);
   border: 1px solid var(--color-border);
@@ -8797,6 +8820,37 @@
   background: rgba(255, 60, 60, 0.15);
   border-color: rgba(255, 80, 80, 0.7);
   color: #ffaaaa;
+}
+
+.econ-trade-route-card__maturity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.econ-trade-route-card__maturity-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.econ-trade-route-card__maturity-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3388cc, #55ddaa);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.econ-trade-route-card__maturity-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
 }
 
 /* ── Trade route form ── */

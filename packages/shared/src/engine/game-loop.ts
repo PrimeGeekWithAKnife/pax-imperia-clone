@@ -42,8 +42,9 @@
 
 import type { GameState } from '../types/game-state.js';
 import type { StarSystem, Planet, BuildingType, OrbitalDebris } from '../types/galaxy.js';
-import type { Fleet, Ship, ShipDesign, ShipComponent } from '../types/ships.js';
+import type { Fleet, Ship, ShipDesign, ShipComponent, HullClass } from '../types/ships.js';
 import { getEffectiveHullPoints } from '../types/ships.js';
+import { TRANSPORT_CAPACITY } from './ground-combat.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { Governor } from '../types/governor.js';
 import { GOVERNMENTS } from '../types/government.js';
@@ -1527,7 +1528,12 @@ function stepCombatResolution(
   const designs = state.shipDesigns ?? new Map<string, ShipDesign>();
   const components = state.shipComponents ?? [];
   const deferredCombats: typeof state.pendingCombats = [];
-  const capturedPlanets: { planetName: string; systemId: string; winnerEmpireId: string }[] = [];
+  const capturedPlanets: {
+    planetName: string;
+    systemId: string;
+    winnerEmpireId: string;
+    outcome: 'civilian_surrender' | 'clean_capture' | 'pyrrhic_victory' | 'invasion_repelled' | 'orbital_superiority';
+  }[] = [];
 
   for (const combat of state.pendingCombats) {
     const attackerFleet = fleets.find(f => f.id === combat.attackerFleetId);
@@ -1706,7 +1712,9 @@ function stepCombatResolution(
       }
     }
 
-    // Planet capture: winner takes undefended enemy planets in the system
+    // ── Ground combat / planet capture ──────────────────────────────────────
+    // After winning the space battle, determine the fate of each enemy planet
+    // based on military buildings and available transport capacity.
     const loserEmpireId = winnerEmpireId === attackerFleet.empireId
       ? defenderFleet.empireId
       : attackerFleet.empireId;
@@ -1718,17 +1726,115 @@ function stepCombatResolution(
     if (!loserHasFleets) {
       const sys = combatSystems.find(s => s.id === combat.systemId);
       if (sys) {
+        // Calculate attacker transport capacity from surviving winner ships
+        const winnerFleet = winnerEmpireId === attackerFleet.empireId
+          ? attackerFleet : defenderFleet;
+        const winnerShipIds = fleets.find(f => f.id === winnerFleet.id)?.ships ?? [];
+        const winnerShips = ships.filter(s => winnerShipIds.includes(s.id));
+        let attackerTransportStrength = 0;
+        for (const s of winnerShips) {
+          const design = designs.get(s.designId);
+          const hullClass: HullClass = design?.hull ?? 'scout';
+          attackerTransportStrength += TRANSPORT_CAPACITY[hullClass] ?? 0;
+        }
+
+        let systemOwnerChanged = false;
         const updatedPlanets = sys.planets.map(p => {
           if (p.ownerId !== loserEmpireId) return p;
-          capturedPlanets.push({ planetName: p.name, systemId: combat.systemId, winnerEmpireId });
-          return {
-            ...p,
-            ownerId: winnerEmpireId,
-            currentPopulation: Math.floor(p.currentPopulation * 0.5),
-            productionQueue: [],
-          };
+
+          // Check for military buildings on this planet
+          const defenseGridLevel = p.buildings
+            .filter(b => b.type === 'defense_grid')
+            .reduce((sum, b) => sum + b.level, 0);
+          const militaryAcademyLevel = p.buildings
+            .filter(b => b.type === 'military_academy')
+            .reduce((sum, b) => sum + b.level, 0);
+          const hasMilitaryBuildings = defenseGridLevel > 0 || militaryAcademyLevel > 0;
+
+          // ── Path A: Civilian surrender (no military buildings) ──────────
+          if (!hasMilitaryBuildings) {
+            capturedPlanets.push({
+              planetName: p.name,
+              systemId: combat.systemId,
+              winnerEmpireId,
+              outcome: 'civilian_surrender',
+            });
+            systemOwnerChanged = true;
+            return {
+              ...p,
+              ownerId: winnerEmpireId,
+              currentPopulation: Math.floor(p.currentPopulation * 0.75),
+              productionQueue: [],
+            };
+          }
+
+          // ── Path B: Orbital superiority (military buildings, no transports) ──
+          if (attackerTransportStrength <= 0) {
+            capturedPlanets.push({
+              planetName: p.name,
+              systemId: combat.systemId,
+              winnerEmpireId,
+              outcome: 'orbital_superiority',
+            });
+            systemOwnerChanged = true;
+            // System ownership changes but planet stays with defender
+            return p;
+          }
+
+          // ── Path C: Ground invasion (military buildings + transports) ───
+          const defenderStrength =
+            (p.currentPopulation * 0.01) +
+            (50 * defenseGridLevel) +
+            (30 * militaryAcademyLevel);
+
+          if (attackerTransportStrength > defenderStrength * 1.5) {
+            // Clean capture — overwhelming force
+            capturedPlanets.push({
+              planetName: p.name,
+              systemId: combat.systemId,
+              winnerEmpireId,
+              outcome: 'clean_capture',
+            });
+            systemOwnerChanged = true;
+            return {
+              ...p,
+              ownerId: winnerEmpireId,
+              currentPopulation: Math.floor(p.currentPopulation * 0.75),
+              productionQueue: [],
+            };
+          } else if (attackerTransportStrength > defenderStrength) {
+            // Pyrrhic victory — costly ground war
+            capturedPlanets.push({
+              planetName: p.name,
+              systemId: combat.systemId,
+              winnerEmpireId,
+              outcome: 'pyrrhic_victory',
+            });
+            systemOwnerChanged = true;
+            return {
+              ...p,
+              ownerId: winnerEmpireId,
+              currentPopulation: Math.floor(p.currentPopulation * 0.25),
+              productionQueue: [],
+            };
+          } else {
+            // Invasion repelled — defender holds
+            capturedPlanets.push({
+              planetName: p.name,
+              systemId: combat.systemId,
+              winnerEmpireId,
+              outcome: 'invasion_repelled',
+            });
+            return p;
+          }
         });
-        combatSystems = combatSystems.map(s => s.id === sys.id ? { ...s, planets: updatedPlanets } : s);
+
+        // Update system: if any planet changed hands or orbital superiority,
+        // set system.ownerId to winner
+        const updatedSys = systemOwnerChanged
+          ? { ...sys, ownerId: winnerEmpireId, planets: updatedPlanets }
+          : { ...sys, planets: updatedPlanets };
+        combatSystems = combatSystems.map(s => s.id === sys.id ? updatedSys : s);
       }
     }
   }
@@ -1736,19 +1842,71 @@ function stepCombatResolution(
   // Remove empty fleets
   fleets = fleets.filter(f => f.ships.length > 0);
 
-  // Emit notifications for captured planets
+  // Emit notifications for planet capture outcomes
   let notifications = [...(state.notifications ?? [])];
   for (const capture of capturedPlanets) {
-    notifications.push(
-      createNotification(
-        'planet_captured',
-        `${capture.planetName} captured!`,
-        `Your forces have captured ${capture.planetName} after winning the space battle.`,
-        tick,
-        undefined,
-        { systemId: capture.systemId },
-      ),
-    );
+    switch (capture.outcome) {
+      case 'civilian_surrender':
+        notifications.push(
+          createNotification(
+            'planet_captured',
+            `${capture.planetName} surrendered!`,
+            `The civilian population of ${capture.planetName} has surrendered without resistance.`,
+            tick,
+            undefined,
+            { systemId: capture.systemId },
+          ),
+        );
+        break;
+      case 'clean_capture':
+        notifications.push(
+          createNotification(
+            'planet_captured',
+            `${capture.planetName} captured!`,
+            `Your ground forces overwhelmed the defenders of ${capture.planetName} in a decisive assault.`,
+            tick,
+            undefined,
+            { systemId: capture.systemId },
+          ),
+        );
+        break;
+      case 'pyrrhic_victory':
+        notifications.push(
+          createNotification(
+            'planet_captured',
+            `${capture.planetName} captured (heavy losses)`,
+            `${capture.planetName} has fallen after brutal ground combat. The population suffered catastrophic losses.`,
+            tick,
+            undefined,
+            { systemId: capture.systemId },
+          ),
+        );
+        break;
+      case 'invasion_repelled':
+        notifications.push(
+          createNotification(
+            'invasion_repelled',
+            `Invasion of ${capture.planetName} repelled!`,
+            `The ground defences of ${capture.planetName} held firm — your invasion force was driven back.`,
+            tick,
+            undefined,
+            { systemId: capture.systemId },
+          ),
+        );
+        break;
+      case 'orbital_superiority':
+        notifications.push(
+          createNotification(
+            'orbital_superiority',
+            `Orbital superiority over ${capture.planetName}`,
+            `You control the skies above ${capture.planetName} but lack transports to invade the fortified surface.`,
+            tick,
+            undefined,
+            { systemId: capture.systemId },
+          ),
+        );
+        break;
+    }
   }
 
   return {

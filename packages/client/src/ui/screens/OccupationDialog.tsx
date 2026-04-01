@@ -13,56 +13,77 @@ export interface OccupationDialogProps {
   onClose: () => void;
 }
 
-// ── Policy metadata ──────────────────────────────────────────────────────────
+// -- All policies in display order ------------------------------------------------
+
+const ALL_POLICIES: OccupationPolicy[] = [
+  'peaceful_occupation',
+  're_education',
+  'decapitate_leadership',
+  'raze_and_loot',
+  'forced_labour',
+  'enslavement',
+  'mass_genocide',
+];
+
+// -- Policy metadata --------------------------------------------------------------
 
 interface PolicyInfo {
   label: string;
   description: string;
   severity: 'benign' | 'moderate' | 'harsh' | 'extreme';
+  /** Text shown when the policy is locked (not in allowedPolicies). */
+  requirement: string;
 }
 
 const POLICY_INFO: Record<OccupationPolicy, PolicyInfo> = {
   peaceful_occupation: {
     label: 'Peaceful Occupation',
     description:
-      'Minimal unrest, slow integration. Requires policing forces but preserves infrastructure and goodwill.',
+      'Minimal disruption, population kept intact. Requires policing forces but preserves infrastructure and goodwill.',
     severity: 'benign',
+    requirement: 'Always available',
   },
   forced_labour: {
     label: 'Forced Labour',
     description:
       'Conscript the population into work gangs. Higher productivity but the populace will be deeply unhappy.',
     severity: 'harsh',
+    requirement: 'Requires combat trait 4+',
   },
   re_education: {
     label: 'Re-education',
     description:
-      'Convert the population to your culture and values. A slow process with moderate initial unrest.',
+      'Impose your culture and values on the population. -20% pop, +loyalty over time.',
     severity: 'moderate',
+    requirement: 'Always available',
   },
   decapitate_leadership: {
     label: 'Decapitate Leadership',
     description:
       'Eliminate enemy leadership and military officers. The general population is left intact but leaderless.',
     severity: 'moderate',
+    requirement: 'Always available',
   },
   raze_and_loot: {
     label: 'Raze and Loot',
     description:
-      'Destroy infrastructure and take everything of value. Most of the population survives but the planet is set back decades.',
+      'Strip resources and destroy infrastructure. -50% pop, +500 credits immediately.',
     severity: 'harsh',
+    requirement: 'Always available',
   },
   enslavement: {
     label: 'Enslavement',
     description:
       'The entire population is enslaved. Maximum resource extraction at the cost of constant rebellion risk.',
     severity: 'extreme',
+    requirement: 'Requires combat trait 7+',
   },
   mass_genocide: {
     label: 'Mass Genocide',
     description:
       'Exterminate the native population entirely. This is an irreversible atrocity that will horrify the galaxy.',
     severity: 'extreme',
+    requirement: 'Requires combat trait 9+',
   },
 };
 
@@ -73,7 +94,7 @@ const SEVERITY_COLOUR: Record<PolicyInfo['severity'], string> = {
   extreme: '#ee4444',
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// -- Component --------------------------------------------------------------------
 
 export function OccupationDialog({
   planetName,
@@ -88,11 +109,15 @@ export function OccupationDialog({
 
   const GENOCIDE_CONFIRMS_REQUIRED = 3;
 
+  const allowedSet = new Set(allowedPolicies);
+
   const handleSelect = useCallback((policy: OccupationPolicy) => {
+    if (!allowedSet.has(policy)) return; // locked policy -- do nothing
     setSelected(policy);
     setConfirmingGenocide(false);
     setGenocideConfirmCount(0);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedPolicies]);
 
   const handleConfirm = useCallback(() => {
     if (!selected) return;
@@ -121,31 +146,44 @@ export function OccupationDialog({
         <header className="occ-header">
           <h1 className="occ-title">OCCUPATION OF {planetName.toUpperCase()}</h1>
           <p className="occ-subtitle">
-            Population: {populationText}
+            You have conquered {planetName}! Population: {populationText}
+          </p>
+          <p className="occ-subtitle" style={{ marginTop: '4px' }}>
+            Choose how to administer the occupied population:
           </p>
         </header>
 
         <section className="occ-policies" aria-label="Occupation policies">
-          {allowedPolicies.map(policy => {
+          {ALL_POLICIES.map(policy => {
             const info = POLICY_INFO[policy];
+            const isAllowed = allowedSet.has(policy);
             const isSelected = selected === policy;
             return (
               <button
                 key={policy}
                 type="button"
-                className={`occ-policy-btn ${isSelected ? 'occ-policy-btn--selected' : ''}`}
+                className={[
+                  'occ-policy-btn',
+                  isSelected ? 'occ-policy-btn--selected' : '',
+                  !isAllowed ? 'occ-policy-btn--locked' : '',
+                ].filter(Boolean).join(' ')}
                 onClick={() => handleSelect(policy)}
+                disabled={!isAllowed}
+                aria-disabled={!isAllowed}
               >
                 <div className="occ-policy-header">
                   <span className="occ-policy-label">{info.label}</span>
                   <span
                     className="occ-policy-severity"
-                    style={{ color: SEVERITY_COLOUR[info.severity] }}
+                    style={{ color: isAllowed ? SEVERITY_COLOUR[info.severity] : '#555' }}
                   >
                     {info.severity.toUpperCase()}
                   </span>
                 </div>
                 <p className="occ-policy-desc">{info.description}</p>
+                {!isAllowed && (
+                  <p className="occ-policy-locked-text">{info.requirement}</p>
+                )}
               </button>
             );
           })}
@@ -182,4 +220,3 @@ export function OccupationDialog({
     </div>
   );
 }
-

@@ -229,6 +229,7 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
   const empires = state?.gameState.empires ?? [];
   const ships = state?.gameState.ships ?? [];
   const fleets = state?.gameState.fleets ?? [];
+  const currentTick = state?.gameState.currentTick ?? 0;
 
   // Identify the player empire (first non-AI empire, or first empire)
   const playerEmpire = empires.find(e => !e.isAI) ?? empires[0] ?? null;
@@ -661,6 +662,11 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
                   .map(route => {
                     const originSys = galaxy?.systems.find(s => s.id === route.originSystemId);
                     const destSys = galaxy?.systems.find(s => s.id === route.destinationSystemId);
+                    // Maturity: routes improve over 50 ticks from establishment
+                    const MATURITY_CAP_TICKS = 50;
+                    const routeAge = Math.max(0, currentTick - route.established);
+                    const maturityPct = Math.min(1, routeAge / MATURITY_CAP_TICKS);
+                    const maturityLabel = maturityPct >= 1 ? 'Mature' : `${Math.round(maturityPct * 100)}%`;
                     return (
                       <div key={route.id} className="econ-trade-route-card">
                         <div className="econ-trade-route-card__path">
@@ -674,6 +680,18 @@ export function EconomyScreen({ onClose, onOpenPlanet }: EconomyScreenProps): Re
                         </div>
                         <div className="econ-trade-route-card__income">
                           +{fmt(route.income)} CR/turn
+                        </div>
+                        {/* Maturity progress bar */}
+                        <div className="econ-trade-route-card__maturity">
+                          <div className="econ-trade-route-card__maturity-bar">
+                            <div
+                              className="econ-trade-route-card__maturity-fill"
+                              style={{ width: `${maturityPct * 100}%` }}
+                            />
+                          </div>
+                          <span className="econ-trade-route-card__maturity-label">
+                            {maturityLabel}
+                          </span>
                         </div>
                         <button
                           type="button"
