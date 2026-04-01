@@ -5,10 +5,10 @@
   "portrait": "portrait_teranos",
   "traits": {
     "construction": 5,
-    "reproduction": 6,
+    "reproduction": 5,
     "research": 5,
     "espionage": 5,
-    "economy": 7,
+    "economy": 6,
     "combat": 5,
     "diplomacy": 7
   },

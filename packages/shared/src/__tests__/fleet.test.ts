@@ -868,7 +868,7 @@ describe('issueMovementOrder — travel mode', () => {
 
     expect(order).not.toBeNull();
     expect(order!.travelMode).toBe('slow_ftl');
-    expect(order!.ticksPerHop).toBe(20);
+    expect(order!.ticksPerHop).toBe(12);
   });
 
   it('sets travelMode to wormhole when empire has wormhole_stabilisation', () => {

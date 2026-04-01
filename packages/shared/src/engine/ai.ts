@@ -728,6 +728,52 @@ export function evaluateWarStrategy(
   }
 
   // =========================================================================
+  // 6. COALITION AI — HEGEMON THREAT
+  // =========================================================================
+  // Count colonised planets per empire. If any empire controls >50% of all
+  // colonised planets, non-hegemonic AIs rally against the hegemon and avoid
+  // fighting fellow underdogs.
+
+  const planetsByEmpire = new Map<string, number>();
+  let totalColonised = 0;
+  for (const sys of galaxy.systems) {
+    for (const p of sys.planets) {
+      if (p.ownerId) {
+        planetsByEmpire.set(p.ownerId, (planetsByEmpire.get(p.ownerId) ?? 0) + 1);
+        totalColonised++;
+      }
+    }
+  }
+
+  if (totalColonised > 0) {
+    const targetPlanets = planetsByEmpire.get(targetId) ?? 0;
+    const ourPlanets = planetsByEmpire.get(empire.id) ?? 0;
+    const targetShare = targetPlanets / totalColonised;
+    const ourShare = ourPlanets / totalColonised;
+
+    if (targetShare > 0.5 && ourShare <= 0.5) {
+      // Target is the hegemon — rally against them
+      warScore += 20;
+      reasons.push(`Hegemon threat: ${targetId} controls ${Math.round(targetShare * 100)}% of planets — coalition pressure`);
+    } else if (ourShare <= 0.5 && targetShare <= 0.5) {
+      // Both are underdogs — avoid fighting each other
+      // Find if there IS a hegemon elsewhere
+      let hegemonExists = false;
+      for (const [, count] of planetsByEmpire) {
+        if (count / totalColonised > 0.5) {
+          hegemonExists = true;
+          break;
+        }
+      }
+      if (hegemonExists) {
+        warScore -= 30;
+        peaceScore += 15;
+        reasons.push(`Coalition solidarity: both underdogs while hegemon exists — avoid infighting`);
+      }
+    }
+  }
+
+  // =========================================================================
   // SYNTHESIS: combine all factors into a final decision
   // =========================================================================
 
@@ -1083,26 +1129,40 @@ export function evaluateMilitaryActions(
         }
       }
 
-      // At war: move the largest idle fleet to attack
+      // At war: coordinate multiple fleets for attack based on war intensity
       if (relation?.status === 'at_war' && empireFleets.length > 0) {
         const targetSystem = galaxy.systems.find(s => s.ownerId === opponentId);
         if (targetSystem) {
-          // Pick the largest idle fleet for attack
-          const idleAttackFleets = empireFleets.filter(f => !f.destination);
-          const attackFleet = idleAttackFleets.length > 0
-            ? idleAttackFleets.reduce((a, b) => a.ships.length >= b.ships.length ? a : b)
-            : empireFleets[0]!;
-          decisions.push({
-            type: 'move_fleet',
-            priority: applyWeight(70, 'move_fleet', personality),
-            params: {
-              fleetId: attackFleet.id,
-              destinationSystemId: targetSystem.id,
-              purpose: 'attack',
-              targetEmpireId: opponentId,
-            },
-            reasoning: `Attack ${opponentId} in system ${targetSystem.id} (at war)`,
-          });
+          // Sort all idle fleets by strength (ship count) descending
+          const idleAttackFleets = empireFleets
+            .filter(f => !f.destination)
+            .sort((a, b) => b.ships.length - a.ships.length);
+
+          // Determine how many fleets to commit based on war type
+          const warType = strategy.warType;
+          const maxFleets = warType === 'total_war' ? 3
+            : warType === 'limited_war' ? 2
+            : 1; // border_skirmish, cold_war, none
+
+          const fleetsToSend = idleAttackFleets.length > 0
+            ? idleAttackFleets.slice(0, maxFleets)
+            : [empireFleets[0]!];
+
+          const basePriorities = [70, 65, 60];
+          for (let fi = 0; fi < fleetsToSend.length; fi++) {
+            const attackFleet = fleetsToSend[fi]!;
+            decisions.push({
+              type: 'move_fleet',
+              priority: applyWeight(basePriorities[fi] ?? 55, 'move_fleet', personality),
+              params: {
+                fleetId: attackFleet.id,
+                destinationSystemId: targetSystem.id,
+                purpose: 'attack',
+                targetEmpireId: opponentId,
+              },
+              reasoning: `Attack ${opponentId} in system ${targetSystem.id} (at war, fleet ${fi + 1}/${fleetsToSend.length})`,
+            });
+          }
         }
       }
     }

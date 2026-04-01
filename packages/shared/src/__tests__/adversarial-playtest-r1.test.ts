@@ -325,7 +325,7 @@ describe('Scenario 2: Aggressive early rush', () => {
     const travelMode = determineTravelMode(empire.technologies);
 
     expect(travelMode).toBe('slow_ftl');
-    // slow_ftl = 20 ticks per hop — very slow for a rush
+    // slow_ftl = 12 ticks per hop — slow for a rush
     console.log('[Scenario 2] Starting travel mode:', travelMode);
   });
 

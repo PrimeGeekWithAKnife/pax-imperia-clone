@@ -249,7 +249,7 @@ export function getAllCarriedShipsRecursive(carrierId: string, allShips: Ship[])
 
 /** Ticks per hop for each travel mode. */
 const TICKS_PER_HOP: Record<TravelMode, number> = {
-  slow_ftl: 20,
+  slow_ftl: 12,
   wormhole: 10,
   advanced_wormhole: 5,
 };
@@ -260,7 +260,7 @@ const TICKS_PER_HOP: Record<TravelMode, number> = {
  *
  * - `artificial_wormholes` → `advanced_wormhole` (ticksPerHop = 5)
  * - `wormhole_stabilisation` → `wormhole` (ticksPerHop = 10)
- * - Neither → `slow_ftl` (ticksPerHop = 20)
+ * - Neither → `slow_ftl` (ticksPerHop = 12)
  */
 export function determineTravelMode(empireTechnologies: string[]): TravelMode {
   const techs = new Set(empireTechnologies);
