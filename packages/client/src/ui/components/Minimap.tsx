@@ -8,6 +8,8 @@ interface MinimapProps {
   galaxyHeight?: number;
   /** Current camera viewport in world coordinates */
   viewport?: { x: number; y: number; width: number; height: number } | null;
+  /** System IDs the player has discovered. When provided, only known systems are rendered. */
+  knownSystems?: string[];
 }
 
 const MINIMAP_WIDTH = 200;
@@ -36,6 +38,7 @@ export function Minimap({
   galaxyWidth = 1000,
   galaxyHeight = 1000,
   viewport = null,
+  knownSystems,
 }: MinimapProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -53,16 +56,23 @@ export function Minimap({
     const toMapX = (wx: number) => (wx / galaxyWidth) * MINIMAP_WIDTH;
     const toMapY = (wy: number) => (wy / galaxyHeight) * MINIMAP_HEIGHT;
 
-    // Draw wormhole connections
+    // Filter to known systems when fog of war is active
+    const knownSet = knownSystems ? new Set(knownSystems) : null;
+    const visibleSystems = knownSet
+      ? systems.filter((s) => knownSet.has(s.id))
+      : systems;
+
+    // Draw wormhole connections (only between two known endpoints)
     ctx.strokeStyle = 'rgba(0, 180, 220, 0.18)';
     ctx.lineWidth = 0.8;
     const drawn = new Set<string>();
-    for (const sys of systems) {
+    for (const sys of visibleSystems) {
       for (const otherId of sys.wormholes) {
+        if (knownSet && !knownSet.has(otherId)) continue;
         const key = [sys.id, otherId].sort().join('|');
         if (drawn.has(key)) continue;
         drawn.add(key);
-        const other = systems.find((s) => s.id === otherId);
+        const other = visibleSystems.find((s) => s.id === otherId);
         if (!other) continue;
         ctx.beginPath();
         ctx.moveTo(toMapX(sys.position.x), toMapY(sys.position.y));
@@ -72,7 +82,7 @@ export function Minimap({
     }
 
     // Draw star systems
-    for (const sys of systems) {
+    for (const sys of visibleSystems) {
       const mx = toMapX(sys.position.x);
       const my = toMapY(sys.position.y);
       const color = STAR_TYPE_COLORS[sys.starType] ?? '#ffffff';
@@ -102,7 +112,7 @@ export function Minimap({
       ctx.lineWidth = 1;
       ctx.strokeRect(rx, ry, rw, rh);
     }
-  }, [systems, galaxyWidth, galaxyHeight, viewport]);
+  }, [systems, galaxyWidth, galaxyHeight, viewport, knownSystems]);
 
   useEffect(() => {
     draw();

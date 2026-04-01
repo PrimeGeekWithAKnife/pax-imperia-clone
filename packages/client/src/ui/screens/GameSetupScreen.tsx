@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import type { Species, GalaxyShape, GovernmentType } from '@nova-imperia/shared';
-import { GOVERNMENTS } from '@nova-imperia/shared';
+import { GOVERNMENTS, GALAXY_SIZES as SHARED_GALAXY_SIZES } from '@nova-imperia/shared';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -27,11 +27,11 @@ export interface GameSetupScreenProps {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const GALAXY_SIZES: Array<{ key: GalaxySize; label: string; systems: number; desc: string }> = [
-  { key: 'small',  label: 'Small',  systems: 20,  desc: 'Quick game, 20 systems' },
-  { key: 'medium', label: 'Medium', systems: 40,  desc: 'Standard, 40 systems'   },
-  { key: 'large',  label: 'Large',  systems: 80,  desc: 'Epic scale, 80 systems' },
-  { key: 'huge',   label: 'Huge',   systems: 120, desc: 'Marathon, 120 systems'  },
+const GALAXY_SIZE_OPTIONS: Array<{ key: GalaxySize; label: string; systems: number; desc: string }> = [
+  { key: 'small',  label: 'Small',  systems: SHARED_GALAXY_SIZES.small,  desc: `Quick game, ${SHARED_GALAXY_SIZES.small} systems` },
+  { key: 'medium', label: 'Medium', systems: SHARED_GALAXY_SIZES.medium, desc: `Standard, ${SHARED_GALAXY_SIZES.medium} systems`  },
+  { key: 'large',  label: 'Large',  systems: SHARED_GALAXY_SIZES.large,  desc: `Epic scale, ${SHARED_GALAXY_SIZES.large} systems` },
+  { key: 'huge',   label: 'Huge',   systems: SHARED_GALAXY_SIZES.huge,   desc: `Marathon, ${SHARED_GALAXY_SIZES.huge} systems`    },
 ];
 
 const GALAXY_SHAPES: Array<{ key: GalaxyShape; label: string; desc: string }> = [
@@ -353,7 +353,7 @@ export function GameSetupScreen({
             <section className="sc-section">
               <div className="sc-section__label">GALAXY SIZE</div>
               <div className="gs-size-grid">
-                {GALAXY_SIZES.map(({ key, label, systems, desc }) => (
+                {GALAXY_SIZE_OPTIONS.map(({ key, label, systems, desc }) => (
                   <button
                     key={key}
                     type="button"
@@ -417,6 +417,17 @@ export function GameSetupScreen({
                 <span>6</span>
                 <span>7</span>
               </div>
+              {(() => {
+                const systemCount = GALAXY_SIZE_OPTIONS.find((s) => s.key === galaxySize)?.systems ?? 40;
+                if (aiOpponents + 1 > systemCount / 3) {
+                  return (
+                    <div style={{ color: '#e8b84d', fontSize: 12, marginTop: 6, fontFamily: 'var(--font-mono, monospace)' }}>
+                      Warning: Many empires in a small galaxy &mdash; expect intense early conflict and possible startup failures.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </section>
 
             {/* AI Difficulty */}
@@ -599,7 +610,7 @@ export function GameSetupScreen({
                 <div className="gs-config-row">
                   <span className="gs-config-key">Size</span>
                   <span className="gs-config-val">
-                    {GALAXY_SIZES.find((s) => s.key === galaxySize)?.label} ({GALAXY_SIZES.find((s) => s.key === galaxySize)?.systems} systems)
+                    {GALAXY_SIZE_OPTIONS.find((s) => s.key === galaxySize)?.label} ({GALAXY_SIZE_OPTIONS.find((s) => s.key === galaxySize)?.systems} systems)
                   </span>
                 </div>
                 <div className="gs-config-row">

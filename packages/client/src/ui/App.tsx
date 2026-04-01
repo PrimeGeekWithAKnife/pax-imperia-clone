@@ -172,6 +172,7 @@ export function App(): React.ReactElement {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('game');
   const [gameStarted, setGameStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [openSettingsOnPause, setOpenSettingsOnPause] = useState(false);
   const [saveLoadTab, setSaveLoadTab] = useState<SaveLoadTab | null>(null);
   const [creatorData, setCreatorData] = useState<SpeciesCreatorContinueData | null>(null);
   const [managedPlanet, setManagedPlanet] = useState<Planet | null>(null);
@@ -1629,7 +1630,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('ui:load_game', handleOpenLoadGame);
   useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
   useGameEvent<void>('ui:skirmish', handleOpenSkirmish);
-  useGameEvent<void>('ui:settings', useCallback(() => setIsPaused(true), []));
+  useGameEvent<void>('ui:settings', useCallback(() => { setOpenSettingsOnPause(true); setIsPaused(true); }, []));
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<void>('ui:diplomacy', handleOpenDiplomacy);
@@ -1991,6 +1992,7 @@ export function App(): React.ReactElement {
   // Pause menu
   const handleResume = useCallback(() => {
     setIsPaused(false);
+    setOpenSettingsOnPause(false);
   }, []);
 
   // Save / Load screen
@@ -2254,8 +2256,9 @@ export function App(): React.ReactElement {
       <div className="ui-overlay">
         {isPaused && !saveLoadTab && (
           <PauseMenu
-            onResume={() => setIsPaused(false)}
-            onExitToMainMenu={() => setIsPaused(false)}
+            onResume={() => { setIsPaused(false); setOpenSettingsOnPause(false); }}
+            onExitToMainMenu={() => { setIsPaused(false); setOpenSettingsOnPause(false); }}
+            initialShowSettings={openSettingsOnPause}
           />
         )}
         {saveLoadTab && (
@@ -2314,6 +2317,7 @@ export function App(): React.ReactElement {
         galaxyWidth={galaxy?.width ?? 1000}
         galaxyHeight={galaxy?.height ?? 1000}
         viewport={viewport}
+        knownSystems={playerEmpire.knownSystems}
       />
 
       <EventLog entries={eventLogEntries} />
@@ -2400,6 +2404,7 @@ export function App(): React.ReactElement {
           onExitToMainMenu={handleExitToMainMenu}
           onSaveGame={handleOpenSave}
           onLoadGame={handleOpenLoad}
+          initialShowSettings={openSettingsOnPause}
         />
       )}
 

@@ -11,6 +11,8 @@ export interface PauseMenuProps {
   onSaveGame?: () => void;
   /** Open the save/load screen in load mode. */
   onLoadGame?: () => void;
+  /** If true, open the settings panel immediately on mount. */
+  initialShowSettings?: boolean;
 }
 
 type ToastMessage = { id: number; text: string };
@@ -384,8 +386,8 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps): Re
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function PauseMenu({ onResume, onExitToMainMenu, onSaveGame, onLoadGame }: PauseMenuProps): React.ReactElement {
-  const [showSettings, setShowSettings] = useState(false);
+export function PauseMenu({ onResume, onExitToMainMenu, onSaveGame, onLoadGame, initialShowSettings = false }: PauseMenuProps): React.ReactElement {
+  const [showSettings, setShowSettings] = useState(initialShowSettings);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 

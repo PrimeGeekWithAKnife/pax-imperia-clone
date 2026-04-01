@@ -325,6 +325,11 @@ export class GalaxyMapScene extends Phaser.Scene {
 
       // Build AI player list from pre-built species (pick randomly, avoid player's species)
       const availableAI = PREBUILT_SPECIES.filter(s => s.id !== playerSpecies.id);
+      // Fisher-Yates shuffle so AI opponents vary between games
+      for (let i = availableAI.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [availableAI[i], availableAI[j]] = [availableAI[j]!, availableAI[i]!];
+      }
       const aiPlayers = [];
       for (let i = 0; i < aiCount && i < availableAI.length; i++) {
         aiPlayers.push({
