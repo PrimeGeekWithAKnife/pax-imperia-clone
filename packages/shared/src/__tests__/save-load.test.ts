@@ -376,13 +376,22 @@ describe('validateSaveGame', () => {
     expect(result.errors).toContainEqual(expect.stringContaining('tick counter'));
   });
 
-  it('detects negative empire credits', () => {
+  it('allows negative empire credits (bankruptcy is valid)', () => {
     const ts = makeTickState();
     const save = createSaveGame(ts, 'Player');
     save.tickState.gameState.empires[0].credits = -100;
     const result = validateSaveGame(save);
+    // Negative credits are a valid game state (empire bankruptcy)
+    expect(result.valid).toBe(true);
+  });
+
+  it('detects non-numeric empire credits', () => {
+    const ts = makeTickState();
+    const save = createSaveGame(ts, 'Player');
+    (save.tickState.gameState.empires[0] as Record<string, unknown>).credits = 'not-a-number';
+    const result = validateSaveGame(save);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(expect.stringContaining('negative credits'));
+    expect(result.errors).toContainEqual(expect.stringContaining('invalid credits'));
   });
 
   it('detects negative planet population', () => {

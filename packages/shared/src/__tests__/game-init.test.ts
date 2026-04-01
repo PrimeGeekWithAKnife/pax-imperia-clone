@@ -123,7 +123,7 @@ describe('initializeGame – home planet colonisation', () => {
 
     expect(colonisedPlanets).toHaveLength(2);
     for (const planet of colonisedPlanets) {
-      expect(planet.currentPopulation).toBe(1000);
+      expect(planet.currentPopulation).toBe(500_000);
     }
   });
 

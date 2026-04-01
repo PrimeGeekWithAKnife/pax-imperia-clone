@@ -843,20 +843,89 @@ function buildWormholeGraph(
     adj.set(sys.id, new Set());
   }
 
-  const dist = (i: number, j: number): number => {
+  const distSq = (i: number, j: number): number => {
     const a = systems[i]!;
     const b = systems[j]!;
     const dx = a.position.x - b.position.x;
     const dy = a.position.y - b.position.y;
-    return Math.sqrt(dx * dx + dy * dy);
+    return dx * dx + dy * dy;
   };
 
-  // Build RNG
+  const dist = (i: number, j: number): number => Math.sqrt(distSq(i, j));
+
+  // -- Spatial grid for O(n * k) RNG instead of O(n^3) --
+  // Estimate cell size from median nearest-neighbour distance.
+  // For the inner loop we only need to check systems within distance dij of
+  // both endpoints (i,j), so the grid lets us skip distant candidates entirely.
+
+  // 1. Compute bounding box
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const sys of systems) {
+    if (sys.position.x < minX) minX = sys.position.x;
+    if (sys.position.y < minY) minY = sys.position.y;
+    if (sys.position.x > maxX) maxX = sys.position.x;
+    if (sys.position.y > maxY) maxY = sys.position.y;
+  }
+
+  // 2. Estimate cell size: sample nearest-neighbour distances then take the median
+  const sampleSize = Math.min(n, 50);
+  const sampleDists: number[] = [];
+  for (let i = 0; i < sampleSize; i++) {
+    let nearest = Infinity;
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const d = distSq(i, j);
+      if (d < nearest) nearest = d;
+    }
+    sampleDists.push(Math.sqrt(nearest));
+  }
+  sampleDists.sort((a, b) => a - b);
+  const medianDist = sampleDists[Math.floor(sampleDists.length / 2)] ?? 1;
+  // Cell size is 2x the median so that nearby systems share cells/neighbours
+  const cellSize = Math.max(medianDist * 2, 1);
+
+  // 3. Build spatial hash: cell key -> array of system indices
+  const grid = new Map<string, number[]>();
+  const cellKey = (x: number, y: number): string =>
+    `${Math.floor((x - minX) / cellSize)},${Math.floor((y - minY) / cellSize)}`;
+
+  for (let idx = 0; idx < n; idx++) {
+    const key = cellKey(systems[idx]!.position.x, systems[idx]!.position.y);
+    const bucket = grid.get(key);
+    if (bucket) bucket.push(idx);
+    else grid.set(key, [idx]);
+  }
+
+  // Helper: collect system indices in all cells within a radius of a point
+  const indicesNear = (cx: number, cy: number, radius: number): number[] => {
+    const result: number[] = [];
+    const rCells = Math.ceil(radius / cellSize);
+    const baseCx = Math.floor((cx - minX) / cellSize);
+    const baseCy = Math.floor((cy - minY) / cellSize);
+    for (let dx = -rCells; dx <= rCells; dx++) {
+      for (let dy = -rCells; dy <= rCells; dy++) {
+        const bucket = grid.get(`${baseCx + dx},${baseCy + dy}`);
+        if (bucket) {
+          for (const idx of bucket) result.push(idx);
+        }
+      }
+    }
+    return result;
+  };
+
+  // 4. Build RNG using spatial grid to limit the inner k loop
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const dij = dist(i, j);
+
+      // Only check systems k that could possibly be closer to both i and j
+      // than dij. Such a k must lie within dij of the midpoint of (i,j).
+      const midX = (systems[i]!.position.x + systems[j]!.position.x) / 2;
+      const midY = (systems[i]!.position.y + systems[j]!.position.y) / 2;
+      const candidates = indicesNear(midX, midY, dij);
+
       let isRelativeNeighbour = true;
-      for (let k = 0; k < n; k++) {
+      for (const k of candidates) {
         if (k === i || k === j) continue;
         if (dist(i, k) < dij && dist(j, k) < dij) {
           isRelativeNeighbour = false;
