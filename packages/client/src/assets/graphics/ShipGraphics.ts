@@ -18,6 +18,7 @@
  */
 
 import type { HullClass } from '@nova-imperia/shared';
+import { getDesignFamily, getFamilyDrawFn } from './ShipDesignFamilies';
 
 // ── Render cache ───────────────────────────────────────────────────────────────
 
@@ -32,8 +33,9 @@ function cacheKey(
   size: number,
   colour: string,
   thumbnail: boolean,
+  speciesId?: string,
 ): string {
-  return `${hullClass}:${size}:${colour}:${thumbnail ? 'thumb' : 'full'}`;
+  return `${hullClass}:${size}:${colour}:${thumbnail ? 'thumb' : 'full'}:${speciesId ?? ''}`;
 }
 
 // ── Colour utilities ───────────────────────────────────────────────────────────
@@ -1233,6 +1235,7 @@ function renderToDataUrl(
   size: number,
   accentColour: string,
   thumbnail: boolean,
+  speciesId?: string,
 ): string {
   const canvas = makeCanvas(size, size);
   const ctx = canvas.getContext('2d');
@@ -1248,7 +1251,14 @@ function renderToDataUrl(
   ctx.translate(margin, margin);
   ctx.scale(drawSize, drawSize);
 
-  HULL_DRAW_FNS[hullClass](ctx, accentColour, !thumbnail);
+  // Check for a race-specific design family override
+  const family = getDesignFamily(speciesId);
+  const familyDraw = getFamilyDrawFn(hullClass, family);
+  if (familyDraw) {
+    familyDraw(ctx, accentColour);
+  } else {
+    HULL_DRAW_FNS[hullClass](ctx, accentColour, !thumbnail);
+  }
 
   ctx.restore();
 
@@ -1275,18 +1285,20 @@ const DEFAULT_COLOUR = '#4488cc';
  * @param hullClass    Hull class identifier (scout | destroyer | transport | cruiser | carrier | battleship).
  * @param size         Width / height of the output image in pixels.  64–128 px is the recommended range.
  * @param color        Optional hex accent colour for panel highlights.  Defaults to `'#4488cc'`.
+ * @param speciesId    Optional species identifier for race-specific ship graphics.
  * @returns            PNG data URL string, or an empty string if canvas is unavailable.
  */
 export function renderShipIcon(
   hullClass: HullClass,
   size: number,
   color: string = DEFAULT_COLOUR,
+  speciesId?: string,
 ): string {
-  const key = cacheKey(hullClass, size, color, false);
+  const key = cacheKey(hullClass, size, color, false, speciesId);
   const cached = renderCache.get(key);
   if (cached !== undefined) return cached;
 
-  const result = renderToDataUrl(hullClass, size, color, false);
+  const result = renderToDataUrl(hullClass, size, color, false, speciesId);
   renderCache.set(key, result);
   return result;
 }
@@ -1301,17 +1313,19 @@ export function renderShipIcon(
  *
  * @param hullClass  Hull class identifier.
  * @param size       Width / height in pixels.
+ * @param speciesId  Optional species identifier for race-specific ship graphics.
  * @returns          PNG data URL string, or an empty string if canvas is unavailable.
  */
 export function renderShipThumbnail(
   hullClass: HullClass,
   size: number,
+  speciesId?: string,
 ): string {
-  const key = cacheKey(hullClass, size, DEFAULT_COLOUR, true);
+  const key = cacheKey(hullClass, size, DEFAULT_COLOUR, true, speciesId);
   const cached = renderCache.get(key);
   if (cached !== undefined) return cached;
 
-  const result = renderToDataUrl(hullClass, size, DEFAULT_COLOUR, true);
+  const result = renderToDataUrl(hullClass, size, DEFAULT_COLOUR, true, speciesId);
   renderCache.set(key, result);
   return result;
 }

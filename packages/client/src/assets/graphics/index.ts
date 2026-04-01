@@ -8,3 +8,5 @@
 
 export { renderShipIcon, renderShipThumbnail, clearShipIconCache } from './ShipGraphics';
 export { renderBuildingIcon, renderBuildingSlotIcon } from './BuildingGraphics';
+export { getDesignFamily, getFamilyDrawFn, SPECIES_DESIGN_FAMILY } from './ShipDesignFamilies';
+export type { DesignFamily } from './ShipDesignFamilies';
