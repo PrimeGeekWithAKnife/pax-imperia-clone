@@ -664,49 +664,89 @@ function Hyperlanes({ systems }: { systems: StarSystem[] }) {
   );
 }
 
-// ── Star glow spheres (Fresnel-based 3D volumetric glow) ────────────────────
+// ── Billboard star sprites (radial-gradient Points, replaces sphere glows) ──
 
-function StarGlows({ systems, knownSystemIds }: { systems: StarSystem[]; knownSystemIds?: Set<string> }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const colour = useMemo(() => new THREE.Color(), []);
+/** Programmatic radial-gradient texture: bright-white core fading to transparent. */
+const starSpriteTexture = (() => {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  gradient.addColorStop(0.12, 'rgba(255, 255, 255, 0.85)');
+  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.3)');
+  gradient.addColorStop(0.55, 'rgba(255, 255, 255, 0.08)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+})();
 
-  useEffect(() => {
-    if (!meshRef.current) return;
+function StarSprites({ systems, knownSystemIds }: { systems: StarSystem[]; knownSystemIds?: Set<string> }) {
+  const { positions, colors, sizes } = useMemo(() => {
+    const pos = new Float32Array(systems.length * 3);
+    const col = new Float32Array(systems.length * 3);
+    const sz = new Float32Array(systems.length);
+
     systems.forEach((sys, i) => {
-      const isKnown = !knownSystemIds || knownSystemIds.has(sys.id);
-      // Known systems get a moderate glow; unknown systems get a smaller, dimmer glow
-      const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
-      const s = isKnown ? baseScale * 3 : baseScale * 1.8;
       const yOffset = systemYOffset(sys);
-      dummy.position.set(sys.position.x, yOffset, sys.position.y);
-      dummy.scale.setScalar(s);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
+      pos[i * 3]     = sys.position.x;
+      pos[i * 3 + 1] = yOffset;
+      pos[i * 3 + 2] = sys.position.y;
 
       const [r, g, b] = STAR_COLOURS[sys.starType] ?? [1, 1, 1];
-      // Known systems: full colour intensity; unknown: dimmer generic glow
+      const isKnown = !knownSystemIds || knownSystemIds.has(sys.id);
       const emissive = STAR_EMISSIVE[sys.starType] ?? 2.0;
-      const intensity = isKnown ? emissive * 0.8 : emissive * 0.3;
-      colour.setRGB(r * intensity, g * intensity, b * intensity);
-      meshRef.current.setColorAt(i, colour);
+      const intensity = isKnown ? emissive * 0.6 : emissive * 0.25;
+      col[i * 3]     = r * intensity;
+      col[i * 3 + 1] = g * intensity;
+      col[i * 3 + 2] = b * intensity;
+
+      const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
+      sz[i] = isKnown ? baseScale * 12 : baseScale * 6;
     });
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  }, [systems, knownSystemIds, dummy, colour]);
+    return { positions: pos, colors: col, sizes: sz };
+  }, [systems, knownSystemIds]);
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, systems.length]} raycast={() => null}>
-      <sphereGeometry args={[1, 16, 16]} />
-      <meshBasicMaterial
+    <points raycast={() => null}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={systems.length} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-color" count={systems.length} array={colors} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={systems.length} array={sizes} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        toneMapped={false}
         vertexColors
-        opacity={0.5}
+        toneMapped={false}
+        uniforms={{ uTexture: { value: starSpriteTexture } }}
+        vertexShader={`
+          attribute float aSize;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mv;
+            gl_PointSize = aSize * (300.0 / -mv.z);
+          }
+        `}
+        fragmentShader={`
+          uniform sampler2D uTexture;
+          varying vec3 vColor;
+          void main() {
+            float alpha = texture2D(uTexture, gl_PointCoord).a;
+            if (alpha < 0.01) discard;
+            gl_FragColor = vec4(vColor * alpha, alpha);
+          }
+        `}
       />
-    </instancedMesh>
+    </points>
   );
 }
 
@@ -721,31 +761,22 @@ interface StarFieldProps {
 function StarCores({ systems, onStarClick, onStarHover, knownSystemIds }: StarFieldProps & { knownSystemIds?: Set<string> }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const colour = useMemo(() => new THREE.Color(), []);
 
   useEffect(() => {
     if (!meshRef.current) return;
     systems.forEach((sys, i) => {
       const isKnown = !knownSystemIds || knownSystemIds.has(sys.id);
       const baseScale = STAR_SCALE[sys.starType] ?? 1.0;
-      // All stars visible; known ones slightly larger
-      const s = isKnown ? baseScale * 0.9 : baseScale * 0.6;
+      // Invisible hit-targets — known systems get a slightly larger zone
+      const s = isKnown ? baseScale * 1.5 : baseScale * 1.0;
       const yOffset = systemYOffset(sys);
       dummy.position.set(sys.position.x, yOffset, sys.position.y);
       dummy.scale.setScalar(s);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
-
-      const [r, g, b] = STAR_COLOURS[sys.starType] ?? [1, 1, 1];
-      const emissive = STAR_EMISSIVE[sys.starType] ?? 2.0;
-      // Known: full colour; unknown: visible but dimmer
-      const intensity = isKnown ? emissive * 1.2 : emissive * 0.5;
-      colour.setRGB(r * intensity, g * intensity, b * intensity);
-      meshRef.current.setColorAt(i, colour);
     });
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  }, [systems, dummy, colour]);
+  }, [systems, knownSystemIds, dummy]);
 
   return (
     <instancedMesh
@@ -773,8 +804,8 @@ function StarCores({ systems, onStarClick, onStarHover, knownSystemIds }: StarFi
         document.body.style.cursor = 'default';
       }}
     >
-      <sphereGeometry args={[1.0, 16, 16]} />
-      <meshBasicMaterial toneMapped={false} vertexColors />
+      <sphereGeometry args={[1.5, 8, 8]} />
+      <meshBasicMaterial visible={false} />
     </instancedMesh>
   );
 }
@@ -1094,7 +1125,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
             padding: '6px 14px', borderRadius: 4, cursor: 'pointer',
           }}
         >
-          Close 3D View
+          Classic 2D View
         </button>
       )}
 
@@ -1146,10 +1177,10 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
         {/* Empire ownership rings */}
         <EmpireRings systems={galaxy.systems} playerEmpireId={playerEmpireId} />
 
-        {/* Star glow spheres (Fresnel volumetric) — all stars visible, known ones brighter */}
-        <StarGlows systems={galaxy.systems} knownSystemIds={knownSystemIdSet} />
+        {/* Billboard star sprites — soft radial glow, replaces old sphere glows */}
+        <StarSprites systems={galaxy.systems} knownSystemIds={knownSystemIdSet} />
 
-        {/* Interactive star cores — all stars visible, known ones brighter */}
+        {/* Invisible click/hover targets for star interaction */}
         <StarCores
           systems={galaxy.systems}
           onStarClick={handleStarClick}

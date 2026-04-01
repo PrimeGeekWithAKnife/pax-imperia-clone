@@ -197,8 +197,8 @@ export function App(): React.ReactElement {
   // ── Viewport state (camera rect in galaxy coords, for minimap) ──
   const [viewport, setViewport] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // ── 3D galaxy map proof-of-concept toggle ──
-  const [show3DMap, setShow3DMap] = useState(false);
+  // ── 3D galaxy map is now the default view ──
+  const [show3DMap, setShow3DMap] = useState(true);
 
   // ── Live resource state (updated by engine ticks) ──
   const [liveCredits, setLiveCredits] = useState<number | undefined>(undefined);
@@ -2564,19 +2564,19 @@ export function App(): React.ReactElement {
         />
       )}
 
-      {/* 3D Galaxy Map toggle button */}
-      {gameStarted && galaxy && !show3DMap && (
+      {/* Galaxy Map view toggle button */}
+      {gameStarted && galaxy && (
         <button
-          onClick={() => setShow3DMap(true)}
+          onClick={() => setShow3DMap(prev => !prev)}
           style={{
-            position: 'absolute', bottom: 60, right: 16, zIndex: 800,
+            position: 'absolute', bottom: 60, right: 16, zIndex: show3DMap ? 1002 : 800,
             background: 'rgba(0, 8, 20, 0.85)', border: '1px solid #4488ff',
             color: '#ccddff', fontFamily: 'monospace', fontSize: 12,
             padding: '6px 12px', borderRadius: 4, cursor: 'pointer',
             pointerEvents: 'auto',
           }}
         >
-          3D View (PoC)
+          {show3DMap ? 'Classic 2D View' : '3D View'}
         </button>
       )}
 
