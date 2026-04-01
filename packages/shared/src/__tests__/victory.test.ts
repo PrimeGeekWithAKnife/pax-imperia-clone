@@ -250,19 +250,24 @@ describe('checkVictoryConditions — conquest', () => {
     expect(checkVictoryConditions(gs)).toBeNull();
   });
 
-  it('triggers conquest victory when empire controls >= 75 % of colonised planets', () => {
+  it('triggers conquest victory when empire controls >= 75 % of colonised planets (with conquest)', () => {
     const alpha = makeEmpire('alpha');
     const beta = makeEmpire('beta');
-    // alpha owns 3 out of 4 colonised = 75 %
+    const gamma = makeEmpire('gamma');
+    // alpha owns 4 out of 5 colonised = 80 %; gamma has 0 (eliminated/conquered).
+    // min colonised = max(4, 3*2) = 6, so we need at least 6 colonised planets.
     const galaxy = makeGalaxy([
       makeSystem('s1', [
         makePlanet('p1', 'alpha'),
         makePlanet('p2', 'alpha'),
         makePlanet('p3', 'alpha'),
-        makePlanet('p4', 'beta'),
+        makePlanet('p4', 'alpha'),
+        makePlanet('p5', 'alpha'),
+        makePlanet('p6', 'beta'),
       ]),
     ]);
-    const gs = makeGameState([alpha, beta], galaxy);
+    // gamma has 0 planets — counts as conquered
+    const gs = makeGameState([alpha, beta, gamma], galaxy);
 
     const result = checkVictoryConditions(gs);
     expect(result).not.toBeNull();
@@ -323,7 +328,12 @@ describe('checkVictoryConditions — diplomatic', () => {
     });
     const beta = makeEmpire('beta');
     const gamma = makeEmpire('gamma');
-    const galaxy = makeGalaxy([]);
+    // All empires must own planets so none are considered "eliminated"
+    const galaxy = makeGalaxy([
+      makeSystem('s1', [makePlanet('p1', 'alpha')]),
+      makeSystem('s2', [makePlanet('p2', 'beta')]),
+      makeSystem('s3', [makePlanet('p3', 'gamma')]),
+    ]);
     const gs = makeGameState([alpha, beta, gamma], galaxy);
 
     const result = checkVictoryConditions(gs);
@@ -352,7 +362,11 @@ describe('checkVictoryConditions — diplomatic', () => {
       diplomacy: [makeRelation('beta', 'allied')],
     });
     const beta = makeEmpire('beta');
-    const galaxy = makeGalaxy([]);
+    // Both empires must own planets so neither is considered "eliminated"
+    const galaxy = makeGalaxy([
+      makeSystem('s1', [makePlanet('p1', 'alpha')]),
+      makeSystem('s2', [makePlanet('p2', 'beta')]),
+    ]);
     const gs = makeGameState([alpha, beta], galaxy);
 
     const result = checkVictoryConditions(gs);
@@ -370,7 +384,11 @@ describe('checkVictoryConditions — economic', () => {
   it('triggers economic victory when lead counter reaches threshold', () => {
     const alpha = makeEmpire('alpha');
     const beta = makeEmpire('beta');
-    const galaxy = makeGalaxy([]);
+    // Both empires must own planets so neither is considered "eliminated"
+    const galaxy = makeGalaxy([
+      makeSystem('s1', [makePlanet('p1', 'alpha')]),
+      makeSystem('s2', [makePlanet('p2', 'beta')]),
+    ]);
     const gs = makeGameState([alpha, beta], galaxy);
 
     const resourcesMap = new Map<string, EmpireResources>([
@@ -482,16 +500,20 @@ describe('isGameOver (via GameTickState)', () => {
   it('returns over=true when conquest threshold is met', () => {
     const alpha = makeEmpire('alpha');
     const beta = makeEmpire('beta');
-    // alpha owns 3 out of 4 planets (75 %)
+    const gamma = makeEmpire('gamma');
+    // alpha owns 5 out of 6 planets (~83 %); gamma eliminated (0 planets).
+    // min colonised = max(4, 3*2) = 6, so 6 planets meets the threshold.
     const galaxy = makeGalaxy([
       makeSystem('s1', [
         makePlanet('p1', 'alpha'),
         makePlanet('p2', 'alpha'),
         makePlanet('p3', 'alpha'),
-        makePlanet('p4', 'beta'),
+        makePlanet('p4', 'alpha'),
+        makePlanet('p5', 'alpha'),
+        makePlanet('p6', 'beta'),
       ]),
     ]);
-    const gs = makeGameState([alpha, beta], galaxy);
+    const gs = makeGameState([alpha, beta, gamma], galaxy);
     const ts = initializeTickState(gs);
 
     const result = isGameOver(ts);
@@ -532,15 +554,20 @@ describe('conquest progress bar', () => {
   it('reports 100% progress when conquest is achieved', () => {
     const alpha = makeEmpire('alpha');
     const beta = makeEmpire('beta');
+    const gamma = makeEmpire('gamma');
+    // alpha owns 5 out of 6 (~83 %); gamma eliminated (0 planets).
+    // min colonised = max(4, 3*2) = 6, so 6 planets meets the threshold.
     const galaxy = makeGalaxy([
       makeSystem('s1', [
         makePlanet('p1', 'alpha'),
         makePlanet('p2', 'alpha'),
         makePlanet('p3', 'alpha'),
-        makePlanet('p4', 'beta'),
+        makePlanet('p4', 'alpha'),
+        makePlanet('p5', 'alpha'),
+        makePlanet('p6', 'beta'),
       ]),
     ]);
-    const gs = makeGameState([alpha, beta], galaxy);
+    const gs = makeGameState([alpha, beta, gamma], galaxy);
 
     const progress = calculateVictoryProgress(alpha, gs, gs.empires);
     const conquest = progress.victoryConditions.find(c => c.type === 'conquest')!;
