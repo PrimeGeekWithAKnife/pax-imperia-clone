@@ -47,6 +47,7 @@ import { EspionageScreen } from './screens/EspionageScreen';
 import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState, BattleReport } from '@nova-imperia/shared';
 import { initialiseEspionage, recruitSpy } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
+import { ColonyListScreen } from './screens/ColonyListScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
 import type { GameStatistics } from './screens/VictoryScreen';
 import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
@@ -69,7 +70,7 @@ import {
 } from '@nova-imperia/shared';
 import type { HullClass } from '@nova-imperia/shared';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'victory' | 'skirmish';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'colony-list' | 'victory' | 'skirmish';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -465,6 +466,10 @@ export function App(): React.ReactElement {
           case 'e':
           case 'E':
             if (gameStarted) setCurrentScreen('economy');
+            break;
+          case 'c':
+          case 'C':
+            if (gameStarted) setCurrentScreen('colony-list');
             break;
         }
       } else if (e.key === 'Escape') {
@@ -888,6 +893,21 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleCloseEconomy = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleOpenColonyList = useCallback(() => {
+    setCurrentScreen('colony-list');
+  }, []);
+
+  const handleCloseColonyList = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  /** Open a planet's management screen from the colony list. */
+  const handleColonyListOpenPlanet = useCallback((planet: Planet, systemId: string) => {
+    setManagedPlanet(planet);
+    setManagedSystemId(systemId);
     setCurrentScreen('game');
   }, []);
 
@@ -2249,6 +2269,17 @@ export function App(): React.ReactElement {
     );
   }
 
+  if (currentScreen === 'colony-list') {
+    return (
+      <div className="ui-overlay">
+        <ColonyListScreen
+          onClose={handleCloseColonyList}
+          onOpenPlanet={handleColonyListOpenPlanet}
+        />
+      </div>
+    );
+  }
+
   // Don't render game HUD until a game is actually running
   // But still allow the settings/pause menu overlay and save/load screen from the main menu
   if (!gameStarted) {
@@ -2288,6 +2319,7 @@ export function App(): React.ReactElement {
         onOpenDiplomacy={handleOpenDiplomacy}
         onOpenFleet={handleOpenFleetList}
         onOpenEconomy={handleOpenEconomy}
+        onOpenColonyList={handleOpenColonyList}
         onOpenEspionage={handleOpenEspionage}
         government={playerEmpire.government}
         empireName={playerEmpire.name}

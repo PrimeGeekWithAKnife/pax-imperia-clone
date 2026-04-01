@@ -167,6 +167,7 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
   const [splitShipIds, setSplitShipIds] = useState<Set<string>>(new Set());
   const [editingAdmiral, setEditingAdmiral] = useState(false);
   const [admiralName, setAdmiralName] = useState('');
+  const [autoExploreMsg, setAutoExploreMsg] = useState<string | null>(null);
 
   // ── Derived: selected fleet + its ships ───────────────────────────────────
 
@@ -323,6 +324,56 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
     const trimmed = admiralName.trim();
     engine.setFleetAdmiral(selectedFleet.id, trimmed || undefined);
   }, [selectedFleet, engine, admiralName]);
+
+  // ── Auto-Explore handler ──────────────────────────────────────────────────
+
+  const handleAutoExplore = useCallback(() => {
+    if (!selectedFleet || !engine || !galaxy || !playerEmpire) return;
+
+    const knownSet = new Set(playerEmpire.knownSystems);
+    const originId = selectedFleet.position.systemId;
+    const sysMap = new Map(galaxy.systems.map(s => [s.id, s]));
+
+    // BFS from origin, looking for nearest unexplored system
+    const visited = new Set<string>([originId]);
+    const queue: Array<{ id: string; hops: number }> = [{ id: originId, hops: 0 }];
+    let target: { id: string; name: string } | null = null;
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const sys = sysMap.get(current.id);
+      if (!sys) continue;
+
+      for (const neighbourId of sys.wormholes) {
+        if (visited.has(neighbourId)) continue;
+        visited.add(neighbourId);
+
+        // Found an unexplored system
+        if (!knownSet.has(neighbourId)) {
+          const neighbourSys = sysMap.get(neighbourId);
+          target = { id: neighbourId, name: neighbourSys?.name ?? neighbourId };
+          break;
+        }
+        queue.push({ id: neighbourId, hops: current.hops + 1 });
+      }
+      if (target) break;
+    }
+
+    if (!target) {
+      setAutoExploreMsg('All reachable systems explored');
+      setTimeout(() => setAutoExploreMsg(null), 3000);
+      return;
+    }
+
+    const success = engine.moveFleet(selectedFleet.id, target.id);
+    if (success) {
+      setAutoExploreMsg(`Exploring \u2192 ${target.name}`);
+      setMoveModeActive(false);
+    } else {
+      setAutoExploreMsg('Could not plot route');
+    }
+    setTimeout(() => setAutoExploreMsg(null), 3000);
+  }, [selectedFleet, engine, galaxy, playerEmpire]);
 
   // ── Fleet strength ─────────────────────────────────────────────────────────
 
@@ -603,6 +654,20 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                       </button>
                       <button
                         type="button"
+                        className="fleet-screen__explore-btn"
+                        onClick={handleAutoExplore}
+                        disabled={!!inTransitInfo}
+                        title={inTransitInfo ? 'Fleet is already in transit' : 'Auto-explore nearest unknown system'}
+                        style={{
+                          background: 'rgba(0, 180, 120, 0.15)',
+                          border: '1px solid rgba(0, 180, 120, 0.4)',
+                          color: '#44ddaa',
+                        }}
+                      >
+                        Auto-Explore
+                      </button>
+                      <button
+                        type="button"
                         className="fleet-screen__split-btn"
                         onClick={handleToggleSplitMode}
                         disabled={selectedFleetShips.length < 2}
@@ -633,6 +698,23 @@ export function FleetScreen({ onClose, onGoToFleet }: FleetScreenProps): React.R
                         Cancel
                       </button>
                     </>
+                  )}
+                  {autoExploreMsg && (
+                    <div
+                      className="fleet-screen__auto-explore-toast"
+                      style={{
+                        marginTop: '8px',
+                        padding: '6px 10px',
+                        borderRadius: '4px',
+                        background: 'rgba(0, 180, 120, 0.15)',
+                        border: '1px solid rgba(0, 180, 120, 0.3)',
+                        color: '#44ddaa',
+                        fontSize: '11px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {autoExploreMsg}
+                    </div>
                   )}
                 </div>
               </>
