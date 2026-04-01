@@ -327,6 +327,16 @@ export function initialiseEspionage(empireIds: string[]): EspionageState {
   return { agents: [], counterIntelLevel };
 }
 
+/**
+ * Get the espionage effectiveness multiplier for a species.
+ * Psychic species get +10% effectiveness (returns 1.1).
+ * All other species return 1.0.
+ */
+export function getSpeciesEspionageBonus(species: Species): number {
+  if (species.specialAbilities?.includes('psychic')) return 1.1;
+  return 1.0;
+}
+
 // ---------------------------------------------------------------------------
 // Public API — counter-intel recalculation
 // ---------------------------------------------------------------------------
@@ -491,6 +501,10 @@ export function processEspionageTick(
     const targetEmpire = empires.find((e) => e.id === agent.targetEmpireId);
     const ownerEmpire = empires.find((e) => e.id === agent.empireId);
 
+    // Psychic species get +10% spy mission success rate
+    const ownerAbilities = ownerEmpire?.species?.specialAbilities ?? [];
+    const psychicBonus = ownerAbilities.includes('psychic') ? 1.1 : 1.0;
+
     switch (agent.mission) {
       case 'gather_intel': {
         events.push(resolvGatherIntel(agent, targetEmpire ?? null, ownerEmpire ?? null));
@@ -498,7 +512,7 @@ export function processEspionageTick(
       }
       case 'steal_tech': {
         const counterIntelFactor = targetCounterIntel / 100; // 0–1
-        const adjustedChance = STEAL_TECH_BASE_CHANCE * (1 - counterIntelFactor * 0.5);
+        const adjustedChance = STEAL_TECH_BASE_CHANCE * (1 - counterIntelFactor * 0.5) * psychicBonus;
         if (rng() < adjustedChance) {
           const tech = pickRandomTech(targetEmpire ?? null, ownerEmpire ?? null, rng);
           events.push({
@@ -512,7 +526,7 @@ export function processEspionageTick(
       }
       case 'sabotage': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = SABOTAGE_BASE_CHANCE * (1 - counterIntelFactor * 0.4);
+        const adjustedChance = SABOTAGE_BASE_CHANCE * (1 - counterIntelFactor * 0.4) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolveSabotage(agent, targetEmpire ?? null, rng));
         }
@@ -538,7 +552,7 @@ export function processEspionageTick(
 
       case 'fabricate_grievance': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = FABRICATE_GRIEVANCE_BASE_CHANCE * (1 - counterIntelFactor * 0.5);
+        const adjustedChance = FABRICATE_GRIEVANCE_BASE_CHANCE * (1 - counterIntelFactor * 0.5) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(
             resolveFabricateGrievance(agent, targetEmpire ?? null, empires, rng),
@@ -549,7 +563,7 @@ export function processEspionageTick(
 
       case 'reveal_private_stance': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = REVEAL_PRIVATE_STANCE_BASE_CHANCE * (1 - counterIntelFactor * 0.4);
+        const adjustedChance = REVEAL_PRIVATE_STANCE_BASE_CHANCE * (1 - counterIntelFactor * 0.4) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolveRevealPrivateStance(agent, rng));
         }
@@ -558,7 +572,7 @@ export function processEspionageTick(
 
       case 'sabotage_negotiations': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = SABOTAGE_NEGOTIATIONS_BASE_CHANCE * (1 - counterIntelFactor * 0.5);
+        const adjustedChance = SABOTAGE_NEGOTIATIONS_BASE_CHANCE * (1 - counterIntelFactor * 0.5) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolveSabotageNegotiations(agent, targetEmpire ?? null));
         }
@@ -567,7 +581,7 @@ export function processEspionageTick(
 
       case 'plant_evidence': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = PLANT_EVIDENCE_BASE_CHANCE * (1 - counterIntelFactor * 0.5);
+        const adjustedChance = PLANT_EVIDENCE_BASE_CHANCE * (1 - counterIntelFactor * 0.5) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolvePlantEvidence(agent, targetEmpire ?? null, empires, rng));
         }
@@ -576,7 +590,7 @@ export function processEspionageTick(
 
       case 'recruit_asset': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = RECRUIT_ASSET_BASE_CHANCE * (1 - counterIntelFactor * 0.4);
+        const adjustedChance = RECRUIT_ASSET_BASE_CHANCE * (1 - counterIntelFactor * 0.4) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolveRecruitAsset(agent, rng));
         }
@@ -585,7 +599,7 @@ export function processEspionageTick(
 
       case 'false_flag': {
         const counterIntelFactor = targetCounterIntel / 100;
-        const adjustedChance = FALSE_FLAG_BASE_CHANCE * (1 - counterIntelFactor * 0.6);
+        const adjustedChance = FALSE_FLAG_BASE_CHANCE * (1 - counterIntelFactor * 0.6) * psychicBonus;
         if (rng() < adjustedChance) {
           events.push(resolveFalseFlag(agent, targetEmpire ?? null, empires, rng));
         }

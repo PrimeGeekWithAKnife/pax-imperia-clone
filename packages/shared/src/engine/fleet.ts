@@ -327,6 +327,44 @@ export function calculateFleetWarpSpeed(
   return ticks;
 }
 
+// ---------------------------------------------------------------------------
+// Special ability helpers — exported for use by other engines
+// ---------------------------------------------------------------------------
+
+import type { Species } from '../types/species.js';
+
+/**
+ * Get the beam damage resistance multiplier for a species.
+ * Energy form species take 20% less damage from beam weapons (returns 0.8).
+ * All other species return 1.0 (no resistance).
+ */
+export function getSpeciesBeamResistance(species: Species): number {
+  if (species.specialAbilities?.includes('energy_form')) return 0.8;
+  return 1.0;
+}
+
+/**
+ * Get the ship repair rate multiplier for a species.
+ * Nanomorphic species have +10% repair rate (returns 1.1).
+ * All other species return 1.0 (normal repair rate).
+ */
+export function getSpeciesRepairRate(species: Species): number {
+  if (species.specialAbilities?.includes('nanomorphic')) return 1.1;
+  return 1.0;
+}
+
+/**
+ * Calculate the nomadic fleet speed bonus.
+ * Nomadic species reduce ticksPerHop by 20% (minimum 2).
+ * Returns the adjusted ticksPerHop value.
+ */
+export function applyNomadicFleetBonus(ticksPerHop: number, species: Species): number {
+  if (species.specialAbilities?.includes('nomadic')) {
+    return Math.max(2, Math.round(ticksPerHop * 0.8));
+  }
+  return ticksPerHop;
+}
+
 /**
  * Check which ships in a fleet can travel between star systems (have warp drives)
  * and which cannot (must be carried).
