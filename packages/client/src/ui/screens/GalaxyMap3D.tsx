@@ -10,7 +10,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CameraControls, Html } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import type { Galaxy, StarSystem, StarType, SpiralGalaxyMetadata, Planet } from '@nova-imperia/shared';
+import type { Galaxy, StarSystem, StarType, SpiralGalaxyMetadata, Planet, Fleet, FleetMovementOrder } from '@nova-imperia/shared';
+import { getGameEngine } from '../../engine/GameEngine';
 import { SystemView3D } from './SystemView3D';
 
 // ── Star visual properties ──────────────────────────────────────────────────
@@ -933,6 +934,452 @@ function SystemLabels({ systems, playerEmpireId }: { systems: StarSystem[]; play
   );
 }
 
+// ── Fleet indicators (badges at system positions + in-transit animation) ────
+
+interface FleetBadgeData {
+  fleet: Fleet;
+  shipCount: number;
+  colour: string;
+  worldPos: [number, number, number];
+  offsetIndex: number;
+}
+
+function FleetIndicators({ systems, playerEmpireId }: {
+  systems: StarSystem[];
+  playerEmpireId?: string;
+}) {
+  const { camera } = useThree();
+  const [badges, setBadges] = useState<FleetBadgeData[]>([]);
+  const [transitBadges, setTransitBadges] = useState<FleetBadgeData[]>([]);
+
+  const systemMap = useMemo(() => {
+    const map = new Map<string, StarSystem>();
+    systems.forEach(s => map.set(s.id, s));
+    return map;
+  }, [systems]);
+
+  // Refresh fleet data each frame (throttled to ~4 Hz to avoid churn)
+  const lastRefresh = useRef(0);
+  useFrame((state) => {
+    const now = state.clock.elapsedTime;
+    if (now - lastRefresh.current < 0.25) return;
+    lastRefresh.current = now;
+
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const tickState = engine.getState();
+    const gs = tickState.gameState;
+    const fleets = gs.fleets;
+    const movementOrders = tickState.movementOrders ?? [];
+
+    // Determine which systems the player observes (own fleet or colony)
+    const observedSystemIds = new Set<string>();
+    if (playerEmpireId) {
+      for (const fleet of fleets) {
+        if (fleet.empireId === playerEmpireId) {
+          observedSystemIds.add(fleet.position.systemId);
+        }
+      }
+      for (const sys of systems) {
+        if (sys.ownerId === playerEmpireId) {
+          observedSystemIds.add(sys.id);
+        }
+      }
+    }
+
+    // Build order lookup
+    const orderByFleet = new Map<string, FleetMovementOrder>();
+    for (const o of movementOrders) orderByFleet.set(o.fleetId, o);
+
+    // Group stationary fleets by system for offset stacking
+    const fleetsBySystem = new Map<string, Fleet[]>();
+    const transitList: FleetBadgeData[] = [];
+    const stationaryList: FleetBadgeData[] = [];
+
+    for (const fleet of fleets) {
+      if (fleet.ships.length === 0) continue;
+      const isPlayer = fleet.empireId === playerEmpireId;
+      const sysId = fleet.position.systemId;
+      if (!isPlayer && !observedSystemIds.has(sysId)) continue;
+
+      const colour = getEmpireColour(fleet.empireId, playerEmpireId);
+      const order = orderByFleet.get(fleet.id);
+
+      if (order && order.currentSegment > 0 && order.currentSegment < order.path.length) {
+        // Fleet is in transit - interpolate position
+        const fromSys = systemMap.get(order.path[order.currentSegment - 1]);
+        const toSys = systemMap.get(order.path[order.currentSegment]);
+        if (fromSys && toSys) {
+          const t = order.ticksPerHop > 0
+            ? order.ticksInTransit / order.ticksPerHop
+            : 0;
+          const x = THREE.MathUtils.lerp(fromSys.position.x, toSys.position.x, t);
+          const z = THREE.MathUtils.lerp(fromSys.position.y, toSys.position.y, t);
+          const y1 = systemYOffset(fromSys);
+          const y2 = systemYOffset(toSys);
+          const y = THREE.MathUtils.lerp(y1, y2, t);
+
+          transitList.push({
+            fleet,
+            shipCount: fleet.ships.length,
+            colour,
+            worldPos: [x, y + 0.5, z],
+            offsetIndex: 0,
+          });
+        }
+      } else {
+        // Stationary fleet
+        const arr = fleetsBySystem.get(sysId) ?? [];
+        arr.push(fleet);
+        fleetsBySystem.set(sysId, arr);
+      }
+    }
+
+    // Build stationary badges with offset stacking
+    for (const [sysId, sysFleets] of fleetsBySystem) {
+      const sys = systemMap.get(sysId);
+      if (!sys) continue;
+      const yBase = systemYOffset(sys);
+      sysFleets.forEach((fleet, idx) => {
+        stationaryList.push({
+          fleet,
+          shipCount: fleet.ships.length,
+          colour: getEmpireColour(fleet.empireId, playerEmpireId),
+          worldPos: [sys.position.x, yBase, sys.position.y],
+          offsetIndex: idx,
+        });
+      });
+    }
+
+    setBadges(stationaryList);
+    setTransitBadges(transitList);
+  });
+
+  // Distance-cull: only render badges within reasonable camera range
+  const [visibleBadges, setVisibleBadges] = useState<FleetBadgeData[]>([]);
+  const [visibleTransit, setVisibleTransit] = useState<FleetBadgeData[]>([]);
+  const prevBadgeCount = useRef(0);
+  const prevTransitCount = useRef(0);
+
+  useFrame(() => {
+    const camPos = camera.position;
+    const maxDist = 120;
+
+    const filteredBadges = badges.filter(b => {
+      const dx = b.worldPos[0] - camPos.x;
+      const dz = b.worldPos[2] - camPos.z;
+      const dy = b.worldPos[1] - camPos.y;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz) < maxDist;
+    });
+    if (filteredBadges.length !== prevBadgeCount.current) {
+      prevBadgeCount.current = filteredBadges.length;
+      setVisibleBadges(filteredBadges);
+    }
+
+    const filteredTransit = transitBadges.filter(b => {
+      const dx = b.worldPos[0] - camPos.x;
+      const dz = b.worldPos[2] - camPos.z;
+      const dy = b.worldPos[1] - camPos.y;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz) < maxDist;
+    });
+    if (filteredTransit.length !== prevTransitCount.current) {
+      prevTransitCount.current = filteredTransit.length;
+      setVisibleTransit(filteredTransit);
+    }
+  });
+
+  return (
+    <group>
+      {/* Stationary fleet badges */}
+      {visibleBadges.map(b => (
+        <Html
+          key={`fleet-badge-${b.fleet.id}`}
+          position={[b.worldPos[0], b.worldPos[1] - 3.5 - b.offsetIndex * 1.2, b.worldPos[2]]}
+          center
+          distanceFactor={30}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            fontFamily: 'monospace',
+            fontSize: 10,
+            color: b.colour,
+            textShadow: '0 0 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.7)',
+            whiteSpace: 'nowrap',
+            userSelect: 'none',
+            opacity: 0.9,
+          }}>
+            <span style={{ fontSize: 9 }}>{'\u25C6'}</span>
+            <span>{b.shipCount}</span>
+          </div>
+        </Html>
+      ))}
+
+      {/* In-transit fleet badges */}
+      {visibleTransit.map(b => (
+        <Html
+          key={`fleet-transit-${b.fleet.id}`}
+          position={b.worldPos}
+          center
+          distanceFactor={30}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            fontFamily: 'monospace',
+            fontSize: 10,
+            color: b.colour,
+            textShadow: `0 0 6px ${b.colour}44, 0 0 4px rgba(0,0,0,0.95)`,
+            whiteSpace: 'nowrap',
+            userSelect: 'none',
+            opacity: 0.95,
+            filter: `drop-shadow(0 0 3px ${b.colour}88)`,
+          }}>
+            <span style={{ fontSize: 9 }}>{'\u25B8'}</span>
+            <span>{b.shipCount}</span>
+          </div>
+        </Html>
+      ))}
+    </group>
+  );
+}
+
+// ── Waypoint route lines (dashed cyan lines for fleet planned routes) ───────
+
+function WaypointRouteLines({ systems, playerEmpireId }: {
+  systems: StarSystem[];
+  playerEmpireId?: string;
+}) {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const lastRefresh = useRef(0);
+
+  const systemMap = useMemo(() => {
+    const map = new Map<string, StarSystem>();
+    systems.forEach(s => map.set(s.id, s));
+    return map;
+  }, [systems]);
+
+  useFrame((state) => {
+    const now = state.clock.elapsedTime;
+    if (now - lastRefresh.current < 0.5) return;
+    lastRefresh.current = now;
+
+    const engine = getGameEngine();
+    if (!engine) return;
+
+    const gs = engine.getState().gameState;
+    const verts: number[] = [];
+
+    for (const fleet of gs.fleets) {
+      if (fleet.empireId !== playerEmpireId) continue;
+      if (fleet.waypoints.length === 0) continue;
+
+      // Build full route: current system -> waypoints
+      const route = [fleet.position.systemId, ...fleet.waypoints];
+      for (let i = 0; i < route.length - 1; i++) {
+        const from = systemMap.get(route[i]);
+        const to = systemMap.get(route[i + 1]);
+        if (!from || !to) continue;
+        const y1 = systemYOffset(from);
+        const y2 = systemYOffset(to);
+        verts.push(from.position.x, y1 + 0.5, from.position.y);
+        verts.push(to.position.x, y2 + 0.5, to.position.y);
+      }
+    }
+
+    if (verts.length === 0) {
+      setGeometry(null);
+      return;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    setGeometry(geo);
+  });
+
+  if (!geometry) return null;
+
+  return (
+    <lineSegments geometry={geometry}>
+      <lineBasicMaterial
+        color="#00d4ff"
+        transparent
+        opacity={0.35}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </lineSegments>
+  );
+}
+
+// ── Animated comets (3-5 drifting bright dots with trailing lines) ──────────
+
+interface CometData {
+  startPos: [number, number, number];
+  velocity: [number, number, number];
+  trailLength: number;
+  brightness: number;
+}
+
+function Comets({ galaxy }: { galaxy: Galaxy }) {
+  const cometCount = 4;
+  const cx = galaxy.width / 2;
+  const cy = galaxy.height / 2;
+  const radius = galaxy.width * 0.55;
+
+  const comets = useMemo<CometData[]>(() => {
+    const result: CometData[] = [];
+    for (let i = 0; i < cometCount; i++) {
+      // Start from random positions around the galaxy edge
+      const angle = Math.random() * Math.PI * 2;
+      const startR = radius * (0.6 + Math.random() * 0.5);
+      const sx = cx + Math.cos(angle) * startR;
+      const sz = cy + Math.sin(angle) * startR;
+      const sy = (Math.random() - 0.5) * 30;
+
+      // Velocity aimed roughly inward with some tangential drift
+      const inwardAngle = angle + Math.PI + (Math.random() - 0.5) * 0.8;
+      const speed = 2 + Math.random() * 3;
+      const vx = Math.cos(inwardAngle) * speed;
+      const vz = Math.sin(inwardAngle) * speed;
+      const vy = (Math.random() - 0.5) * 0.5;
+
+      result.push({
+        startPos: [sx, sy, sz],
+        velocity: [vx, vy, vz],
+        trailLength: 3 + Math.random() * 5,
+        brightness: 0.5 + Math.random() * 0.5,
+      });
+    }
+    return result;
+  }, [galaxy, cx, cy, radius]);
+
+  return (
+    <group>
+      {comets.map((comet, i) => (
+        <CometTrail key={`comet-${i}`} comet={comet} galaxyRadius={radius} cx={cx} cy={cy} />
+      ))}
+    </group>
+  );
+}
+
+function CometTrail({ comet, galaxyRadius, cx, cy }: {
+  comet: CometData;
+  galaxyRadius: number;
+  cx: number;
+  cy: number;
+}) {
+  const lineRef = useRef<THREE.Line>(null!);
+  const headRef = useRef<THREE.Points>(null!);
+  const posRef = useRef<[number, number, number]>([...comet.startPos]);
+
+  // Trail geometry: head + a few trail points
+  const trailPoints = 6;
+  const trailPositions = useMemo(() => new Float32Array(trailPoints * 3), []);
+  const trailOpacities = useMemo(() => new Float32Array(trailPoints), []);
+  const headPosition = useMemo(() => new Float32Array(3), []);
+
+  useFrame((_, delta) => {
+    const pos = posRef.current;
+    pos[0] += comet.velocity[0] * delta;
+    pos[1] += comet.velocity[1] * delta;
+    pos[2] += comet.velocity[2] * delta;
+
+    // Reset when comet drifts too far from galaxy
+    const dx = pos[0] - cx;
+    const dz = pos[2] - cy;
+    if (Math.sqrt(dx * dx + dz * dz) > galaxyRadius * 1.5) {
+      // Restart from a new edge position
+      const angle = Math.random() * Math.PI * 2;
+      const startR = galaxyRadius * (0.6 + Math.random() * 0.5);
+      pos[0] = cx + Math.cos(angle) * startR;
+      pos[1] = (Math.random() - 0.5) * 30;
+      pos[2] = cy + Math.sin(angle) * startR;
+    }
+
+    // Update trail positions (shift backwards)
+    for (let i = trailPoints - 1; i > 0; i--) {
+      trailPositions[i * 3]     = trailPositions[(i - 1) * 3];
+      trailPositions[i * 3 + 1] = trailPositions[(i - 1) * 3 + 1];
+      trailPositions[i * 3 + 2] = trailPositions[(i - 1) * 3 + 2];
+    }
+    trailPositions[0] = pos[0];
+    trailPositions[1] = pos[1];
+    trailPositions[2] = pos[2];
+
+    for (let i = 0; i < trailPoints; i++) {
+      trailOpacities[i] = (1 - i / trailPoints) * comet.brightness;
+    }
+
+    if (lineRef.current?.geometry) {
+      lineRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update head position
+    headPosition[0] = pos[0];
+    headPosition[1] = pos[1];
+    headPosition[2] = pos[2];
+    if (headRef.current?.geometry) {
+      headRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+
+  return (
+    <group>
+      {/* Comet trail line */}
+      <line ref={lineRef as React.RefObject<never>} raycast={() => null}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={trailPoints} array={trailPositions} itemSize={3} />
+        </bufferGeometry>
+        <lineBasicMaterial
+          color="#aaccff"
+          transparent
+          opacity={0.2 * comet.brightness}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </line>
+
+      {/* Comet head (bright point) */}
+      <points ref={headRef as React.RefObject<never>} raycast={() => null}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" count={1} array={headPosition} itemSize={3} />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          uniforms={{ uBrightness: { value: comet.brightness } }}
+          vertexShader={`
+            uniform float uBrightness;
+            void main() {
+              vec4 mv = modelViewMatrix * vec4(position, 1.0);
+              gl_Position = projectionMatrix * mv;
+              gl_PointSize = (3.0 + uBrightness * 2.0) * (200.0 / -mv.z);
+            }
+          `}
+          fragmentShader={`
+            uniform float uBrightness;
+            void main() {
+              vec2 uv = gl_PointCoord - 0.5;
+              float d = length(uv);
+              if (d > 0.5) discard;
+              float alpha = 1.0 - smoothstep(0.0, 0.5, d);
+              alpha = pow(alpha, 2.0);
+              gl_FragColor = vec4(0.7, 0.85, 1.0, alpha * uBrightness * 0.6);
+            }
+          `}
+        />
+      </points>
+    </group>
+  );
+}
+
 // ── Camera controller with focus-on-star support ────────────────────────────
 
 function GalaxyCamera({ focusTarget, galaxyCentre }: {
@@ -1173,6 +1620,15 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
 
         {/* Wormhole connections with energy pulse */}
         <Hyperlanes systems={galaxy.systems} />
+
+        {/* Fleet position badges and in-transit animation */}
+        <FleetIndicators systems={galaxy.systems} playerEmpireId={playerEmpireId} />
+
+        {/* Waypoint route lines for player fleets */}
+        <WaypointRouteLines systems={galaxy.systems} playerEmpireId={playerEmpireId} />
+
+        {/* Animated comets drifting across the galaxy */}
+        <Comets galaxy={galaxy} />
 
         {/* Empire ownership rings */}
         <EmpireRings systems={galaxy.systems} playerEmpireId={playerEmpireId} />
