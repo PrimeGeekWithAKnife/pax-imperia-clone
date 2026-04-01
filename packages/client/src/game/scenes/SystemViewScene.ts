@@ -728,10 +728,12 @@ export class SystemViewScene extends Phaser.Scene {
       }
     }
 
-    // Build a map of empireId → empire.color for quick lookup
+    // Build maps of empireId → colour and speciesId for quick lookup
     const empireColours = new Map<string, string>();
+    const empireSpecies = new Map<string, string>();
     for (const empire of state.gameState.empires) {
       empireColours.set(empire.id, empire.color);
+      if (empire.species?.id) empireSpecies.set(empire.id, empire.species.id);
     }
 
     // Render one icon per fleet, offset vertically for multiple fleets
@@ -798,12 +800,13 @@ export class SystemViewScene extends Phaser.Scene {
 
       // Render ship icon at 32px
       const iconSize = 32;
-      const dataUrl = renderShipIcon(bestHullClass, iconSize, empireColor);
+      const fleetSpeciesId = empireSpecies.get(fleet.empireId);
+      const dataUrl = renderShipIcon(bestHullClass, iconSize, empireColor, fleetSpeciesId);
 
       const objects: Phaser.GameObjects.GameObject[] = [];
 
       if (dataUrl) {
-        const textureKey = `fleet_icon_${bestHullClass}_${empireColor.replace('#', '')}`;
+        const textureKey = `fleet_icon_${bestHullClass}_${empireColor.replace('#', '')}_${fleetSpeciesId ?? 'def'}`;
         if (!this.textures.exists(textureKey)) {
           this.textures.addBase64(textureKey, dataUrl);
         }

@@ -38,6 +38,8 @@ export interface CombatSceneData {
   defenderName: string;
   layout?: CombatLayout;
   planetData?: PlanetData;
+  attackerSpeciesId?: string;
+  defenderSpeciesId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -753,12 +755,15 @@ export class CombatScene extends Phaser.Scene {
       const colorHex = ship.side === 'attacker'
         ? this.sceneData.attackerColor
         : this.sceneData.defenderColor;
-      const texKey = `ship_${hullClass}_${ship.side}_${iconPx}`;
+      const speciesId = ship.side === 'attacker'
+        ? this.sceneData.attackerSpeciesId
+        : this.sceneData.defenderSpeciesId;
+      const texKey = `ship_${hullClass}_${ship.side}_${iconPx}_${speciesId ?? 'default'}`;
 
       // Render ship silhouette directly as a Phaser Graphics object
       // (avoids async texture loading issues with addBase64/Image)
       const shipGfx = this.add.graphics();
-      const dataUrl = renderShipIcon(hullClass, iconPx, colorHex);
+      const dataUrl = renderShipIcon(hullClass, iconPx, colorHex, speciesId);
       if (dataUrl && dataUrl.startsWith('data:')) {
         // Use a canvas texture created from the data URL
         const canvasKey = `canvas_${texKey}`;

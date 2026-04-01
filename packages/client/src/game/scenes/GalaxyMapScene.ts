@@ -2026,6 +2026,11 @@ export class GalaxyMapScene extends Phaser.Scene {
     const designsMap = tickState.shipDesigns ?? new Map();
     const playerEmpire = state.empires.find(e => !e.isAI);
     const playerEmpireId = playerEmpire?.id ?? null;
+    // Species lookup for race-specific ship thumbnails
+    const empireSpeciesMap = new Map<string, string>();
+    for (const emp of state.empires) {
+      if (emp.species?.id) empireSpeciesMap.set(emp.id, emp.species.id);
+    }
 
     // Determine which systems the player can currently observe (has fleet or colony)
     const observedSystemIds = new Set<string>();
@@ -2123,7 +2128,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
       // Ship thumbnail image (rendered from ShipGraphics)
       const thumbSize = 20;
-      const thumbSrc = renderShipThumbnail(bestHullClass, thumbSize);
+      const thumbSrc = renderShipThumbnail(bestHullClass, thumbSize, empireSpeciesMap.get(fleet.empireId));
       if (thumbSrc) {
         // Use a Phaser texture created from the data URL
         const texKey = `fleet_thumb_${fleet.id}_${bestHullClass}`;
