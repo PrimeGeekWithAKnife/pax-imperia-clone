@@ -682,7 +682,7 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
       meshRef.current.setMatrixAt(i, dummy.matrix);
 
       const [r, g, b] = STAR_COLOURS[sys.starType] ?? [1, 1, 1];
-      const intensity = (STAR_EMISSIVE[sys.starType] ?? 2.0) * 0.5;
+      const intensity = (STAR_EMISSIVE[sys.starType] ?? 2.0) * 1.2;
       colour.setRGB(r * intensity, g * intensity, b * intensity);
       meshRef.current.setColorAt(i, colour);
     });
@@ -699,7 +699,7 @@ function StarGlows({ systems }: { systems: StarSystem[] }) {
         blending={THREE.AdditiveBlending}
         toneMapped={false}
         vertexColors
-        opacity={0.35}
+        opacity={0.7}
       />
     </instancedMesh>
   );
@@ -763,7 +763,7 @@ function StarCores({ systems, onStarClick, onStarHover }: StarFieldProps) {
         document.body.style.cursor = 'default';
       }}
     >
-      <sphereGeometry args={[0.5, 16, 16]} />
+      <sphereGeometry args={[1.0, 16, 16]} />
       <meshBasicMaterial toneMapped={false} vertexColors />
     </instancedMesh>
   );
@@ -796,7 +796,7 @@ function EmpireRings({ systems, playerEmpireId }: { systems: StarSystem[]; playe
             <meshBasicMaterial
               color={empireCol}
               transparent
-              opacity={0.5}
+              opacity={0.75}
               toneMapped={false}
               side={THREE.DoubleSide}
               blending={THREE.AdditiveBlending}
@@ -939,9 +939,9 @@ function PostFX() {
   return (
     <EffectComposer>
       <Bloom
-        intensity={1.2}
-        luminanceThreshold={1}
-        luminanceSmoothing={0.3}
+        intensity={1.5}
+        luminanceThreshold={0.6}
+        luminanceSmoothing={0.4}
         mipmapBlur
       />
       <Vignette offset={0.3} darkness={0.6} />
