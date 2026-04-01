@@ -1808,6 +1808,19 @@ export function App(): React.ReactElement {
     [],
   );
 
+  const handleToggleAutoManage = useCallback(
+    (planetId: string, enabled: boolean) => {
+      const engine: GameEngine | undefined = getGameEngine();
+      if (!engine) return;
+      const state = engine.getState();
+      const updatedGovs = state.governors.map(g =>
+        g.planetId === planetId ? { ...g, autoManage: enabled } : g,
+      );
+      engine.setGovernors(updatedGovs);
+    },
+    [],
+  );
+
   const handleBuild = useCallback(
     (planetId: string, buildingType: BuildingType, targetZone?: 'surface' | 'orbital' | 'underground') => {
       if (!managedSystemId) {
@@ -2410,6 +2423,7 @@ export function App(): React.ReactElement {
             return eng?.getState().governors.find(g => g.planetId === managedPlanet.id) ?? null;
           })()}
           onAppointGovernor={handleAppointGovernor}
+          onToggleAutoManage={handleToggleAutoManage}
         />
       )}
 

@@ -615,6 +615,8 @@ interface PlanetManagementScreenProps {
   governor?: Governor | null;
   /** Called when the player appoints a new governor. */
   onAppointGovernor?: (planetId: string, governor: Governor) => void;
+  /** Called when the player toggles governor auto-management. */
+  onToggleAutoManage?: (planetId: string, enabled: boolean) => void;
   /** All colonised planets owned by the player — used for left/right navigation. */
   allColonisedPlanets?: Array<{ planet: Planet; systemId: string }>;
   /** Called when the player navigates to a different planet via the arrows. */
@@ -642,6 +644,7 @@ export function PlanetManagementScreen({
   empireTechs,
   governor = null,
   onAppointGovernor,
+  onToggleAutoManage,
   allColonisedPlanets = [],
   onChangePlanet,
   playerSpeciesId,
@@ -986,6 +989,50 @@ export function PlanetManagementScreen({
                     </div>
                   ))}
                 </div>
+
+                {/* Experience bar */}
+                <div className="pm-governor__age-row" style={{ marginTop: '4px' }}>
+                  <span className="pm-stat-label">Experience</span>
+                  <span className="pm-stat-value pm-stat-value--muted">
+                    {Math.round(governor.experience ?? 0)}/100
+                  </span>
+                  <div className="pm-governor__age-track">
+                    <div
+                      className="pm-governor__age-fill"
+                      style={{
+                        width: `${Math.round(governor.experience ?? 0)}%`,
+                        background: '#6090ff',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Auto-manage toggle */}
+                <label
+                  className="pm-governor__auto-toggle"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '8px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: '#ccd',
+                  }}
+                  title="When enabled, this governor will automatically queue buildings based on their skill level and the planet's needs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={governor.autoManage ?? false}
+                    onChange={(e) => {
+                      if (onToggleAutoManage) {
+                        onToggleAutoManage(planet.id, e.target.checked);
+                      }
+                    }}
+                    style={{ accentColor: '#6090ff' }}
+                  />
+                  Auto-manage construction
+                </label>
 
                 <button
                   className="pm-governor__replace-btn"
