@@ -535,6 +535,20 @@ const CY = GALAXY_HEIGHT / 2;
 const RX = GALAXY_WIDTH * 0.46;  // half-width radius
 const RY = GALAXY_HEIGHT * 0.46; // half-height radius
 
+/**
+ * Minimum distance from galactic centre where systems can spawn.
+ * Represents the supermassive black hole exclusion zone — no star systems
+ * survive this close to the SMBH's gravitational influence.
+ */
+const SMBH_EXCLUSION_RADIUS = Math.min(RX, RY) * 0.06;
+
+/** Returns true if a point is too close to the supermassive black hole at galaxy centre. */
+function isInSMBHZone(x: number, y: number): boolean {
+  const dx = x - CX;
+  const dy = y - CY;
+  return Math.sqrt(dx * dx + dy * dy) < SMBH_EXCLUSION_RADIUS;
+}
+
 interface PositionResult {
   points: CandidatePoint[];
   shapeMetadata?: GalaxyShapeMetadata;
@@ -576,6 +590,7 @@ function generateElliptical(
 ): CandidatePoint[] {
   // Density falls off from centre (Gaussian-like)
   const inBounds = (x: number, y: number): boolean => {
+    if (isInSMBHZone(x, y)) return false;
     const nx = (x - CX) / RX;
     const ny = (y - CY) / RY;
     const r2 = nx * nx + ny * ny;
@@ -609,6 +624,7 @@ function generateSpiral(
   }
 
   const inBounds = (x: number, y: number): boolean => {
+    if (isInSMBHZone(x, y)) return false;
     const dx = x - CX;
     const dy = y - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -679,6 +695,7 @@ function generateRing(
   const outerR = Math.min(RX, RY) * outerFrac;
 
   const inBounds = (x: number, y: number): boolean => {
+    if (isInSMBHZone(x, y)) return false;
     const dx = x - CX;
     const dy = y - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -777,6 +794,7 @@ function generateIrregular(
   }
 
   const inBounds = (x: number, y: number): boolean => {
+    if (isInSMBHZone(x, y)) return false;
     // Check if point is inside any cluster (rotated ellipse test)
     for (const c of clusters) {
       const dx = x - c.cx;

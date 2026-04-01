@@ -44,6 +44,7 @@ interface PersistedSettings {
   musicTrack: MusicTrack;
   defaultGameSpeed: string;
   showTooltips: boolean;
+  use3DMap: boolean;
 }
 
 const DEFAULT_SETTINGS: PersistedSettings = {
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS: PersistedSettings = {
   musicTrack: 'deep_space',
   defaultGameSpeed: 'normal',
   showTooltips: true,
+  use3DMap: true,
 };
 
 function loadSettings(): PersistedSettings {
@@ -139,7 +141,7 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
   const [settings, setSettings] = useState<PersistedSettings>(loadSettings);
 
   // Derive individual values from the settings object
-  const { masterVolume, musicVolume, sfxVolume, ambientVolume, musicTrack, defaultGameSpeed, showTooltips } = settings;
+  const { masterVolume, musicVolume, sfxVolume, ambientVolume, musicTrack, defaultGameSpeed, showTooltips, use3DMap } = settings;
 
   // Helper to update a single setting, persist, and apply side-effects
   const updateSetting = useCallback(<K extends keyof PersistedSettings>(key: K, value: PersistedSettings[K]) => {
@@ -325,6 +327,27 @@ function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactElement {
             />
             <span className="pm-toggle__slider" />
             <span className="pm-toggle__label">{showTooltips ? 'On' : 'Off'}</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="pm-settings-section">
+        <div className="pm-settings-section__label">GRAPHICS</div>
+        <div className="pm-settings-row">
+          <span className="pm-settings-label">Galaxy Map View</span>
+          <label className="pm-toggle">
+            <input
+              type="checkbox"
+              checked={use3DMap}
+              onChange={() => {
+                const newVal = !use3DMap;
+                updateSetting('use3DMap', newVal);
+                emitToPhaser('settings:3d_map_changed', newVal);
+              }}
+              className="pm-toggle__input"
+            />
+            <span className="pm-toggle__slider" />
+            <span className="pm-toggle__label">{use3DMap ? '3D' : 'Classic 2D'}</span>
           </label>
         </div>
       </div>

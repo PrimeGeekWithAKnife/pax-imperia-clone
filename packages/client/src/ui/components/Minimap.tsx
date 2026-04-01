@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import type { StarSystem } from '@nova-imperia/shared';
+import { useGameEvent } from '../hooks/useGameEvents';
 
 interface MinimapProps {
   systems?: StarSystem[];
@@ -53,14 +54,32 @@ export function Minimap({
     ctx.fillStyle = 'rgba(3, 3, 18, 0.95)';
     ctx.fillRect(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT);
 
-    const toMapX = (wx: number) => (wx / galaxyWidth) * MINIMAP_WIDTH;
-    const toMapY = (wy: number) => (wy / galaxyHeight) * MINIMAP_HEIGHT;
+    // If systems prop is empty, try to get from engine directly
+    let effectiveSystems = systems;
+    let effectiveWidth = galaxyWidth;
+    let effectiveHeight = galaxyHeight;
+    if (effectiveSystems.length === 0) {
+      try {
+        const eng = (window as unknown as Record<string, unknown>).__GAME_ENGINE__ as
+          | { getState: () => { gameState: { galaxy: { systems: StarSystem[]; width: number; height: number } } } }
+          | undefined;
+        const galaxy = eng?.getState()?.gameState?.galaxy;
+        if (galaxy && galaxy.systems.length > 0) {
+          effectiveSystems = galaxy.systems;
+          effectiveWidth = galaxy.width;
+          effectiveHeight = galaxy.height;
+        }
+      } catch { /* ignore */ }
+    }
+
+    const toMapX = (wx: number) => (wx / effectiveWidth) * MINIMAP_WIDTH;
+    const toMapY = (wy: number) => (wy / effectiveHeight) * MINIMAP_HEIGHT;
 
     // Filter to known systems when fog of war is active
     const knownSet = knownSystems ? new Set(knownSystems) : null;
     const visibleSystems = knownSet
-      ? systems.filter((s) => knownSet.has(s.id))
-      : systems;
+      ? effectiveSystems.filter((s) => knownSet.has(s.id))
+      : effectiveSystems;
 
     // Draw wormhole connections (only between two known endpoints)
     ctx.strokeStyle = 'rgba(0, 180, 220, 0.18)';
@@ -114,9 +133,16 @@ export function Minimap({
     }
   }, [systems, galaxyWidth, galaxyHeight, viewport, knownSystems]);
 
+  // Redraw on prop changes
   useEffect(() => {
     draw();
   }, [draw]);
+
+  // Also redraw every engine tick so newly discovered systems appear
+  const [, setTickCount] = useState(0);
+  useGameEvent<{ tick: number }>('engine:tick', useCallback(() => {
+    setTickCount(c => c + 1);
+  }, []));
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {

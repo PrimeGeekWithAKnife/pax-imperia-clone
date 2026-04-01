@@ -610,6 +610,43 @@ function GalacticCentreGlow({ galaxy }: { galaxy: Galaxy }) {
         />
       </mesh>
 
+      {/* Gravitational lensing arc — light from the back of the disc bends
+           over the top and bottom of the black hole (the Interstellar "cross") */}
+      <mesh rotation={[0, 0.15, 0]}>
+        <ringGeometry args={[coreRadius * 1.05, discRadius * 0.7, 128]} />
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          uniforms={{ uTime: { value: 0 } }}
+          vertexShader={`
+            varying vec2 vUv;
+            varying float vRadius;
+            void main() {
+              vUv = uv;
+              vRadius = length(position.xy);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            varying vec2 vUv;
+            varying float vRadius;
+            void main() {
+              float radialT = vUv.y;
+              // Bright thin arc that fades at the edges
+              float arc = exp(-pow((radialT - 0.3) * 5.0, 2.0));
+              // Fade the sides (left/right of the arc) so it's brightest at top/bottom
+              float angleFade = pow(abs(sin(vUv.x * 3.14159)), 0.5);
+              vec3 col = mix(vec3(1.0, 0.7, 0.3), vec3(1.0, 0.95, 0.85), arc);
+              float alpha = arc * angleFade * 0.5;
+              gl_FragColor = vec4(col * 1.8, alpha);
+            }
+          `
+          }
+        />
+      </mesh>
+
       {/* Soft outer gravitational glow — dim purple-blue haze */}
       <mesh>
         <sphereGeometry args={[bulgeRadius * 0.6, 32, 32]} />

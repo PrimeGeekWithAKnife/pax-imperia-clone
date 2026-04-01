@@ -198,7 +198,16 @@ export function App(): React.ReactElement {
   const [viewport, setViewport] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // ── 3D galaxy map is now the default view ──
-  const [show3DMap, setShow3DMap] = useState(true);
+  const [show3DMap, setShow3DMap] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ex_nihilo_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.use3DMap !== false; // default true
+      }
+    } catch { /* ignore */ }
+    return true;
+  });
 
   // ── Live resource state (updated by engine ticks) ──
   const [liveCredits, setLiveCredits] = useState<number | undefined>(undefined);
@@ -1660,6 +1669,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('ui:multiplayer', handleOpenMultiplayer);
   useGameEvent<void>('ui:skirmish', handleOpenSkirmish);
   useGameEvent<void>('ui:settings', useCallback(() => { setOpenSettingsOnPause(true); setIsPaused(true); }, []));
+  useGameEvent<boolean>('settings:3d_map_changed', useCallback((enabled: boolean) => { setShow3DMap(enabled); }, []));
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<void>('ui:diplomacy', handleOpenDiplomacy);
@@ -2564,21 +2574,7 @@ export function App(): React.ReactElement {
         />
       )}
 
-      {/* Galaxy Map view toggle button */}
-      {gameStarted && galaxy && (
-        <button
-          onClick={() => setShow3DMap(prev => !prev)}
-          style={{
-            position: 'absolute', bottom: 60, right: 16, zIndex: 50,
-            background: 'rgba(0, 8, 20, 0.85)', border: '1px solid #4488ff',
-            color: '#ccddff', fontFamily: 'monospace', fontSize: 12,
-            padding: '6px 12px', borderRadius: 4, cursor: 'pointer',
-            pointerEvents: 'auto',
-          }}
-        >
-          {show3DMap ? 'Classic 2D View' : '3D View'}
-        </button>
-      )}
+      {/* 2D/3D toggle moved to Options > Graphics — no floating button */}
 
       {/* 3D Galaxy Map — rendered inside the ui-overlay so it layers correctly */}
       {show3DMap && (galaxy || getGameEngine()?.getState().gameState.galaxy) && (
