@@ -116,6 +116,7 @@ import {
   issueMovementOrder,
   startShipProduction,
   determineTravelMode,
+  getSpeciesBeamResistance,
   type FleetMovementOrder,
   type ShipProductionOrder,
 } from './fleet.js';
@@ -138,6 +139,8 @@ import {
   generateGovernor,
   processGovernorsTick,
   applyGovernorModifiers,
+  tickGovernorExperience,
+  governorAutoBuildDecision,
 } from './governors.js';
 import {
   calculateEnergyProduction,
@@ -211,6 +214,7 @@ import {
   getRelation,
   initializeDiplomacy,
   makeFirstContact,
+  isEmpireEliminated,
   type DiplomacyState,
 } from './diplomacy.js';
 import { createNotification } from './notifications.js';
@@ -1599,7 +1603,15 @@ function stepCombatResolution(
     const attackerMult = traitToMult(attackerEmpire?.species.traits.combat ?? 5) * (attackerGov?.modifiers.combatBonus ?? 1.0);
     const defenderMult = traitToMult(defenderEmpire?.species.traits.combat ?? 5) * (defenderGov?.modifiers.combatBonus ?? 1.0);
 
-    const outcome = autoResolveCombat(setup, components, attackerMult, defenderMult);
+    // Apply species ability combat modifiers:
+    // energy_form: 20% beam resistance (reduces incoming damage by 0.8x, applied as defence bonus)
+    const attackerBeamRes = attackerEmpire ? getSpeciesBeamResistance(attackerEmpire.species) : 1.0;
+    const defenderBeamRes = defenderEmpire ? getSpeciesBeamResistance(defenderEmpire.species) : 1.0;
+    // Beam resistance effectively reduces the opponent's damage output
+    const finalAttackerMult = attackerMult * defenderBeamRes; // defender's resistance reduces attacker effectiveness
+    const finalDefenderMult = defenderMult * attackerBeamRes; // attacker's resistance reduces defender effectiveness
+
+    const outcome = autoResolveCombat(setup, components, finalAttackerMult, finalDefenderMult);
 
     // Build a minimal CombatState to use applyCombatResults
     // We only need the ship lists; applyCombatResults handles the rest.
@@ -2199,7 +2211,9 @@ function stepGovernors(
   if (state.governors.length === 0) return state;
 
   const tick = state.gameState.currentTick;
-  const { updated, died } = processGovernorsTick(state.governors);
+  // Tick governor experience before ageing
+  const experiencedGovernors = state.governors.map(g => tickGovernorExperience(g));
+  const { updated, died } = processGovernorsTick(experiencedGovernors);
 
   for (const gov of died) {
     const diedEvent: GovernorDiedEvent = {
@@ -2614,6 +2628,65 @@ function stepConstructionQueues(state: GameTickState): GameTickState {
 
       if (updatedPlanet !== planet) {
         systems = replacePlanet(systems, updatedPlanet);
+      }
+    }
+  }
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Step 5a: Governor Auto-Build
+// ---------------------------------------------------------------------------
+
+/**
+ * For planets with a governor whose autoManage flag is true and an empty
+ * production queue, ask the governor to decide what to build next.
+ */
+function stepGovernorAutoBuild(state: GameTickState): GameTickState {
+  let systems = state.gameState.galaxy.systems;
+
+  for (const system of state.gameState.galaxy.systems) {
+    for (const planet of system.planets) {
+      if (planet.ownerId === null) continue;
+      if (planet.productionQueue.length > 0) continue; // Already building something
+
+      // Find the governor for this planet
+      const governor = state.governors.find(g => g.planetId === planet.id && g.autoManage);
+      if (!governor) continue;
+
+      const empire = state.gameState.empires.find(e => e.id === planet.ownerId);
+      if (!empire) continue;
+
+      const resources = getEmpireResources(state, empire.id);
+      const decision = governorAutoBuildDecision(
+        planet,
+        governor,
+        empire.technologies,
+        resources.credits,
+        resources.minerals,
+      );
+
+      if (decision && decision.action === 'build') {
+        const zone = inferBuildingZone(decision.type);
+        const updatedPlanet = addBuildingToQueue(planet, decision.type, empire.species, empire.technologies, zone);
+        if (updatedPlanet !== planet) {
+          systems = replacePlanet(systems, updatedPlanet);
+        }
+      } else if (decision && decision.action === 'upgrade') {
+        const building = planet.buildings.find(b => b.id === decision.buildingId);
+        if (building && canUpgradeBuilding(planet, building.id, empire.currentAge).allowed) {
+          const updatedPlanet = addUpgradeToQueue(planet, building.id, empire.currentAge);
+          if (updatedPlanet !== planet) {
+            systems = replacePlanet(systems, updatedPlanet);
+          }
+        }
       }
     }
   }
@@ -3213,6 +3286,9 @@ function stepAIDecisions(
 ): GameTickState {
   for (const empire of state.gameState.empires) {
     if (!empire.isAI) continue;
+
+    // Skip eliminated empires (no planets, no ships) — they cannot take actions
+    if (isEmpireEliminated(empire, state.gameState.galaxy, state.gameState.fleets)) continue;
 
     const personality = empire.aiPersonality ?? 'defensive';
 
@@ -4781,6 +4857,9 @@ export function processGameTick(
 
   // 5. Construction Queues
   s = stepConstructionQueues(s);
+
+  // 5a. Governor Auto-Build (queue next build for planets with autoManage governors)
+  s = stepGovernorAutoBuild(s);
 
   // 5b. Terraforming (after construction so newly built stations take effect next tick)
   s = stepTerraforming(s, events);

@@ -430,6 +430,7 @@ export function issueMovementOrder(
   destinationId: string,
   ticksPerHop?: number,
   empireTechnologies?: string[],
+  species?: { specialAbilities?: string[] },
 ): FleetMovementOrder | null {
   const startId = fleet.position.systemId;
 
@@ -445,7 +446,11 @@ export function issueMovementOrder(
       ? (ticksPerHop <= 5 ? 'advanced_wormhole' : ticksPerHop <= 10 ? 'wormhole' : 'slow_ftl')
       : 'wormhole';
 
-  const resolvedTicksPerHop = ticksPerHop ?? TICKS_PER_HOP[travelMode];
+  let resolvedTicksPerHop = ticksPerHop ?? TICKS_PER_HOP[travelMode];
+  // Apply nomadic species fleet speed bonus
+  if (species) {
+    resolvedTicksPerHop = applyNomadicFleetBonus(resolvedTicksPerHop, species as Species);
+  }
 
   return {
     fleetId: fleet.id,
