@@ -1640,34 +1640,12 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
   }, [systemMap]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 900, pointerEvents: 'auto' }}>
-      {/* Close button */}
-      {onClose && (
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 16, right: 16, zIndex: 1001,
-            background: 'rgba(0, 8, 20, 0.8)', border: '1px solid #4488ff',
-            color: '#ccddff', fontFamily: 'monospace', fontSize: 13,
-            padding: '6px 14px', borderRadius: 4, cursor: 'pointer',
-          }}
-        >
-          Classic 2D View
-        </button>
-      )}
-
-      {/* Title */}
+    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 1, pointerEvents: 'auto' }}>
+      {/* Controls hint — bottom left, low z so UI panels render above */}
       <div style={{
-        position: 'absolute', top: 16, left: 16, zIndex: 1001,
-        color: '#4488ff', fontFamily: 'monospace', fontSize: 14, opacity: 0.7,
-      }}>
-        Ex Nihilo &mdash; Galaxy Map
-      </div>
-
-      {/* Controls hint */}
-      <div style={{
-        position: 'absolute', bottom: 16, left: 16, zIndex: 1001,
+        position: 'absolute', bottom: 16, left: 16, zIndex: 2,
         color: '#556688', fontFamily: 'monospace', fontSize: 11,
+        pointerEvents: 'none',
       }}>
         Drag to orbit &middot; Scroll to zoom &middot; Click star to select &middot; Right-drag to pan
       </div>

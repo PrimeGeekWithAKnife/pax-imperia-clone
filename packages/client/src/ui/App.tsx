@@ -2569,7 +2569,7 @@ export function App(): React.ReactElement {
         <button
           onClick={() => setShow3DMap(prev => !prev)}
           style={{
-            position: 'absolute', bottom: 60, right: 16, zIndex: show3DMap ? 1002 : 800,
+            position: 'absolute', bottom: 60, right: 16, zIndex: 50,
             background: 'rgba(0, 8, 20, 0.85)', border: '1px solid #4488ff',
             color: '#ccddff', fontFamily: 'monospace', fontSize: 12,
             padding: '6px 12px', borderRadius: 4, cursor: 'pointer',
@@ -2580,7 +2580,7 @@ export function App(): React.ReactElement {
         </button>
       )}
 
-      {/* 3D Galaxy Map overlay */}
+      {/* 3D Galaxy Map — rendered inside the ui-overlay so it layers correctly */}
       {show3DMap && (galaxy || getGameEngine()?.getState().gameState.galaxy) && (
         <GalaxyMap3D
           galaxy={(galaxy || getGameEngine()?.getState().gameState.galaxy)!}
