@@ -4,7 +4,7 @@ import { GOVERNMENTS, GALAXY_SIZES as SHARED_GALAXY_SIZES } from '@nova-imperia/
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type GalaxySize = 'small' | 'medium' | 'large' | 'huge';
+type GalaxySize = 'tiny' | 'small' | 'medium' | 'large' | 'huge';
 type AiDifficulty = 'easy' | 'normal' | 'hard';
 
 export interface GameConfig {
@@ -28,10 +28,11 @@ export interface GameSetupScreenProps {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const GALAXY_SIZE_OPTIONS: Array<{ key: GalaxySize; label: string; systems: number; desc: string }> = [
-  { key: 'small',  label: 'Small',  systems: SHARED_GALAXY_SIZES.small,  desc: `Quick game, ${SHARED_GALAXY_SIZES.small} systems` },
-  { key: 'medium', label: 'Medium', systems: SHARED_GALAXY_SIZES.medium, desc: `Standard, ${SHARED_GALAXY_SIZES.medium} systems`  },
-  { key: 'large',  label: 'Large',  systems: SHARED_GALAXY_SIZES.large,  desc: `Epic scale, ${SHARED_GALAXY_SIZES.large} systems` },
-  { key: 'huge',   label: 'Huge',   systems: SHARED_GALAXY_SIZES.huge,   desc: `Marathon, ${SHARED_GALAXY_SIZES.huge} systems`    },
+  { key: 'tiny',   label: 'Tiny',   systems: SHARED_GALAXY_SIZES.tiny,   desc: `Quick skirmish, ${SHARED_GALAXY_SIZES.tiny} systems`  },
+  { key: 'small',  label: 'Small',  systems: SHARED_GALAXY_SIZES.small,  desc: `Short game, ${SHARED_GALAXY_SIZES.small} systems`     },
+  { key: 'medium', label: 'Medium', systems: SHARED_GALAXY_SIZES.medium, desc: `Standard, ${SHARED_GALAXY_SIZES.medium} systems`      },
+  { key: 'large',  label: 'Large',  systems: SHARED_GALAXY_SIZES.large,  desc: `Epic scale, ${SHARED_GALAXY_SIZES.large} systems`     },
+  { key: 'huge',   label: 'Huge',   systems: SHARED_GALAXY_SIZES.huge,   desc: `Marathon, ${SHARED_GALAXY_SIZES.huge} systems`        },
 ];
 
 const GALAXY_SHAPES: Array<{ key: GalaxyShape; label: string; desc: string }> = [

@@ -4,9 +4,10 @@ import type { HullClass } from '../types/ships.js';
 
 /** Number of star systems per galaxy size */
 export const GALAXY_SIZES = {
-  small: 20,
-  medium: 40,
-  large: 80,
+  tiny: 30,
+  small: 60,
+  medium: 120,
+  large: 250,
   huge: 1000,
 } as const;
 

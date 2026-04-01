@@ -45,10 +45,11 @@ export interface MultiplayerLobbyScreenProps {
 const SERVER_URL = import.meta.env['VITE_SERVER_URL'] ?? 'http://localhost:3000';
 
 const GALAXY_SIZES: Array<{ key: GalaxySize; label: string; systems: number }> = [
-  { key: 'small',  label: 'Small',  systems: 20  },
-  { key: 'medium', label: 'Medium', systems: 40  },
-  { key: 'large',  label: 'Large',  systems: 80  },
-  { key: 'huge',   label: 'Huge',   systems: 120 },
+  { key: 'tiny',   label: 'Tiny',   systems: 30   },
+  { key: 'small',  label: 'Small',  systems: 60   },
+  { key: 'medium', label: 'Medium', systems: 120  },
+  { key: 'large',  label: 'Large',  systems: 250  },
+  { key: 'huge',   label: 'Huge',   systems: 1000 },
 ];
 
 const GALAXY_SHAPES: Array<{ key: GalaxyShape; label: string }> = [

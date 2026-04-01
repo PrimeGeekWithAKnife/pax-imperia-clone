@@ -13,7 +13,7 @@ import { io, type Socket } from 'socket.io-client';
 // package.  Keep these in sync with the server types.
 // ---------------------------------------------------------------------------
 
-export type GalaxySize = 'small' | 'medium' | 'large' | 'huge';
+export type GalaxySize = 'tiny' | 'small' | 'medium' | 'large' | 'huge';
 export type GalaxyShape = 'spiral' | 'elliptical' | 'irregular' | 'ring';
 
 export interface LobbyGalaxyConfig {
