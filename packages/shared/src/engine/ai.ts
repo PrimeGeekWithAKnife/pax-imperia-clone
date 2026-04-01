@@ -1139,7 +1139,11 @@ export function evaluateMilitaryActions(
             .sort((a, b) => b.ships.length - a.ships.length);
 
           // Determine how many fleets to commit based on war type
-          const warType = strategy.warType;
+          // Re-evaluate strategy here since the previous `strategy` is block-scoped
+          const currentWarType: WarType = gameState
+            ? evaluateWarStrategy(empire, opponentId, galaxy, fleets, ships, evaluation, gameState, avgHappiness ?? null).warType
+            : 'limited_war';
+          const warType = currentWarType;
           const maxFleets = warType === 'total_war' ? 3
             : warType === 'limited_war' ? 2
             : 1; // border_skirmish, cold_war, none

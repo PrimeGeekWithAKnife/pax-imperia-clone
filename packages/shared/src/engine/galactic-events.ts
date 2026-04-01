@@ -6,7 +6,8 @@
  * gamma ray bursts, and interstellar anomalies.
  */
 
-import type { GameTickState } from '../types/game-state.js';
+import type { GameState } from '../types/game-state.js';
+type GameTickState = GameState & Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Types

@@ -247,13 +247,14 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
       counterIntelLevel: new Map(data.espionageCounterIntel ?? []),
     },
     espionageEventLog: data.espionageEventLog ?? [],
-    warStateMap: data.warStateMap
-      ? new Map(data.warStateMap)
-      : new Map(empireIds.map(id => [id, createEmpireWarState()])),
   };
 
   // Attach dynamic fields via mutable record cast
   const ext = base as unknown as Record<string, unknown>;
+
+  ext.warStateMap = data.warStateMap
+    ? new Map(data.warStateMap)
+    : new Map(empireIds.map(id => [id, createEmpireWarState()]));
 
   // BUG 7: restore diplomacyState
   if (data.diplomacyRelations) {

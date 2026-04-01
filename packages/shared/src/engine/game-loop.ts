@@ -205,6 +205,7 @@ import {
   processDiplomacyTick,
   proposeTreaty,
   declareWar,
+  makePeace,
   evaluateTreatyProposal,
   getRelation,
   initializeDiplomacy,
@@ -254,6 +255,7 @@ import type {
   GalacticOrganisationState,
   GalacticBank,
 } from '../types/diplomacy.js';
+import type { TreatyType } from '../types/species.js';
 import {
   getAvailableChains,
   startChain,
@@ -1844,7 +1846,8 @@ function stepCombatResolution(
   fleets = fleets.filter(f => f.ships.length > 0);
 
   // Emit notifications for planet capture outcomes
-  let notifications = [...(state.notifications ?? [])];
+  let notifications = [...(((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[])];
+
   for (const capture of capturedPlanets) {
     switch (capture.outcome) {
       case 'civilian_surrender':
@@ -2129,7 +2132,7 @@ function stepWarState(state: GameTickState): GameTickState {
   for (const empire of state.gameState.empires) {
     const isAtWar = empire.diplomacy.some(r => r.status === 'at_war');
     let ws = updatedMap.get(empire.id) ?? createEmpireWarState();
-    ws = tickWarState(ws, isAtWar, empire.species);
+    ws = tickWarState(ws, isAtWar, empire.species, state.gameState.currentTick);
     updatedMap.set(empire.id, ws);
   }
 
@@ -3054,7 +3057,7 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
       ...state.gameState,
       empires: syncedEmpires,
     },
-  } as GameTickState;
+  } as unknown as GameTickState;
 }
 
 // ---------------------------------------------------------------------------
@@ -3389,7 +3392,7 @@ function executeAIDiplomacy(
       const proposal = {
         fromEmpireId: empireId,
         toEmpireId: targetEmpireId,
-        treatyType: treatyType as 'trade' | 'non_aggression' | 'alliance' | 'research_agreement',
+        treatyType: treatyType as TreatyType,
       };
       const evalResult = evaluateTreatyProposal(
         proposerEmpire,
@@ -3403,7 +3406,7 @@ function executeAIDiplomacy(
       const updatedDiplomacy = proposeTreaty(diplomacyState, {
         fromEmpireId: empireId,
         toEmpireId: targetEmpireId,
-        treatyType: treatyType as 'trade' | 'non_aggression' | 'alliance' | 'research_agreement',
+        treatyType: treatyType as TreatyType,
       }, tick);
 
       return {
@@ -3427,10 +3430,11 @@ function executeAIDiplomacy(
       { systemId: '', empireId, treatyType },
     );
 
+    const existingNotifs = ((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[];
     return {
       ...state,
-      notifications: [...state.notifications, notification],
-    };
+      notifications: [...existingNotifs, notification],
+    } as typeof state;
   }
 
   // Peace-seeking: AI makes peace when losing a war
@@ -3501,7 +3505,7 @@ function executeAIWar(
   const empireObj = state.gameState.empires.find(e => e.id === empireId);
   const empireName = empireObj?.name ?? empireId;
 
-  let notifications = state.notifications;
+  let notifications = ((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[];
   if (targetEmpire && !targetEmpire.isAI) {
     const notification = createNotification(
       'under_attack',
