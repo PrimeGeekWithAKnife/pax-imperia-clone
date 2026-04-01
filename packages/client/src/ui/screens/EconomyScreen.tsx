@@ -57,13 +57,13 @@ const RESOURCE_LABELS: Record<keyof EmpireResources, string> = {
 };
 
 const RESOURCE_ICONS: Record<keyof EmpireResources, string> = {
-  credits: 'C',
-  minerals: 'M',
+  credits: 'CR',
+  minerals: 'MN',
   rareElements: 'RE',
-  energy: 'E',
-  organics: 'O',
+  energy: 'EN',
+  organics: 'OR',
   exoticMaterials: 'EX',
-  faith: 'F',
+  faith: 'FT',
   researchPoints: 'RP',
 };
 
