@@ -15,7 +15,7 @@
  *  - calculateFleetPower for AI threat assessment
  */
 
-import type { Fleet, Ship, ShipDesign, ShipComponent, SystemDamage } from '../types/ships.js';
+import type { Fleet, FleetStance, Ship, ShipDesign, ShipComponent, SystemDamage } from '../types/ships.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -36,6 +36,8 @@ export interface CombatState {
   defenderShips: CombatShip[];
   events: CombatEvent[];
   outcome: CombatOutcome | null;
+  /** Consecutive ticks with zero total damage dealt (used for deadlock detection). */
+  zeroDamageTicks?: number;
 }
 
 export interface CombatShip {
@@ -89,6 +91,8 @@ interface CombatStats {
 // ---------------------------------------------------------------------------
 
 const MAX_TICKS = 100;
+/** Consecutive zero-damage ticks before auto-disengage as a draw. */
+const ZERO_DAMAGE_DEADLOCK_TICKS = 10;
 const MORALE_ROUTE_THRESHOLD = 20;
 const MORALE_FRIENDLY_LOSS = -10;
 const MORALE_HULL_HIT = -5;
@@ -386,12 +390,111 @@ export function processCombatTick(
   allComponents: ShipComponent[],
   attackerDesigns: Map<string, ShipDesign>,
   defenderDesigns: Map<string, ShipDesign>,
+  /** Optional fleet stances; defaults to 'aggressive' if not provided. */
+  attackerStance: FleetStance = 'aggressive',
+  defenderStance: FleetStance = 'aggressive',
 ): CombatState {
   if (state.outcome !== null) return state;
 
   const rng = (): number => Math.random();
   const componentById = new Map(allComponents.map((c) => [c.id, c]));
   const events: CombatEvent[] = [];
+
+  // -------------------------------------------------------------------------
+  // Stance: evasive on BOTH sides => immediate draw (mutual disengage)
+  // -------------------------------------------------------------------------
+  if (attackerStance === 'evasive' && defenderStance === 'evasive') {
+    const outcome = buildOutcome('draw', state.attackerShips, state.defenderShips, state.tick + 1);
+    return {
+      tick: state.tick + 1,
+      attackerShips: state.attackerShips,
+      defenderShips: state.defenderShips,
+      events: [{ type: 'combat_end', outcome }],
+      outcome,
+      zeroDamageTicks: 0,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stance modifiers lookup
+  // -------------------------------------------------------------------------
+  function getStanceModifiers(stance: FleetStance): { damageMultiplier: number; shieldBonus: number; damageTakenMultiplier: number } {
+    switch (stance) {
+      case 'defensive':
+        return { damageMultiplier: 0.7, shieldBonus: 0.2, damageTakenMultiplier: 1.0 };
+      case 'evasive':
+        return { damageMultiplier: 0.5, shieldBonus: 0.0, damageTakenMultiplier: 0.8 };
+      case 'patrol':
+      case 'aggressive':
+      default:
+        return { damageMultiplier: 1.0, shieldBonus: 0.0, damageTakenMultiplier: 1.0 };
+    }
+  }
+
+  const attackerMods = getStanceModifiers(attackerStance);
+  const defenderMods = getStanceModifiers(defenderStance);
+
+  // -------------------------------------------------------------------------
+  // Evasive stance: one side trying to disengage — morale check each tick
+  // -------------------------------------------------------------------------
+  function checkEvasiveDisengage(
+    evadingShips: CombatShip[],
+    pursuingShips: CombatShip[],
+    tick: number,
+  ): CombatOutcome | null {
+    // Each evasive ship rolls a morale check; if all active ships pass, disengage succeeds
+    const active = activeShips(evadingShips);
+    if (active.length === 0) return null;
+    let allEvaded = true;
+    for (const cs of active) {
+      // Threshold = 50, with +10 bonus for evasive stance
+      const threshold = 50 - 10;
+      if (cs.morale < threshold || rng() * 100 > cs.morale) {
+        allEvaded = false;
+        break;
+      }
+    }
+    if (allEvaded) {
+      // Mark all evading ships as routed (they escaped)
+      for (const cs of active) {
+        cs.isRouted = true;
+      }
+      return checkVictory(
+        evadingShips[0]?.side === 'attacker' ? evadingShips : pursuingShips,
+        evadingShips[0]?.side === 'defender' ? evadingShips : pursuingShips,
+        tick,
+      );
+    }
+    return null;
+  }
+
+  // Check evasive disengage before combat
+  if (attackerStance === 'evasive') {
+    const evasiveResult = checkEvasiveDisengage(state.attackerShips.map(copyCombatShip), state.defenderShips, state.tick + 1);
+    if (evasiveResult) {
+      return {
+        tick: state.tick + 1,
+        attackerShips: state.attackerShips.map(s => ({ ...copyCombatShip(s), isRouted: true })),
+        defenderShips: state.defenderShips.map(copyCombatShip),
+        events: [{ type: 'combat_end', outcome: evasiveResult }],
+        outcome: evasiveResult,
+        zeroDamageTicks: 0,
+      };
+    }
+  }
+  if (defenderStance === 'evasive') {
+    const evasiveResult = checkEvasiveDisengage(state.defenderShips.map(copyCombatShip), state.attackerShips, state.tick + 1);
+    if (evasiveResult) {
+      return {
+        tick: state.tick + 1,
+        attackerShips: state.attackerShips.map(copyCombatShip),
+        defenderShips: state.defenderShips.map(s => ({ ...copyCombatShip(s), isRouted: true })),
+        events: [{ type: 'combat_end', outcome: evasiveResult }],
+        outcome: evasiveResult,
+        zeroDamageTicks: 0,
+      };
+    }
+  }
 
   // Work on mutable copies of the ship arrays for this tick.
   const attackers: CombatShip[] = state.attackerShips.map(copyCombatShip);
@@ -404,13 +507,14 @@ export function processCombatTick(
   }
 
   // -------------------------------------------------------------------------
-  // Step 2: Shield recharge
+  // Step 2: Shield recharge (with defensive stance bonus)
   // -------------------------------------------------------------------------
   for (const cs of [...attackers, ...defenders]) {
     if (cs.isDestroyed || cs.isRouted) continue;
     const design = getDesign(cs);
     const stats = design != null ? deriveDesignStats(design, componentById) : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0 };
-    const maxSh = effectiveMaxShields(stats, cs.ship.systemDamage);
+    const stanceMods = cs.side === 'attacker' ? attackerMods : defenderMods;
+    const maxSh = effectiveMaxShields(stats, cs.ship.systemDamage) * (1 + stanceMods.shieldBonus);
     cs.maxShields = maxSh;
     cs.currentShields = Math.min(maxSh, cs.currentShields + maxSh * SHIELD_RECHARGE_FRACTION);
   }
@@ -443,7 +547,8 @@ export function processCombatTick(
       const design = getDesign(shooter);
       if (design == null) continue;
       const stats = deriveDesignStats(design, componentById);
-      const damage = effectiveWeaponDamage(stats, shooter.ship.systemDamage);
+      const stanceMods = shooter.side === 'attacker' ? attackerMods : defenderMods;
+      const damage = effectiveWeaponDamage(stats, shooter.ship.systemDamage) * stanceMods.damageMultiplier;
       if (damage <= 0) continue;
       const target = selectTarget(shooter, enemyShips, rng);
       if (target == null) continue;
@@ -458,8 +563,13 @@ export function processCombatTick(
   // Now apply all damage orders.
   const destroyedThisTick = new Set<string>();
 
+  let totalDamageDealtThisTick = 0;
+
   for (const order of damageOrders) {
-    const { source, target, damage, weapon } = order;
+    const { source, target, weapon } = order;
+    // Apply evasive stance damage reduction on the target's side
+    const targetStanceMods = target.side === 'attacker' ? attackerMods : defenderMods;
+    const damage = order.damage * targetStanceMods.damageTakenMultiplier;
 
     // Target may have been destroyed earlier this same tick; skip it.
     if (target.isDestroyed) continue;
@@ -497,6 +607,7 @@ export function processCombatTick(
     const hullDmg = Math.max(1, Math.round(remaining));
     const newHull = Math.max(0, target.ship.hullPoints - hullDmg);
     target.ship = { ...target.ship, hullPoints: newHull };
+    totalDamageDealtThisTick += hullDmg;
 
     events.push({
       type: 'hull_damage',
@@ -546,6 +657,8 @@ export function processCombatTick(
     destroyedThisTick.has(s.ship.id),
   ).length;
 
+  let anyMoraleChanged = false;
+
   function applyMorale(
     ownShips: CombatShip[],
     enemyShips: CombatShip[],
@@ -559,7 +672,9 @@ export function processCombatTick(
       if (cs.isDestroyed || cs.isRouted) continue;
       let delta = friendlyDestroyedCount * MORALE_FRIENDLY_LOSS;
       if (outnumbered) delta += MORALE_OUTNUMBERED_PER_TICK;
+      const oldMorale = cs.morale;
       cs.morale = clamp(cs.morale + delta, 0, 100);
+      if (cs.morale !== oldMorale) anyMoraleChanged = true;
     }
   }
 
@@ -578,10 +693,29 @@ export function processCombatTick(
   }
 
   // -------------------------------------------------------------------------
-  // Step 6: Victory check
+  // Step 6: Zero-damage deadlock detection
+  // -------------------------------------------------------------------------
+  const prevZeroDamageTicks = state.zeroDamageTicks ?? 0;
+  // Only count as a deadlock tick when zero damage AND no meaningful progress
+  // (no ships routed/destroyed AND no morale actively changing).
+  const anyRoutedOrDestroyed = events.some(
+    e => e.type === 'ship_routed' || e.type === 'ship_destroyed',
+  );
+  const isStalemate = totalDamageDealtThisTick === 0 && !anyRoutedOrDestroyed && !anyMoraleChanged;
+  const zeroDamageTicks = isStalemate ? prevZeroDamageTicks + 1 : 0;
+
+  // -------------------------------------------------------------------------
+  // Step 7: Victory check
   // -------------------------------------------------------------------------
   const newTick = state.tick + 1;
-  const outcome = checkVictory(attackers, defenders, newTick);
+  let outcome = checkVictory(attackers, defenders, newTick);
+
+  // If no damage dealt for ZERO_DAMAGE_DEADLOCK_TICKS consecutive ticks,
+  // auto-disengage as a draw (handles unarmed fleets gracefully).
+  if (outcome == null && zeroDamageTicks >= ZERO_DAMAGE_DEADLOCK_TICKS) {
+    outcome = buildOutcome('draw', attackers, defenders, newTick);
+  }
+
   if (outcome != null) {
     events.push({ type: 'combat_end', outcome });
   }
@@ -592,6 +726,7 @@ export function processCombatTick(
     defenderShips: defenders,
     events,
     outcome,
+    zeroDamageTicks,
   };
 }
 
@@ -641,6 +776,8 @@ export function autoResolveCombat(
       allComponents,
       setup.attackerDesigns,
       setup.defenderDesigns,
+      setup.attackerFleet.stance,
+      setup.defenderFleet.stance,
     );
   }
 

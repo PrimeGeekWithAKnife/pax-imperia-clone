@@ -52,6 +52,18 @@ const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   debris_warning:          { priority: 'warning', autoPause: false, canSilence: true },
   debris_critical:         { priority: 'critical', autoPause: true, canSilence: true },
   debris_cascade:          { priority: 'critical', autoPause: true, canSilence: true },
+
+  // Galactic events
+  galactic_event:          { priority: 'warning', autoPause: true, canSilence: true },
+
+  // Economic warnings
+  low_credits:             { priority: 'warning', autoPause: true, canSilence: true },
+  over_naval_capacity:     { priority: 'warning', autoPause: false, canSilence: true },
+  maintenance_warning:     { priority: 'warning', autoPause: true, canSilence: true },
+  ship_attrition:          { priority: 'warning', autoPause: false, canSilence: true },
+
+  // Action feedback
+  action_rejected:         { priority: 'info', autoPause: false, canSilence: true },
 };
 
 // ---------------------------------------------------------------------------
@@ -86,12 +98,12 @@ export function createNotification(
   return {
     id: `notif-${nextId++}`,
     type,
-    priority: meta.priority,
+    priority: meta?.priority ?? 'warning',
     title,
     message,
     tick,
-    autoPause: meta.autoPause,
-    canSilence: meta.canSilence,
+    autoPause: meta?.autoPause ?? false,
+    canSilence: meta?.canSilence ?? true,
     choices,
     context,
   };
@@ -114,17 +126,17 @@ export function shouldShowNotification(
 
 /** Return the fixed priority for a notification type. */
 export function getNotificationPriority(type: NotificationType): NotificationPriority {
-  return NOTIFICATION_META[type].priority;
+  return NOTIFICATION_META[type]?.priority ?? 'warning';
 }
 
 /** Return whether the given notification type can be silenced by the player. */
 export function isNotificationSilenceable(type: NotificationType): boolean {
-  return NOTIFICATION_META[type].canSilence;
+  return NOTIFICATION_META[type]?.canSilence ?? true;
 }
 
 /** Return whether the given notification type should trigger an auto-pause. */
 export function shouldAutoPause(type: NotificationType): boolean {
-  return NOTIFICATION_META[type].autoPause;
+  return NOTIFICATION_META[type]?.autoPause ?? false;
 }
 
 // ---------------------------------------------------------------------------

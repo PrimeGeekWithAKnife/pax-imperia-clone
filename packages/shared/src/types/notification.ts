@@ -27,7 +27,13 @@ export type NotificationType =
   | 'planet_captured'         // Enemy planet captured after winning space combat
   | 'debris_warning'          // Orbital debris density > 30
   | 'debris_critical'         // Orbital debris density > 75 — Kessler cascade imminent
-  | 'debris_cascade';         // Kessler cascade event occurred
+  | 'debris_cascade'          // Kessler cascade event occurred
+  | 'galactic_event'          // Solar storm, asteroid shower, etc.
+  | 'low_credits'             // Empire credits hit zero
+  | 'over_naval_capacity'     // Fleet count exceeds naval capacity
+  | 'maintenance_warning'     // Upkeep exceeds income
+  | 'ship_attrition'          // Ship taking attrition damage from bankruptcy
+  | 'action_rejected';        // Player action was rejected
 
 export interface GameNotification {
   id: string;

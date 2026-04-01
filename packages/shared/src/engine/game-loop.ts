@@ -74,6 +74,7 @@ import {
 import {
   calculateEmpireProduction,
   calculateUpkeep,
+  calculateNavalCapacity,
   applyResourceTick,
   getEnergyStatus,
   applyFoodConsumption,
@@ -526,6 +527,22 @@ function processPlayerActions(
   let systems = state.gameState.galaxy.systems;
   let empires = state.gameState.empires;
   let gameSpeed = state.gameState.speed;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- notifications is a dynamic property
+  const rejectionNotifications: ReturnType<typeof createNotification>[] = [];
+
+  /** Push an action_rejected notification for the given empire. */
+  function rejectAction(empId: string, reason: string): void {
+    rejectionNotifications.push(
+      createNotification(
+        'action_rejected',
+        'Action rejected',
+        reason,
+        tick,
+        undefined,
+        { empireId: empId },
+      ),
+    );
+  }
 
   for (const playerAction of state.pendingActions) {
     const { empireId, action } = playerAction;
@@ -562,12 +579,14 @@ function processPlayerActions(
           });
           if (!coloniserShip) {
             console.warn(`[game-loop] ColonizePlanet fleet has no coloniser ship — skipping`);
+            rejectAction(empireId, 'Fleet has no coloniser ship.');
             continue;
           }
 
           const check = canColoniseWithShip(coloniserShip, fleet, fleetSystem, planetId, empire.species);
           if (!check.allowed) {
             console.warn(`[game-loop] ColonizePlanet rejected: ${check.reason}`);
+            rejectAction(empireId, `Colonisation rejected: ${check.reason}`);
             continue;
           }
 
@@ -580,6 +599,7 @@ function processPlayerActions(
           );
           if (activeMigrationToTarget) {
             console.warn(`[game-loop] ColonizePlanet rejected: active migration already targets planet "${planetId}"`);
+            rejectAction(empireId, 'Another migration is already targeting this planet.');
             continue;
           }
 
@@ -649,6 +669,7 @@ function processPlayerActions(
 
         if (!sourcePlanet) {
           console.warn(`[game-loop] ColonisePlanet rejected for empire "${empireId}": no owned planet in system`);
+          rejectAction(empireId, 'No owned planet in this system to colonise from.');
           continue;
         }
 
@@ -669,6 +690,7 @@ function processPlayerActions(
 
         if (!check.allowed) {
           console.warn(`[game-loop] ColonisePlanet rejected for empire "${empireId}": ${check.reason}`);
+          rejectAction(empireId, `Colonisation rejected: ${check.reason}`);
           continue;
         }
 
@@ -723,6 +745,7 @@ function processPlayerActions(
 
         if (planet.ownerId !== empireId) {
           console.warn(`[game-loop] ConstructBuilding rejected — empire "${empireId}" does not own planet "${planetId}"`);
+          rejectAction(empireId, 'You do not own this planet.');
           continue;
         }
 
@@ -733,6 +756,7 @@ function processPlayerActions(
         const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, undefined, empireTechs, targetZone);
         if (!buildCheck.allowed) {
           console.warn(`[game-loop] ConstructBuilding rejected for planet "${planetId}": ${buildCheck.reason}`);
+          rejectAction(empireId, `Construction rejected: ${buildCheck.reason}`);
           continue;
         }
 
@@ -758,6 +782,7 @@ function processPlayerActions(
           }
           if (!canAfford) {
             console.warn(`[game-loop] ConstructBuilding rejected — empire "${empireId}" cannot afford "${buildingType}"`);
+            rejectAction(empireId, `Cannot afford to build ${buildingType}.`);
             continue;
           }
 
@@ -792,6 +817,7 @@ function processPlayerActions(
 
         if (planet.ownerId !== empireId) {
           console.warn(`[game-loop] UpgradeBuilding rejected — empire "${empireId}" does not own planet "${planetId}"`);
+          rejectAction(empireId, 'You do not own this planet.');
           continue;
         }
 
@@ -801,6 +827,7 @@ function processPlayerActions(
         const upgradeCheck = canUpgradeBuilding(planet, buildingId, currentAge);
         if (!upgradeCheck.allowed) {
           console.warn(`[game-loop] UpgradeBuilding rejected for building "${buildingId}": ${upgradeCheck.reason}`);
+          rejectAction(empireId, `Upgrade rejected: ${upgradeCheck.reason}`);
           continue;
         }
 
@@ -814,6 +841,7 @@ function processPlayerActions(
           if (amount && amount > 0) {
             if ((res[key as keyof EmpireResources] ?? 0) < amount) {
               console.warn(`[game-loop] UpgradeBuilding rejected — cannot afford ${key}: need ${amount}, have ${res[key as keyof EmpireResources]}`);
+              rejectAction(empireId, `Cannot afford upgrade: need ${amount} ${key}.`);
               canAfford = false;
               break;
             }
@@ -850,16 +878,22 @@ function processPlayerActions(
     }
   }
 
+  // Merge rejection notifications into existing notifications
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- notifications is a dynamic property
+  const existingNotifications = [...((state as any).notifications ?? [])] as ReturnType<typeof createNotification>[];
+  const mergedNotifications = [...existingNotifications, ...rejectionNotifications];
+
   return {
     ...state,
     pendingActions: [],
+    notifications: mergedNotifications,
     gameState: {
       ...state.gameState,
       speed: gameSpeed,
       empires,
       galaxy: { ...state.gameState.galaxy, systems },
     },
-  };
+  } as GameTickState;
 }
 
 // ---------------------------------------------------------------------------
@@ -2167,6 +2201,114 @@ function stepResourceProduction(state: GameTickState): GameTickState {
 
     // Update both the resource map and empire credits/researchPoints
     state = applyResources(state, empire.id, newResources);
+
+    // ── Economic notifications (BUG 2) ──────────────────────────────────
+    const tick = state.gameState.currentTick;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- notifications is a dynamic property
+    let notifications = [...((state as any).notifications ?? [])] as ReturnType<typeof createNotification>[];
+
+    // Low credits warning — emit once every 50 ticks to avoid spam
+    if (newResources.credits <= 0 && tick % 50 === 0) {
+      notifications.push(
+        createNotification(
+          'low_credits',
+          'Treasury depleted',
+          `The ${empire.name} treasury is empty. Ship maintenance and building upkeep cannot be paid.`,
+          tick,
+          undefined,
+          { empireId: empire.id },
+        ),
+      );
+    }
+
+    // Maintenance warning — upkeep exceeds income
+    const netCredits = production.credits + upkeep.credits;
+    if (netCredits < 0 && tick % 50 === 0) {
+      notifications.push(
+        createNotification(
+          'maintenance_warning',
+          'Upkeep exceeds income',
+          `The ${empire.name} is spending more on maintenance than it earns. Reduce fleet size or build more trade infrastructure.`,
+          tick,
+          undefined,
+          { empireId: empire.id },
+        ),
+      );
+    }
+
+    // Over naval capacity warning
+    const navalCap = calculateNavalCapacity(ownedPlanets);
+    if (shipCount > navalCap && tick % 50 === 0) {
+      notifications.push(
+        createNotification(
+          'over_naval_capacity',
+          'Fleet exceeds naval capacity',
+          `The ${empire.name} has ${shipCount} ships but only ${navalCap} naval capacity. Upkeep costs are multiplied.`,
+          tick,
+          undefined,
+          { empireId: empire.id },
+        ),
+      );
+    }
+
+    // ── Ship attrition at bankruptcy (BUG 4) ────────────────────────────
+    if (newResources.credits <= 0 && netCredits < 0) {
+      let ships = state.gameState.ships;
+      let shipsChanged = false;
+      const fleets = state.gameState.fleets.filter(f => f.empireId === empire.id);
+      for (const fleet of fleets) {
+        for (const shipId of fleet.ships) {
+          // 5% chance per ship per tick of taking attrition damage
+          if (Math.random() < 0.05) {
+            const shipIdx = ships.findIndex(s => s.id === shipId);
+            if (shipIdx === -1) continue;
+            const ship = ships[shipIdx]!;
+            if (ship.hullPoints <= 0) continue;
+            const attritionDamage = Math.max(1, Math.floor(ship.maxHullPoints * 0.1));
+            const newHull = Math.max(0, ship.hullPoints - attritionDamage);
+            if (!shipsChanged) {
+              ships = [...ships];
+              shipsChanged = true;
+            }
+            ships[shipIdx] = { ...ship, hullPoints: newHull };
+
+            if (newHull <= 0) {
+              notifications.push(
+                createNotification(
+                  'ship_attrition',
+                  `${ship.name} lost`,
+                  `${ship.name} has been lost due to lack of maintenance. Crew desertion and system failures have rendered it inoperable.`,
+                  tick,
+                  undefined,
+                  { empireId: empire.id },
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      if (shipsChanged) {
+        // Remove destroyed ships from fleets and ship list
+        const destroyedIds = new Set(ships.filter(s => s.hullPoints <= 0).map(s => s.id));
+        const updatedFleets = state.gameState.fleets.map(f => {
+          if (f.empireId !== empire.id) return f;
+          const remaining = f.ships.filter(id => !destroyedIds.has(id));
+          return remaining.length !== f.ships.length ? { ...f, ships: remaining } : f;
+        }).filter(f => f.ships.length > 0);
+
+        state = {
+          ...state,
+          gameState: {
+            ...state.gameState,
+            ships: ships.filter(s => s.hullPoints > 0),
+            fleets: updatedFleets,
+          },
+        };
+      }
+    }
+
+    state = { ...state, notifications } as GameTickState;
   }
 
   return { ...state, energyStateMap };
@@ -3628,7 +3770,7 @@ function stepGalacticEvents(state: GameTickState, events: GameEvent[]): GameTick
     const notifications = [...((state as unknown as Record<string, unknown>).notifications as any[] ?? [])];
     notifications.push(
       createNotification(
-        'warning' as any,
+        'galactic_event',
         evt.name,
         evt.description,
         tick,
