@@ -2358,8 +2358,10 @@ function stepFoodConsumption(state: GameTickState): GameTickState {
         const loss = Math.max(1, Math.floor(planet.currentPopulation * 0.005));
         const newPop = Math.max(0, planet.currentPopulation - loss);
 
-        if (newPop <= 0) {
-          // Population wiped out — release ownership so planet can be recolonised
+        if (newPop <= 0 && planet.currentPopulation < 1000) {
+          // Tiny colony wiped out — release ownership so planet can be recolonised.
+          // Only abandon when the pre-starvation population was already critically low;
+          // large colonies that temporarily starve should not instantly disappear.
           const abandonedPlanet = {
             ...planet,
             currentPopulation: 0,

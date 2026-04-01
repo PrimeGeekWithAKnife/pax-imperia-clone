@@ -96,6 +96,14 @@ const TREATY_PER_TICK_ATTITUDE: Partial<Record<TreatyType, number>> = {
 /** Per-tick trust bonus for each active treaty (all types). */
 const TREATY_PER_TICK_TRUST = 0.1;
 
+/**
+ * Extra per-tick attitude bonus when an alliance treaty is active.
+ * At attitude +60 (alliance threshold), decay = 1.2/tick. Full treaty stack
+ * (non_aggression 0.1 + trade 0.3 + alliance 0.5 + this 0.3 = 1.2) matches
+ * the decay rate, stabilising alliances once formed.
+ */
+const ALLIANCE_MAINTENANCE_BONUS = 0.3;
+
 const FIRST_CONTACT_ATTITUDE = 0;
 const FIRST_CONTACT_TRUST = 20;
 
@@ -419,6 +427,12 @@ export function declareWar(
   targetId: string,
   tick: number,
 ): DiplomacyState {
+  // Must have made first contact — cannot declare war on unknown empires.
+  const existing = getRelation(state, aggressorId, targetId);
+  if (!existing || existing.firstContact === -1) {
+    return state;
+  }
+
   const next = copyState(state);
 
   // Break every treaty between them first (don't use breakTreaty to avoid
@@ -722,12 +736,21 @@ export function processDiplomacyTick(state: DiplomacyState, tick: number): Diplo
   for (const targets of next.relations.values()) {
     for (const rel of targets.values()) {
       // --- Per-tick treaty bonuses (counteracts decay) ---
+      let hasAlliance = false;
       for (const treaty of rel.treaties) {
         const attitudeGain = TREATY_PER_TICK_ATTITUDE[treaty.type] ?? 0;
         if (attitudeGain > 0) {
           rel.attitude = clampAttitude(rel.attitude + attitudeGain);
         }
         rel.trust = clampTrust(rel.trust + TREATY_PER_TICK_TRUST);
+        if (treaty.type === 'alliance' || treaty.type === 'military_alliance') {
+          hasAlliance = true;
+        }
+      }
+
+      // --- Alliance maintenance bonus (stabilises alliances once formed) ---
+      if (hasAlliance) {
+        rel.attitude = clampAttitude(rel.attitude + ALLIANCE_MAINTENANCE_BONUS);
       }
 
       // --- Attitude decay toward 0 ---

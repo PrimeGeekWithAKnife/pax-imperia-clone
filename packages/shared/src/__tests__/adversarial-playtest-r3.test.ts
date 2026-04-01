@@ -246,16 +246,15 @@ describe('Scenario 6: Save/Load integrity', () => {
     expect(validation.errors.some(e => /empires/i.test(e))).toBe(true);
   });
 
-  it('loading corrupted save (negative credits) returns validation errors', () => {
+  it('loading save with negative credits (bankruptcy) is valid', () => {
     const state = setupGame({ playerCount: 2, seed: 6400 });
     const saveGame = createSaveGame(state, 'TestPlayer');
 
-    // Corrupt: set negative credits
+    // Negative credits are a legitimate game state during bankruptcy
     saveGame.tickState.gameState.empires[0]!.credits = -9999;
 
     const validation = validateSaveGame(saveGame);
-    expect(validation.valid).toBe(false);
-    expect(validation.errors.some(e => /negative credits/i.test(e))).toBe(true);
+    expect(validation.valid).toBe(true);
   });
 
   it('loading a save with missing new fields (migration from older version) does not crash', () => {

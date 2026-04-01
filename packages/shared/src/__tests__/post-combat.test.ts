@@ -296,12 +296,16 @@ describe('calculateExperienceGain', () => {
     expect(result).toBe('regular');
   });
 
-  it('caps at elite', () => {
+  it('caps at elite for normal victories, ace/legendary for outnumbered', () => {
     const ship = makeTacticalShip('s1', 'attacker', {
       crew: { morale: 100, health: 100, experience: 'elite' },
     });
-    const result = calculateExperienceGain(ship, true, 10, 1);
-    expect(result).toBe('elite');
+    // Normal victory (not heavily outnumbered): caps at elite
+    const normalResult = calculateExperienceGain(ship, true, 3, 3);
+    expect(normalResult).toBe('elite');
+    // Heavily outnumbered victory (10 vs 1): can reach legendary
+    const outnumberedResult = calculateExperienceGain(ship, true, 10, 1);
+    expect(['ace', 'legendary']).toContain(outnumberedResult);
   });
 
   it('promotes veteran to elite on victory', () => {
