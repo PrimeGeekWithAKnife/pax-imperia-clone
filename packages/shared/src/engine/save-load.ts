@@ -24,7 +24,31 @@ import type { SpyAgent, EspionageEvent } from './espionage.js';
 import { initialiseEspionage } from './espionage.js';
 import { createEmpireWarState, type EmpireWarState } from './war-response.js';
 
-export const SAVE_FORMAT_VERSION = '0.2.0';
+export const SAVE_FORMAT_VERSION = '0.3.0';
+
+/** Serialise nested Map<string, Map<string, T>> → array of tuples for JSON. */
+function serializeDiplomacyState(dipState: unknown): unknown {
+  if (dipState == null) return null;
+  const state = dipState as { relations?: Map<string, Map<string, unknown>> };
+  if (!state.relations) return dipState;
+  const relEntries: Array<[string, Array<[string, unknown]>]> = [];
+  for (const [empireId, targets] of state.relations) {
+    relEntries.push([empireId, Array.from(targets.entries())]);
+  }
+  return { ...state, relations: relEntries };
+}
+
+/** Restore nested Map from serialised diplomacy tuples. */
+function deserializeDiplomacyState(raw: unknown): unknown {
+  if (raw == null) return null;
+  const obj = raw as Record<string, unknown>;
+  if (!Array.isArray(obj.relations)) return raw;
+  const relations = new Map<string, Map<string, unknown>>();
+  for (const [empireId, targets] of obj.relations as Array<[string, Array<[string, unknown]>]>) {
+    relations.set(empireId, new Map(targets));
+  }
+  return { ...obj, relations };
+}
 
 // ---------------------------------------------------------------------------
 // Serialised representations
@@ -57,6 +81,22 @@ export interface SerializedTickState {
   espionageCounterIntel: Array<[string, number]>;
   espionageEventLog: EspionageEvent[];
   warStateMap?: Array<[string, EmpireWarState]>;
+  // v0.3.0 — dynamic state fields previously lost on save/load
+  diplomacyState?: unknown;
+  notifications?: unknown[];
+  galacticEvents?: unknown[];
+  corruptionStates?: unknown;
+  minorSpecies?: unknown[];
+  excavationSites?: unknown[];
+  marketState?: unknown;
+  diseaseStates?: unknown;
+  politicalStates?: unknown;
+  grievances?: unknown[];
+  diplomats?: unknown[];
+  organisationState?: unknown;
+  bankState?: unknown;
+  narrativeProgress?: unknown;
+  narrativeChains?: unknown[];
 }
 
 export interface SaveGame {
@@ -102,6 +142,22 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     espionageCounterIntel: Array.from(state.espionageState.counterIntelLevel.entries()),
     espionageEventLog: state.espionageEventLog,
     warStateMap: Array.from(state.warStateMap.entries()),
+    // v0.3.0 — dynamic state fields
+    diplomacyState: serializeDiplomacyState((state as unknown as Record<string, unknown>).diplomacyState),
+    notifications: ((state as unknown as Record<string, unknown>).notifications as unknown[]) ?? [],
+    galacticEvents: ((state as unknown as Record<string, unknown>).galacticEvents as unknown[]) ?? [],
+    corruptionStates: (state as unknown as Record<string, unknown>).corruptionStates ?? null,
+    minorSpecies: ((state as unknown as Record<string, unknown>).minorSpecies as unknown[]) ?? [],
+    excavationSites: ((state as unknown as Record<string, unknown>).excavationSites as unknown[]) ?? [],
+    marketState: (state as unknown as Record<string, unknown>).marketState ?? null,
+    diseaseStates: (state as unknown as Record<string, unknown>).diseaseStates ?? null,
+    politicalStates: (state as unknown as Record<string, unknown>).politicalStates ?? null,
+    grievances: ((state as unknown as Record<string, unknown>).grievances as unknown[]) ?? [],
+    diplomats: ((state as unknown as Record<string, unknown>).diplomats as unknown[]) ?? [],
+    organisationState: (state as unknown as Record<string, unknown>).organisationState ?? null,
+    bankState: (state as unknown as Record<string, unknown>).bankState ?? null,
+    narrativeProgress: (state as unknown as Record<string, unknown>).narrativeProgress ?? null,
+    narrativeChains: ((state as unknown as Record<string, unknown>).narrativeChains as unknown[]) ?? [],
   };
 }
 
@@ -121,7 +177,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     },
   );
 
-  return {
+  const result: GameTickState = {
     gameState: data.gameState,
     researchStates: new Map(data.researchStates),
     movementOrders: data.movementOrders,
@@ -151,6 +207,26 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
           (data.gameState.empires ?? []).map(e => [e.id, createEmpireWarState()]),
         ),
   };
+
+  // v0.3.0 — restore dynamic state fields (backward-compatible with v0.2.0 saves)
+  const ext = result as unknown as Record<string, unknown>;
+  if (data.diplomacyState != null) ext.diplomacyState = deserializeDiplomacyState(data.diplomacyState);
+  if (data.notifications != null) ext.notifications = data.notifications;
+  if (data.galacticEvents != null) ext.galacticEvents = data.galacticEvents;
+  if (data.corruptionStates != null) ext.corruptionStates = data.corruptionStates;
+  if (data.minorSpecies != null) ext.minorSpecies = data.minorSpecies;
+  if (data.excavationSites != null) ext.excavationSites = data.excavationSites;
+  if (data.marketState != null) ext.marketState = data.marketState;
+  if (data.diseaseStates != null) ext.diseaseStates = data.diseaseStates;
+  if (data.politicalStates != null) ext.politicalStates = data.politicalStates;
+  if (data.grievances != null) ext.grievances = data.grievances;
+  if (data.diplomats != null) ext.diplomats = data.diplomats;
+  if (data.organisationState != null) ext.organisationState = data.organisationState;
+  if (data.bankState != null) ext.bankState = data.bankState;
+  if (data.narrativeProgress != null) ext.narrativeProgress = data.narrativeProgress;
+  if (data.narrativeChains != null) ext.narrativeChains = data.narrativeChains;
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
