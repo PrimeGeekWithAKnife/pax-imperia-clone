@@ -8,9 +8,9 @@ import { getAudioEngine, MusicGenerator, AmbientSounds, SfxGenerator } from '../
 import type { MusicTrack } from '../../audio';
 import { renderShipThumbnail } from '../../assets/graphics';
 
-/** Galaxy size key → system count */
-const GALAXY_SIZE_MAP: Record<string, 'small' | 'medium' | 'large' | 'huge'> = {
-  small: 'small', medium: 'medium', large: 'large', huge: 'huge',
+/** Galaxy size key → shared GALAXY_SIZES key */
+const GALAXY_SIZE_MAP: Record<string, 'tiny' | 'small' | 'medium' | 'large' | 'huge'> = {
+  tiny: 'tiny', small: 'small', medium: 'medium', large: 'large', huge: 'huge',
 };
 
 const AI_COLORS = ['#ff6d00', '#e91e63', '#9c27b0', '#4caf50', '#ffc107', '#00bcd4', '#795548'];
