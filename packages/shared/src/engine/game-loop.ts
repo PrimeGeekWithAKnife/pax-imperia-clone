@@ -753,7 +753,9 @@ function processPlayerActions(
         const empireResearchState = state.researchStates.get(empireId);
         const empireTechs = empireResearchState?.completedTechs ?? [];
 
-        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, undefined, empireTechs, targetZone);
+        // Look up the building empire's species for racial building restrictions
+        const buildingEmpireForSpecies = empires.find(e => e.id === empireId);
+        const buildCheck = canBuildOnPlanet(planet, buildingType as BuildingType, buildingEmpireForSpecies?.species, empireTechs, targetZone);
         if (!buildCheck.allowed) {
           console.warn(`[game-loop] ConstructBuilding rejected for planet "${planetId}": ${buildCheck.reason}`);
           rejectAction(empireId, `Construction rejected: ${buildCheck.reason}`);
@@ -944,14 +946,24 @@ function stepFleetMovement(
       };
       events.push(movedEvent);
 
-      // Add the arrived system to the empire's known systems (fog of war reveal)
+      // Add the arrived system AND its 1-hop wormhole neighbours to the
+      // empire's known systems (fog of war reveal). This matches the game-init
+      // pattern where home system + neighbours are revealed at start.
       const empireForDiscovery = empires.find(e => e.id === fleet.empireId);
-      if (empireForDiscovery && !empireForDiscovery.knownSystems.includes(arrivedSystemId)) {
-        empires = empires.map(e =>
-          e.id === fleet.empireId
-            ? { ...e, knownSystems: [...e.knownSystems, arrivedSystemId] }
-            : e,
+      if (empireForDiscovery) {
+        const arrivedSystem = state.gameState.galaxy.systems.find(s => s.id === arrivedSystemId);
+        const neighbourIds = arrivedSystem?.wormholes ?? [];
+        const systemsToReveal = [arrivedSystemId, ...neighbourIds];
+        const newlyRevealed = systemsToReveal.filter(
+          sId => !empireForDiscovery.knownSystems.includes(sId),
         );
+        if (newlyRevealed.length > 0) {
+          empires = empires.map(e =>
+            e.id === fleet.empireId
+              ? { ...e, knownSystems: [...e.knownSystems, ...newlyRevealed] }
+              : e,
+          );
+        }
       }
 
       // First contact: establish diplomatic relations with empires present in this system
@@ -2345,8 +2357,36 @@ function stepFoodConsumption(state: GameTickState): GameTickState {
         if (planet.currentPopulation <= 0) continue;
         const loss = Math.max(1, Math.floor(planet.currentPopulation * 0.005));
         const newPop = Math.max(0, planet.currentPopulation - loss);
-        const updatedPlanet = { ...planet, currentPopulation: newPop };
-        systems = replacePlanet(systems, updatedPlanet);
+
+        if (newPop <= 0) {
+          // Population wiped out — release ownership so planet can be recolonised
+          const abandonedPlanet = {
+            ...planet,
+            currentPopulation: 0,
+            ownerId: null,
+            buildings: [],
+            productionQueue: [],
+          };
+          systems = replacePlanet(systems, abandonedPlanet);
+
+          // Emit colony_starving notification to alert the player
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- notifications is a dynamic property
+          const starvNotifications = [...((state as any).notifications ?? [])] as ReturnType<typeof createNotification>[];
+          starvNotifications.push(
+            createNotification(
+              'colony_starving',
+              'Colony lost to starvation',
+              `The colony on ${planet.name} has perished from starvation. The planet is now unowned.`,
+              state.gameState.currentTick,
+              undefined,
+              { planetId: planet.id, empireId: empire.id },
+            ),
+          );
+          state = { ...state, notifications: starvNotifications } as typeof state;
+        } else {
+          const updatedPlanet = { ...planet, currentPopulation: newPop };
+          systems = replacePlanet(systems, updatedPlanet);
+        }
       }
     }
   }
@@ -3340,10 +3380,11 @@ function executeAIBuild(
   // Ownership check — the AI must own this planet
   if (targetPlanet.ownerId !== empireId) return state;
 
-  // Validate the build is allowed
+  // Validate the build is allowed (pass species for racial building restrictions)
+  const aiEmpire = state.gameState.empires.find(e => e.id === empireId);
   const empireResearchState = state.researchStates.get(empireId);
   const empireTechs = empireResearchState?.completedTechs ?? [];
-  const buildCheck = canBuildOnPlanet(targetPlanet, buildingType as BuildingType, undefined, empireTechs);
+  const buildCheck = canBuildOnPlanet(targetPlanet, buildingType as BuildingType, aiEmpire?.species, empireTechs);
   if (!buildCheck.allowed) return state;
 
   // Check affordability
@@ -3583,7 +3624,8 @@ function executeAIBuildShip(
   state = applyResources(state, empireId, res);
 
   // Queue the production order (build time scales with cost, minimum 3 ticks)
-  const buildTime = Math.max(3, Math.ceil(shipCost / 15));
+  // Uses same formula as player path (baseCost / 100) to keep AI & player parity
+  const buildTime = Math.max(3, Math.round(shipCost / 100));
   const order = startShipProduction(chosenDesign.id, planetId, buildTime);
 
   return {

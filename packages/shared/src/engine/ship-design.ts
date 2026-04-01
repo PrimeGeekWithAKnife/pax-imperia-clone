@@ -427,6 +427,21 @@ export function autoEquipDesign(
     }
   }
 
+  // Set sensible armour plating defaults by hull class — heavier hulls get more
+  const ARMOUR_DEFAULTS: Record<string, number> = {
+    battleship: 0.3,
+    dreadnought: 0.3,
+    battle_station: 0.3,
+    cruiser: 0.2,
+    carrier: 0.2,
+    destroyer: 0.1,
+    transport: 0.1,
+    scout: 0.0,
+    coloniser: 0.0,
+    deep_space_probe: 0.0,
+  };
+  const armourPlating = ARMOUR_DEFAULTS[hull.class] ?? 0;
+
   return {
     id: generateId(),
     name: `Auto-${hull.name}`,
@@ -434,7 +449,7 @@ export function autoEquipDesign(
     components: assignments,
     totalCost: 0, // caller should recalculate with calculateDesignStats
     empireId: '',
-    armourPlating: 0,
+    armourPlating,
   };
 }
 
