@@ -34,7 +34,8 @@ export type VictoryCriteria =
   | 'conquest'      // Own all colonised systems
   | 'economic'      // Reach credit threshold first
   | 'research'      // Research all techs first
-  | 'diplomatic';   // Form alliances with a majority of empires
+  | 'diplomatic'    // Form alliances with a majority of empires
+  | 'score';        // Highest combined score when tick limit reached
 
 export interface PlayerSlot {
   slotIndex: number;

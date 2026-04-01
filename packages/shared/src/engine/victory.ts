@@ -37,7 +37,7 @@ export interface VictoryProgress {
 }
 
 export interface VictoryConditionStatus {
-  type: 'conquest' | 'economic' | 'technological' | 'diplomatic';
+  type: 'conquest' | 'economic' | 'technological' | 'diplomatic' | 'score';
   name: string;
   description: string;
   /** 0–100 completion percentage. */
@@ -65,6 +65,9 @@ const ECONOMIC_CREDIT_MULTIPLIER = 3;
 
 /** Number of consecutive ticks the empire must maintain the credit lead. */
 const ECONOMIC_DURATION_TICKS = 100;
+
+/** Default tick limit for score victory — game ends and highest score wins. */
+export const SCORE_TICK_LIMIT = 500;
 
 /** Ordered list of tech ages for scoring purposes (index = relative advancement). */
 const AGE_ORDER = [
@@ -320,6 +323,76 @@ function buildDiplomaticStatus(
   };
 }
 
+/**
+ * Lightweight score calculation that does NOT call calculateVictoryProgress
+ * (which would create infinite recursion via buildVictoryConditionStatuses).
+ * Mirrors the same scoring logic inline.
+ */
+function quickTotalScore(
+  empire: Empire,
+  gameState: GameState,
+  resourcesMap?: Map<string, EmpireResources>,
+): number {
+  const { galaxy, fleets, ships } = gameState;
+  const empireFleetIds = new Set(fleets.filter(f => f.empireId === empire.id).map(f => f.id));
+  const shipCount = ships.filter(s => s.fleetId !== null && empireFleetIds.has(s.fleetId)).length;
+  const controlledSystemCount = getSystemsOwnedBy(galaxy, empire.id).length;
+  const militaryScore = shipCount * 2 + controlledSystemCount * 10;
+
+  const credits = getCredits(empire, resourcesMap);
+  const tradeRoutes = empire.diplomacy.reduce((sum, rel) => sum + (rel.tradeRoutes ?? 0), 0);
+  const economicScore = Math.round(credits / 100) + tradeRoutes * 5;
+
+  const techCount = empire.technologies.length;
+  const age = ageIndex(empire.currentAge);
+  const technologyScore = techCount * 3 + age * 20;
+
+  const colonisedPlanets = getColonisedPlanets(galaxy);
+  const ownedPlanets = getPlanetsOwnedBy(galaxy, empire.id).length;
+  const territorialFraction = colonisedPlanets.length > 0 ? ownedPlanets / colonisedPlanets.length : 0;
+  const territorialScore = Math.round(territorialFraction * 100);
+
+  const allianceCount = countAlliances(empire);
+  const treatyCount = countTreaties(empire);
+  const diplomaticScore = allianceCount * 15 + treatyCount * 5;
+
+  return militaryScore + economicScore + technologyScore + territorialScore + diplomaticScore;
+}
+
+function buildScoreStatus(
+  empire: Empire,
+  gameState: GameState,
+  allEmpires: Empire[],
+  resourcesMap?: Map<string, EmpireResources>,
+  tickLimit: number = SCORE_TICK_LIMIT,
+): VictoryConditionStatus {
+  const progress = Math.min(100, Math.round((gameState.currentTick / tickLimit) * 100));
+
+  const myScore = quickTotalScore(empire, gameState, resourcesMap);
+
+  // Check if this empire has the highest score among all active empires
+  const activeEmpires = allEmpires.filter(
+    e => getPlanetsOwnedBy(gameState.galaxy, e.id).length > 0,
+  );
+  let isHighest = true;
+  for (const rival of activeEmpires) {
+    if (rival.id === empire.id) continue;
+    const rivalScore = quickTotalScore(rival, gameState, resourcesMap);
+    if (rivalScore >= myScore) {
+      isHighest = false;
+      break;
+    }
+  }
+
+  return {
+    type: 'score',
+    name: 'Score Victory',
+    description: `Achieve the highest combined score by turn ${tickLimit} (current: ${myScore}).`,
+    progress,
+    isAchieved: gameState.currentTick >= tickLimit && isHighest,
+  };
+}
+
 function buildVictoryConditionStatuses(
   empire: Empire,
   gameState: GameState,
@@ -334,6 +407,7 @@ function buildVictoryConditionStatuses(
     buildEconomicStatus(empire, allEmpires, resourcesMap, economicLeadTicks, gameState.galaxy),
     buildTechStatus(empire, techTotal),
     buildDiplomaticStatus(empire, allEmpires, gameState.galaxy),
+    buildScoreStatus(empire, gameState, allEmpires, resourcesMap),
   ];
 }
 
@@ -365,7 +439,7 @@ export function checkVictoryConditions(
   // Determine which criteria are active.  If none are configured, enable all.
   const enabledCriteria = (victoryCriteria && victoryCriteria.length > 0)
     ? victoryCriteria
-    : ['conquest', 'economic', 'technological', 'diplomatic'];
+    : ['conquest', 'economic', 'technological', 'diplomatic', 'score'];
 
   for (const empire of empires) {
     // ── Conquest ────────────────────────────────────────────────────────────
@@ -398,6 +472,26 @@ export function checkVictoryConditions(
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'diplomatic' };
       }
+    }
+  }
+
+  // ── Score (timed) ───────────────────────────────────────────────────────
+  // Checked outside the empire loop: only one empire can win score victory.
+  if (enabledCriteria.includes('score') && gameState.currentTick >= SCORE_TICK_LIMIT) {
+    // Find the active empire with the highest total score.
+    let bestEmpireId: string | null = null;
+    let bestScore = -1;
+    for (const empire of empires) {
+      // Skip eliminated empires
+      if (getPlanetsOwnedBy(gameState.galaxy, empire.id).length === 0) continue;
+      const total = quickTotalScore(empire, gameState, resourcesMap);
+      if (total > bestScore) {
+        bestScore = total;
+        bestEmpireId = empire.id;
+      }
+    }
+    if (bestEmpireId !== null) {
+      return { winner: bestEmpireId, condition: 'score' };
     }
   }
 

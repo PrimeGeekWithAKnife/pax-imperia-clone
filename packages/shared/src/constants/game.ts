@@ -16,7 +16,7 @@ export type GalaxySize = keyof typeof GALAXY_SIZES;
 export const MAX_PLAYERS = 8;
 
 /** Starting economic resources for each empire */
-export const STARTING_CREDITS = 1000;
+export const STARTING_CREDITS = 5000;
 export const STARTING_RESEARCH_POINTS = 0;
 
 /** Game speed multipliers (relative to normal) */

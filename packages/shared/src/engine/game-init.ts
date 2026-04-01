@@ -300,7 +300,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
     const colonisedPlanet: Planet = {
       ...planetResult.planet,
       ownerId: empireId,
-      currentPopulation: 500_000,
+      currentPopulation: 5_000_000,
       buildings: startingBuildings,
     };
 

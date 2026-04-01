@@ -181,6 +181,7 @@ import {
   processEmployment,
   processCrime,
   checkEconomicCrisis,
+  getCorruptionPenalty,
   type EmpireCorruptionState,
   type CorruptionEvent,
 } from './corruption.js';
@@ -2337,6 +2338,18 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     // Add trade route income to this empire's credit production.
     const tradeCredits = tradeIncome.get(empire.id) ?? 0;
     production.credits += tradeCredits;
+
+    // ── Corruption penalty: reduce credit income ────────────────────────
+    // The corruption step (3e) runs before production (step 4), so
+    // corruptionStates is already up-to-date for this tick.
+    const corruptionStates = (state as unknown as Record<string, unknown>).corruptionStates as
+      | Map<string, EmpireCorruptionState>
+      | undefined;
+    const empireCorruption = corruptionStates?.get(empire.id);
+    if (empireCorruption) {
+      const penalty = getCorruptionPenalty(empireCorruption.averageCorruption);
+      production.credits = Math.round(production.credits * penalty);
+    }
 
     const shipCount = countEmpireShipsViaFleets(
       state.gameState.ships,

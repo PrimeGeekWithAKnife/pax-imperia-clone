@@ -140,7 +140,7 @@ describe('calculateVictoryProgress', () => {
 
     expect(progress.empireId).toBe('alpha');
     expect(typeof progress.totalScore).toBe('number');
-    expect(progress.victoryConditions).toHaveLength(4);
+    expect(progress.victoryConditions).toHaveLength(5);
   });
 
   it('territorial score is 100 when empire owns all colonised planets', () => {
