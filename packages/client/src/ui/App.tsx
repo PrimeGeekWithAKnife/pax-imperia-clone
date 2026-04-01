@@ -47,6 +47,7 @@ import { EspionageScreen } from './screens/EspionageScreen';
 import type { EspionageState, EspionageEvent, SpyAgent, SpyMission, TacticalState, BattleReport } from '@nova-imperia/shared';
 import { initialiseEspionage, recruitSpy } from '@nova-imperia/shared';
 import { EconomyScreen } from './screens/EconomyScreen';
+import { DiplomatScreen } from './screens/DiplomatScreen';
 import { ColonyListScreen } from './screens/ColonyListScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
 import type { GameStatistics } from './screens/VictoryScreen';
@@ -70,7 +71,7 @@ import {
 } from '@nova-imperia/shared';
 import type { HullClass } from '@nova-imperia/shared';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'fleet' | 'espionage' | 'economy' | 'colony-list' | 'victory' | 'skirmish';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'diplomat' | 'fleet' | 'espionage' | 'economy' | 'colony-list' | 'victory' | 'skirmish';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -892,6 +893,14 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
   }, []);
 
+  const handleOpenDiplomatCorps = useCallback(() => {
+    setCurrentScreen('diplomat');
+  }, []);
+
+  const handleCloseDiplomatCorps = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
   const handleCloseEconomy = useCallback(() => {
     setCurrentScreen('game');
   }, []);
@@ -1654,6 +1663,7 @@ export function App(): React.ReactElement {
   useGameEvent<void>('ui:research', handleOpenResearch);
   useGameEvent<void>('ui:ship_designer', handleOpenShipDesigner);
   useGameEvent<void>('ui:diplomacy', handleOpenDiplomacy);
+  useGameEvent<void>('ui:diplomat', handleOpenDiplomatCorps);
   useGameEvent<Empire>('empire:updated', handleEmpireUpdate);
   useGameEvent<{ planet: Planet; systemId: string }>('planet:manage', handleManagePlanet);
   useGameEvent<EmpireResources>('empire:resources_updated', handleResourcesUpdate);
@@ -2227,6 +2237,22 @@ export function App(): React.ReactElement {
           onClose={handleCloseEspionage}
           onRecruitSpy={handleRecruitSpy}
           onAssignMission={handleAssignMission}
+        />
+      </div>
+    );
+  }
+
+  // Render diplomat corps screen as full-screen overlay
+  if (currentScreen === 'diplomat') {
+    const knownEmpiresList = knownEmpires
+      .filter((ke) => ke.isKnown)
+      .map((ke) => ke.empire);
+    return (
+      <div className="ui-overlay">
+        <DiplomatScreen
+          onClose={handleCloseDiplomatCorps}
+          playerEmpire={playerEmpire}
+          knownEmpires={knownEmpiresList}
         />
       </div>
     );

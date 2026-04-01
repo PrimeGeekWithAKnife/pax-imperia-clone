@@ -11280,3 +11280,129 @@ button:active:not(:disabled),
   top: 8px;
   right: 8px;
 }
+
+/* =========================================================================
+   Diplomat Screen
+   ========================================================================= */
+
+.diplomat-screen {
+  min-height: 520px;
+}
+
+/* ── Table layout ── */
+
+.diplomat-table-header {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1.2fr 0.7fr;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(20, 30, 50, 0.6);
+  border-bottom: 1px solid #2a3a50;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #7899bb;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diplomat-table-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.diplomat-table-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1.2fr 0.7fr;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(40, 55, 80, 0.4);
+  transition: background 0.15s;
+  font-size: 0.88em;
+  color: #b0c0d0;
+  align-items: center;
+}
+
+.diplomat-table-row:hover {
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.diplomat-table-row--selected {
+  background: rgba(0, 212, 255, 0.12);
+  border-left: 3px solid #00d4ff;
+}
+
+.diplomat-col-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e0e8f0;
+}
+
+.diplomat-col-assigned {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diplomat-col-skills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.diplomat-col-status {
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: capitalize;
+}
+
+/* ── Skill badge ── */
+
+.diplomat-skill-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 0.82em;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Trait chip ── */
+
+.diplomat-trait-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  font-size: 0.8em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Loyalty bar ── */
+
+.diplomat-loyalty-bar {
+  margin: 2px 0;
+}
+
+.diplomat-loyalty-bar__label {
+  font-size: 0.85em;
+  color: #8899aa;
+  margin-bottom: 4px;
+}
+
+.diplomat-loyalty-bar__track {
+  height: 8px;
+  background: rgba(40, 55, 80, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.diplomat-loyalty-bar__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
