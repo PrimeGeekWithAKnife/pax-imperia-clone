@@ -84,6 +84,14 @@ interface CombatStats {
   totalShields: number;
   totalArmor: number;
   repairRate: number;
+  /** Average accuracy across all weapons, 0-1 scale (used as hit chance). */
+  averageAccuracy: number;
+  /** Average range across all weapons (raw stat, not battlefield units). */
+  averageRange: number;
+  /** Total armour penetration percentage (reduces effective armour absorption). */
+  totalArmorPen: number;
+  /** Total shield penetration percentage (fraction of damage that bypasses shields). */
+  totalShieldPen: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +163,13 @@ function deriveDesignStats(
   let totalArmor = 0;
   let repairRate = 0;
 
+  // Weapon-specific accumulators
+  let weaponCount = 0;
+  let accuracySum = 0;
+  let rangeSum = 0;
+  let totalArmorPen = 0;
+  let totalShieldPen = 0;
+
   for (const assignment of design.components) {
     const c = componentById.get(assignment.componentId);
     if (c == null) continue;
@@ -163,12 +178,21 @@ function deriveDesignStats(
       case 'weapon_beam':
       case 'weapon_projectile':
       case 'weapon_missile':
-      case 'weapon_point_defense':
+      case 'weapon_point_defense': {
         totalDamage += c.stats['damage'] ?? 0;
+        weaponCount++;
+        accuracySum += c.stats['accuracy'] ?? 80;
+        rangeSum += c.stats['range'] ?? 5;
+        totalArmorPen += c.stats['armorPenetration'] ?? 0;
+        totalShieldPen += c.stats['shieldPenetration'] ?? 0;
         break;
+      }
 
       case 'fighter_bay':
         totalDamage += (c.stats['fighterCount'] ?? 0) * (c.stats['damage'] ?? 0);
+        weaponCount++;
+        accuracySum += c.stats['accuracy'] ?? 80;
+        rangeSum += c.stats['range'] ?? 5;
         break;
 
       case 'shield':
@@ -188,7 +212,14 @@ function deriveDesignStats(
     }
   }
 
-  return { totalDamage, totalShields, totalArmor, repairRate };
+  // Average accuracy as 0-1 multiplier; default 0.8 if no weapons
+  const averageAccuracy = weaponCount > 0 ? (accuracySum / weaponCount) / 100 : 0.8;
+  const averageRange = weaponCount > 0 ? rangeSum / weaponCount : 5;
+
+  return {
+    totalDamage, totalShields, totalArmor, repairRate,
+    averageAccuracy, averageRange, totalArmorPen, totalShieldPen,
+  };
 }
 
 /** Effective weapon damage output accounting for weapons system damage. */
@@ -331,7 +362,7 @@ export function initializeCombat(
     return ships.map((ship, index) => {
       const design = designs.get(ship.designId);
       const stats =
-        design != null ? deriveDesignStats(design, componentById) : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0 };
+        design != null ? deriveDesignStats(design, componentById) : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0, averageAccuracy: 0.8, averageRange: 5, totalArmorPen: 0, totalShieldPen: 0 };
 
       const maxShields = effectiveMaxShields(stats, ship.systemDamage);
 
@@ -425,6 +456,7 @@ export function processCombatTick(
       case 'evasive':
         return { damageMultiplier: 0.5, shieldBonus: 0.0, damageTakenMultiplier: 0.8 };
       case 'patrol':
+        return { damageMultiplier: 0.8, shieldBonus: 0.0, damageTakenMultiplier: 0.9 };
       case 'aggressive':
       default:
         return { damageMultiplier: 1.0, shieldBonus: 0.0, damageTakenMultiplier: 1.0 };
@@ -512,7 +544,7 @@ export function processCombatTick(
   for (const cs of [...attackers, ...defenders]) {
     if (cs.isDestroyed || cs.isRouted) continue;
     const design = getDesign(cs);
-    const stats = design != null ? deriveDesignStats(design, componentById) : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0 };
+    const stats = design != null ? deriveDesignStats(design, componentById) : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0, averageAccuracy: 0.8, averageRange: 5, totalArmorPen: 0, totalShieldPen: 0 };
     const stanceMods = cs.side === 'attacker' ? attackerMods : defenderMods;
     const maxSh = effectiveMaxShields(stats, cs.ship.systemDamage) * (1 + stanceMods.shieldBonus);
     cs.maxShields = maxSh;
@@ -531,12 +563,16 @@ export function processCombatTick(
     'warpDrive',
   ];
 
-  // Collect damage orders: { target CombatShip ref, rawDamage, weaponName, sourceId }
+  // Collect damage orders: { target CombatShip ref, rawDamage, weaponName, sourceId, pen stats }
   interface DamageOrder {
     source: CombatShip;
     target: CombatShip;
     damage: number;
     weapon: string;
+    /** Armour penetration percentage (0-100). Reduces effective armour absorption. */
+    armorPen: number;
+    /** Shield penetration percentage (0-100). Fraction of damage that bypasses shields. */
+    shieldPen: number;
   }
 
   const damageOrders: DamageOrder[] = [];
@@ -548,12 +584,20 @@ export function processCombatTick(
       if (design == null) continue;
       const stats = deriveDesignStats(design, componentById);
       const stanceMods = shooter.side === 'attacker' ? attackerMods : defenderMods;
-      const damage = effectiveWeaponDamage(stats, shooter.ship.systemDamage) * stanceMods.damageMultiplier;
+
+      // Accuracy scales damage as a 0-1 multiplier per tick
+      const damage = effectiveWeaponDamage(stats, shooter.ship.systemDamage)
+        * stanceMods.damageMultiplier
+        * stats.averageAccuracy;
       if (damage <= 0) continue;
       const target = selectTarget(shooter, enemyShips, rng);
       if (target == null) continue;
       const weapon = firstWeaponName(design, componentById);
-      damageOrders.push({ source: shooter, target, damage, weapon });
+      damageOrders.push({
+        source: shooter, target, damage, weapon,
+        armorPen: stats.totalArmorPen,
+        shieldPen: stats.totalShieldPen,
+      });
     }
   }
 
@@ -584,23 +628,33 @@ export function processCombatTick(
 
     let remaining = damage;
 
-    // Shields absorb first.
-    if (target.currentShields > 0) {
-      const absorbed = Math.min(target.currentShields, remaining);
+    // Shield penetration: a fraction of damage bypasses shields entirely
+    const shieldPenFraction = clamp(order.shieldPen / 100, 0, 1);
+    const shieldBypassDamage = remaining * shieldPenFraction;
+    let shieldableDamage = remaining - shieldBypassDamage;
+
+    // Shields absorb the non-penetrating portion first.
+    if (target.currentShields > 0 && shieldableDamage > 0) {
+      const absorbed = Math.min(target.currentShields, shieldableDamage);
       target.currentShields = Math.max(0, target.currentShields - absorbed);
-      remaining -= absorbed;
+      shieldableDamage -= absorbed;
       events.push({ type: 'shield_absorbed', shipId: target.ship.id, amount: absorbed });
     }
 
+    // Remaining = unabsorbed shieldable portion + the bypass portion
+    remaining = shieldableDamage + shieldBypassDamage;
+
     if (remaining <= 0) continue;
 
-    // Armor partially absorbs remaining damage.
+    // Armor partially absorbs remaining damage (reduced by armour penetration).
     const targetDesign = getDesign(target);
     const targetStats =
       targetDesign != null
         ? deriveDesignStats(targetDesign, componentById)
-        : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0 };
-    const armorAbsorb = Math.min(targetStats.totalArmor * ARMOR_ABSORPTION_FRACTION, remaining - 1);
+        : { totalDamage: 0, totalShields: 0, totalArmor: 0, repairRate: 0, averageAccuracy: 0.8, averageRange: 5, totalArmorPen: 0, totalShieldPen: 0 };
+    const armorPenFraction = clamp(order.armorPen / 100, 0, 1);
+    const effectiveArmor = targetStats.totalArmor * (1 - armorPenFraction);
+    const armorAbsorb = Math.min(effectiveArmor * ARMOR_ABSORPTION_FRACTION, remaining - 1);
     remaining -= Math.max(0, armorAbsorb);
 
     // Hull damage (minimum 1 to prevent stalemates).

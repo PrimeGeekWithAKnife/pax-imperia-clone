@@ -2355,12 +2355,28 @@ export function calculateExperienceGain(
   const currentIdx = EXP_LEVELS.indexOf(ship.crew.experience);
 
   // Difficult battles (outnumbered) give bonus
-  const difficultyBonus = enemyShipCount > allyShipCount * 1.5 ? 2 : 0;
+  const outnumberedRatio = allyShipCount > 0 ? enemyShipCount / allyShipCount : 0;
+  const difficultyBonus = outnumberedRatio >= 1.5 ? 2 : 0;
   const victoryBonus = wasVictorious ? 2 : 0;
 
   const totalGain = victoryBonus + difficultyBonus;
+
+  // Determine the cap based on how outnumbered and whether victorious:
+  //   - Normal victories cap at elite (index 6)
+  //   - Outnumbered victories (1.5x+) can reach ace (index 7)
+  //   - Extremely outnumbered victories (2x+) can reach legendary (index 8)
   const ELITE_IDX = EXP_LEVELS.indexOf('elite');
-  const newIdx = Math.min(ELITE_IDX, currentIdx + totalGain);
+  const ACE_IDX = EXP_LEVELS.indexOf('ace');
+  const LEGENDARY_IDX = EXP_LEVELS.indexOf('legendary');
+
+  let cap = ELITE_IDX;
+  if (wasVictorious && outnumberedRatio >= 2.0) {
+    cap = LEGENDARY_IDX;
+  } else if (wasVictorious && outnumberedRatio >= 1.5) {
+    cap = ACE_IDX;
+  }
+
+  const newIdx = Math.min(cap, currentIdx + totalGain);
 
   return EXP_LEVELS[newIdx]!;
 }
