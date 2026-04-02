@@ -55,3 +55,14 @@ export {
   isRelationshipHostile,
   isRelationshipAllianceReady,
 } from './relationship.js';
+
+export {
+  sigmoid,
+  computeAcceptanceProbability,
+  probabilisticDecision,
+  evaluateProposal,
+  computeNeedAlignment,
+  generateDiplomaticActions,
+  proposalFrequency,
+} from './evaluation.js';
+export type { ProposalContext, EvaluableTreatyType, DiplomaticAction } from './evaluation.js';
