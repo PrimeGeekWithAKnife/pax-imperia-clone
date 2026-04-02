@@ -1760,34 +1760,23 @@ function stepCombatResolution(
         const updatedPlanets = sys.planets.map(p => {
           if (p.ownerId !== loserEmpireId) return p;
 
-          // Check for military buildings on this planet
+          // Ground invasion — population always provides base resistance.
+          // Even without military buildings, billions of people don't just
+          // surrender to a handful of ships.
           const defenseGridLevel = p.buildings
             .filter(b => b.type === 'defense_grid')
             .reduce((sum, b) => sum + b.level, 0);
           const militaryAcademyLevel = p.buildings
             .filter(b => b.type === 'military_academy')
             .reduce((sum, b) => sum + b.level, 0);
-          const hasMilitaryBuildings = defenseGridLevel > 0 || militaryAcademyLevel > 0;
 
-          // ── Path A: Civilian surrender (no military buildings) ──────────
-          if (!hasMilitaryBuildings) {
-            capturedPlanets.push({
-              planetName: p.name,
-              systemId: combat.systemId,
-              winnerEmpireId,
-              outcome: 'civilian_surrender',
-            });
-            systemOwnerChanged = true;
-            return {
-              ...p,
-              ownerId: winnerEmpireId,
-              currentPopulation: Math.floor(p.currentPopulation * 0.75),
-              productionQueue: [],
-            };
-          }
+          // Base resistance: 1 per 10M population + military buildings
+          const populationResistance = Math.ceil(p.currentPopulation / 10_000_000);
+          const militaryDefence = (50 * defenseGridLevel) + (30 * militaryAcademyLevel);
+          const defenderStrength = populationResistance + militaryDefence;
 
-          // ── Path B: Orbital superiority (military buildings, no transports) ──
           if (attackerTransportStrength <= 0) {
+            // Orbital superiority — no ground troops to land
             capturedPlanets.push({
               planetName: p.name,
               systemId: combat.systemId,
@@ -1795,17 +1784,8 @@ function stepCombatResolution(
               outcome: 'orbital_superiority',
             });
             systemOwnerChanged = true;
-            // System ownership changes but planet stays with defender
             return p;
-          }
-
-          // ── Path C: Ground invasion (military buildings + transports) ───
-          const defenderStrength =
-            (p.currentPopulation * 0.01) +
-            (50 * defenseGridLevel) +
-            (30 * militaryAcademyLevel);
-
-          if (attackerTransportStrength > defenderStrength * 1.5) {
+          } else if (attackerTransportStrength > defenderStrength * 1.5) {
             // Clean capture — overwhelming force
             capturedPlanets.push({
               planetName: p.name,
@@ -2010,20 +1990,31 @@ function stepUnopposedOccupation(state: GameTickState, events: GameEvent[]): Gam
           }
         }
 
-        // Apply capture logic (same as post-combat)
+        // Apply capture logic — population always provides base resistance.
+        // A planet of billions cannot be captured in a single tick by a
+        // small fleet.  Defence buildings multiply the resistance further.
         const defenseGridLevel = enemyPlanet.buildings
           .filter(b => b.type === 'defense_grid')
           .reduce((sum, b) => sum + b.level, 0);
         const militaryAcademyLevel = enemyPlanet.buildings
           .filter(b => b.type === 'military_academy')
           .reduce((sum, b) => sum + b.level, 0);
-        const hasMilitaryBuildings = defenseGridLevel > 0 || militaryAcademyLevel > 0;
+
+        // Base resistance from population: 1 per 10M people (same scale as food).
+        // Even civilians resist occupation — guerrillas, infrastructure sabotage,
+        // non-cooperation.  Military buildings add professional defence on top.
+        const populationResistance = Math.ceil(enemyPlanet.currentPopulation / 10_000_000);
+        const militaryDefence = (50 * defenseGridLevel) + (30 * militaryAcademyLevel);
+        const defenderStrength = populationResistance + militaryDefence;
 
         let updatedPlanet = enemyPlanet;
         let captured = false;
 
-        if (!hasMilitaryBuildings) {
-          // Civilian surrender
+        if (transportStrength <= 0) {
+          // Orbital superiority only — can't land troops, just blockade
+          continue;
+        } else if (transportStrength > defenderStrength * 1.5) {
+          // Overwhelming force — clean capture
           updatedPlanet = {
             ...enemyPlanet,
             ownerId: fleetEmpireId,
@@ -2032,49 +2023,26 @@ function stepUnopposedOccupation(state: GameTickState, events: GameEvent[]): Gam
           };
           captured = true;
           notifications.push(createNotification(
-            'planet_captured', `${enemyPlanet.name} surrendered!`,
-            `The civilian population of ${enemyPlanet.name} has surrendered to your occupying fleet.`,
+            'planet_captured', `${enemyPlanet.name} captured!`,
+            `Your ground forces overwhelmed the defenders of ${enemyPlanet.name}.`,
             tick, undefined, { systemId: system.id },
           ));
-        } else if (transportStrength <= 0) {
-          // Orbital superiority only — can't land troops
-          // Don't capture the planet, just blockade
-          continue;
-        } else {
-          const defenderStrength =
-            (enemyPlanet.currentPopulation * 0.01) +
-            (50 * defenseGridLevel) +
-            (30 * militaryAcademyLevel);
-
-          if (transportStrength > defenderStrength * 1.5) {
-            updatedPlanet = {
-              ...enemyPlanet,
-              ownerId: fleetEmpireId,
-              currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.75),
-              productionQueue: [],
-            };
-            captured = true;
-            notifications.push(createNotification(
-              'planet_captured', `${enemyPlanet.name} captured!`,
-              `Your ground forces overwhelmed the defenders of ${enemyPlanet.name}.`,
-              tick, undefined, { systemId: system.id },
-            ));
-          } else if (transportStrength > defenderStrength) {
-            updatedPlanet = {
-              ...enemyPlanet,
-              ownerId: fleetEmpireId,
-              currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.25),
-              productionQueue: [],
-            };
-            captured = true;
-            notifications.push(createNotification(
-              'planet_captured', `${enemyPlanet.name} captured (heavy losses)`,
-              `${enemyPlanet.name} has fallen after brutal ground combat.`,
-              tick, undefined, { systemId: system.id },
-            ));
-          }
-          // else: invasion repelled, planet stays
+        } else if (transportStrength > defenderStrength) {
+          // Pyrrhic victory — costly ground war
+          updatedPlanet = {
+            ...enemyPlanet,
+            ownerId: fleetEmpireId,
+            currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.25),
+            productionQueue: [],
+          };
+          captured = true;
+          notifications.push(createNotification(
+            'planet_captured', `${enemyPlanet.name} captured (heavy losses)`,
+            `${enemyPlanet.name} has fallen after brutal ground combat.`,
+            tick, undefined, { systemId: system.id },
+          ));
         }
+        // else: invasion repelled — fleet doesn't have enough troops
 
         if (captured) {
           systems = systems.map(s =>
