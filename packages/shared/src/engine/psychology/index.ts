@@ -90,3 +90,28 @@ export {
   processSenateTick,
 } from './senate.js';
 export type { SenateAction, SenateTickEvent } from './senate.js';
+
+export {
+  determineWarDeclarationStyle,
+  isUndeclaredWar,
+  declarationReputationPenalty,
+  wouldAbandonHonour,
+  soundCoalitionSupport,
+  assessCoalitionSupport,
+} from './war-declaration.js';
+export type { WarDeclarationStyle, CoalitionResponse, CoalitionAssessment } from './war-declaration.js';
+
+export {
+  createCouncilV2,
+  proposeBill,
+  startCanvassing,
+  recordCanvassingResponse,
+  startVoting,
+  castVote,
+  vetoBill,
+  resolveBill,
+  aiVoteOnBill,
+  shouldLeaderVeto,
+  vetoPopularityCost,
+  processCouncilTick,
+} from './council.js';
