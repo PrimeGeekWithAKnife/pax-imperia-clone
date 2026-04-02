@@ -748,7 +748,21 @@ export function PlanetManagementScreen({
   }, []);
 
   const [upgradeTarget, setUpgradeTarget] = useState<Building | null>(null);
-  const [activeTab, setActiveTab] = useState<'build-queue' | 'population' | 'economy' | 'orbitals'>('economy');
+  // Remember last viewed tab across planet changes
+  const [activeTab, setActiveTab] = useState<'build-queue' | 'population' | 'economy' | 'orbitals'>(
+    () => {
+      try {
+        const saved = sessionStorage.getItem('planet-mgmt-tab');
+        if (saved === 'build-queue' || saved === 'population' || saved === 'economy' || saved === 'orbitals') return saved;
+      } catch { /* ignore */ }
+      return 'economy';
+    },
+  );
+  // Persist tab selection
+  const handleSetActiveTab = useCallback((tab: typeof activeTab) => {
+    setActiveTab(tab);
+    try { sessionStorage.setItem('planet-mgmt-tab', tab); } catch { /* ignore */ }
+  }, []);
 
   const handleBuildingClick = useCallback((building: Building, _index: number) => {
     setUpgradeTarget(prev => (prev?.id === building.id ? null : building));
@@ -1376,6 +1390,9 @@ export function PlanetManagementScreen({
               orbitalSlots={zonedSlots.orbital}
               undergroundSlots={zonedSlots.underground}
               buildings={planet.buildings}
+              queuedBuildings={planet.productionQueue
+                .filter(q => q.type === 'building')
+                .map(q => ({ type: (q as Record<string, unknown>).buildingType as string ?? 'unknown', targetZone: (q as Record<string, unknown>).targetZone as 'surface' | 'orbital' | 'underground' | undefined }))}
               onEmptySlotClick={handleEmptySlotClick}
               onBuildingClick={handleBuildingClick}
               onDemolish={onDemolish ? handleDemolishRequest : undefined}
@@ -1523,7 +1540,7 @@ export function PlanetManagementScreen({
                   role="tab"
                   aria-selected={activeTab === key}
                   className={`pm-tab ${activeTab === key ? 'pm-tab--active' : ''}`}
-                  onClick={() => setActiveTab(key)}
+                  onClick={() => handleSetActiveTab(key)}
                 >
                   {label}
                 </button>

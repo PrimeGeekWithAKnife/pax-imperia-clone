@@ -3,11 +3,19 @@ import type { Building, BuildingType } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
 import { renderBuildingSlotIcon } from '../../assets/graphics';
 
+/** A building currently in the production queue. */
+interface QueuedBuilding {
+  type: string;
+  targetZone?: 'surface' | 'orbital' | 'underground';
+}
+
 interface BuildingSlotGridProps {
   surfaceSlots: { used: number; total: number };
   orbitalSlots: { used: number; total: number };
   undergroundSlots: { used: number; total: number };
   buildings: Building[];
+  /** Buildings currently in the production queue (shown as "under construction"). */
+  queuedBuildings?: QueuedBuilding[];
   /** Called when clicking an empty slot in a given zone */
   onEmptySlotClick: (zone: 'surface' | 'orbital' | 'underground') => void;
   /** Called when clicking an occupied slot (for future upgrade/info) */
@@ -140,6 +148,7 @@ interface SlotSectionProps {
   zone: 'surface' | 'orbital' | 'underground';
   slots: { used: number; total: number };
   buildings: Building[];
+  queuedBuildings?: QueuedBuilding[];
   onEmptySlotClick: () => void;
   onBuildingClick: (building: Building, slotIndex: number) => void;
   onDemolish?: (building: Building) => void;
@@ -149,14 +158,22 @@ function SlotSection({
   zone,
   slots,
   buildings,
+  queuedBuildings = [],
   onEmptySlotClick,
   onBuildingClick,
   onDemolish,
 }: SlotSectionProps): React.ReactElement {
-  const slotArray: Array<Building | null> = Array.from(
-    { length: slots.total },
-    (_, i) => buildings[i] ?? null,
-  );
+  // Build slot array: existing buildings first, then queued, then empty
+  const slotArray: Array<Building | QueuedBuilding | null> = [];
+  for (let i = 0; i < slots.total; i++) {
+    if (i < buildings.length) {
+      slotArray.push(buildings[i]);
+    } else if (i - buildings.length < queuedBuildings.length) {
+      slotArray.push(queuedBuildings[i - buildings.length]);
+    } else {
+      slotArray.push(null);
+    }
+  }
 
   return (
     <div
@@ -176,6 +193,36 @@ function SlotSection({
             >
               <span className="bsg-slot__plus">+</span>
             </button>
+          );
+        }
+
+        // Queued building — show "under construction" visual
+        if (!('id' in building)) {
+          const qDef = getBuildingDef(building.type as BuildingType);
+          const abbrev = BUILDING_ABBREV[building.type as BuildingType] ?? '??';
+          return (
+            <div
+              key={`q-${index}`}
+              className="bsg-slot bsg-slot--constructing"
+              title={`${qDef?.name ?? building.type} (Under Construction)`}
+              style={{
+                position: 'relative',
+                opacity: 0.6,
+                border: '1px dashed rgba(0, 180, 255, 0.5)',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+              }}>
+                <span className="bsg-slot__icon" style={{ color: '#0088cc' }}>{abbrev}</span>
+                <span style={{ fontSize: '8px', color: '#0088cc', marginTop: '2px' }}>Building...</span>
+              </div>
+            </div>
           );
         }
 
@@ -238,6 +285,7 @@ export function BuildingSlotGrid({
   orbitalSlots,
   undergroundSlots,
   buildings,
+  queuedBuildings = [],
   onEmptySlotClick,
   onBuildingClick,
   onDemolish,
@@ -246,6 +294,10 @@ export function BuildingSlotGrid({
   const orbitalBuildings = buildings.filter(b => b.slotZone === 'orbital');
   const undergroundBuildings = buildings.filter(b => b.slotZone === 'underground');
 
+  const surfaceQueued = queuedBuildings.filter(q => (q.targetZone ?? 'surface') === 'surface');
+  const orbitalQueued = queuedBuildings.filter(q => q.targetZone === 'orbital');
+  const undergroundQueued = queuedBuildings.filter(q => q.targetZone === 'underground');
+
   return (
     <div className="bsg-zones">
       {/* Surface */}
@@ -253,6 +305,7 @@ export function BuildingSlotGrid({
         zone="surface"
         slots={surfaceSlots}
         buildings={surfaceBuildings}
+        queuedBuildings={surfaceQueued}
         onEmptySlotClick={() => onEmptySlotClick('surface')}
         onBuildingClick={onBuildingClick}
         onDemolish={onDemolish}
@@ -266,6 +319,7 @@ export function BuildingSlotGrid({
             zone="orbital"
             slots={orbitalSlots}
             buildings={orbitalBuildings}
+            queuedBuildings={orbitalQueued}
             onEmptySlotClick={() => onEmptySlotClick('orbital')}
             onBuildingClick={onBuildingClick}
             onDemolish={onDemolish}
@@ -281,6 +335,7 @@ export function BuildingSlotGrid({
             zone="underground"
             slots={undergroundSlots}
             buildings={undergroundBuildings}
+            queuedBuildings={undergroundQueued}
             onEmptySlotClick={() => onEmptySlotClick('underground')}
             onBuildingClick={onBuildingClick}
             onDemolish={onDemolish}
