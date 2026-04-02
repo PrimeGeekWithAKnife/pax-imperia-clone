@@ -21,6 +21,26 @@ import { getIdealPlanetType } from './terraforming.js';
 import { generateId } from '../utils/id.js';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js';
 import { getAbilityFoodModifier } from './economy.js';
+import type { AIPersonality } from '../types/species.js';
+
+/**
+ * Infer an AI personality from the species' traits.  The highest trait
+ * drives the personality, so a species with combat 9 will be aggressive
+ * while one with diplomacy 8 will be diplomatic.
+ */
+function inferAIPersonality(species: Species): AIPersonality {
+  const t = species.traits;
+  const candidates: [AIPersonality, number][] = [
+    ['aggressive',   t.combat],
+    ['economic',     t.economy],
+    ['researcher',   t.research],
+    ['diplomatic',   t.diplomacy],
+    ['expansionist', t.construction],
+  ];
+  // Sort descending by trait value; ties broken by order (combat wins ties)
+  candidates.sort((a, b) => b[1] - a[1]);
+  return candidates[0][0];
+}
 
 // ── Public interfaces ─────────────────────────────────────────────────────────
 
@@ -438,9 +458,11 @@ export function initializeGame(config: GameSetupConfig): GameState {
       currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
       government: playerSetup.government ?? playerSetup.species.defaultGovernment ?? 'democracy',
-      ...(playerSetup.aiPersonality !== undefined
-        ? { aiPersonality: playerSetup.aiPersonality }
-        : {}),
+      // AI personality: explicit > inferred from species traits > defensive fallback.
+      // Trait-based inference means combat-focused species (Drakmari, Khazari) will
+      // actually pursue war, while diplomatic species (Vethara, Teranos) seek alliances.
+      aiPersonality: playerSetup.aiPersonality
+        ?? (playerSetup.isAI ? inferAIPersonality(playerSetup.species) : undefined),
     };
 
     empires.push(empire);
