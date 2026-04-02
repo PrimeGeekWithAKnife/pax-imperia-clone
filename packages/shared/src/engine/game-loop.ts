@@ -995,7 +995,9 @@ function stepFleetMovement(
         if (dipState) {
           for (const foreignId of foreignEmpireIds) {
             const rel = getRelation(dipState, fleet.empireId, foreignId);
-            if (rel && rel.firstContact === -1) {
+            // First contact: either no relation exists yet (null) or relation
+            // exists but firstContact hasn't been recorded (-1).
+            if (!rel || rel.firstContact === -1) {
               dipState = makeFirstContact(dipState, fleet.empireId, foreignId, tick);
               (state as unknown as Record<string, unknown>).diplomacyState = dipState;
             }
