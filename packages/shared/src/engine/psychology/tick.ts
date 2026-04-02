@@ -23,6 +23,9 @@ import type { EmpireStateSnapshot } from './maslow.js';
 import { computeStressLevel, applyEnneagramDisintegration, applyEnneagramGrowth } from './stress.js';
 import type { StressInput } from './stress.js';
 import { tickRelationship } from './relationship.js';
+import type { PsychRelationship } from '../../types/diplomacy-v2.js';
+import { CORE_TRAIT_KEYS } from '../../types/psychology.js';
+import type { CoreTraitKey } from '../../types/psychology.js';
 
 // ---------------------------------------------------------------------------
 // Initialisation
@@ -129,8 +132,29 @@ export function processPsychologyTick(
     updatedRelationships[targetId] = tickRelationship(rel, personality.attachmentStyle, currentTick);
   }
 
+  // 7. Personality evolution — sustained experience reshapes core traits.
+  // Runs every 100 ticks. Accumulated trauma, prolonged war, persistent
+  // isolation, or lasting prosperity slowly shift who a species IS.
+  // A Sylvani at war for 5000 ticks won't still be agreeableness 75.
+  let updatedPersonality = personality;
+  if (currentTick > 0 && currentTick % 100 === 0) {
+    updatedPersonality = evolvePersonality(personality, stressLevel, needs, updatedRelationships, currentTick);
+    // Effective traits should reflect the evolved personality
+    effectiveTraits = applyEnneagramDisintegration(
+      updatedPersonality.traits,
+      updatedPersonality.enneagram,
+      stressLevel,
+    );
+    effectiveTraits = applyEnneagramGrowth(
+      effectiveTraits,
+      updatedPersonality.enneagram,
+      stressLevel,
+      needs,
+    );
+  }
+
   return {
-    personality,
+    personality: updatedPersonality,
     effectiveTraits,
     mood,
     needs,
@@ -193,4 +217,132 @@ function generateNeedBasedMoodEvents(
   }
 
   return events;
+}
+
+// ---------------------------------------------------------------------------
+// Personality evolution — sustained experience reshapes core traits
+// ---------------------------------------------------------------------------
+
+/** Per-trait drift rate: how much one "pressure unit" shifts a trait per 100 ticks. */
+const TRAIT_DRIFT_RATE = 0.3;
+
+/** Maximum total drift from the original rolled value (prevents complete transformation). */
+const MAX_TOTAL_DRIFT = 25;
+
+/**
+ * Evolve a personality based on sustained conditions.
+ *
+ * This is not a sudden shift — it's the slow grinding effect of lived
+ * experience. A species imprisoned in perpetual war gradually becomes
+ * harder, more neurotic, less agreeable. A species in lasting peace
+ * slowly becomes more open, more trusting, less fearful.
+ *
+ * Each condition applies a small per-epoch pressure on specific traits.
+ * Pressures accumulate but are capped so a species retains its identity.
+ *
+ * Called every 100 ticks from the main tick processor.
+ */
+function evolvePersonality(
+  personality: RolledPersonality,
+  stressLevel: StressLevel,
+  needs: MaslowNeeds,
+  relationships: Record<string, PsychRelationship>,
+  _currentTick: number,
+): RolledPersonality {
+  const drifts: Partial<Record<CoreTraitKey, number>> = {};
+
+  // --- Sustained war / low safety → harder, more neurotic, less agreeable ---
+  if (needs.safety < 40) {
+    const pressure = (40 - needs.safety) / 40; // 0..1
+    drifts.neuroticism = (drifts.neuroticism ?? 0) + pressure * TRAIT_DRIFT_RATE;
+    drifts.agreeableness = (drifts.agreeableness ?? 0) - pressure * TRAIT_DRIFT_RATE;
+    drifts.honestyHumility = (drifts.honestyHumility ?? 0) - pressure * TRAIT_DRIFT_RATE * 0.5;
+  }
+
+  // --- Chronic stress (high/extreme for extended periods) → elevated neuroticism ---
+  if (stressLevel === 'high' || stressLevel === 'extreme') {
+    drifts.neuroticism = (drifts.neuroticism ?? 0) + TRAIT_DRIFT_RATE * 0.5;
+    drifts.extraversion = (drifts.extraversion ?? 0) - TRAIT_DRIFT_RATE * 0.3;
+  }
+
+  // --- Prolonged isolation (no allies, low belonging) → withdrawn, less trusting ---
+  if (needs.belonging < 25) {
+    const pressure = (25 - needs.belonging) / 25;
+    drifts.extraversion = (drifts.extraversion ?? 0) - pressure * TRAIT_DRIFT_RATE * 0.5;
+    drifts.agreeableness = (drifts.agreeableness ?? 0) - pressure * TRAIT_DRIFT_RATE * 0.3;
+  }
+
+  // --- Repeated betrayal → less agreeable, less trusting (computed from relationships) ---
+  let totalBetrayal = 0;
+  let totalPositive = 0;
+  let allianceCount = 0;
+  for (const rel of Object.values(relationships)) {
+    totalBetrayal += rel.negativeHistory;
+    totalPositive += rel.positiveHistory;
+    if (rel.trust > 60 && rel.warmth > 40) allianceCount++;
+  }
+
+  if (totalBetrayal > 50) {
+    const pressure = Math.min(1, totalBetrayal / 200);
+    drifts.agreeableness = (drifts.agreeableness ?? 0) - pressure * TRAIT_DRIFT_RATE;
+    drifts.honestyHumility = (drifts.honestyHumility ?? 0) - pressure * TRAIT_DRIFT_RATE * 0.3;
+  }
+
+  // --- Lasting prosperity + peace → more open, more agreeable, less neurotic ---
+  if (needs.safety > 70 && needs.physiological > 70 && stressLevel === 'baseline') {
+    drifts.neuroticism = (drifts.neuroticism ?? 0) - TRAIT_DRIFT_RATE * 0.3;
+    drifts.openness = (drifts.openness ?? 0) + TRAIT_DRIFT_RATE * 0.2;
+    drifts.agreeableness = (drifts.agreeableness ?? 0) + TRAIT_DRIFT_RATE * 0.2;
+  }
+
+  // --- Successful alliances → more extraverted, more trusting ---
+  if (allianceCount >= 2) {
+    drifts.extraversion = (drifts.extraversion ?? 0) + TRAIT_DRIFT_RATE * 0.3;
+    drifts.agreeableness = (drifts.agreeableness ?? 0) + TRAIT_DRIFT_RATE * 0.2;
+  }
+
+  // --- Dominance / conquest success → Dark Triad elevation ---
+  // (Having many planets relative to rivals suggests successful conquest)
+  if (totalPositive < totalBetrayal && needs.esteem > 70) {
+    // Power without friendship — narcissism creeps in
+  }
+
+  // Apply drifts with capping
+  if (Object.keys(drifts).length === 0) return personality;
+
+  const updatedTraits = { ...personality.traits };
+  let anyChange = false;
+
+  for (const key of CORE_TRAIT_KEYS) {
+    const drift = drifts[key];
+    if (!drift || Math.abs(drift) < 0.01) continue;
+
+    const original = personality.traits[key];
+    const current = updatedTraits[key];
+
+    // Cap total drift from original value
+    const totalDriftSoFar = current - original;
+    const remainingRoom = drift > 0
+      ? MAX_TOTAL_DRIFT - totalDriftSoFar
+      : MAX_TOTAL_DRIFT + totalDriftSoFar;
+
+    if (remainingRoom <= 0) continue;
+
+    const cappedDrift = drift > 0
+      ? Math.min(drift, remainingRoom)
+      : Math.max(drift, -remainingRoom);
+
+    const newValue = Math.round(Math.min(100, Math.max(0, current + cappedDrift)));
+    if (newValue !== current) {
+      updatedTraits[key] = newValue;
+      anyChange = true;
+    }
+  }
+
+  if (!anyChange) return personality;
+
+  return {
+    ...personality,
+    traits: updatedTraits,
+  };
 }
