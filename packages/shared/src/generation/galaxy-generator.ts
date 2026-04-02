@@ -244,19 +244,52 @@ function pickTemperature(
   return clamp(Math.round(temp), PLANET_TEMPERATURE_MIN, PLANET_TEMPERATURE_MAX);
 }
 
-function pickMaxPopulation(planetType: PlanetType, gravity: number): number {
-  const base: Record<PlanetType, number> = {
-    terran: 8_000_000_000,
-    ocean: 6_000_000_000,
-    desert: 3_000_000_000,
-    volcanic: 500_000_000,
-    barren: 200_000_000,
-    ice: 400_000_000,
-    gas_giant: 0,
-    toxic: 100_000_000,
+/**
+ * Max population is driven by planet SIZE (physical land area) modified by
+ * planet TYPE (how usable the surface is) and GRAVITY (structural limits).
+ *
+ * Size is the primary factor — a colossal planet has vastly more surface
+ * area than a tiny one. Type modifies how much of that surface is habitable:
+ * a colossal terran world is a paradise; a colossal ocean world is mostly
+ * water (less usable for land-based species); a colossal volcanic world
+ * has very little liveable surface.
+ *
+ * A colossal terran can sustain ~100B — a prize worth fighting for.
+ * A tiny barren rock might hold 10M at best.
+ */
+function pickMaxPopulation(planetType: PlanetType, gravity: number, size?: import('../types/galaxy.js').PlanetSize): number {
+  // Base population capacity by size (physical surface area)
+  const sizeBase: Record<string, number> = {
+    colossal:      100_000_000_000,  // 100B
+    gigantic:       60_000_000_000,  //  60B
+    very_large:     30_000_000_000,  //  30B
+    large:          15_000_000_000,  //  15B
+    above_average:   8_000_000_000,  //   8B
+    average:         4_000_000_000,  //   4B
+    below_average:   2_000_000_000,  //   2B
+    small:           1_000_000_000,  //   1B
+    very_small:        400_000_000,  // 400M
+    tiny:              100_000_000,  // 100M
   };
+
+  // Type modifier: how much of the surface is usable for habitation
+  const typeModifier: Record<PlanetType, number> = {
+    terran:    1.0,   // Ideal — all surface usable
+    ocean:     0.3,   // Mostly water — limited land (unless aquatic species)
+    desert:    0.5,   // Harsh but large expanses are liveable with tech
+    volcanic:  0.1,   // Very little habitable surface
+    barren:    0.05,  // Almost nothing — dome colonies only
+    ice:       0.15,  // Frozen surface, underground settlements
+    gas_giant: 0,     // No solid surface
+    toxic:     0.03,  // Sealed habitats only
+  };
+
   const gravPenalty = gravity > 2.0 ? 0.3 : gravity > 1.5 ? 0.6 : 1.0;
-  return Math.round((base[planetType] ?? 0) * gravPenalty);
+
+  const baseFromSize = sizeBase[size ?? 'average'] ?? sizeBase['average']!;
+  const typeMod = typeModifier[planetType] ?? 0.1;
+
+  return Math.round(baseFromSize * typeMod * gravPenalty);
 }
 
 // ── ID counter (seeded) ───────────────────────────────────────────────────────
@@ -406,8 +439,8 @@ function generatePlanet(
     PLANET_NATURAL_RESOURCES_MIN,
     PLANET_NATURAL_RESOURCES_MAX,
   );
-  const maxPopulation = pickMaxPopulation(type, gravity);
   const size = pickPlanetSize(rng, type);
+  const maxPopulation = pickMaxPopulation(type, gravity, size);
   const fertility = pickFertility(rng, type);
   const beauty = pickBeauty(rng, type);
   const modifiers = pickModifiers(rng, type);
