@@ -268,6 +268,9 @@ import {
 } from './narrative.js';
 import type { NarrativeChain } from '../types/narrative.js';
 import { ELECTION_INTERVAL } from '../constants/time.js';
+import type { EmpirePsychologicalState } from '../types/psychology.js';
+import { initPsychologicalState, processPsychologyTick } from './psychology/tick.js';
+import type { EmpireStateSnapshot } from './psychology/maslow.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -3403,6 +3406,144 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
 }
 
 // ---------------------------------------------------------------------------
+// Step 8f: Psychology Tick
+// ---------------------------------------------------------------------------
+
+/**
+ * Update each empire's psychological state: Maslow needs, stress level, mood,
+ * and effective personality traits. Runs after all state-changing steps so that
+ * the snapshot is fully current, and before AI decisions so they can use it.
+ */
+function stepPsychology(state: GameTickState): GameTickState {
+  const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
+    Map<string, EmpirePsychologicalState>;
+
+  if (psychMap.size === 0) return state;
+
+  const updatedMap = new Map(psychMap);
+  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
+    Record<string, unknown> | undefined;
+
+  for (const empire of state.gameState.empires) {
+    const psychState = updatedMap.get(empire.id);
+    if (!psychState) continue;
+
+    // Build empire state snapshot from current game state
+    const snapshot = buildEmpireStateSnapshot(state, empire);
+
+    // Process one psychology tick
+    const updated = processPsychologyTick(psychState, snapshot);
+    updatedMap.set(empire.id, updated);
+  }
+
+  return { ...state, psychStateMap: updatedMap } as unknown as GameTickState;
+}
+
+/**
+ * Extract an EmpireStateSnapshot from the current game tick state for a given empire.
+ */
+function buildEmpireStateSnapshot(
+  state: GameTickState,
+  empire: import('../types/species.js').Empire,
+): EmpireStateSnapshot {
+  const resources = state.empireResourcesMap.get(empire.id);
+
+  // Count colonised planets and total population
+  let colonisedPlanets = 0;
+  let totalPopulation = 0;
+  let firstOwnedSystemId: string | undefined;
+  for (const system of state.gameState.galaxy.systems) {
+    for (const planet of system.planets) {
+      if (planet.ownerId === empire.id) {
+        colonisedPlanets++;
+        totalPopulation += planet.currentPopulation ?? 0;
+        if (!firstOwnedSystemId) firstOwnedSystemId = system.id;
+      }
+    }
+  }
+
+  // Military power: sum fleet ship counts
+  let militaryPower = 0;
+  for (const fleet of state.gameState.fleets) {
+    if (fleet.empireId === empire.id) {
+      militaryPower += fleet.ships.length * 10;
+    }
+  }
+
+  // Strongest rival
+  let strongestRivalPower = 0;
+  for (const other of state.gameState.empires) {
+    if (other.id === empire.id) continue;
+    let power = 0;
+    for (const fleet of state.gameState.fleets) {
+      if (fleet.empireId === other.id) {
+        power += fleet.ships.length * 10;
+      }
+    }
+    if (power > strongestRivalPower) strongestRivalPower = power;
+  }
+
+  // Count wars, treaties, allies from diplomacy relations
+  let activeWars = 0;
+  let activeTreaties = 0;
+  let allies = 0;
+  let tradeRoutesCount = 0;
+  for (const rel of empire.diplomacy ?? []) {
+    if (rel.status === 'at_war') activeWars++;
+    if (rel.status === 'allied') allies++;
+    if (rel.treaties) activeTreaties += rel.treaties.length;
+  }
+  for (const tr of state.tradeRoutes) {
+    if (tr.empireId === empire.id) tradeRoutesCount++;
+  }
+
+  // Homeworld threat: enemy fleet in first owned system (approximation)
+  let homeworldThreatened = false;
+  if (firstOwnedSystemId) {
+    homeworldThreatened = state.gameState.fleets.some(
+      f => f.empireId !== empire.id && f.position.systemId === firstOwnedSystemId
+        && empire.diplomacy?.some(r =>
+          r.empireId === f.empireId && r.status === 'at_war',
+        ),
+    );
+  }
+
+  // Food balance: rough estimate from organics change
+  const foodBalance = resources ? (resources.organics > 100 ? 10 : -5) : 0;
+
+  // Victory progress: rough estimate from tech ratio
+  const techsResearched = empire.technologies?.length ?? 0;
+  const totalTechs = state.allTechCount || 100;
+  const victoryProgress = Math.min(100, Math.round(
+    (colonisedPlanets / Math.max(1, state.gameState.empires.length * 3)) * 30 +
+    (techsResearched / totalTechs) * 30 +
+    (allies > 0 ? 20 : 0) +
+    (militaryPower > strongestRivalPower ? 20 : 0),
+  ));
+
+  return {
+    organics: resources?.organics ?? 0,
+    foodBalance,
+    energy: resources?.energy ?? 0,
+    minerals: resources?.minerals ?? 0,
+    credits: resources?.credits ?? 0,
+    colonisedPlanets,
+    totalPopulation,
+    militaryPower,
+    strongestRivalPower,
+    activeWars,
+    homeworldThreatened,
+    activeTreaties,
+    allies,
+    tradeRoutes: tradeRoutesCount,
+    totalEmpires: state.gameState.empires.length,
+    techsResearched,
+    totalTechs,
+    victoryProgress,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 9: AI Decisions
 // ---------------------------------------------------------------------------
 
@@ -5033,6 +5174,9 @@ export function processGameTick(
   // 8e. Narrative Chains (trigger and progress multi-step exploration stories)
   s = stepNarrativeChains(s, events);
 
+  // 8f. Psychology Tick (Maslow needs → stress → mood → effective traits)
+  s = stepPsychology(s);
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
@@ -5194,6 +5338,10 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     espionageEventLog: [],
     diplomacyState: initializeDiplomacy(gameState.empires.map(e => e.id)),
     warStateMap: new Map(gameState.empires.map(e => [e.id, createEmpireWarState()])),
+    psychStateMap: new Map(gameState.empires.map(e => [
+      e.id,
+      e.psychology ? initPsychologicalState(e.psychology) : undefined,
+    ]).filter((entry): entry is [string, EmpirePsychologicalState] => entry[1] !== undefined)),
   } as GameTickState;
 }
 

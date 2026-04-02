@@ -340,3 +340,26 @@ export type StressLevel =
   | 'high'
   | 'extreme'
   | 'recovery';
+
+// ---------------------------------------------------------------------------
+// Empire psychological state (runtime, per-game)
+// ---------------------------------------------------------------------------
+
+/**
+ * Complete psychological state for an empire at a point in time.
+ * Updated every tick by the psychology engine. Stored on GameTickState.
+ */
+export interface EmpirePsychologicalState {
+  /** The empire's rolled personality (from game start). */
+  personality: RolledPersonality;
+  /** Current effective traits (may differ from rolled due to stress/growth). */
+  effectiveTraits: CoreTraits;
+  /** Current mood (multi-dimensional). */
+  mood: MoodState;
+  /** Current Maslow need levels. */
+  needs: MaslowNeeds;
+  /** Current stress level. */
+  stressLevel: StressLevel;
+  /** Ticks since the last crisis ended (for recovery tracking). */
+  ticksSinceCrisis: number;
+}
