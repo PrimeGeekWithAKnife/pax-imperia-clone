@@ -157,21 +157,6 @@ export class SystemViewScene extends Phaser.Scene {
     this.add.rectangle(0, 0, width, height, 0x05050f).setOrigin(0, 0);
     this.createStarfield(width, height);
 
-    // ── HUD labels (screen-space) ─────────────────────────────────────────
-    const cx = width / 2;
-    this.add.text(cx, 28, this.system.name, {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: '#d4af6a',
-    }).setOrigin(0.5, 0.5).setDepth(300);
-
-    this.add.text(cx, 56, this.system.starType.replace('_', ' ').toUpperCase(), {
-      fontFamily: 'monospace',
-      fontSize: '13px',
-      color: '#7799bb',
-      letterSpacing: 3,
-    }).setOrigin(0.5, 0.5).setDepth(300);
-
     // ── World container — everything in here is zoomed + panned ──────────
     this.worldContainer = this.add.container(0, 0);
     this.cameraOffset = { x: width / 2, y: height / 2 };
@@ -181,6 +166,23 @@ export class SystemViewScene extends Phaser.Scene {
     const starRenderer = new StarRenderer(this);
     const starResult = starRenderer.render(this.system.starType, 0, 0);
     this.worldContainer.add(starResult.objects);
+
+    // Star name label — positioned above the star in world-space so it
+    // stays with the star when panning/zooming
+    const starNameLabel = this.add.text(0, -65, this.system.name, {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#d4af6a',
+    }).setOrigin(0.5, 0.5);
+    this.worldContainer.add(starNameLabel);
+
+    const starTypeLabel = this.add.text(0, -45, this.system.starType.replace('_', ' ').toUpperCase(), {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#7799bb',
+      letterSpacing: 3,
+    }).setOrigin(0.5, 0.5);
+    this.worldContainer.add(starTypeLabel);
 
     // Orbits + planets + asteroid belt
     this.createOrbits();
