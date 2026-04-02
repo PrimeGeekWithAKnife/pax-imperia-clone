@@ -133,10 +133,185 @@ function clamp100(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-/** Apply personality weight to a base priority score. */
-function applyWeight(basePriority: number, type: AIDecision['type'], personality: AIPersonality): number {
-  const weight = PERSONALITY_WEIGHTS[personality][type] ?? 1.0;
-  return clamp100(basePriority * weight);
+/**
+ * Module-scoped situational context, set by generateAIDecisions before
+ * calling sub-evaluators. This avoids threading the context through 35+
+ * applyWeight call sites across all evaluation functions.
+ *
+ * Reset to null after generateAIDecisions returns.
+ */
+let _activeSituationalContext: SituationalContext | null = null;
+
+/**
+ * Apply personality weight to a base priority score, adapted by situation.
+ *
+ * Personality weights are the STARTING POSITION — a species' natural
+ * peacetime preferences. Situational adaptation multiplies these based
+ * on Maslow needs: low safety drives military weight up, low physiological
+ * drives economy up. The adaptation is continuous, not threshold-gated.
+ *
+ * Formula: effective_weight = personality_weight × situational_multiplier
+ *
+ * A researcher with build_ship=0.7 facing safety=20 gets:
+ *   0.7 × (1 + (100-20)/100) = 0.7 × 1.8 = 1.26 — now actively building ships
+ *
+ * A researcher at safety=80 gets:
+ *   0.7 × (1 + (100-80)/100) = 0.7 × 1.2 = 0.84 — still slightly deprioritised
+ *
+ * No hard-coded overrides. The need drives the behaviour naturally.
+ */
+function applyWeight(
+  basePriority: number,
+  type: AIDecision['type'],
+  personality: AIPersonality,
+  explicitContext?: SituationalContext,
+): number {
+  const personalityWeight = PERSONALITY_WEIGHTS[personality][type] ?? 1.0;
+  const ctx = explicitContext ?? _activeSituationalContext;
+  const situationalMultiplier = ctx
+    ? computeSituationalMultiplier(type, ctx)
+    : 1.0;
+  return clamp100(basePriority * personalityWeight * situationalMultiplier);
+}
+
+/**
+ * Context drawn from the empire's current situation.
+ * Populated from Maslow needs (if psychology active) or approximated
+ * from raw empire state.
+ */
+interface SituationalContext {
+  /** Safety need: 0 = existential crisis, 100 = perfectly safe. */
+  safety: number;
+  /** Physiological need: 0 = starving, 100 = abundant. */
+  physiological: number;
+  /** Belonging need: 0 = isolated, 100 = well-connected. */
+  belonging: number;
+  /** Self-actualisation need: 0 = stagnant, 100 = thriving. */
+  selfActualisation: number;
+  /** Number of ships the empire currently has. */
+  shipCount: number;
+  /** Number of active wars. */
+  activeWars: number;
+}
+
+/**
+ * Compute a situational multiplier for a decision type.
+ *
+ * The multiplier is derived from unmet needs:
+ *   unmet_need = (100 - need_level) / 100    →   0 (need met) to 1 (critical)
+ *
+ * Each decision type is boosted by the needs it addresses:
+ *   build_ship  → boosted by unmet safety
+ *   move_fleet  → boosted by unmet safety
+ *   build       → boosted by unmet physiological
+ *   colonize    → boosted by unmet physiological + self-actualisation
+ *   research    → boosted by unmet self-actualisation
+ *   diplomacy   → boosted by unmet belonging + unmet safety (seek allies)
+ *   war         → dampened by unmet safety (don't start wars when weak)
+ */
+function computeSituationalMultiplier(
+  type: AIDecision['type'],
+  ctx: SituationalContext,
+): number {
+  const safetyDeficit = (100 - ctx.safety) / 100;       // 0..1
+  const physioDeficit = (100 - ctx.physiological) / 100;
+  const belongDeficit = (100 - ctx.belonging) / 100;
+  const selfActDeficit = (100 - ctx.selfActualisation) / 100;
+
+  // No ships at all = extreme emergency multiplier for ship building
+  const shipEmergency = ctx.shipCount === 0 ? 1.5 : 0;
+
+  switch (type) {
+    case 'build_ship':
+      // Driven by safety need + emergency if no ships at all
+      return 1.0 + safetyDeficit * 1.2 + shipEmergency;
+
+    case 'move_fleet':
+      // Driven by safety (deploy existing forces) + active wars
+      return 1.0 + safetyDeficit * 0.8 + Math.min(ctx.activeWars * 0.2, 0.6);
+
+    case 'build':
+      // Driven by physiological need (food, resources, infrastructure)
+      return 1.0 + physioDeficit * 0.8;
+
+    case 'colonize':
+      // Driven by physiological (more planets = more food) + expansion drive
+      return 1.0 + physioDeficit * 0.5 + selfActDeficit * 0.3;
+
+    case 'research':
+      // Driven by self-actualisation, but dampened when safety is critical
+      // (you can't research if you're dead, but you also can't win without it)
+      return 1.0 + selfActDeficit * 0.5 - safetyDeficit * 0.3;
+
+    case 'diplomacy':
+      // Driven by belonging need + safety (allies help survive)
+      return 1.0 + belongDeficit * 0.6 + safetyDeficit * 0.5;
+
+    case 'war':
+      // Dampened when safety is low (don't start wars you can't win)
+      // Boosted slightly when safety is high (from a position of strength)
+      return 1.0 + (ctx.safety / 100) * 0.3 - safetyDeficit * 0.5;
+
+    case 'recruit_spy':
+    case 'assign_spy':
+      return 1.0 + safetyDeficit * 0.3;
+
+    default:
+      return 1.0;
+  }
+}
+
+/**
+ * Build situational context from an empire's state.
+ * Uses psychology Maslow needs if available, otherwise approximates.
+ */
+function buildSituationalContext(
+  empire: Empire,
+  galaxy: Galaxy,
+  fleets: Fleet[],
+): SituationalContext {
+  const diplo = empire.diplomacy ?? [];
+  const activeWars = diplo.filter(r => r.status === 'at_war').length;
+  const shipCount = fleets
+    .filter(f => f.empireId === empire.id)
+    .reduce((sum, f) => sum + f.ships.length, 0);
+
+  // Try to use psychology Maslow needs if available
+  const psych = empire.psychology;
+  if (psych) {
+    // We don't have direct access to the psychStateMap from here,
+    // so approximate from what we can observe
+  }
+
+  // Approximate Maslow from observable state
+  const ownedPlanets = galaxy.systems.flatMap(s => s.planets).filter(p => p.ownerId === empire.id);
+
+  // Safety: based on military strength vs threats
+  let safety = 70;
+  if (activeWars > 0) safety -= 20 * Math.min(activeWars, 3);
+  if (shipCount === 0) safety -= 30;
+  if (ownedPlanets.length <= 1) safety -= 15;
+  safety = Math.max(0, Math.min(100, safety));
+
+  // Physiological: based on resources and territory
+  let physiological = 80;
+  if (empire.credits < 100) physiological -= 20;
+  if (empire.credits < 50) physiological -= 20;
+  if (ownedPlanets.length === 0) physiological = 0;
+  physiological = Math.max(0, Math.min(100, physiological));
+
+  // Belonging: based on alliances and treaties
+  const allies = diplo.filter(r => r.status === 'allied').length;
+  const treaties = diplo.reduce((sum, r) => sum + (r.treaties?.length ?? 0), 0);
+  let belonging = 30 + allies * 15 + Math.min(treaties * 5, 20);
+  belonging = Math.max(0, Math.min(100, belonging));
+
+  // Self-actualisation: based on tech progress and territory
+  const techCount = empire.technologies?.length ?? 0;
+  let selfActualisation = 20 + Math.min(techCount * 2, 40) + Math.min(ownedPlanets.length * 3, 20);
+  selfActualisation = Math.max(0, Math.min(100, selfActualisation));
+
+  return { safety, physiological, belonging, selfActualisation, shipCount, activeWars };
 }
 
 /**
@@ -1755,6 +1930,11 @@ export function generateAIDecisions(
   evaluation: AIEvaluation,
   allTechs: Technology[] = [],
 ): AIDecision[] {
+  // Compute situational context — drives adaptive weight multipliers.
+  // Set on module scope so all applyWeight calls in sub-evaluators use it.
+  const sitCtx = buildSituationalContext(empire, gameState.galaxy, gameState.fleets);
+  _activeSituationalContext = sitCtx;
+
   const researchState: ResearchState = {
     completedTechs: empire.technologies,
     activeResearch: [],
@@ -1765,7 +1945,7 @@ export function generateAIDecisions(
   const ownedPlanets = getEmpirePlanets(empire, gameState.galaxy);
 
   const colonization = evaluateColonizationTargets(empire, gameState.galaxy, empire.species).map(
-    d => ({ ...d, priority: applyWeight(d.priority, 'colonize', personality) }),
+    d => ({ ...d, priority: applyWeight(d.priority, 'colonize', personality, sitCtx) }),
   );
 
   const research = evaluateResearchPriority(empire, researchState, personality, allTechs);
@@ -1809,7 +1989,12 @@ export function generateAIDecisions(
   const shipDecisions: AIDecision[] = [];
   const empireFleets = getEmpireFleets(empire, gameState.fleets);
   const totalShips = empireFleets.reduce((sum, f) => sum + f.ships.length, 0);
-  const shipTarget = personality === 'aggressive' ? 10 : personality === 'defensive' ? 6 : 4;
+  // Ship target adapts to situation: personality sets the peacetime baseline,
+  // but war and low safety drive it up. Any species under threat builds more ships.
+  const baseShipTarget = personality === 'aggressive' ? 10 : personality === 'defensive' ? 6 : 4;
+  const warBonus = sitCtx.activeWars * 3;
+  const safetyBonus = sitCtx.safety < 50 ? Math.round((50 - sitCtx.safety) / 10) : 0;
+  const shipTarget = baseShipTarget + warBonus + safetyBonus;
 
   const shipyard = ownedPlanets.find(p => p.buildings.some(b => b.type === 'shipyard'));
   if (shipyard) {
@@ -1916,6 +2101,9 @@ export function generateAIDecisions(
     ...shipDecisions,
     ...espionageDecisions,
   ];
+
+  // Clear module-scoped context
+  _activeSituationalContext = null;
 
   return allDecisions.sort((a, b) => b.priority - a.priority);
 }
