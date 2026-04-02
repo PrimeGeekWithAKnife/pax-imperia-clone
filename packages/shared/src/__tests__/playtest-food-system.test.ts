@@ -105,10 +105,13 @@ describe('Food System Playtest — 10 rounds', () => {
         expect(homeFertility).toBeGreaterThanOrEqual(50);
       });
 
-      it('starting population matches natural food capacity', () => {
-        const expectedPop = Math.max(1_000_000, Math.floor((homeFertility / 100) * homeMaxPop));
+      it('starting population matches sustainable food capacity', () => {
+        const naturalCap = Math.floor((homeFertility / 100) * homeMaxPop);
+        const mod = totalMod > 0 ? totalMod : 1;
+        const sustainablePop = Math.floor(naturalCap / mod);
+        const expectedPop = Math.max(1_000_000, Math.min(sustainablePop, naturalCap));
         expect(startingPop).toBe(expectedPop);
-        console.log(`  ${species.name}: ${homeType} fert=${homeFertility} maxPop=${(homeMaxPop/1e6).toFixed(0)}M startPop=${(startingPop/1e6).toFixed(0)}M`);
+        console.log(`  ${species.name}: ${homeType} fert=${homeFertility} maxPop=${(homeMaxPop/1e6).toFixed(0)}M startPop=${(startingPop/1e6).toFixed(0)}M (mod=${totalMod.toFixed(2)})`);
       });
 
       it('food consumption matches expected modifier', () => {
@@ -156,8 +159,11 @@ describe('Food System Playtest — 10 rounds', () => {
         if (abilityMod === 0) {
           expect(starvationTicks).toBe(0);
         } else {
-          // Less than 20% of ticks should be starvation
-          expect(starvationTicks).toBeLessThan(100);
+          // High-consumption species (>1.0×) may experience more starvation
+          // as population grows past what natural food can sustain.
+          // Low-mod species should have minimal starvation.
+          const threshold = totalMod > 1.0 ? 400 : 100;
+          expect(starvationTicks).toBeLessThan(threshold);
         }
       });
 

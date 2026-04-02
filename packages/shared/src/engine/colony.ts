@@ -312,11 +312,27 @@ export function getEffectiveMaxPopulation(planet: Planet): number {
  *
  * If the empire is starving (isStarving = true), growth is always zero.
  */
+/**
+ * Calculate population growth for a planet.
+ *
+ * Growth is modulated by the empire's food reserves (organics stockpile):
+ *   - Abundance (>200):    full growth
+ *   - Adequate (50–200):   full growth
+ *   - Food scarce (1–49):  50% growth — rationing slows reproduction
+ *   - Depleted (≤0):       0% growth — all food sustains existing population
+ *
+ * Full starvation (population decline) is handled separately in
+ * {@link stepFoodConsumption} in game-loop.ts.
+ *
+ * @param empireOrganics Current empire organics stockpile.  Defaults to 100
+ *   (adequate) when not provided for backwards compatibility.
+ */
 export function calculatePopulationGrowth(
   planet: Planet,
   species: Species,
   habitability: number,
   isStarving = false,
+  empireOrganics = 100,
 ): number {
   if (isStarving) return 0;
   if (planet.currentPopulation <= 0) return 0;
@@ -337,12 +353,23 @@ export function calculatePopulationGrowth(
     }
   }
 
+  // ── Food availability modifier ────────────────────────────────────────────
+  // A population with scarce food makes fewer babies.  This creates a natural
+  // feedback loop: as population approaches the food ceiling, growth slows and
+  // eventually stops before full starvation hits.
+  if (empireOrganics <= 0) {
+    return 0; // depleted — no growth, all food sustains existing pop
+  } else if (empireOrganics < 50) {
+    baseGrowth *= 0.5; // scarce — rationing, reduced reproduction
+  }
+  // >= 50: full growth rate (adequate or abundant)
+
   // Logistic curve — growth approaches zero as population nears effective max
   const logisticFactor = 1 - planet.currentPopulation / effectiveMax;
   let growth = baseGrowth * logisticFactor;
 
-  // Minimum growth guarantee
-  if (growth < 1) growth = 1;
+  // Minimum growth guarantee (only when food is adequate)
+  if (growth < 1 && empireOrganics >= 50) growth = 1;
 
   return Math.floor(growth);
 }

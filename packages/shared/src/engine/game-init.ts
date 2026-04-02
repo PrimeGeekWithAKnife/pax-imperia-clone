@@ -20,6 +20,7 @@ import { calculateHabitability } from './colony.js';
 import { getIdealPlanetType } from './terraforming.js';
 import { generateId } from '../utils/id.js';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js';
+import { getAbilityFoodModifier } from './economy.js';
 
 // ── Public interfaces ─────────────────────────────────────────────────────────
 
@@ -348,11 +349,26 @@ export function initializeGame(config: GameSetupConfig): GameState {
     const homePlanet = planetResult.planet;
     const boostedFertility = Math.max(50, homePlanet.fertility ?? 50);
 
-    // Starting population = what the planet can naturally sustain.  A species
-    // that achieved spaceflight has had plenty of time to fill its world up to
-    // the ecosystem's carrying capacity: (fertility/100) * maxPopulation.
+    // Starting population = what the planet can naturally sustain given the
+    // species' food consumption rate.  A species that evolved on this world
+    // filled it to the carrying capacity its food needs allow.
+    //
+    // For species with food modifier > 1.0× (hungry predators, prolific breeders),
+    // the sustainable population is lower because they eat more per capita.
+    // For species with modifier < 1.0× (silicon, photosynthetic), they can
+    // sustain more people on the same food.
     const naturalCapacity = Math.floor((boostedFertility / 100) * homePlanet.maxPopulation);
-    const startingPopulation = Math.max(1_000_000, naturalCapacity);
+    const foodModifier = getAbilityFoodModifier(playerSetup.species.specialAbilities)
+      * (playerSetup.species.traits.reproduction / 5);
+    // Sustainable pop: the population where natural food production covers consumption.
+    // At modifier 1.0×, this equals the natural capacity.
+    // At modifier 1.4×, sustainable pop is naturalCapacity / 1.4 (fewer people on same food).
+    // At modifier 0.5×, sustainable pop is naturalCapacity / 0.5 = 2× (more efficient eaters).
+    // Zero-food species (synthetic etc.) sustain at full natural capacity.
+    const sustainablePop = foodModifier > 0
+      ? Math.floor(naturalCapacity / foodModifier)
+      : naturalCapacity;
+    const startingPopulation = Math.max(1_000_000, Math.min(sustainablePop, naturalCapacity));
 
     const colonisedPlanet: Planet = {
       ...homePlanet,

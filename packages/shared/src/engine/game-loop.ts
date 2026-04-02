@@ -1957,10 +1957,11 @@ function stepPopulationGrowth(state: GameTickState): GameTickState {
       }
 
       const habitability = calculateHabitability(planet, empire.species);
-      // If the empire has no organics, the population is starving and cannot grow.
+      // Food availability gates population growth — see calculatePopulationGrowth
+      // for the graduated scale (abundant → adequate → scarce → depleted).
       const empireRes = getEmpireResources(state, empire.id);
       const empireStarving = empireRes.organics <= 0;
-      let growth = calculatePopulationGrowth(planet, empire.species, habitability.score, empireStarving);
+      let growth = calculatePopulationGrowth(planet, empire.species, habitability.score, empireStarving, empireRes.organics);
 
       if (growth <= 0) continue;
 
