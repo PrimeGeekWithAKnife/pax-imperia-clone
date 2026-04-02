@@ -1305,6 +1305,49 @@ export function evaluateDiplomaticActions(
     const alreadyHasDefence = relation?.treaties.some(t => t.type === 'mutual_defence') ?? false;
     const alreadyHasAlliance = relation?.treaties.some(t => t.type === 'alliance') ?? false;
 
+    // Threat-reactive diplomacy: when a high-threat aggressor exists, ALL
+    // non-aggressive species seek safety in numbers.  Even researchers and
+    // economists will form alliances when survival is at stake.
+    const maxThreatValue = Math.max(0, ...Array.from(evaluation.threatAssessment.values()));
+    const someoneIsAggressive = maxThreatValue > 50;
+    const weAreNotAggressive = personality !== 'aggressive';
+    const thisOneIsNotTheAggressor = threatLevel < 40;
+    if (someoneIsAggressive && weAreNotAggressive && thisOneIsNotTheAggressor && status !== 'hostile') {
+      // Seek alliance with non-threatening empires against the aggressor
+      if (!alreadyHasTrade) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(75, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'trade' },
+          reasoning: `Seek trade with ${opponentId} — safety in numbers against aggressor (maxThreat: ${maxThreatValue})`,
+        });
+      }
+      if (!alreadyHasNonAggression) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(70, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'non_aggression' },
+          reasoning: `Seek non-aggression with ${opponentId} — mutual protection (maxThreat: ${maxThreatValue})`,
+        });
+      }
+      if (alreadyHasNonAggression && !alreadyHasDefence) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(72, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'mutual_defence' },
+          reasoning: `Seek mutual defence with ${opponentId} against common threat (maxThreat: ${maxThreatValue})`,
+        });
+      }
+      if (alreadyHasDefence && !alreadyHasAlliance) {
+        decisions.push({
+          type: 'diplomacy',
+          priority: applyWeight(74, 'diplomacy', personality),
+          params: { targetEmpireId: opponentId, action: 'propose_treaty', treatyType: 'alliance' },
+          reasoning: `Form alliance with ${opponentId} — unite against aggressor (maxThreat: ${maxThreatValue})`,
+        });
+      }
+    }
+
     if (personality === 'diplomatic') {
       // Diplomatic: propose the full treaty ladder based on current relationship
       if (!alreadyHasTrade) {
@@ -1418,9 +1461,19 @@ export function evaluateBuildingPriority(
   empire: Empire,
   planets: Planet[],
   personality: AIPersonality,
+  evaluation?: AIEvaluation,
 ): AIDecision[] {
   const decisions: AIDecision[] = [];
   const preferred = PERSONALITY_PREFERRED_BUILDINGS[personality];
+
+  // Threat-reactive building: when we know of aggressive opponents, ALL
+  // personalities should build defences.  A researcher who ignores a
+  // warlord on their border won't survive to finish their research.
+  const maxThreat = evaluation
+    ? Math.max(0, ...Array.from(evaluation.threatAssessment.values()))
+    : 0;
+  const isAtWar = empire.diplomacy.some(r => r.status === 'at_war');
+  const underThreat = maxThreat > 30 || isAtWar;
 
   for (const planet of planets) {
     if (planet.ownerId !== empire.id) continue;
@@ -1488,6 +1541,31 @@ export function evaluateBuildingPriority(
         params: { planetId: planet.id, buildingType: 'shipyard' as BuildingType },
         reasoning: `Build shipyard on ${planet.name} (needed for ship production)`,
       });
+    }
+
+    // Threat-reactive: build planetary defences when under threat.
+    // Even peaceful species will fortify when they know aggressors exist.
+    if (underThreat && builtTypes.has('spaceport')) {
+      // Defense grid — first line of planetary defence
+      if (!builtTypes.has('defense_grid') && !queuedTypes.has('defense_grid')) {
+        const priority = isAtWar ? 90 : 70;
+        decisions.push({
+          type: 'build',
+          priority: applyWeight(priority, 'build', personality),
+          params: { planetId: planet.id, buildingType: 'defense_grid' as BuildingType },
+          reasoning: `Build defence grid on ${planet.name} (threat: ${maxThreat}, at war: ${isAtWar})`,
+        });
+      }
+      // Military academy — trains ground troops for defence
+      if (!builtTypes.has('military_academy') && !queuedTypes.has('military_academy')) {
+        const priority = isAtWar ? 85 : 60;
+        decisions.push({
+          type: 'build',
+          priority: applyWeight(priority, 'build', personality),
+          params: { planetId: planet.id, buildingType: 'military_academy' as BuildingType },
+          reasoning: `Build military academy on ${planet.name} (threat: ${maxThreat}, at war: ${isAtWar})`,
+        });
+      }
     }
 
     // Proactive: build food buildings when population approaches 80% of the
@@ -1725,7 +1803,7 @@ export function generateAIDecisions(
 
   const diplomatic = evaluateDiplomaticActions(empire, evaluation, personality);
 
-  const building = evaluateBuildingPriority(empire, ownedPlanets, personality);
+  const building = evaluateBuildingPriority(empire, ownedPlanets, personality, evaluation);
 
   // Ship building: ensure the empire has a standing fleet and colony ships for expansion
   const shipDecisions: AIDecision[] = [];
