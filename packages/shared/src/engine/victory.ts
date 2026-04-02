@@ -516,12 +516,22 @@ export function checkVictoryConditions(
  * Call this once per tick, before checkVictoryConditions, and persist the
  * returned map.  The key is empireId; the value is the number of consecutive
  * ticks the empire has maintained the required credit lead.
+ *
+ * The counter only starts accumulating after VICTORY_MIN_TICK to prevent
+ * trivial wins from starting-condition credit asymmetry.
+ *
+ * @param currentTick Current game tick — counters are frozen before VICTORY_MIN_TICK.
  */
 export function updateEconomicLeadTicks(
   empires: Empire[],
   resourcesMap: Map<string, EmpireResources> | undefined,
   previous: Map<string, number>,
+  currentTick = 0,
 ): Map<string, number> {
+  // Don't accumulate lead ticks before the victory gate opens — prevents
+  // the counter from being already full the instant the gate lifts.
+  if (currentTick < VICTORY_MIN_TICK) return previous;
+
   const result = new Map<string, number>(previous);
 
   for (const empire of empires) {

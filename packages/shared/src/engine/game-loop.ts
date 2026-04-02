@@ -4926,6 +4926,7 @@ export function processGameTick(
       s.gameState.empires,
       s.empireResourcesMap,
       s.economicLeadTicks,
+      s.gameState.currentTick,
     ),
   };
 

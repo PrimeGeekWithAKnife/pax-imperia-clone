@@ -119,7 +119,7 @@ function makeGameState(
     empires,
     fleets: [],
     ships: [],
-    currentTick: 0,
+    currentTick: 1000, // Past VICTORY_MIN_TICK so conditions can trigger
     speed: 'normal',
     status: 'playing',
     ...overrides,
@@ -437,7 +437,8 @@ describe('updateEconomicLeadTicks', () => {
     ]);
 
     const prev = new Map<string, number>();
-    const next = updateEconomicLeadTicks([alpha, beta], resourcesMap, prev);
+    // currentTick must be >= VICTORY_MIN_TICK (500) for the counter to accumulate
+    const next = updateEconomicLeadTicks([alpha, beta], resourcesMap, prev, 1000);
 
     expect(next.get('alpha')).toBe(1);
     expect(next.get('beta')).toBe(0);
@@ -453,7 +454,7 @@ describe('updateEconomicLeadTicks', () => {
     ]);
 
     const prev = new Map<string, number>([['alpha', 30], ['beta', 0]]);
-    const next = updateEconomicLeadTicks([alpha, beta], resourcesMap, prev);
+    const next = updateEconomicLeadTicks([alpha, beta], resourcesMap, prev, 1000);
 
     // No 10× lead, so both reset to 0
     expect(next.get('alpha')).toBe(0);
@@ -471,7 +472,7 @@ describe('updateEconomicLeadTicks', () => {
 
     let ticks = new Map<string, number>();
     for (let i = 0; i < 10; i++) {
-      ticks = updateEconomicLeadTicks([alpha, beta], resourcesMap, ticks);
+      ticks = updateEconomicLeadTicks([alpha, beta], resourcesMap, ticks, 1000 + i);
     }
 
     expect(ticks.get('alpha')).toBe(10);

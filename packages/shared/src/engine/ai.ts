@@ -1491,34 +1491,44 @@ export function evaluateBuildingPriority(
     }
 
     // Proactive: build food buildings when population approaches 80% of the
-    // natural food capacity.  Waiting until AFTER the cap is exceeded means
-    // the empire is already starving by the time construction finishes.
+    // natural food capacity, or urgently when the empire is already food-negative.
     // Prefer the best available building for this planet's fertility level:
     //   fertility >= 60 → concentrated_farming (100 food)
     //   fertility >= 20 → greenhouse_farming (50 food)
     //   any             → hydroponics_bay (8 food)
     const naturalCap = Math.floor(((planet.fertility ?? 0) / 100) * planet.maxPopulation);
     const foodBuildThreshold = Math.floor(naturalCap * 0.8);
+    const isFoodType = (t: string) =>
+      t === 'concentrated_farming' || t === 'greenhouse_farming' || t === 'hydroponics_bay';
+    const foodCount = planet.buildings.filter(b => isFoodType(b.type)).length;
+    const foodQueued = planet.productionQueue.filter(q => isFoodType(q.templateId)).length;
+    // Empire-wide food production check: sum food buildings across all planets
+    const empirePlanets = planets.filter(p => p.ownerId === empire.id);
+    const empireTotalFoodBldgs = empirePlanets.reduce((sum, p) =>
+      sum + p.buildings.filter(b => isFoodType(b.type)).length, 0);
+    const empireTotalFoodQueued = empirePlanets.reduce((sum, p) =>
+      sum + p.productionQueue.filter(q => isFoodType(q.templateId)).length, 0);
+
     if (planet.currentPopulation > foodBuildThreshold) {
       const fertility = planet.fertility ?? 0;
       const foodBuildingType: BuildingType =
         fertility >= 60 ? 'concentrated_farming' :
         fertility >= 20 ? 'greenhouse_farming' :
         'hydroponics_bay';
-      const foodCount = planet.buildings.filter(b =>
-        b.type === 'concentrated_farming' || b.type === 'greenhouse_farming' || b.type === 'hydroponics_bay',
-      ).length;
-      const foodQueued = planet.productionQueue.filter(q =>
-        q.templateId === 'concentrated_farming' || q.templateId === 'greenhouse_farming' || q.templateId === 'hydroponics_bay',
-      ).length;
-      if (foodCount < 4 && foodQueued === 0) {
-        // Higher priority when already past the cap (urgent) vs approaching it
-        const priority = planet.currentPopulation > naturalCap ? 80 : 65;
+
+      // Allow more food buildings when the empire is under food pressure.
+      // Normal cap: 4 per planet. Under pressure: no cap (fill available slots).
+      const maxFoodBldgs = planet.currentPopulation > naturalCap ? 8 : 4;
+      if (foodCount < maxFoodBldgs && foodQueued === 0) {
+        // Escalating priority: approaching cap → past cap → critical
+        let priority = 65;
+        if (planet.currentPopulation > naturalCap) priority = 85;
+        if (planet.currentPopulation > naturalCap * 1.2) priority = 95;
         decisions.push({
           type: 'build',
           priority: applyWeight(priority, 'build', personality),
           params: { planetId: planet.id, buildingType: foodBuildingType },
-          reasoning: `Build ${foodBuildingType} on ${planet.name} (pop ${planet.currentPopulation} at ${Math.round(planet.currentPopulation / naturalCap * 100)}% of food capacity)`,
+          reasoning: `Build ${foodBuildingType} on ${planet.name} (pop ${planet.currentPopulation} at ${Math.round(planet.currentPopulation / Math.max(1, naturalCap) * 100)}% of food capacity)`,
         });
       }
     }
