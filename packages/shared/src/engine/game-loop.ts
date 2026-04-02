@@ -1942,6 +1942,162 @@ function stepCombatResolution(
 }
 
 // ---------------------------------------------------------------------------
+// Step 2b: Unopposed Occupation
+// ---------------------------------------------------------------------------
+// When a fleet is in a system with enemy planets but NO enemy fleet, the
+// planets are captured without a space battle.  This handles the common case
+// of an invading fleet arriving after the defender's fleet has been destroyed
+// elsewhere, or colonised systems that were never defended.
+//
+// Uses the same capture logic as post-combat (civilian surrender vs ground
+// invasion) but without requiring a CombatPending trigger.
+
+function stepUnopposedOccupation(state: GameTickState, events: GameEvent[]): GameTickState {
+  const tick = state.gameState.currentTick;
+  let systems = state.gameState.galaxy.systems;
+  const fleets = state.gameState.fleets;
+  const ships = state.gameState.ships ?? [];
+  // shipDesigns is already a Map<string, ShipDesign> on the state
+  const designs = ((state as any).shipDesigns ?? new Map()) as Map<string, { id: string; hull: HullClass }>;
+  let notifications = [...(((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[])];
+
+  // Check diplomacy state — only capture planets of empires we're at war with
+  const dipState = (state as unknown as Record<string, unknown>).diplomacyState as
+    | DiplomacyState | undefined;
+
+  for (const system of systems) {
+    // Find all empires that have fleets in this system
+    const fleetsInSystem = fleets.filter(f =>
+      f.position.systemId === system.id && f.ships.length > 0
+    );
+    if (fleetsInSystem.length === 0) continue;
+
+    // Find planets owned by someone other than the fleet owners
+    const fleetEmpireIds = new Set(fleetsInSystem.map(f => f.empireId));
+
+    for (const fleetEmpireId of fleetEmpireIds) {
+      const enemyPlanets = system.planets.filter(p =>
+        p.ownerId !== null &&
+        p.ownerId !== fleetEmpireId &&
+        p.currentPopulation > 0
+      );
+      if (enemyPlanets.length === 0) continue;
+
+      // Check that no enemy fleet is present (otherwise combat handles it)
+      for (const enemyPlanet of enemyPlanets) {
+        const enemyEmpireId = enemyPlanet.ownerId!;
+        const enemyFleetsPresent = fleetsInSystem.some(f =>
+          f.empireId === enemyEmpireId && f.ships.length > 0
+        );
+        if (enemyFleetsPresent) continue;
+
+        // Must be at war to capture (or the planet must be unclaimed)
+        if (dipState) {
+          const rel = getRelation(dipState, fleetEmpireId, enemyEmpireId);
+          if (rel && rel.status !== 'at_war') continue;
+          if (!rel) continue; // no relation = no authority to capture
+        }
+
+        // Calculate transport strength of our fleets in this system
+        const ourFleets = fleetsInSystem.filter(f => f.empireId === fleetEmpireId);
+        let transportStrength = 0;
+        for (const fleet of ourFleets) {
+          const fleetShips = ships.filter(s => fleet.ships.includes(s.id));
+          for (const s of fleetShips) {
+            const design = designs.get(s.designId);
+            const hullClass: HullClass = design?.hull ?? 'scout';
+            transportStrength += TRANSPORT_CAPACITY[hullClass] ?? 0;
+          }
+        }
+
+        // Apply capture logic (same as post-combat)
+        const defenseGridLevel = enemyPlanet.buildings
+          .filter(b => b.type === 'defense_grid')
+          .reduce((sum, b) => sum + b.level, 0);
+        const militaryAcademyLevel = enemyPlanet.buildings
+          .filter(b => b.type === 'military_academy')
+          .reduce((sum, b) => sum + b.level, 0);
+        const hasMilitaryBuildings = defenseGridLevel > 0 || militaryAcademyLevel > 0;
+
+        let updatedPlanet = enemyPlanet;
+        let captured = false;
+
+        if (!hasMilitaryBuildings) {
+          // Civilian surrender
+          updatedPlanet = {
+            ...enemyPlanet,
+            ownerId: fleetEmpireId,
+            currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.75),
+            productionQueue: [],
+          };
+          captured = true;
+          notifications.push(createNotification(
+            'planet_captured', `${enemyPlanet.name} surrendered!`,
+            `The civilian population of ${enemyPlanet.name} has surrendered to your occupying fleet.`,
+            tick, undefined, { systemId: system.id },
+          ));
+        } else if (transportStrength <= 0) {
+          // Orbital superiority only — can't land troops
+          // Don't capture the planet, just blockade
+          continue;
+        } else {
+          const defenderStrength =
+            (enemyPlanet.currentPopulation * 0.01) +
+            (50 * defenseGridLevel) +
+            (30 * militaryAcademyLevel);
+
+          if (transportStrength > defenderStrength * 1.5) {
+            updatedPlanet = {
+              ...enemyPlanet,
+              ownerId: fleetEmpireId,
+              currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.75),
+              productionQueue: [],
+            };
+            captured = true;
+            notifications.push(createNotification(
+              'planet_captured', `${enemyPlanet.name} captured!`,
+              `Your ground forces overwhelmed the defenders of ${enemyPlanet.name}.`,
+              tick, undefined, { systemId: system.id },
+            ));
+          } else if (transportStrength > defenderStrength) {
+            updatedPlanet = {
+              ...enemyPlanet,
+              ownerId: fleetEmpireId,
+              currentPopulation: Math.floor(enemyPlanet.currentPopulation * 0.25),
+              productionQueue: [],
+            };
+            captured = true;
+            notifications.push(createNotification(
+              'planet_captured', `${enemyPlanet.name} captured (heavy losses)`,
+              `${enemyPlanet.name} has fallen after brutal ground combat.`,
+              tick, undefined, { systemId: system.id },
+            ));
+          }
+          // else: invasion repelled, planet stays
+        }
+
+        if (captured) {
+          systems = systems.map(s =>
+            s.id === system.id
+              ? { ...s, ownerId: fleetEmpireId, planets: s.planets.map(p => p.id === enemyPlanet.id ? updatedPlanet : p) }
+              : s
+          );
+        }
+      }
+    }
+  }
+
+  return {
+    ...state,
+    notifications,
+    gameState: {
+      ...state.gameState,
+      galaxy: { ...state.gameState.galaxy, systems },
+    },
+  } as GameTickState;
+}
+
+// ---------------------------------------------------------------------------
 // Step 3: Population Growth
 // ---------------------------------------------------------------------------
 
@@ -4833,6 +4989,9 @@ export function processGameTick(
 
   // 2. Combat Resolution (may create new debris from destroyed ships)
   s = stepCombatResolution(s, events, playerEmpireId);
+
+  // 2b. Unopposed occupation — fleets in enemy systems with no enemy fleet
+  s = stepUnopposedOccupation(s, events);
 
   // 3. Population Growth
   s = stepPopulationGrowth(s);

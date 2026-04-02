@@ -8,12 +8,11 @@
  */
 
 import type { Galaxy, StarSystem, Planet, Building, BuildingType, AtmosphereType } from '../types/galaxy.js';
-import type { Empire, Species } from '../types/species.js';
+import type { Empire, Species, AIPersonality } from '../types/species.js';
 import type { Fleet, Ship, HullClass } from '../types/ships.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { GameState, VictoryCriteria } from '../types/game-state.js';
 import type { GalaxyGenerationConfig } from '../generation/galaxy-generator.js';
-import type { AIPersonality } from '../types/species.js';
 import type { GovernmentType } from '../types/government.js';
 import { generateGalaxy } from '../generation/galaxy-generator.js';
 import { calculateHabitability } from './colony.js';
@@ -21,7 +20,6 @@ import { getIdealPlanetType } from './terraforming.js';
 import { generateId } from '../utils/id.js';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js';
 import { getAbilityFoodModifier } from './economy.js';
-import type { AIPersonality } from '../types/species.js';
 
 /**
  * Infer an AI personality from the species' traits.  The highest trait

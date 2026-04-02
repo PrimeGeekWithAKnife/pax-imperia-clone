@@ -9,7 +9,7 @@
 import type { Empire, Species, AIPersonality, DiplomaticStatus, GovernmentType } from '../types/species.js';
 import type { Galaxy, Planet, BuildingType } from '../types/galaxy.js';
 import type { GameState, VictoryCriteria } from '../types/game-state.js';
-import type { Fleet, Ship } from '../types/ships.js';
+import type { Fleet, Ship, HullClass } from '../types/ships.js';
 import type { Technology } from '../types/technology.js';
 import { calculateHabitability, canColonize, getUpgradeCost, getMaxLevelForAge } from './colony.js';
 import { getFleetStrength } from './fleet.js';
@@ -1735,13 +1735,19 @@ export function generateAIDecisions(
 
   const shipyard = ownedPlanets.find(p => p.buildings.some(b => b.type === 'shipyard'));
   if (shipyard) {
-    // Build warships when below target
+    // Build warships when below target — escalate hull class as fleet grows.
+    // Early game: destroyers. Mid-game: cruisers (better transport capacity
+    // for ground invasions). Late-game: battleships.
     if (totalShips < shipTarget) {
+      const hullClass: HullClass =
+        totalShips >= 10 ? 'battleship' :
+        totalShips >= 5  ? 'cruiser' :
+        'destroyer';
       shipDecisions.push({
         type: 'build_ship',
         priority: applyWeight(55, 'build_ship', personality),
-        params: { planetId: shipyard.id, hullClass: 'destroyer' },
-        reasoning: `Build ships: have ${totalShips}/${shipTarget} target ships`,
+        params: { planetId: shipyard.id, hullClass },
+        reasoning: `Build ${hullClass}: have ${totalShips}/${shipTarget} target ships`,
       });
     }
 
