@@ -7,6 +7,7 @@
  *
  * Victory conditions (enabled via GameConfig.victoryCriteria):
  *  - conquest    : Control 75 % of all colonisable planets AND eliminate 75 % of rival empires.
+ *  - dominance   : Lead the Galactic Council AND own 50 % of habitable planets.
  *  - economic    : Hold 3× more credits than any rival for 100 consecutive ticks.
  *  - technological: Research the Ascension Project (final tech).
  *  - diplomatic  : Hold an alliance with every surviving empire.
@@ -37,7 +38,7 @@ export interface VictoryProgress {
 }
 
 export interface VictoryConditionStatus {
-  type: 'conquest' | 'economic' | 'technological' | 'diplomatic' | 'score';
+  type: 'conquest' | 'dominance' | 'economic' | 'technological' | 'diplomatic' | 'score';
   name: string;
   description: string;
   /** 0–100 completion percentage. */
@@ -57,8 +58,11 @@ export interface VictoryCheckResult {
 /** Tech ID of the final technology; reaching this triggers the Tech victory. */
 const ASCENSION_PROJECT_ID = 'ascension_project';
 
-/** Fraction of colonised planets an empire must control for a conquest victory. */
+/** Fraction of colonisable planets an empire must control for a conquest victory. */
 const CONQUEST_THRESHOLD = 0.75;
+
+/** Fraction of habitable planets an empire must control for a dominance victory. */
+const DOMINANCE_PLANET_THRESHOLD = 0.50;
 
 /** Credit multiplier over the nearest rival required for an economic victory. */
 const ECONOMIC_CREDIT_MULTIPLIER = 3;
@@ -254,6 +258,44 @@ function buildConquestStatus(empire: Empire, gameState: GameState): VictoryCondi
   };
 }
 
+/**
+ * Dominance victory: lead the Galactic Council AND own 50% of habitable planets.
+ *
+ * This represents soft power — you don't need to eliminate rivals, but you
+ * need both political supremacy (elected council leader) and territorial
+ * superiority (half the galaxy under your control). A diplomatic conqueror.
+ */
+function buildDominanceStatus(
+  empire: Empire,
+  gameState: GameState,
+  councilLeaderEmpireId: string | null,
+): VictoryConditionStatus {
+  // Planet check: 50% of all colonisable planets
+  const allPlanets = getAllPlanets(gameState.galaxy);
+  const colonisable = allPlanets.filter(p => p.maxPopulation > 0);
+  const owned = colonisable.filter(p => p.ownerId === empire.id).length;
+  const planetFraction = colonisable.length > 0 ? owned / colonisable.length : 0;
+  const planetsMet = planetFraction >= DOMINANCE_PLANET_THRESHOLD;
+
+  // Council leadership check
+  const isCouncilLeader = councilLeaderEmpireId === empire.id;
+
+  // Progress: weighted 50/50 between planets and leadership
+  const planetProgress = Math.min(100, Math.round((planetFraction / DOMINANCE_PLANET_THRESHOLD) * 100));
+  const leaderProgress = isCouncilLeader ? 100 : 0;
+  const progress = Math.round((planetProgress + leaderProgress) / 2);
+
+  const planetNeeded = Math.ceil(colonisable.length * DOMINANCE_PLANET_THRESHOLD);
+
+  return {
+    type: 'dominance',
+    name: 'Galactic Dominance',
+    description: `Lead the Galactic Council (${isCouncilLeader ? 'Yes' : 'No'}) and control ${Math.round(DOMINANCE_PLANET_THRESHOLD * 100)}% of habitable planets (${owned}/${planetNeeded}).`,
+    progress,
+    isAchieved: isCouncilLeader && planetsMet,
+  };
+}
+
 function buildEconomicStatus(
   empire: Empire,
   allEmpires: Empire[],
@@ -414,10 +456,12 @@ function buildVictoryConditionStatuses(
   resourcesMap?: Map<string, EmpireResources>,
   economicLeadTicks?: Map<string, number>,
   allTechCount?: number,
+  councilLeaderEmpireId?: string | null,
 ): VictoryConditionStatus[] {
   const techTotal = allTechCount ?? 0;
   return [
     buildConquestStatus(empire, gameState),
+    buildDominanceStatus(empire, gameState, councilLeaderEmpireId ?? null),
     buildEconomicStatus(empire, allEmpires, resourcesMap, economicLeadTicks, gameState.galaxy),
     buildTechStatus(empire, techTotal),
     buildDiplomaticStatus(empire, allEmpires, gameState.galaxy),
@@ -447,13 +491,15 @@ export function checkVictoryConditions(
   resourcesMap?: Map<string, EmpireResources>,
   economicLeadTicks?: Map<string, number>,
   allTechCount?: number,
+  /** Empire ID of the current Galactic Council leader (for dominance victory). */
+  councilLeaderEmpireId?: string | null,
 ): VictoryCheckResult | null {
   const { empires, victoryCriteria } = gameState;
 
   // Determine which criteria are active.  If none are configured, enable all.
   const enabledCriteria = (victoryCriteria && victoryCriteria.length > 0)
     ? victoryCriteria
-    : ['conquest', 'economic', 'technological', 'diplomatic', 'score'];
+    : ['conquest', 'dominance', 'economic', 'technological', 'diplomatic', 'score'];
 
   // ALL victory conditions require a minimum game age to prevent trivial
   // early wins. Conquest at tick 45 with no player interaction is not a
@@ -467,6 +513,14 @@ export function checkVictoryConditions(
       const status = buildConquestStatus(empire, gameState);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'conquest' };
+      }
+    }
+
+    // ── Dominance ───────────────────────────────────────────────────────────
+    if (gameOldEnough && enabledCriteria.includes('dominance')) {
+      const status = buildDominanceStatus(empire, gameState, councilLeaderEmpireId ?? null);
+      if (status.isAchieved) {
+        return { winner: empire.id, condition: 'dominance' };
       }
     }
 

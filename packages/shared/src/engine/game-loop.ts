@@ -4482,11 +4482,37 @@ export function isGameOver(
     return { over: true, reason: 'game_finished' };
   }
 
+  // Extract council leader for dominance victory check
+  const orgState = (state as unknown as Record<string, unknown>).organisationState as
+    | { organisations: Array<{ memberEmpires: string[]; votingPower: Record<string, number> }> }
+    | undefined;
+  // Find the largest organisation's leader (if senate state exists on psychStateMap)
+  let councilLeaderId: string | null = null;
+  if (orgState && orgState.organisations.length > 0) {
+    // Use the first (largest) organisation as the "Galactic Council"
+    const mainOrg = orgState.organisations.reduce((a, b) =>
+      a.memberEmpires.length >= b.memberEmpires.length ? a : b,
+    );
+    // Check psychStateMap for senate leadership
+    const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
+      Map<string, { personality: unknown }>;
+    // The senate state isn't directly on the org — check if any empire is marked as leader
+    // For now, use the empire with the highest voting power in the largest org as a proxy
+    let highestPower = 0;
+    for (const [empireId, power] of Object.entries(mainOrg.votingPower)) {
+      if (power > highestPower) {
+        highestPower = power;
+        councilLeaderId = empireId;
+      }
+    }
+  }
+
   const result = checkVictoryConditions(
     state.gameState,
     state.empireResourcesMap,
     state.economicLeadTicks,
     state.allTechCount,
+    councilLeaderId,
   );
 
   if (result) {

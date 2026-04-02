@@ -31,7 +31,8 @@ export interface GameConfig {
 }
 
 export type VictoryCriteria =
-  | 'conquest'      // Own all colonised systems
+  | 'conquest'      // Control 75% of colonisable planets + eliminate 75% of rivals
+  | 'dominance'     // Lead the Galactic Council + own 50% of habitable planets
   | 'economic'      // Reach credit threshold first
   | 'research'      // Research all techs first
   | 'diplomatic'    // Form alliances with a majority of empires
