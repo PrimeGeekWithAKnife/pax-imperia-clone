@@ -162,6 +162,11 @@ function estimatePlanetProduction(planet: Planet): Record<string, number> {
   // Base tax estimate: population * BASE_TAX_RATE credits/turn
   totals.credits += planet.currentPopulation * BASE_TAX_RATE;
 
+  // Natural food from the land — the planet's ecosystem produces food
+  // based on its fertility and size, regardless of population.
+  const naturalCap = getNaturalFoodCapacity(planet);
+  totals.organics += Math.ceil(naturalCap / ORGANICS_PER_POPULATION);
+
   for (const building of planet.buildings) {
     const def = BUILDING_DEFINITIONS[building.type];
     if (!def) continue;
@@ -1146,6 +1151,20 @@ export function PlanetManagementScreen({
               const foodProd = production.organics ?? 0;
               const foodNet = foodProd - consumption;
               const isDeficit = foodNet < 0;
+              const shortfallPct = isDeficit && consumption > 0
+                ? Math.round(Math.abs(foodNet) / consumption * 100)
+                : 0;
+              const shortageLabel = shortfallPct === 0 ? ''
+                : shortfallPct <= 5  ? ' (Mild Shortage)'
+                : shortfallPct <= 15 ? ' (Food Shortage)'
+                : shortfallPct <= 40 ? ' (Severe Shortage)'
+                : shortfallPct < 100 ? ' (Starvation)'
+                :                      ' (Famine)';
+              const shortageColour = shortfallPct === 0 ? '#44cc88'
+                : shortfallPct <= 5  ? '#ccaa44'
+                : shortfallPct <= 15 ? '#ff8844'
+                : shortfallPct <= 40 ? '#ff6633'
+                :                      '#ff4444';
               return (
                 <div className="pm-stat-group">
                   <div className="panel-section-label">FOOD (ORGANICS)</div>
@@ -1165,10 +1184,10 @@ export function PlanetManagementScreen({
                     <span className="pm-stat-label">Net</span>
                     <span
                       className="pm-stat-value"
-                      style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                      style={{ color: isDeficit ? shortageColour : '#44cc88', fontWeight: 'bold' }}
                     >
                       {foodNet >= 0 ? '+' : ''}{Math.round(foodNet * 10) / 10}
-                      {isDeficit && ' (STARVATION)'}
+                      {shortageLabel}
                     </span>
                   </div>
                 </div>
@@ -1583,6 +1602,17 @@ export function PlanetManagementScreen({
                     );
                     const foodBalance = foodProd - foodConsumption;
                     const isDeficit = foodBalance < 0;
+                    const sPct = isDeficit && foodConsumption > 0
+                      ? Math.round(Math.abs(foodBalance) / foodConsumption * 100) : 0;
+                    const sLabel = sPct === 0 ? ''
+                      : sPct <= 5  ? ' (Mild Shortage)'
+                      : sPct <= 15 ? ' (Food Shortage)'
+                      : sPct <= 40 ? ' (Severe Shortage)'
+                      : sPct < 100 ? ' (Starvation)' : ' (Famine)';
+                    const sCol = sPct === 0 ? '#44cc88'
+                      : sPct <= 5  ? '#ccaa44'
+                      : sPct <= 15 ? '#ff8844'
+                      : sPct <= 40 ? '#ff6633' : '#ff4444';
                     return (
                       <>
                         <div className="pm-divider" />
@@ -1604,10 +1634,10 @@ export function PlanetManagementScreen({
                             <span className="pm-stat-label">Net</span>
                             <span
                               className="pm-stat-value"
-                              style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                              style={{ color: isDeficit ? sCol : '#44cc88', fontWeight: 'bold' }}
                             >
                               {foodBalance >= 0 ? '+' : ''}{Math.round(foodBalance * 10) / 10}
-                              {isDeficit && ' (STARVATION)'}
+                              {sLabel}
                             </span>
                           </div>
                         </div>
