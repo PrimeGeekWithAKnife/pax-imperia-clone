@@ -5,5 +5,6 @@
     "rootDir": ".",
     "rootDirs": ["./src", "./data"]
   },
-  "include": ["src/**/*", "data/**/*.ts", "data/**/*.json"]
+  "include": ["src/**/*", "data/**/*.ts", "data/**/*.json"],
+  "exclude": ["src/__tests__/**"]
 }
