@@ -45,3 +45,13 @@ export {
   initPsychologicalState,
   processPsychologyTick,
 } from './tick.js';
+
+export {
+  RELATIONSHIP_EVENTS,
+  createRelationship,
+  applyRelationshipEvent,
+  tickRelationship,
+  computeOverallSentiment,
+  isRelationshipHostile,
+  isRelationshipAllianceReady,
+} from './relationship.js';

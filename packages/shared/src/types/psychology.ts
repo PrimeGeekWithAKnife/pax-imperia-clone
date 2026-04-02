@@ -362,4 +362,9 @@ export interface EmpirePsychologicalState {
   stressLevel: StressLevel;
   /** Ticks since the last crisis ended (for recovery tracking). */
   ticksSinceCrisis: number;
+  /**
+   * Psychology-driven relationships with other empires, keyed by target empire ID.
+   * Created at first contact, updated per tick.
+   */
+  relationships: Record<string, import('./diplomacy-v2.js').PsychRelationship>;
 }

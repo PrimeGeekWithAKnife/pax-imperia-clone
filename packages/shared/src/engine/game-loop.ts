@@ -3522,6 +3522,7 @@ function buildEmpireStateSnapshot(
   ));
 
   return {
+    currentTick: state.gameState.currentTick,
     organics: resources?.organics ?? 0,
     foodBalance,
     energy: resources?.energy ?? 0,

@@ -20,3 +20,4 @@ export * from './waste.js';
 export * from './narrative.js';
 export * from './ground-combat-expanded.js';
 export * from './psychology.js';
+export * from './diplomacy-v2.js';

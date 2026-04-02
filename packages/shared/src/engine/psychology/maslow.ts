@@ -26,6 +26,8 @@ import type { MaslowNeeds, AttachmentStyle } from '../../types/psychology.js';
  * Extracted from the game tick state each tick by the integration layer.
  */
 export interface EmpireStateSnapshot {
+  /** Current game tick number. */
+  currentTick: number;
   /** Total food stockpile in organics. */
   organics: number;
   /** Per-tick food production (can be negative if consuming more than producing). */

@@ -22,6 +22,7 @@ import { computeMaslowNeeds, belongingDeprivationImpact } from './maslow.js';
 import type { EmpireStateSnapshot } from './maslow.js';
 import { computeStressLevel, applyEnneagramDisintegration, applyEnneagramGrowth } from './stress.js';
 import type { StressInput } from './stress.js';
+import { tickRelationship } from './relationship.js';
 
 // ---------------------------------------------------------------------------
 // Initialisation
@@ -44,6 +45,7 @@ export function initPsychologicalState(personality: RolledPersonality): EmpirePs
     },
     stressLevel: 'baseline',
     ticksSinceCrisis: 999, // No recent crisis at game start
+    relationships: {},
   };
 }
 
@@ -120,6 +122,13 @@ export function processPsychologyTick(
     needs,
   );
 
+  // 6. Tick all relationships (decay, contact tracking, abandonment anxiety)
+  const currentTick = empireState.currentTick;
+  const updatedRelationships: Record<string, import('../../types/diplomacy-v2.js').PsychRelationship> = {};
+  for (const [targetId, rel] of Object.entries(state.relationships)) {
+    updatedRelationships[targetId] = tickRelationship(rel, personality.attachmentStyle, currentTick);
+  }
+
   return {
     personality,
     effectiveTraits,
@@ -127,6 +136,7 @@ export function processPsychologyTick(
     needs,
     stressLevel,
     ticksSinceCrisis,
+    relationships: updatedRelationships,
   };
 }
 

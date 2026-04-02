@@ -9,6 +9,7 @@ import type { EmpireStateSnapshot } from '../../engine/psychology/maslow.js';
 
 function makeSnapshot(overrides: Partial<EmpireStateSnapshot> = {}): EmpireStateSnapshot {
   return {
+    currentTick: 100,
     organics: 500,
     foodBalance: 10,
     energy: 200,
