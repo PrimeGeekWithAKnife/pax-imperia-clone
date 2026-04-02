@@ -155,10 +155,10 @@ function generateNeedBasedMoodEvents(
 ): MoodEvent[] {
   const events: MoodEvent[] = [];
 
-  // Physiological crisis
+  // Physiological crisis — only fires on crossing thresholds
   if (current.physiological < 30 && previous.physiological >= 30) {
     events.push({ valence: -20, anxiety: 25, arousal: 20 });
-  } else if (current.physiological < 20) {
+  } else if (current.physiological < 20 && previous.physiological >= 20) {
     events.push({ valence: -10, anxiety: 15, arousal: 10 });
   }
 
@@ -167,16 +167,18 @@ function generateNeedBasedMoodEvents(
     events.push({ valence: -15, anxiety: 20, anger: 10, arousal: 15 });
   }
 
-  // Belonging deprivation (attachment-style-weighted)
-  const belongingImpact = belongingDeprivationImpact(
-    current.belonging,
-    personality.attachmentStyle,
-  );
-  if (belongingImpact > 0.5) {
-    events.push({
-      valence: Math.round(-belongingImpact * 10),
-      anxiety: Math.round(belongingImpact * 12),
-    });
+  // Belonging deprivation — only fires on significant DROPS, not every tick
+  if (current.belonging < previous.belonging - 5) {
+    const belongingImpact = belongingDeprivationImpact(
+      current.belonging,
+      personality.attachmentStyle,
+    );
+    if (belongingImpact > 0.5) {
+      events.push({
+        valence: Math.round(-belongingImpact * 8),
+        anxiety: Math.round(belongingImpact * 10),
+      });
+    }
   }
 
   // Positive events: needs improving

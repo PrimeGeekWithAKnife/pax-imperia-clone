@@ -272,6 +272,8 @@ import type { EmpirePsychologicalState } from '../types/psychology.js';
 import { initPsychologicalState, processPsychologyTick } from './psychology/tick.js';
 import type { EmpireStateSnapshot } from './psychology/maslow.js';
 import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
+import { createRelationship } from './psychology/relationship.js';
+import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -1004,6 +1006,24 @@ function stepFleetMovement(
             if (!rel || rel.firstContact === -1) {
               dipState = makeFirstContact(dipState, fleet.empireId, foreignId, tick);
               (state as unknown as Record<string, unknown>).diplomacyState = dipState;
+
+              // Create psychology relationships for both empires
+              const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
+                Map<string, EmpirePsychologicalState>;
+              const ourPsych = psychMap.get(fleet.empireId);
+              const theirPsych = psychMap.get(foreignId);
+              if (ourPsych && theirPsych) {
+                if (!ourPsych.relationships[foreignId]) {
+                  ourPsych.relationships[foreignId] = createRelationship(
+                    foreignId, ourPsych.personality, theirPsych.personality, AFFINITY_MATRIX, tick,
+                  );
+                }
+                if (!theirPsych.relationships[fleet.empireId]) {
+                  theirPsych.relationships[fleet.empireId] = createRelationship(
+                    fleet.empireId, theirPsych.personality, ourPsych.personality, AFFINITY_MATRIX, tick,
+                  );
+                }
+              }
             }
           }
         }
