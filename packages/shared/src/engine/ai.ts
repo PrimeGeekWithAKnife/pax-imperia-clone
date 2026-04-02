@@ -1167,13 +1167,32 @@ export function evaluateResearchPriority(
     // Cheaper techs get a slight nudge so the AI doesn't always chase the
     // most expensive options.
     const costFactor = Math.max(0, 1 - tech.cost / 500); // 0-1, cheaper → higher
-    const basePriority = isPreferred ? 60 + costFactor * 15 : 30 + costFactor * 10;
+    let basePriority = isPreferred ? 60 + costFactor * 15 : 30 + costFactor * 10;
+
+    // Age-unlock techs are CRITICAL — they gate access to everything better.
+    // Without advancing ages, a research-9 species builds age-1 ships forever
+    // while combat-focused species with the same age produce identical ships.
+    // Every personality should prioritise these.
+    const isAgeUnlock = tech.effects?.some(
+      (e: Record<string, unknown>) => e.type === 'age_unlock',
+    );
+    if (isAgeUnlock) basePriority = Math.max(basePriority, 85);
+
+    // Weapon/shield/hull unlock techs get a boost when under threat —
+    // a species at war should research military tech regardless of personality
+    const isMilitaryTech = tech.category === 'weapons' || tech.category === 'defense';
+    const isHullUnlock = tech.effects?.some(
+      (e: Record<string, unknown>) => e.type === 'unlock_hull' || e.type === 'unlock_component',
+    );
+    if ((isMilitaryTech || isHullUnlock) && _activeSituationalContext && _activeSituationalContext.safety < 50) {
+      basePriority = Math.max(basePriority, 55 + (50 - _activeSituationalContext.safety) * 0.5);
+    }
 
     decisions.push({
       type: 'research',
       priority: applyWeight(basePriority, 'research', personality),
       params: { techId: tech.id, category: tech.category, cost: tech.cost },
-      reasoning: `Research ${tech.name} (${tech.category}${isPreferred ? ', preferred' : ''})`,
+      reasoning: `Research ${tech.name} (${tech.category}${isPreferred ? ', preferred' : ''}${isAgeUnlock ? ', AGE GATE' : ''})`,
     });
   }
 

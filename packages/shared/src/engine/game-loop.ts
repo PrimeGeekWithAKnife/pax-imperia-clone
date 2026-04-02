@@ -3205,21 +3205,30 @@ function stepResearch(
     if (completed.length > 0) {
       empires = empires.map(e => (e.id === empire.id ? updatedEmpire : e));
 
-      // Generate default designs for any newly unlocked hull types
-      if (updatedEmpire.currentAge !== empire.currentAge) {
-        const availableComponents = getAvailableComponents(
-          SHIP_COMPONENTS,
-          updatedEmpire.technologies,
-        );
-        const newDefaults = generateDefaultDesigns(
-          updatedEmpire.currentAge,
-          updatedEmpire.id,
-          updatedShipDesigns,
-          availableComponents,
-        );
-        for (const d of newDefaults) {
-          updatedShipDesigns.set(d.id, d);
+      // Regenerate default designs whenever new tech is completed.
+      // This ensures ships built after researching plasma cannons actually
+      // USE plasma cannons, not the starter lasers from game start.
+      // Previously this only ran on age transitions, meaning tech advantages
+      // from research never translated into better ships.
+      const availableComponents = getAvailableComponents(
+        SHIP_COMPONENTS,
+        updatedEmpire.technologies,
+      );
+      // Delete existing default designs for this empire so they get rebuilt
+      // with the latest components. Custom player designs are preserved.
+      for (const [designId, design] of updatedShipDesigns) {
+        if (design.empireId === updatedEmpire.id && designId.startsWith('default-')) {
+          updatedShipDesigns.delete(designId);
         }
+      }
+      const newDefaults = generateDefaultDesigns(
+        updatedEmpire.currentAge,
+        updatedEmpire.id,
+        updatedShipDesigns,
+        availableComponents,
+      );
+      for (const d of newDefaults) {
+        updatedShipDesigns.set(d.id, d);
       }
     }
   }
