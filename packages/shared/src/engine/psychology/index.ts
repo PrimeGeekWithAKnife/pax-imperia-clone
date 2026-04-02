@@ -75,3 +75,18 @@ export {
   computePersonalityDrift,
 } from './ai-integration.js';
 export type { BuildingPriority } from './ai-integration.js';
+
+export {
+  createSenateState,
+  submitMembershipApplication,
+  voteOnApplication,
+  resolveApplication,
+  startElection,
+  voteInElection,
+  resolveElection,
+  aiVoteOnMembership,
+  aiVoteInElection,
+  senateRelationshipEvents,
+  processSenateTick,
+} from './senate.js';
+export type { SenateAction, SenateTickEvent } from './senate.js';

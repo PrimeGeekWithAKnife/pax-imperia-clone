@@ -372,6 +372,68 @@ export interface GalacticOrganisationState {
 }
 
 // ---------------------------------------------------------------------------
+// Galactic Senate (leadership, membership approval, sanctions)
+// ---------------------------------------------------------------------------
+
+/** Leadership state for a galactic organisation. */
+export interface OrganisationLeadership {
+  /** Empire ID of the current leader. Null if no leader elected. */
+  leaderEmpireId: string | null;
+  /** Tick when the current leader was elected. */
+  electedTick: number;
+  /** Duration of a leadership term in ticks. */
+  termLength: number;
+  /** Tick when the current term expires. */
+  termExpiresTick: number;
+}
+
+/** A membership application to a galactic organisation. */
+export interface MembershipApplication {
+  /** Unique ID for this application. */
+  id: string;
+  /** Empire applying for membership. */
+  applicantEmpireId: string;
+  /** Empire that sponsored the application (must be existing member). */
+  sponsorEmpireId: string;
+  /** Votes cast by existing members. empireId → vote. */
+  votes: Record<string, VoteChoice>;
+  /** Tick when the application was submitted. */
+  submittedTick: number;
+  /** Whether the application has been resolved. */
+  resolved: boolean;
+  /** Whether the application was approved (set when resolved). */
+  approved: boolean;
+}
+
+/** A leadership election within an organisation. */
+export interface LeadershipElection {
+  /** Unique ID for this election. */
+  id: string;
+  /** Empire IDs of candidates. */
+  candidates: string[];
+  /** Votes cast: voterId → candidateId. */
+  votes: Record<string, string>;
+  /** Tick when the election started. */
+  startedTick: number;
+  /** Whether the election has been resolved. */
+  resolved: boolean;
+  /** Winner empire ID (set when resolved). */
+  winnerId: string | null;
+}
+
+/** Senate state extending a galactic organisation. */
+export interface SenateState {
+  /** Leadership of the organisation. */
+  leadership: OrganisationLeadership;
+  /** Pending membership applications. */
+  pendingApplications: MembershipApplication[];
+  /** Current or most recent leadership election. */
+  currentElection: LeadershipElection | null;
+  /** History of past leaders. */
+  leaderHistory: Array<{ empireId: string; fromTick: number; toTick: number }>;
+}
+
+// ---------------------------------------------------------------------------
 // Galactic Bank
 // ---------------------------------------------------------------------------
 
