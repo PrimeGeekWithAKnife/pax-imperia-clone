@@ -229,7 +229,9 @@ function buildConquestStatus(empire: Empire, gameState: GameState): VictoryCondi
 
   // Prevent early-game ratio manipulation: require a minimum number of
   // colonised planets before the conquest ratio check is meaningful.
-  const minColonised = Math.max(4, gameState.empires.length * 2);
+  // With 8 players, at least 3 planets per empire should exist before
+  // conquest can be claimed — ensures the galaxy is actually developed.
+  const minColonised = Math.max(8, gameState.empires.length * 3);
   const enoughPlanets = colonised.length >= minColonised;
 
   // The winner must have actually conquered someone — at least one rival
@@ -449,15 +451,15 @@ export function checkVictoryConditions(
     ? victoryCriteria
     : ['conquest', 'economic', 'technological', 'diplomatic', 'score'];
 
-  // Victory conditions (except conquest and score) require a minimum game age
-  // to prevent trivial wins from starting-condition asymmetry.  Conquest is
-  // exempt because you cannot accidentally conquer 75% of the galaxy — it
-  // requires genuine military achievement regardless of when it happens.
+  // ALL victory conditions require a minimum game age to prevent trivial
+  // early wins. Conquest at tick 45 with no player interaction is not a
+  // meaningful military achievement — it's the AI steamrolling a corner
+  // of the galaxy before anyone gets started.
   const gameOldEnough = gameState.currentTick >= VICTORY_MIN_TICK;
 
   for (const empire of empires) {
-    // ── Conquest (no min-tick gate — military victory is always earned) ─────
-    if (enabledCriteria.includes('conquest')) {
+    // ── Conquest ────────────────────────────────────────────────────────────
+    if (gameOldEnough && enabledCriteria.includes('conquest')) {
       const status = buildConquestStatus(empire, gameState);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'conquest' };
