@@ -66,3 +66,12 @@ export {
   proposalFrequency,
 } from './evaluation.js';
 export type { ProposalContext, EvaluableTreatyType, DiplomaticAction } from './evaluation.js';
+
+export {
+  evaluateTreatyWithPsychology,
+  psychologyWarPropensity,
+  determineBuildingPriorities,
+  generatePsychDiplomaticActions,
+  computePersonalityDrift,
+} from './ai-integration.js';
+export type { BuildingPriority } from './ai-integration.js';

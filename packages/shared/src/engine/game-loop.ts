@@ -271,6 +271,7 @@ import { ELECTION_INTERVAL } from '../constants/time.js';
 import type { EmpirePsychologicalState } from '../types/psychology.js';
 import { initPsychologicalState, processPsychologyTick } from './psychology/tick.js';
 import type { EmpireStateSnapshot } from './psychology/maslow.js';
+import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -3736,23 +3737,36 @@ function executeAIDiplomacy(
     if (!targetEmpire) return state;
 
     if (targetEmpire.isAI) {
-      // Use the full personality-driven treaty evaluation
-      const proposerEmpire = state.gameState.empires.find(e => e.id === empireId);
-      if (!proposerEmpire) return state;
-      const relation = getRelation(diplomacyState, empireId, targetEmpireId);
-      if (!relation) return state;
-      const proposal = {
-        fromEmpireId: empireId,
-        toEmpireId: targetEmpireId,
-        treatyType: treatyType as TreatyType,
-      };
-      const evalResult = evaluateTreatyProposal(
-        proposerEmpire,
-        targetEmpire,
-        relation,
-        proposal,
-      );
-      if (!evalResult.accept) return state;
+      // Try psychology-driven evaluation first, fall back to legacy
+      const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
+        Map<string, EmpirePsychologicalState>;
+      const targetPsych = psychMap.get(targetEmpireId);
+
+      let accepted = false;
+      if (targetPsych && targetPsych.relationships[empireId]) {
+        // Psychology-driven probabilistic evaluation
+        const result = evaluateTreatyWithPsychology(targetPsych, empireId, treatyType);
+        accepted = result.accept;
+      } else {
+        // Legacy threshold-gated evaluation
+        const proposerEmpire = state.gameState.empires.find(e => e.id === empireId);
+        if (!proposerEmpire) return state;
+        const relation = getRelation(diplomacyState, empireId, targetEmpireId);
+        if (!relation) return state;
+        const proposal = {
+          fromEmpireId: empireId,
+          toEmpireId: targetEmpireId,
+          treatyType: treatyType as TreatyType,
+        };
+        const evalResult = evaluateTreatyProposal(
+          proposerEmpire,
+          targetEmpire,
+          relation,
+          proposal,
+        );
+        accepted = evalResult.accept;
+      }
+      if (!accepted) return state;
 
       // Accept: sign the treaty
       const updatedDiplomacy = proposeTreaty(diplomacyState, {
