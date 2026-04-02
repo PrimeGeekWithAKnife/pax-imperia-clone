@@ -449,13 +449,15 @@ export function checkVictoryConditions(
     ? victoryCriteria
     : ['conquest', 'economic', 'technological', 'diplomatic', 'score'];
 
-  // Victory conditions (except score) require a minimum game age to prevent
-  // trivial wins from starting-condition asymmetry.
+  // Victory conditions (except conquest and score) require a minimum game age
+  // to prevent trivial wins from starting-condition asymmetry.  Conquest is
+  // exempt because you cannot accidentally conquer 75% of the galaxy — it
+  // requires genuine military achievement regardless of when it happens.
   const gameOldEnough = gameState.currentTick >= VICTORY_MIN_TICK;
 
   for (const empire of empires) {
-    // ── Conquest ────────────────────────────────────────────────────────────
-    if (gameOldEnough && enabledCriteria.includes('conquest')) {
+    // ── Conquest (no min-tick gate — military victory is always earned) ─────
+    if (enabledCriteria.includes('conquest')) {
       const status = buildConquestStatus(empire, gameState);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'conquest' };
