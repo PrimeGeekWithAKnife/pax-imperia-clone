@@ -161,11 +161,16 @@ function runConquestGame(cfg: typeof GAME_CONFIGS[0]): ConquestResult {
         victoryType = e.victoryCriteria as string;
         gameFinished = true;
       }
-      if (e.type === 'WarDeclared') warsDeclared++;
       if (e.type === 'CombatResolved' || e.type === 'CombatStarted') combatEvents++;
-      if (e.type === 'PlanetConquered' || e.type === 'PlanetCaptured') planetsConquered++;
     }
     if (state.gameState.status === 'finished') gameFinished = true;
+
+    // Count captures and wars from notifications (not GameEvents)
+    const notifications = ((state as unknown as Record<string, unknown>).notifications ?? []) as Array<Record<string, unknown>>;
+    for (const n of notifications) {
+      if (n.type === 'planet_captured') planetsConquered++;
+      if (n.type === 'war_declared') warsDeclared++;
+    }
 
     // Detailed log at milestones
     if ([499, 999, 1499].includes(t)) {

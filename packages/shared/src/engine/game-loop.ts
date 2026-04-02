@@ -1153,7 +1153,7 @@ function stepFleetMovement(
               };
               const updatedSystems = state.gameState.galaxy.systems.map(s =>
                 s.id === arrSystem.id
-                  ? { ...s, planets: s.planets.map(p => p.id === habitablePlanet.id ? updatedPlanet : p) }
+                  ? { ...s, ownerId: s.ownerId ?? arrivedFleetForColonise.empireId, planets: s.planets.map(p => p.id === habitablePlanet.id ? updatedPlanet : p) }
                   : s,
               );
               state = {
