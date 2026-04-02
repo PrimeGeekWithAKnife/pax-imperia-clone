@@ -1,0 +1,41 @@
+{
+  "speciesId": "orivani",
+  "traits": {
+    "neuroticism":       { "median": 55, "stddev": 10 },
+    "extraversion":      { "median": 65, "stddev": 10 },
+    "openness":          { "median": 15, "stddev": 6 },
+    "agreeableness":     { "median": 40, "stddev": 10 },
+    "conscientiousness": { "median": 80, "stddev": 6 },
+    "honestyHumility":   { "median": 45, "stddev": 10 }
+  },
+  "subfacets": {
+    "selfConsciousness": { "median": 35, "stddev": 10 },
+    "assertiveness":     { "median": 75, "stddev": 8 },
+    "compliance":        { "median": 25, "stddev": 8 },
+    "dutifulness":       { "median": 85, "stddev": 5 },
+    "order":             { "median": 80, "stddev": 6 }
+  },
+  "attachmentStyle": "anxious",
+  "enneagram": {
+    "type": 1,
+    "wing": 2,
+    "stressDirection": 4,
+    "growthDirection": 7
+  },
+  "darkTriad": {
+    "narcissism": 45,
+    "machiavellianism": 20,
+    "psychopathy": 15,
+    "sadism": 10
+  },
+  "moralFoundations": {
+    "careHarm": 50,
+    "fairnessCheating": 45,
+    "loyaltyBetrayal": 80,
+    "authoritySubversion": 90,
+    "sanctityDegradation": 95,
+    "libertyOppression": 25
+  },
+  "firstContactAttitude": { "min": -5, "max": 15 },
+  "psychologicalTheme": "Zealous crusaders preparing for the Coming. Anxious attachment — needs constant validation that they are righteous. Type 1 (Reformer) with helper wing: driven by righteous anger, convinced of their moral duty. Under stress, becomes moody and withdrawn (Type 4 direction). Very low openness means they are hostile to unfamiliar ideas. Highest sanctity moral foundation — they see the universe through a lens of sacred vs profane. Missionary zeal at first contact, but agreeableness is low enough to wage holy wars."
+}

@@ -1,0 +1,41 @@
+{
+  "speciesId": "vaelori",
+  "traits": {
+    "neuroticism":       { "median": 35, "stddev": 8 },
+    "extraversion":      { "median": 30, "stddev": 8 },
+    "openness":          { "median": 70, "stddev": 8 },
+    "agreeableness":     { "median": 60, "stddev": 8 },
+    "conscientiousness": { "median": 50, "stddev": 10 },
+    "honestyHumility":   { "median": 70, "stddev": 6 }
+  },
+  "subfacets": {
+    "feelings":       { "median": 80, "stddev": 8 },
+    "trust":          { "median": 55, "stddev": 10 },
+    "deliberation":   { "median": 70, "stddev": 8 },
+    "values":         { "median": 75, "stddev": 6 },
+    "modesty":        { "median": 65, "stddev": 8 }
+  },
+  "attachmentStyle": "secure",
+  "enneagram": {
+    "type": 5,
+    "wing": 4,
+    "stressDirection": 7,
+    "growthDirection": 8
+  },
+  "darkTriad": {
+    "narcissism": 10,
+    "machiavellianism": 10,
+    "psychopathy": 5,
+    "sadism": 0
+  },
+  "moralFoundations": {
+    "careHarm": 65,
+    "fairnessCheating": 70,
+    "loyaltyBetrayal": 55,
+    "authoritySubversion": 50,
+    "sanctityDegradation": 60,
+    "libertyOppression": 55
+  },
+  "firstContactAttitude": { "min": -5, "max": 15 },
+  "psychologicalTheme": "Psychic crystal prophets. Secure attachment with high emotional perception. Type 5w4: contemplative observers who seek understanding through psychic resonance. First-contact attitude varies depending on what they sense — their range includes slight suspicion because some species feel psychically 'wrong' to them. High openness and honesty-humility make them the galaxy's most trustworthy advisors. Under stress, becomes scattered and escapist (Type 7 direction). Very low Dark Triad."
+}

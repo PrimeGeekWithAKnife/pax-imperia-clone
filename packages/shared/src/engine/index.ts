@@ -34,3 +34,4 @@ export * from './grievance.js';
 export * from './diplomat.js';
 export * from './healthcare.js';
 export * from './narrative.js';
+export * from './psychology/index.js';

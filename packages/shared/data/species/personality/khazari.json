@@ -1,0 +1,41 @@
+{
+  "speciesId": "khazari",
+  "traits": {
+    "neuroticism":       { "median": 30, "stddev": 8 },
+    "extraversion":      { "median": 35, "stddev": 8 },
+    "openness":          { "median": 20, "stddev": 6 },
+    "agreeableness":     { "median": 25, "stddev": 8 },
+    "conscientiousness": { "median": 85, "stddev": 5 },
+    "honestyHumility":   { "median": 40, "stddev": 10 }
+  },
+  "subfacets": {
+    "angerHostility":      { "median": 65, "stddev": 10 },
+    "assertiveness":       { "median": 80, "stddev": 8 },
+    "dutifulness":         { "median": 90, "stddev": 5 },
+    "achievementStriving": { "median": 85, "stddev": 6 },
+    "deliberation":        { "median": 35, "stddev": 10 }
+  },
+  "attachmentStyle": "avoidant",
+  "enneagram": {
+    "type": 8,
+    "wing": 9,
+    "stressDirection": 5,
+    "growthDirection": 2
+  },
+  "darkTriad": {
+    "narcissism": 40,
+    "machiavellianism": 15,
+    "psychopathy": 20,
+    "sadism": 10
+  },
+  "moralFoundations": {
+    "careHarm": 30,
+    "fairnessCheating": 50,
+    "loyaltyBetrayal": 85,
+    "authoritySubversion": 80,
+    "sanctityDegradation": 70,
+    "libertyOppression": 30
+  },
+  "firstContactAttitude": { "min": -20, "max": 0 },
+  "psychologicalTheme": "Stubborn honour-bound smiths. Dismissive-avoidant — self-reliant, resist deep alliances, prefer minimal contact. Extremely conscientious with moderate narcissism (forge-pride). Low openness means they distrust novelty. Type 8 externalises anger as a control mechanism. Under stress, withdraws (Type 5 direction) rather than panicking."
+}

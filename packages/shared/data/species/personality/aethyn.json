@@ -1,0 +1,41 @@
+{
+  "speciesId": "aethyn",
+  "traits": {
+    "neuroticism":       { "median": 30, "stddev": 10 },
+    "extraversion":      { "median": 45, "stddev": 10 },
+    "openness":          { "median": 95, "stddev": 4 },
+    "agreeableness":     { "median": 55, "stddev": 10 },
+    "conscientiousness": { "median": 35, "stddev": 10 },
+    "honestyHumility":   { "median": 65, "stddev": 8 }
+  },
+  "subfacets": {
+    "fantasy":    { "median": 90, "stddev": 5 },
+    "ideas":      { "median": 90, "stddev": 5 },
+    "actions":    { "median": 80, "stddev": 8 },
+    "feelings":   { "median": 70, "stddev": 10 },
+    "warmth":     { "median": 55, "stddev": 10 }
+  },
+  "attachmentStyle": "secure",
+  "enneagram": {
+    "type": 4,
+    "wing": 5,
+    "stressDirection": 2,
+    "growthDirection": 1
+  },
+  "darkTriad": {
+    "narcissism": 10,
+    "machiavellianism": 10,
+    "psychopathy": 10,
+    "sadism": 0
+  },
+  "moralFoundations": {
+    "careHarm": 60,
+    "fairnessCheating": 55,
+    "loyaltyBetrayal": 35,
+    "authoritySubversion": 20,
+    "sanctityDegradation": 45,
+    "libertyOppression": 80
+  },
+  "firstContactAttitude": { "min": 5, "max": 20 },
+  "psychologicalTheme": "Interdimensional pioneers. Secure attachment with the second-highest openness in the galaxy. Type 4w5 (Bohemian): driven by desire for identity and understanding. Low conscientiousness means they are unreliable but endlessly creative. Under stress, becomes clingy and people-pleasing (Type 2 direction) — the independent explorer suddenly needs validation. Liberty is their highest moral foundation — they cannot tolerate being constrained. Almost zero Dark Triad."
+}

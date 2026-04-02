@@ -1,0 +1,41 @@
+{
+  "speciesId": "kaelenth",
+  "traits": {
+    "neuroticism":       { "median": 10, "stddev": 4 },
+    "extraversion":      { "median": 15, "stddev": 5 },
+    "openness":          { "median": 75, "stddev": 8 },
+    "agreeableness":     { "median": 15, "stddev": 5 },
+    "conscientiousness": { "median": 95, "stddev": 3 },
+    "honestyHumility":   { "median": 30, "stddev": 8 }
+  },
+  "subfacets": {
+    "competence":          { "median": 95, "stddev": 3 },
+    "deliberation":        { "median": 90, "stddev": 4 },
+    "achievementStriving": { "median": 85, "stddev": 5 },
+    "ideas":               { "median": 80, "stddev": 6 },
+    "trust":               { "median": 10, "stddev": 4 }
+  },
+  "attachmentStyle": "avoidant",
+  "enneagram": {
+    "type": 5,
+    "wing": 6,
+    "stressDirection": 7,
+    "growthDirection": 8
+  },
+  "darkTriad": {
+    "narcissism": 20,
+    "machiavellianism": 65,
+    "psychopathy": 40,
+    "sadism": 10
+  },
+  "moralFoundations": {
+    "careHarm": 15,
+    "fairnessCheating": 55,
+    "loyaltyBetrayal": 45,
+    "authoritySubversion": 60,
+    "sanctityDegradation": 20,
+    "libertyOppression": 40
+  },
+  "firstContactAttitude": { "min": -15, "max": 0 },
+  "psychologicalTheme": "Cold analytical machines. Dismissive-avoidant with highest Machiavellianism — every relationship is an optimisation problem. Type 5w6 (Problem Solver): hoards data, minimises emotional engagement, plans contingencies. Near-zero neuroticism means they never panic. Extremely low agreeableness + trust means they assume hostile intent. Under stress, becomes scattered (Type 7) — unusual for such a controlled species, manifests as rapid tactical pivots. High openness to ideas but not to beings."
+}

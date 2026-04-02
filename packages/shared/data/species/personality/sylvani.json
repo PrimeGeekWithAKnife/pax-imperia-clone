@@ -1,0 +1,41 @@
+{
+  "speciesId": "sylvani",
+  "traits": {
+    "neuroticism":       { "median": 20, "stddev": 6 },
+    "extraversion":      { "median": 40, "stddev": 8 },
+    "openness":          { "median": 80, "stddev": 8 },
+    "agreeableness":     { "median": 75, "stddev": 6 },
+    "conscientiousness": { "median": 60, "stddev": 8 },
+    "honestyHumility":   { "median": 80, "stddev": 5 }
+  },
+  "subfacets": {
+    "trust":          { "median": 70, "stddev": 8 },
+    "tenderness":     { "median": 75, "stddev": 6 },
+    "ideas":          { "median": 80, "stddev": 8 },
+    "values":         { "median": 85, "stddev": 5 },
+    "deliberation":   { "median": 80, "stddev": 6 }
+  },
+  "attachmentStyle": "secure",
+  "enneagram": {
+    "type": 9,
+    "wing": 1,
+    "stressDirection": 6,
+    "growthDirection": 3
+  },
+  "darkTriad": {
+    "narcissism": 5,
+    "machiavellianism": 5,
+    "psychopathy": 5,
+    "sadism": 0
+  },
+  "moralFoundations": {
+    "careHarm": 85,
+    "fairnessCheating": 75,
+    "loyaltyBetrayal": 55,
+    "authoritySubversion": 40,
+    "sanctityDegradation": 80,
+    "libertyOppression": 60
+  },
+  "firstContactAttitude": { "min": 0, "max": 15 },
+  "psychologicalTheme": "Patient botanical network. Secure attachment with extremely low neuroticism — almost nothing rattles them. Type 9 (Peacemaker) denies anger until pushed to breaking point, then shifts to Type 6 anxiety. Highest honesty-humility in the galaxy. Moral foundations centre on care and sanctity (nature as sacred). When a Sylvani finally gets angry, it is catastrophic and surprising."
+}

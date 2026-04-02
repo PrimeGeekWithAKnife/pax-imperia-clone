@@ -14,12 +14,15 @@ import type { EmpireResources } from '../types/resources.js';
 import type { GameState, VictoryCriteria } from '../types/game-state.js';
 import type { GalaxyGenerationConfig } from '../generation/galaxy-generator.js';
 import type { GovernmentType } from '../types/government.js';
+import type { DifficultyLevel } from '../types/psychology.js';
 import { generateGalaxy } from '../generation/galaxy-generator.js';
 import { calculateHabitability } from './colony.js';
 import { getIdealPlanetType } from './terraforming.js';
 import { generateId } from '../utils/id.js';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS } from '../constants/game.js';
 import { getAbilityFoodModifier } from './economy.js';
+import { rollPersonality, createDefaultPersonality } from './psychology/personality.js';
+import { SPECIES_PERSONALITIES_BY_ID } from '../../data/species/personality/index.js';
 
 /**
  * Infer an AI personality from the species' traits.  The highest trait
@@ -47,6 +50,8 @@ export interface GameSetupConfig {
   players: PlayerSetup[];
   /** Which victory conditions are active.  Omit or pass empty to enable all. */
   victoryCriteria?: string[];
+  /** Difficulty level affecting AI personality rolling. Defaults to 'normal'. */
+  difficulty?: DifficultyLevel;
 }
 
 export interface PlayerSetup {
@@ -442,7 +447,14 @@ export function initializeGame(config: GameSetupConfig): GameState {
       researchPoints: STARTING_RESEARCH_POINTS,
     };
 
-    // 6. Build empire object
+    // 6. Roll per-game psychology from species personality data
+    const difficulty = config.difficulty ?? 'normal';
+    const speciesPersonality = SPECIES_PERSONALITIES_BY_ID[playerSetup.species.id];
+    const psychology = speciesPersonality
+      ? rollPersonality(speciesPersonality, difficulty)
+      : createDefaultPersonality(playerSetup.species.id);
+
+    // 7. Build empire object
     const empire: Empire = {
       id: empireId,
       name: playerSetup.empireName,
@@ -461,6 +473,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       // actually pursue war, while diplomatic species (Vethara, Teranos) seek alliances.
       aiPersonality: playerSetup.aiPersonality
         ?? (playerSetup.isAI ? inferAIPersonality(playerSetup.species) : undefined),
+      psychology,
     };
 
     empires.push(empire);

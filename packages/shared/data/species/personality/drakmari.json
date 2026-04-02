@@ -1,0 +1,41 @@
+{
+  "speciesId": "drakmari",
+  "traits": {
+    "neuroticism":       { "median": 60, "stddev": 12 },
+    "extraversion":      { "median": 55, "stddev": 10 },
+    "openness":          { "median": 30, "stddev": 8 },
+    "agreeableness":     { "median": 20, "stddev": 8 },
+    "conscientiousness": { "median": 45, "stddev": 12 },
+    "honestyHumility":   { "median": 25, "stddev": 8 }
+  },
+  "subfacets": {
+    "angerHostility":  { "median": 75, "stddev": 10 },
+    "assertiveness":   { "median": 80, "stddev": 8 },
+    "excitement":      { "median": 70, "stddev": 10 },
+    "trust":           { "median": 15, "stddev": 6 },
+    "vulnerability":   { "median": 55, "stddev": 12 }
+  },
+  "attachmentStyle": "fearful_avoidant",
+  "enneagram": {
+    "type": 8,
+    "wing": 7,
+    "stressDirection": 5,
+    "growthDirection": 2
+  },
+  "darkTriad": {
+    "narcissism": 30,
+    "machiavellianism": 25,
+    "psychopathy": 55,
+    "sadism": 45
+  },
+  "moralFoundations": {
+    "careHarm": 20,
+    "fairnessCheating": 35,
+    "loyaltyBetrayal": 70,
+    "authoritySubversion": 75,
+    "sanctityDegradation": 50,
+    "libertyOppression": 40
+  },
+  "firstContactAttitude": { "min": -25, "max": -5 },
+  "psychologicalTheme": "Predatory hunters with a warrior code. Fearful-avoidant — wants respect but fears vulnerability. High psychopathy and sadism (prey assessment is literal). Type 8w7 is the 'Maverick' — confrontational, impulsive, driven by intensity. Under stress, withdraws into cold calculation (Type 5). High anger-hostility means explosive reactions, but the warrior code (loyalty/authority foundations) provides structure."
+}

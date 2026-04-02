@@ -1,0 +1,39 @@
+{
+  "speciesId": "pyrenth",
+  "traits": {
+    "neuroticism":       { "median": 10, "stddev": 4 },
+    "extraversion":      { "median": 10, "stddev": 4 },
+    "openness":          { "median": 40, "stddev": 8 },
+    "agreeableness":     { "median": 35, "stddev": 8 },
+    "conscientiousness": { "median": 95, "stddev": 3 },
+    "honestyHumility":   { "median": 70, "stddev": 6 }
+  },
+  "subfacets": {
+    "deliberation":    { "median": 95, "stddev": 3 },
+    "selfDiscipline":  { "median": 90, "stddev": 4 },
+    "order":           { "median": 90, "stddev": 4 }
+  },
+  "attachmentStyle": "avoidant",
+  "enneagram": {
+    "type": 5,
+    "wing": 4,
+    "stressDirection": 7,
+    "growthDirection": 8
+  },
+  "darkTriad": {
+    "narcissism": 10,
+    "machiavellianism": 10,
+    "psychopathy": 15,
+    "sadism": 0
+  },
+  "moralFoundations": {
+    "careHarm": 30,
+    "fairnessCheating": 55,
+    "loyaltyBetrayal": 50,
+    "authoritySubversion": 65,
+    "sanctityDegradation": 60,
+    "libertyOppression": 50
+  },
+  "firstContactAttitude": { "min": -5, "max": 5 },
+  "psychologicalTheme": "Glacial crystal masons on a geological timescale. Dismissive-avoidant — prefers solitude over contact. Near-zero neuroticism and extraversion: effectively immune to emotional manipulation and never initiates contact. Type 5 (Investigator) — hoards knowledge and resources, minimises interaction. Highest conscientiousness in the galaxy. Under stress, becomes scattered and impulsive (Type 7 direction), which for a Pyrenth means making decisions in merely decades rather than centuries. Simple personality — only 3 subfacets because they lack emotional complexity."
+}

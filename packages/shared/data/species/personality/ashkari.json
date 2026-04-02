@@ -1,0 +1,40 @@
+{
+  "speciesId": "ashkari",
+  "traits": {
+    "neuroticism":       { "median": 55, "stddev": 10 },
+    "extraversion":      { "median": 50, "stddev": 10 },
+    "openness":          { "median": 60, "stddev": 10 },
+    "agreeableness":     { "median": 50, "stddev": 10 },
+    "conscientiousness": { "median": 55, "stddev": 10 },
+    "honestyHumility":   { "median": 55, "stddev": 10 }
+  },
+  "subfacets": {
+    "anxiety":             { "median": 60, "stddev": 10 },
+    "selfConsciousness":   { "median": 55, "stddev": 10 },
+    "actions":             { "median": 65, "stddev": 10 },
+    "achievementStriving": { "median": 55, "stddev": 10 }
+  },
+  "attachmentStyle": "anxious",
+  "enneagram": {
+    "type": 6,
+    "wing": 7,
+    "stressDirection": 3,
+    "growthDirection": 9
+  },
+  "darkTriad": {
+    "narcissism": 15,
+    "machiavellianism": 25,
+    "psychopathy": 10,
+    "sadism": 5
+  },
+  "moralFoundations": {
+    "careHarm": 55,
+    "fairnessCheating": 60,
+    "loyaltyBetrayal": 55,
+    "authoritySubversion": 45,
+    "sanctityDegradation": 35,
+    "libertyOppression": 65
+  },
+  "firstContactAttitude": { "min": -10, "max": 5 },
+  "psychologicalTheme": "Pragmatic refugee survivors. Anxious attachment — burned before, hypervigilant about threats. Type 6 (Loyalist) with adventurer wing: seeks security through alliances but has an escape plan. Moderate personality across the board with slightly elevated neuroticism from refugee trauma. Under stress, becomes image-conscious and arrogant (Type 3 direction) — overcompensating survival mode. Moderate Machiavellianism from generations of making deals to survive. The galaxy's ultimate pragmatists."
+}

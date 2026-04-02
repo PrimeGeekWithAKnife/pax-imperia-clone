@@ -1,0 +1,40 @@
+{
+  "speciesId": "thyriaq",
+  "traits": {
+    "neuroticism":       { "median": 40, "stddev": 10 },
+    "extraversion":      { "median": 30, "stddev": 8 },
+    "openness":          { "median": 50, "stddev": 10 },
+    "agreeableness":     { "median": 25, "stddev": 8 },
+    "conscientiousness": { "median": 70, "stddev": 8 },
+    "honestyHumility":   { "median": 20, "stddev": 6 }
+  },
+  "subfacets": {
+    "angerHostility":      { "median": 45, "stddev": 12 },
+    "competence":          { "median": 75, "stddev": 8 },
+    "achievementStriving": { "median": 70, "stddev": 8 },
+    "straightforwardness": { "median": 15, "stddev": 6 }
+  },
+  "attachmentStyle": "fearful_avoidant",
+  "enneagram": {
+    "type": 5,
+    "wing": 4,
+    "stressDirection": 7,
+    "growthDirection": 8
+  },
+  "darkTriad": {
+    "narcissism": 15,
+    "machiavellianism": 35,
+    "psychopathy": 45,
+    "sadism": 20
+  },
+  "moralFoundations": {
+    "careHarm": 20,
+    "fairnessCheating": 35,
+    "loyaltyBetrayal": 50,
+    "authoritySubversion": 55,
+    "sanctityDegradation": 30,
+    "libertyOppression": 45
+  },
+  "firstContactAttitude": { "min": -15, "max": 0 },
+  "psychologicalTheme": "Nanomorphic matter-analysers. Fearful-avoidant — wants to understand but fears the vulnerability of contact. Type 5w4 (Iconoclast): driven by need to analyse and catalogue everything, including other species. Moderate psychopathy: they deconstruct things (and sometimes beings) to understand them without malice — it is simply how they learn. Low honesty-humility means they see no problem with taking what they need to study. Approach-avoidance cycle means they oscillate between reaching out and withdrawing."
+}

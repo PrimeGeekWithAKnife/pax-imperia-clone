@@ -1,6 +1,7 @@
 /** Species and empire types */
 
 import type { GovernmentType } from './government.js';
+import type { RolledPersonality } from './psychology.js';
 export type { GovernmentType };
 
 export interface Species {
@@ -68,6 +69,8 @@ export interface Empire {
   government: GovernmentType;
   /** Accumulated resource production multipliers from tech effects (e.g. { energy: 1.5, minerals: 1.2 }). */
   resourceBonuses?: Record<string, number>;
+  /** Rolled per-game personality from species psychology data. */
+  psychology?: RolledPersonality;
 }
 
 export type TechAge =

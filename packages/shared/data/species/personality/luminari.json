@@ -1,0 +1,41 @@
+{
+  "speciesId": "luminari",
+  "traits": {
+    "neuroticism":       { "median": 25, "stddev": 8 },
+    "extraversion":      { "median": 50, "stddev": 10 },
+    "openness":          { "median": 90, "stddev": 5 },
+    "agreeableness":     { "median": 70, "stddev": 8 },
+    "conscientiousness": { "median": 30, "stddev": 10 },
+    "honestyHumility":   { "median": 75, "stddev": 6 }
+  },
+  "subfacets": {
+    "aesthetics":     { "median": 90, "stddev": 5 },
+    "feelings":       { "median": 80, "stddev": 8 },
+    "ideas":          { "median": 90, "stddev": 5 },
+    "values":         { "median": 85, "stddev": 6 },
+    "trust":          { "median": 65, "stddev": 10 }
+  },
+  "attachmentStyle": "secure",
+  "enneagram": {
+    "type": 5,
+    "wing": 4,
+    "stressDirection": 7,
+    "growthDirection": 8
+  },
+  "darkTriad": {
+    "narcissism": 5,
+    "machiavellianism": 5,
+    "psychopathy": 5,
+    "sadism": 0
+  },
+  "moralFoundations": {
+    "careHarm": 75,
+    "fairnessCheating": 70,
+    "loyaltyBetrayal": 40,
+    "authoritySubversion": 25,
+    "sanctityDegradation": 30,
+    "libertyOppression": 80
+  },
+  "firstContactAttitude": { "min": 5, "max": 20 },
+  "psychologicalTheme": "Curious energy observers. Secure attachment with highest openness in the galaxy — fascinated by everything. Type 5w4 (Iconoclast) driven by desire to understand, not to possess. Low conscientiousness means they are scatterbrained and unreliable on schedules but brilliant on insight. Moral foundations emphasise care and liberty — they abhor oppression. Almost zero Dark Triad. Under stress, becomes scattered (Type 7 direction), flitting between interests."
+}

@@ -1,0 +1,39 @@
+{
+  "speciesId": "zorvathi",
+  "traits": {
+    "neuroticism":       { "median": 20, "stddev": 6 },
+    "extraversion":      { "median": 20, "stddev": 6 },
+    "openness":          { "median": 15, "stddev": 5 },
+    "agreeableness":     { "median": 60, "stddev": 8 },
+    "conscientiousness": { "median": 80, "stddev": 6 },
+    "honestyHumility":   { "median": 60, "stddev": 8 }
+  },
+  "subfacets": {
+    "compliance":    { "median": 80, "stddev": 6 },
+    "order":         { "median": 85, "stddev": 5 },
+    "dutifulness":   { "median": 85, "stddev": 5 }
+  },
+  "attachmentStyle": "avoidant",
+  "enneagram": {
+    "type": 9,
+    "wing": 8,
+    "stressDirection": 6,
+    "growthDirection": 3
+  },
+  "darkTriad": {
+    "narcissism": 5,
+    "machiavellianism": 10,
+    "psychopathy": 20,
+    "sadism": 5
+  },
+  "moralFoundations": {
+    "careHarm": 30,
+    "fairnessCheating": 40,
+    "loyaltyBetrayal": 90,
+    "authoritySubversion": 85,
+    "sanctityDegradation": 60,
+    "libertyOppression": 20
+  },
+  "firstContactAttitude": { "min": -10, "max": 0 },
+  "psychologicalTheme": "Subterranean hive mind — simple personality, extreme collectivism. Dismissive-avoidant — intelligence outside the network is confusing, not threatening. Type 9w8 (Peacemaker with Challenger wing): passive until provoked, then surprisingly forceful. Only 3 subfacets because hive minds lack individual emotional complexity. Highest loyalty/authority moral foundations — the hive IS the self. Low psychopathy is functional (hive members are tools, not objects of empathy). When stressed, becomes paranoid and anxious (Type 6 direction)."
+}

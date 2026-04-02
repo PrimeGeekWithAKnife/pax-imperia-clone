@@ -1,0 +1,41 @@
+{
+  "speciesId": "teranos",
+  "traits": {
+    "neuroticism":       { "median": 50, "stddev": 15 },
+    "extraversion":      { "median": 60, "stddev": 12 },
+    "openness":          { "median": 70, "stddev": 12 },
+    "agreeableness":     { "median": 55, "stddev": 15 },
+    "conscientiousness": { "median": 50, "stddev": 15 },
+    "honestyHumility":   { "median": 50, "stddev": 15 }
+  },
+  "subfacets": {
+    "anxiety":             { "median": 50, "stddev": 15 },
+    "warmth":              { "median": 60, "stddev": 12 },
+    "assertiveness":       { "median": 55, "stddev": 12 },
+    "ideas":               { "median": 70, "stddev": 10 },
+    "achievementStriving": { "median": 65, "stddev": 12 }
+  },
+  "attachmentStyle": "secure",
+  "enneagram": {
+    "type": 7,
+    "wing": 6,
+    "stressDirection": 1,
+    "growthDirection": 5
+  },
+  "darkTriad": {
+    "narcissism": 25,
+    "machiavellianism": 20,
+    "psychopathy": 15,
+    "sadism": 10
+  },
+  "moralFoundations": {
+    "careHarm": 60,
+    "fairnessCheating": 65,
+    "loyaltyBetrayal": 50,
+    "authoritySubversion": 45,
+    "sanctityDegradation": 40,
+    "libertyOppression": 70
+  },
+  "firstContactAttitude": { "min": 5, "max": 25 },
+  "psychologicalTheme": "Adaptable optimists with wide variance — capable of great compassion and terrible cruelty. High openness and moderate everything else makes them the galaxy's wild cards. Secure attachment but high stddev means any given Teranos empire could be anything."
+}

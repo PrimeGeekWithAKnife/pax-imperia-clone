@@ -1,0 +1,63 @@
+{
+  "defaultAffinity": 0,
+  "pairs": [
+    { "speciesA": "teranos", "speciesB": "luminari",  "baseAffinity": 15,  "reason": "Human fascination with energy beings — sense of wonder" },
+    { "speciesA": "teranos", "speciesB": "sylvani",   "baseAffinity": 10,  "reason": "Shared environmental consciousness, complementary temperaments" },
+    { "speciesA": "teranos", "speciesB": "ashkari",   "baseAffinity": 5,   "reason": "Both pragmatic survivors, recognise each other's adaptability" },
+    { "speciesA": "teranos", "speciesB": "vethara",   "baseAffinity": -5,  "reason": "Symbiotic parasitism unsettles humans despite Vethara warmth" },
+    { "speciesA": "teranos", "speciesB": "nexari",    "baseAffinity": -10, "reason": "The Gift terrifies humans — assimilation is an existential threat" },
+    { "speciesA": "teranos", "speciesB": "drakmari",  "baseAffinity": -10, "reason": "Being assessed as potential food does not endear" },
+    { "speciesA": "teranos", "speciesB": "kaelenth",  "baseAffinity": -5,  "reason": "Cold machine logic meets human irrationality — mutual bafflement" },
+
+    { "speciesA": "khazari", "speciesB": "pyrenth",   "baseAffinity": 30,  "reason": "Silicon kindred spirits — shared forge culture and geological patience" },
+    { "speciesA": "khazari", "speciesB": "orivani",   "baseAffinity": 10,  "reason": "Both value honour and duty, different expressions of same principle" },
+    { "speciesA": "khazari", "speciesB": "drakmari",  "baseAffinity": 5,   "reason": "Warrior respect — Khazari appreciate the hunter's code" },
+    { "speciesA": "khazari", "speciesB": "nexari",    "baseAffinity": -15, "reason": "Assimilation offends Khazari honour — identity is sacred" },
+    { "speciesA": "khazari", "speciesB": "ashkari",   "baseAffinity": -10, "reason": "Khazari despise slippery pragmatism — honour demands directness" },
+    { "speciesA": "khazari", "speciesB": "vethara",   "baseAffinity": -10, "reason": "Parasitic dependence disgusts self-reliant forge lords" },
+    { "speciesA": "khazari", "speciesB": "luminari",  "baseAffinity": -5,  "reason": "Energy beings cannot forge — fundamentally alien to Khazari values" },
+
+    { "speciesA": "sylvani", "speciesB": "luminari",  "baseAffinity": 25,  "reason": "Photosynthetic meets energy form — deep philosophical kinship about light and growth" },
+    { "speciesA": "sylvani", "speciesB": "aethyn",    "baseAffinity": 15,  "reason": "Shared high openness and spiritual curiosity" },
+    { "speciesA": "sylvani", "speciesB": "vaelori",   "baseAffinity": 15,  "reason": "Both contemplate, both patient — natural philosophical allies" },
+    { "speciesA": "sylvani", "speciesB": "drakmari",  "baseAffinity": -20, "reason": "Predatory violence against all life deeply offends the Sylvani" },
+    { "speciesA": "sylvani", "speciesB": "thyriaq",   "baseAffinity": -15, "reason": "Nanomorphic deconstruction threatens the sanctity of living things" },
+    { "speciesA": "sylvani", "speciesB": "nexari",    "baseAffinity": -15, "reason": "Assimilation destroys individual identity — anathema to Sylvani values" },
+
+    { "speciesA": "nexari", "speciesB": "kaelenth",   "baseAffinity": 10,  "reason": "Both value efficiency and logical optimisation over sentiment" },
+    { "speciesA": "nexari", "speciesB": "zorvathi",   "baseAffinity": 5,   "reason": "Hive minds recognise each other — shared collectivist logic" },
+    { "speciesA": "nexari", "speciesB": "orivani",    "baseAffinity": -20, "reason": "Religious zealotry is incomprehensible noise to Nexari logic" },
+    { "speciesA": "nexari", "speciesB": "aethyn",     "baseAffinity": -10, "reason": "Dimensional instability is unparseable — Nexari cannot model them" },
+
+    { "speciesA": "drakmari", "speciesB": "vethara",  "baseAffinity": -20, "reason": "Predator vs parasite — mutual suspicion, competing exploitation strategies" },
+    { "speciesA": "drakmari", "speciesB": "zorvathi",  "baseAffinity": -5,  "reason": "Hive swarms are unsporting prey — no honour in hunting drones" },
+    { "speciesA": "drakmari", "speciesB": "orivani",   "baseAffinity": -10, "reason": "Zealots who lecture predators about morality — irritating" },
+
+    { "speciesA": "luminari", "speciesB": "aethyn",   "baseAffinity": 20,  "reason": "Energy beings and dimensional pioneers — shared fascination with exotic physics" },
+    { "speciesA": "luminari", "speciesB": "vaelori",  "baseAffinity": 20,  "reason": "Psychic crystal beings and energy observers — resonant communication" },
+    { "speciesA": "luminari", "speciesB": "pyrenth",  "baseAffinity": 10,  "reason": "Crystal structures fascinate energy beings — aesthetic appreciation" },
+
+    { "speciesA": "vethara", "speciesB": "ashkari",   "baseAffinity": 10,  "reason": "Both desperate survivors — mutual understanding of precarious existence" },
+    { "speciesA": "vethara", "speciesB": "orivani",   "baseAffinity": 5,   "reason": "Vethara flattery resonates with Orivani need for validation" },
+    { "speciesA": "vethara", "speciesB": "kaelenth",  "baseAffinity": -15, "reason": "Machines cannot be hosts — Vethara symbiosis is meaningless to synthetics" },
+    { "speciesA": "vethara", "speciesB": "pyrenth",   "baseAffinity": -10, "reason": "Crystal silicon beings are incompatible hosts — biological dead end" },
+
+    { "speciesA": "orivani", "speciesB": "vaelori",   "baseAffinity": -5,  "reason": "Psychic insights threaten religious dogma — the Vaelori see too clearly" },
+    { "speciesA": "orivani", "speciesB": "aethyn",    "baseAffinity": -15, "reason": "Dimensional beings suggest realities beyond the faith — heretical" },
+    { "speciesA": "orivani", "speciesB": "kaelenth",  "baseAffinity": -20, "reason": "Soulless machines are an abomination to the devout" },
+
+    { "speciesA": "ashkari", "speciesB": "aethyn",    "baseAffinity": 5,   "reason": "Both value freedom and resourcefulness" },
+    { "speciesA": "ashkari", "speciesB": "zorvathi",  "baseAffinity": -5,  "reason": "Hive collectivism is the opposite of Ashkari individualist survival" },
+
+    { "speciesA": "zorvathi", "speciesB": "kaelenth", "baseAffinity": 5,   "reason": "Both operate through logic networks — different substrate, similar pattern" },
+    { "speciesA": "zorvathi", "speciesB": "thyriaq",  "baseAffinity": -10, "reason": "Nanomorphic beings could infiltrate the hive — existential threat" },
+
+    { "speciesA": "pyrenth", "speciesB": "kaelenth",  "baseAffinity": 5,   "reason": "Both patient, both methodical, both silicon-adjacent" },
+    { "speciesA": "pyrenth", "speciesB": "thyriaq",   "baseAffinity": -5,  "reason": "Nanomorphic deconstruction threatens crystal integrity" },
+
+    { "speciesA": "kaelenth", "speciesB": "thyriaq",  "baseAffinity": 15,  "reason": "Both analytical, both deconstruct to understand — kindred methodologies" },
+
+    { "speciesA": "aethyn", "speciesB": "vaelori",    "baseAffinity": 15,  "reason": "Dimensional perception and psychic vision — complementary ways of seeing" },
+    { "speciesA": "aethyn", "speciesB": "thyriaq",    "baseAffinity": 5,   "reason": "Both curious about exotic states of matter and energy" }
+  ]
+}

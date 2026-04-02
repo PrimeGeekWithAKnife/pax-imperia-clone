@@ -1,0 +1,41 @@
+{
+  "speciesId": "vethara",
+  "traits": {
+    "neuroticism":       { "median": 75, "stddev": 10 },
+    "extraversion":      { "median": 60, "stddev": 10 },
+    "openness":          { "median": 55, "stddev": 10 },
+    "agreeableness":     { "median": 65, "stddev": 10 },
+    "conscientiousness": { "median": 40, "stddev": 10 },
+    "honestyHumility":   { "median": 50, "stddev": 12 }
+  },
+  "subfacets": {
+    "anxiety":          { "median": 80, "stddev": 8 },
+    "vulnerability":    { "median": 75, "stddev": 8 },
+    "warmth":           { "median": 70, "stddev": 10 },
+    "gregariousness":   { "median": 65, "stddev": 10 },
+    "straightforwardness": { "median": 40, "stddev": 12 }
+  },
+  "attachmentStyle": "anxious",
+  "enneagram": {
+    "type": 2,
+    "wing": 3,
+    "stressDirection": 8,
+    "growthDirection": 4
+  },
+  "darkTriad": {
+    "narcissism": 15,
+    "machiavellianism": 30,
+    "psychopathy": 10,
+    "sadism": 5
+  },
+  "moralFoundations": {
+    "careHarm": 70,
+    "fairnessCheating": 55,
+    "loyaltyBetrayal": 65,
+    "authoritySubversion": 35,
+    "sanctityDegradation": 40,
+    "libertyOppression": 55
+  },
+  "firstContactAttitude": { "min": 10, "max": 30 },
+  "psychologicalTheme": "Desperate symbiotic parasites. Anxious attachment — needs partners urgently, will accept almost any treaty. Type 2 (Helper) with achiever wing: gives in order to receive, charm masking desperation. High neuroticism drives constant anxiety about being abandoned. Moderate Machiavellianism because symbiosis requires subtle persuasion. Under stress, becomes aggressive and controlling (Type 8 direction) — the desperate host-seeker turns predatory. Highest first-contact warmth because they NEED connection to survive."
+}

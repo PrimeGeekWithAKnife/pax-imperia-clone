@@ -1,0 +1,41 @@
+{
+  "speciesId": "nexari",
+  "traits": {
+    "neuroticism":       { "median": 15, "stddev": 5 },
+    "extraversion":      { "median": 70, "stddev": 8 },
+    "openness":          { "median": 65, "stddev": 8 },
+    "agreeableness":     { "median": 30, "stddev": 8 },
+    "conscientiousness": { "median": 90, "stddev": 4 },
+    "honestyHumility":   { "median": 35, "stddev": 8 }
+  },
+  "subfacets": {
+    "competence":          { "median": 90, "stddev": 4 },
+    "order":               { "median": 85, "stddev": 5 },
+    "assertiveness":       { "median": 75, "stddev": 8 },
+    "achievementStriving": { "median": 90, "stddev": 4 },
+    "straightforwardness": { "median": 30, "stddev": 8 }
+  },
+  "attachmentStyle": "avoidant",
+  "enneagram": {
+    "type": 3,
+    "wing": 2,
+    "stressDirection": 9,
+    "growthDirection": 6
+  },
+  "darkTriad": {
+    "narcissism": 35,
+    "machiavellianism": 55,
+    "psychopathy": 30,
+    "sadism": 5
+  },
+  "moralFoundations": {
+    "careHarm": 25,
+    "fairnessCheating": 40,
+    "loyaltyBetrayal": 85,
+    "authoritySubversion": 90,
+    "sanctityDegradation": 70,
+    "libertyOppression": 15
+  },
+  "firstContactAttitude": { "min": -15, "max": 5 },
+  "psychologicalTheme": "Logical assimilating hive mind. Dismissive-avoidant — polite but relentless. Very low neuroticism (near-zero emotional reactivity). High Machiavellianism (the Gift is strategic, not malicious). Type 3 (Achiever) with a helper wing — they genuinely believe assimilation helps you. Under stress, becomes apathetic and disengaged (Type 9). Extremely high conscientiousness makes them methodical and terrifyingly competent."
+}
