@@ -1565,13 +1565,22 @@ function GalaxyCamera({ focusTarget, galaxyCentre, galaxyWidth, galaxyHeight }: 
 
   useEffect(() => {
     if (!controlsRef.current) return;
-    // Initial camera position: above and slightly behind the galaxy centre
-    controlsRef.current.setLookAt(
-      galaxyCentre[0], 120, galaxyCentre[2] + 60,
-      galaxyCentre[0], 0, galaxyCentre[2],
-      false // no transition for initial setup
-    );
-  }, [galaxyCentre]);
+    // Initial camera: focus on player's home system if available, otherwise galaxy centre
+    if (focusTarget) {
+      controlsRef.current.setLookAt(
+        focusTarget[0], 30, focusTarget[2] + 15,
+        focusTarget[0], 0, focusTarget[2],
+        false // no transition for initial setup
+      );
+    } else {
+      controlsRef.current.setLookAt(
+        galaxyCentre[0], 120, galaxyCentre[2] + 60,
+        galaxyCentre[0], 0, galaxyCentre[2],
+        false
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!controlsRef.current || !focusTarget) return;
@@ -1693,7 +1702,18 @@ interface GalaxyMap3DProps {
 }
 
 export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSelected, onClose }: GalaxyMap3DProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Find player's home system to use as initial focus
+  const playerHomeSystemId = useMemo(() => {
+    if (!playerEmpireId) return null;
+    for (const system of galaxy.systems) {
+      if (system.planets.some(p => p.ownerId === playerEmpireId)) {
+        return system.id;
+      }
+    }
+    return null;
+  }, [galaxy, playerEmpireId]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(playerHomeSystemId);
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
   const [viewingSystem, setViewingSystem] = useState<StarSystem | null>(null);
   const lastClickTimeRef = useRef<number>(0);

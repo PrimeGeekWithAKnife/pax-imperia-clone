@@ -2053,6 +2053,27 @@ export function App(): React.ReactElement {
     setCurrentScreen('game');
     setGameStarted(true);
     setIsPaused(false);
+    // Initialise empire resources and galaxy from game engine immediately.
+    // The tick-based sync only fires after the first tick processes, but the
+    // player can open the build picker or see the minimap before that.
+    setTimeout(() => {
+      try {
+        const eng = getGameEngine();
+        if (eng) {
+          const state = eng.getState();
+          // Resources
+          const pid = state.gameState.empires.find(e => !e.isAI)?.id;
+          if (pid) {
+            const res = state.empireResourcesMap.get(pid);
+            if (res) setEmpireResources(res);
+          }
+          // Galaxy (for minimap)
+          if (state.gameState.galaxy) {
+            setGalaxy(state.gameState.galaxy);
+          }
+        }
+      } catch { /* ignore */ }
+    }, 100);
   }, [setSelectedSystem, setSelectedPlanet, setGameSpeed]);
 
   // Pause menu
