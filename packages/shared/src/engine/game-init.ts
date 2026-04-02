@@ -15,6 +15,7 @@ import type { GameState, VictoryCriteria } from '../types/game-state.js';
 import type { GalaxyGenerationConfig } from '../generation/galaxy-generator.js';
 import type { GovernmentType } from '../types/government.js';
 import type { DifficultyLevel } from '../types/psychology.js';
+import { PLANET_SIZE_SLOTS, PLANET_BUILDING_SLOTS } from '../constants/planets.js';
 import { generateGalaxy } from '../generation/galaxy-generator.js';
 import { calculateHabitability } from './colony.js';
 import { getIdealPlanetType } from './terraforming.js';
@@ -405,7 +406,15 @@ export function initializeGame(config: GameSetupConfig): GameState {
       Math.min(Math.floor(sustainablePopulation * 0.85), naturalCapacity),
     );
 
-    const startingBuildings: Building[] = startingBuildingTypes.map(type => ({
+    // Cap starting buildings at the planet's actual slot count.
+    // A tiny planet (3 slots) shouldn't start with 8 buildings.
+    // Prioritise essentials: spaceport first, then food, then others.
+    const maxSlots = homePlanet.size
+      ? PLANET_SIZE_SLOTS[homePlanet.size]
+      : PLANET_BUILDING_SLOTS[homePlanet.type] ?? 11;
+    const prioritisedTypes = startingBuildingTypes.slice(0, maxSlots);
+
+    const startingBuildings: Building[] = prioritisedTypes.map(type => ({
       id: generateId(),
       type,
       level: 1,

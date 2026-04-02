@@ -1380,8 +1380,11 @@ export function canBuildOnPlanet(
 export function inferBuildingZone(
   buildingType: string,
 ): 'surface' | 'orbital' | 'underground' {
+  // Underground complex is built on the SURFACE (it's the excavation entrance).
+  // Once built, it PROVIDES underground slots for other buildings.
+  // It must NOT require underground slots to build — that's circular.
   if (buildingType === 'underground_complex') {
-    return 'underground';
+    return 'surface';
   }
   if (buildingType === 'orbital_platform' || buildingType === 'orbital_waste_ejector') {
     return 'orbital';
