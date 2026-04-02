@@ -66,8 +66,16 @@ const ECONOMIC_CREDIT_MULTIPLIER = 3;
 /** Number of consecutive ticks the empire must maintain the credit lead. */
 const ECONOMIC_DURATION_TICKS = 100;
 
+/**
+ * Minimum game age before victory conditions other than score can trigger.
+ * Prevents trivial early wins from starting-condition asymmetry (e.g. a
+ * species with 7B starting pop will have vastly more credits than one with
+ * 250M from tick 1, but that is not a meaningful "economic victory").
+ */
+const VICTORY_MIN_TICK = 500;
+
 /** Default tick limit for score victory — game ends and highest score wins. */
-export const SCORE_TICK_LIMIT = 500;
+export const SCORE_TICK_LIMIT = 5000;
 
 /** Ordered list of tech ages for scoring purposes (index = relative advancement). */
 const AGE_ORDER = [
@@ -441,9 +449,13 @@ export function checkVictoryConditions(
     ? victoryCriteria
     : ['conquest', 'economic', 'technological', 'diplomatic', 'score'];
 
+  // Victory conditions (except score) require a minimum game age to prevent
+  // trivial wins from starting-condition asymmetry.
+  const gameOldEnough = gameState.currentTick >= VICTORY_MIN_TICK;
+
   for (const empire of empires) {
     // ── Conquest ────────────────────────────────────────────────────────────
-    if (enabledCriteria.includes('conquest')) {
+    if (gameOldEnough && enabledCriteria.includes('conquest')) {
       const status = buildConquestStatus(empire, gameState);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'conquest' };
@@ -451,7 +463,7 @@ export function checkVictoryConditions(
     }
 
     // ── Economic ────────────────────────────────────────────────────────────
-    if (enabledCriteria.includes('economic')) {
+    if (gameOldEnough && enabledCriteria.includes('economic')) {
       const status = buildEconomicStatus(empire, empires, resourcesMap, economicLeadTicks, gameState.galaxy);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'economic' };
@@ -459,7 +471,7 @@ export function checkVictoryConditions(
     }
 
     // ── Technological ───────────────────────────────────────────────────────
-    if (enabledCriteria.includes('technological') || enabledCriteria.includes('research')) {
+    if (gameOldEnough && (enabledCriteria.includes('technological') || enabledCriteria.includes('research'))) {
       const status = buildTechStatus(empire, allTechCount ?? 0);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'technological' };
@@ -467,7 +479,7 @@ export function checkVictoryConditions(
     }
 
     // ── Diplomatic ──────────────────────────────────────────────────────────
-    if (enabledCriteria.includes('diplomatic')) {
+    if (gameOldEnough && enabledCriteria.includes('diplomatic')) {
       const status = buildDiplomaticStatus(empire, empires, gameState.galaxy);
       if (status.isAchieved) {
         return { winner: empire.id, condition: 'diplomatic' };

@@ -105,11 +105,9 @@ describe('Food System Playtest — 10 rounds', () => {
         expect(homeFertility).toBeGreaterThanOrEqual(50);
       });
 
-      it('starting population matches sustainable food capacity', () => {
+      it('starting population matches natural food capacity', () => {
         const naturalCap = Math.floor((homeFertility / 100) * homeMaxPop);
-        const mod = totalMod > 0 ? totalMod : 1;
-        const sustainablePop = Math.floor(naturalCap / mod);
-        const expectedPop = Math.max(1_000_000, Math.min(sustainablePop, naturalCap));
+        const expectedPop = Math.max(1_000_000, naturalCap);
         expect(startingPop).toBe(expectedPop);
         console.log(`  ${species.name}: ${homeType} fert=${homeFertility} maxPop=${(homeMaxPop/1e6).toFixed(0)}M startPop=${(startingPop/1e6).toFixed(0)}M (mod=${totalMod.toFixed(2)})`);
       });

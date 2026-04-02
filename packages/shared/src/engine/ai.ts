@@ -1490,13 +1490,16 @@ export function evaluateBuildingPriority(
       });
     }
 
-    // Reactive: build food buildings when population exceeds natural food capacity.
+    // Proactive: build food buildings when population approaches 80% of the
+    // natural food capacity.  Waiting until AFTER the cap is exceeded means
+    // the empire is already starving by the time construction finishes.
     // Prefer the best available building for this planet's fertility level:
     //   fertility >= 60 → concentrated_farming (100 food)
     //   fertility >= 20 → greenhouse_farming (50 food)
     //   any             → hydroponics_bay (8 food)
     const naturalCap = Math.floor(((planet.fertility ?? 0) / 100) * planet.maxPopulation);
-    if (planet.currentPopulation > naturalCap) {
+    const foodBuildThreshold = Math.floor(naturalCap * 0.8);
+    if (planet.currentPopulation > foodBuildThreshold) {
       const fertility = planet.fertility ?? 0;
       const foodBuildingType: BuildingType =
         fertility >= 60 ? 'concentrated_farming' :
@@ -1508,12 +1511,14 @@ export function evaluateBuildingPriority(
       const foodQueued = planet.productionQueue.filter(q =>
         q.templateId === 'concentrated_farming' || q.templateId === 'greenhouse_farming' || q.templateId === 'hydroponics_bay',
       ).length;
-      if (foodCount < 3 && foodQueued === 0) {
+      if (foodCount < 4 && foodQueued === 0) {
+        // Higher priority when already past the cap (urgent) vs approaching it
+        const priority = planet.currentPopulation > naturalCap ? 80 : 65;
         decisions.push({
           type: 'build',
-          priority: applyWeight(65, 'build', personality),
+          priority: applyWeight(priority, 'build', personality),
           params: { planetId: planet.id, buildingType: foodBuildingType },
-          reasoning: `Build ${foodBuildingType} on ${planet.name} (population ${planet.currentPopulation} exceeds natural food capacity ${naturalCap})`,
+          reasoning: `Build ${foodBuildingType} on ${planet.name} (pop ${planet.currentPopulation} at ${Math.round(planet.currentPopulation / naturalCap * 100)}% of food capacity)`,
         });
       }
     }

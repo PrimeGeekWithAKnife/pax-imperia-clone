@@ -325,7 +325,20 @@ export function initializeGame(config: GameSetupConfig): GameState {
       );
     }
 
-    // 3. Colonise that planet with starting buildings
+    // Home world fertility boost — a species' home planet must have above-
+    // average fertility (life evolved here for millions of years).  This also
+    // prevents starting the game in immediate starvation.
+    const homePlanet = planetResult.planet;
+    const boostedFertility = Math.max(50, homePlanet.fertility ?? 50);
+
+    // 3. Colonise that planet with starting buildings.
+    // High-consumption species (modifier > 1.0×) get extra food buildings
+    // representing centuries of pre-spaceflight agricultural development.
+    // A species that eats 40% more than baseline would have built extensive
+    // food infrastructure long before achieving spaceflight.
+    const foodModifier = getAbilityFoodModifier(playerSetup.species.specialAbilities)
+      * (playerSetup.species.traits.reproduction / 5);
+
     const startingBuildingTypes: BuildingType[] = [
       'research_lab',
       'factory',
@@ -337,38 +350,34 @@ export function initializeGame(config: GameSetupConfig): GameState {
       'shipyard',
     ];
 
+    // Add extra food buildings for hungry species
+    if (foodModifier > 1.0) {
+      // Calculate how much extra food production is needed.
+      // The deficit per 10M people is (modifier - 1.0) food units.
+      // Pick the best available building for this planet's fertility.
+      const extraFoodType: BuildingType =
+        boostedFertility >= 60 ? 'concentrated_farming' :
+        boostedFertility >= 20 ? 'greenhouse_farming' :
+        'hydroponics_bay';
+      // Add 1-2 extra food buildings based on how hungry the species is
+      startingBuildingTypes.push(extraFoodType);
+      if (foodModifier >= 1.3) {
+        startingBuildingTypes.push(extraFoodType);
+      }
+    }
+
     const startingBuildings: Building[] = startingBuildingTypes.map(type => ({
       id: generateId(),
       type,
       level: 1,
     }));
 
-    // Home world fertility boost — a species' home planet must have above-
-    // average fertility (life evolved here for millions of years).  This also
-    // prevents starting the game in immediate starvation.
-    const homePlanet = planetResult.planet;
-    const boostedFertility = Math.max(50, homePlanet.fertility ?? 50);
-
-    // Starting population = what the planet can naturally sustain given the
-    // species' food consumption rate.  A species that evolved on this world
-    // filled it to the carrying capacity its food needs allow.
-    //
-    // For species with food modifier > 1.0× (hungry predators, prolific breeders),
-    // the sustainable population is lower because they eat more per capita.
-    // For species with modifier < 1.0× (silicon, photosynthetic), they can
-    // sustain more people on the same food.
+    // Starting population = natural food capacity.  A species that evolved on
+    // this world filled it to the carrying capacity the ecosystem allows.
+    // The food modifier no longer reduces starting pop because high-consumption
+    // species now start with extra food buildings to compensate.
     const naturalCapacity = Math.floor((boostedFertility / 100) * homePlanet.maxPopulation);
-    const foodModifier = getAbilityFoodModifier(playerSetup.species.specialAbilities)
-      * (playerSetup.species.traits.reproduction / 5);
-    // Sustainable pop: the population where natural food production covers consumption.
-    // At modifier 1.0×, this equals the natural capacity.
-    // At modifier 1.4×, sustainable pop is naturalCapacity / 1.4 (fewer people on same food).
-    // At modifier 0.5×, sustainable pop is naturalCapacity / 0.5 = 2× (more efficient eaters).
-    // Zero-food species (synthetic etc.) sustain at full natural capacity.
-    const sustainablePop = foodModifier > 0
-      ? Math.floor(naturalCapacity / foodModifier)
-      : naturalCapacity;
-    const startingPopulation = Math.max(1_000_000, Math.min(sustainablePop, naturalCapacity));
+    const startingPopulation = Math.max(1_000_000, naturalCapacity);
 
     const colonisedPlanet: Planet = {
       ...homePlanet,
