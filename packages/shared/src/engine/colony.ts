@@ -1312,6 +1312,17 @@ export function canBuildOnPlanet(
     }
   }
 
+  // Minimum fertility check — fertility-gated food buildings
+  if (def.requiredMinFertility !== undefined) {
+    const planetFertility = planet.fertility ?? 0;
+    if (planetFertility < def.requiredMinFertility) {
+      return {
+        allowed: false,
+        reason: `Requires planet fertility of at least ${def.requiredMinFertility} (current: ${planetFertility})`,
+      };
+    }
+  }
+
   // Prerequisite check
   const prerequisite = BUILDING_PREREQUISITES[buildingType];
   if (prerequisite !== undefined) {

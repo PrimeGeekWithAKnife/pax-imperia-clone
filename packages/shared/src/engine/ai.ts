@@ -1490,20 +1490,32 @@ export function evaluateBuildingPriority(
       });
     }
 
-    // Reactive: build hydroponics if population is high relative to food production (max 3)
-    const hydroCount = planet.buildings.filter(b => b.type === 'hydroponics_bay').length;
-    const hydroQueued = planet.productionQueue.filter(q => q.templateId === 'hydroponics_bay').length;
-    if (
-      hydroCount < 3 &&
-      hydroQueued === 0 &&
-      planet.currentPopulation > 20000 * (hydroCount + 1)
-    ) {
-      decisions.push({
-        type: 'build',
-        priority: applyWeight(65, 'build', personality),
-        params: { planetId: planet.id, buildingType: 'hydroponics_bay' as BuildingType },
-        reasoning: `Build hydroponics on ${planet.name} (population ${planet.currentPopulation} needs more food)`,
-      });
+    // Reactive: build food buildings when population exceeds natural food capacity.
+    // Prefer the best available building for this planet's fertility level:
+    //   fertility >= 60 → concentrated_farming (100 food)
+    //   fertility >= 20 → greenhouse_farming (50 food)
+    //   any             → hydroponics_bay (8 food)
+    const naturalCap = Math.floor(((planet.fertility ?? 0) / 100) * planet.maxPopulation);
+    if (planet.currentPopulation > naturalCap) {
+      const fertility = planet.fertility ?? 0;
+      const foodBuildingType: BuildingType =
+        fertility >= 60 ? 'concentrated_farming' :
+        fertility >= 20 ? 'greenhouse_farming' :
+        'hydroponics_bay';
+      const foodCount = planet.buildings.filter(b =>
+        b.type === 'concentrated_farming' || b.type === 'greenhouse_farming' || b.type === 'hydroponics_bay',
+      ).length;
+      const foodQueued = planet.productionQueue.filter(q =>
+        q.templateId === 'concentrated_farming' || q.templateId === 'greenhouse_farming' || q.templateId === 'hydroponics_bay',
+      ).length;
+      if (foodCount < 3 && foodQueued === 0) {
+        decisions.push({
+          type: 'build',
+          priority: applyWeight(65, 'build', personality),
+          params: { planetId: planet.id, buildingType: foodBuildingType },
+          reasoning: `Build ${foodBuildingType} on ${planet.name} (population ${planet.currentPopulation} exceeds natural food capacity ${naturalCap})`,
+        });
+      }
     }
 
     // Reactive: build power plant when energy is low (critical infrastructure)

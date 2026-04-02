@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, BASE_TAX_RATE, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
-import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION } from '@nova-imperia/shared';
+import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION, getNaturalFoodCapacity, getAbilityFoodModifier, calculateOrganicsConsumption, PREBUILT_SPECIES_BY_ID } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -1088,6 +1088,16 @@ export function PlanetManagementScreen({
                   <span className="pm-stat-value--muted"> ({kelvinToCelsius(planet.temperature)}°C)</span>
                 </span>
               </div>
+              <div className="pm-stat-row">
+                <span className="pm-stat-label">Fertility</span>
+                <span className="pm-stat-value" style={{
+                  color: (planet.fertility ?? 0) >= 60 ? '#44cc88'
+                    : (planet.fertility ?? 0) >= 20 ? '#ccaa44'
+                    : '#cc4422',
+                }}>
+                  {planet.fertility ?? 0}/100
+                </span>
+              </div>
             </div>
 
             <div className="pm-stat-group">
@@ -1126,40 +1136,44 @@ export function PlanetManagementScreen({
             </div>
 
             {/* Food (organics) production vs consumption for this planet */}
-            {planet.currentPopulation > 0 && (
-              <div className="pm-stat-group">
-                <div className="panel-section-label">FOOD (ORGANICS)</div>
-                <div className="pm-stat-row">
-                  <span className="pm-stat-label">Production</span>
-                  <span className="pm-stat-value pm-stat-value--positive">
-                    +{Math.round((production.organics ?? 0) * 10) / 10}
-                  </span>
+            {planet.currentPopulation > 0 && (() => {
+              const playerSpecies = playerSpeciesId ? PREBUILT_SPECIES_BY_ID[playerSpeciesId] : undefined;
+              const consumption = calculateOrganicsConsumption(
+                planet.currentPopulation,
+                playerSpecies?.traits.reproduction,
+                playerSpecies,
+              );
+              const foodProd = production.organics ?? 0;
+              const foodNet = foodProd - consumption;
+              const isDeficit = foodNet < 0;
+              return (
+                <div className="pm-stat-group">
+                  <div className="panel-section-label">FOOD (ORGANICS)</div>
+                  <div className="pm-stat-row">
+                    <span className="pm-stat-label">Production</span>
+                    <span className="pm-stat-value pm-stat-value--positive">
+                      +{Math.round(foodProd * 10) / 10}
+                    </span>
+                  </div>
+                  <div className="pm-stat-row">
+                    <span className="pm-stat-label">Consumption</span>
+                    <span className="pm-stat-value" style={{ color: '#ff8844' }}>
+                      -{consumption}
+                    </span>
+                  </div>
+                  <div className="pm-stat-row">
+                    <span className="pm-stat-label">Net</span>
+                    <span
+                      className="pm-stat-value"
+                      style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
+                    >
+                      {foodNet >= 0 ? '+' : ''}{Math.round(foodNet * 10) / 10}
+                      {isDeficit && ' (STARVATION)'}
+                    </span>
+                  </div>
                 </div>
-                <div className="pm-stat-row">
-                  <span className="pm-stat-label">Consumption</span>
-                  <span className="pm-stat-value" style={{ color: '#ff8844' }}>
-                    -{Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION))}
-                  </span>
-                </div>
-                {(() => {
-                  const consumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
-                  const foodNet = (production.organics ?? 0) - consumption;
-                  const isDeficit = foodNet < 0;
-                  return (
-                    <div className="pm-stat-row">
-                      <span className="pm-stat-label">Net</span>
-                      <span
-                        className="pm-stat-value"
-                        style={{ color: isDeficit ? '#ff4444' : '#44cc88', fontWeight: 'bold' }}
-                      >
-                        {foodNet >= 0 ? '+' : ''}{Math.round(foodNet * 10) / 10}
-                        {isDeficit && ' (STARVATION)'}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+              );
+            })()}
 
             {/* ── Energy / Waste / Happiness indicators ── */}
             {planet.currentPopulation > 0 && (() => {
@@ -1560,8 +1574,13 @@ export function PlanetManagementScreen({
                   </div>
 
                   {planet.currentPopulation > 0 && (() => {
+                    const sp = playerSpeciesId ? PREBUILT_SPECIES_BY_ID[playerSpeciesId] : undefined;
                     const foodProd = production.organics ?? 0;
-                    const foodConsumption = Math.max(1, Math.ceil(planet.currentPopulation / ORGANICS_PER_POPULATION));
+                    const foodConsumption = calculateOrganicsConsumption(
+                      planet.currentPopulation,
+                      sp?.traits.reproduction,
+                      sp,
+                    );
                     const foodBalance = foodProd - foodConsumption;
                     const isDeficit = foodBalance < 0;
                     return (

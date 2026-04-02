@@ -30,6 +30,8 @@ export interface BuildingDefinition {
   requiredTech?: string;
   /** Population capacity bonus per level (race-modified at runtime) */
   populationCapacityBonus?: number;
+  /** Minimum planet fertility required to construct this building (0-100). */
+  requiredMinFertility?: number;
   /** Special effects that do not fit standard production */
   specialEffects?: string[];
 }
@@ -871,5 +873,37 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingDefinition> = {
     description:
       'A vast excavation into the planet\'s crust, reinforced with composite bulkheads and pressurised against the surrounding rock. Provides underground building slots where structures are shielded from orbital bombardment. When the surface is full, the only way to grow is down.',
     requiredTech: 'planet_core_engineering',
+  },
+
+  // ── Tiered food buildings ─────────────────────────────────────────────────
+
+  concentrated_farming: {
+    name: 'Concentrated Farming',
+    baseCost: { credits: 200, minerals: 50 },
+    baseProduction: { organics: 100 },
+    buildTime: 120,
+    maintenanceCost: { credits: 3 },
+    energyConsumption: 3,
+    wasteOutput: 0.5,
+    happinessImpact: 1,
+    maxLevel: 5,
+    description:
+      'Industrial-scale agriculture sprawling across thousands of square kilometres of fertile land — automated harvesters, gene-optimised crops, and vast aquaculture basins fed by natural waterways. Only viable on worlds with high fertility, where the soil, climate, and biosphere cooperate with the machinery. Each level feeds roughly a billion additional colonists.',
+    requiredMinFertility: 60,
+  },
+
+  greenhouse_farming: {
+    name: 'Greenhouse Farming',
+    baseCost: { credits: 120, minerals: 30 },
+    baseProduction: { organics: 50 },
+    buildTime: 80,
+    maintenanceCost: { credits: 2 },
+    energyConsumption: 3,
+    wasteOutput: 0.3,
+    happinessImpact: 0,
+    maxLevel: 5,
+    description:
+      'Sealed climate-controlled structures where atmospheric conditions are manufactured rather than relied upon. Pressurised glass domes and subterranean caverns host carefully managed ecosystems, producing food on worlds where open-air farming would fail. Less efficient than concentrated farming, but viable on any world with moderate soil fertility.',
+    requiredMinFertility: 20,
   },
 };

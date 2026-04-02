@@ -10,8 +10,14 @@
  *   - Ship production is slowed (50 % of normal construction rate).
  *
  * Food / organics consumption:
- *   - Population consumes 1 organic unit per 10 000 population per tick (min 1).
+ *   - Population consumes 1 organic unit per 10 000 000 population per tick.
+ *   - Planets naturally sustain population up to (fertility/100) * maxPopulation.
+ *   - Below the natural ceiling consumption is fully covered; above it buildings
+ *     must make up the difference.
  *   - Species reproduction trait modifies consumption (trait 5 = normal).
+ *   - Special abilities modify consumption: synthetic/cybernetic/energy_form = 0,
+ *     silicon_based/photosynthetic/dimensional = 0.5x,
+ *     nanomorphic/subterranean = 0.75x, hive_mind = 0.8x.
  *   - If organics reach zero, population declines (starvation).
  */
 
@@ -163,12 +169,13 @@ export function calculatePlanetProduction(
   addPartial(production, typeBonuses);
 
   // --- Natural food production from planet fertility ---
-  // Fertile planets naturally support population without requiring farms for
-  // every citizen.  A planet with fertility 50 and 500k population naturally
-  // produces 5 organics/tick.  A lush terran (fertility 80) with 1M pop
-  // produces 16.  This supplements hydroponics rather than replacing it.
-  const fertility = planet.fertility ?? 50; // 0-100 scale
-  const naturalFood = Math.floor((fertility / 100) * (planet.currentPopulation / 50_000));
+  // The planet's ecosystem sustains population up to (fertility/100) * maxPop
+  // without any food buildings.  Below this natural ceiling, food production
+  // equals consumption (the land feeds its people).  Above it, production is
+  // capped at the ceiling and buildings must make up the difference.
+  const naturalCap = getNaturalFoodCapacity(planet);
+  const sustainedPop = Math.min(planet.currentPopulation, naturalCap);
+  const naturalFood = Math.ceil(sustainedPop / ORGANICS_PER_POPULATION);
   production.organics += naturalFood;
 
   // --- Building output ---
@@ -498,17 +505,50 @@ export function getEnergyStatus(resources: EmpireResources): EnergyStatus {
 // Food / organics consumption
 // ---------------------------------------------------------------------------
 
-/** Population units per organic consumed per tick. */
-export const ORGANICS_PER_POPULATION = 10_000;
+/** Population units per organic consumed per tick (1 food feeds 10 million). */
+export const ORGANICS_PER_POPULATION = 10_000_000;
+
+/**
+ * Return the food-consumption modifier for a species based on its special
+ * abilities.  Zero means the species consumes no organics at all.
+ *
+ * Abilities that eliminate food need:
+ *   synthetic, cybernetic, energy_form → 0
+ * Abilities that reduce food need:
+ *   silicon_based, photosynthetic, dimensional → 0.5x
+ *   nanomorphic, subterranean → 0.75x
+ *   hive_mind → 0.8x
+ *
+ * When a species has multiple abilities the most beneficial (lowest) modifier
+ * wins — they don't stack multiplicatively.
+ */
+export function getAbilityFoodModifier(
+  specialAbilities?: string[],
+): number {
+  if (!specialAbilities || specialAbilities.length === 0) return 1;
+
+  // Zero-consumption abilities — short-circuit
+  const ZERO_FOOD: readonly string[] = ['synthetic', 'cybernetic', 'energy_form'];
+  if (specialAbilities.some(a => ZERO_FOOD.includes(a))) return 0;
+
+  let modifier = 1.0;
+  if (specialAbilities.includes('silicon_based'))   modifier = Math.min(modifier, 0.5);
+  if (specialAbilities.includes('photosynthetic'))  modifier = Math.min(modifier, 0.5);
+  if (specialAbilities.includes('dimensional'))     modifier = Math.min(modifier, 0.5);
+  if (specialAbilities.includes('nanomorphic'))     modifier = Math.min(modifier, 0.75);
+  if (specialAbilities.includes('subterranean'))    modifier = Math.min(modifier, 0.75);
+  if (specialAbilities.includes('hive_mind'))       modifier = Math.min(modifier, 0.8);
+
+  return modifier;
+}
 
 /**
  * Calculate how many organics an empire's total population consumes per tick.
  *
  * Formula: ceil(totalPopulation / ORGANICS_PER_POPULATION) with a minimum of 1
- * for any non-zero population. The racial reproduction trait modifies consumption:
- * trait 5 = normal, trait 10 = double, trait 1 = one-fifth.
- *
- * Synthetic species consume no food (machine intelligence).
+ * for any non-zero population.  Two modifiers are applied:
+ *   1. Reproduction trait:  trait / 5  (trait 5 = 1×, trait 10 = 2×).
+ *   2. Ability modifier:   see {@link getAbilityFoodModifier}.
  *
  * @param totalPopulation Sum of currentPopulation across all empire-owned planets.
  * @param speciesReproductionTrait Species reproduction trait (1-10, default 5).
@@ -520,11 +560,23 @@ export function calculateOrganicsConsumption(
   species?: { specialAbilities?: string[] },
 ): number {
   if (totalPopulation <= 0) return 0;
-  // Synthetic species do not consume food
-  if (species?.specialAbilities?.includes('synthetic')) return 0;
+
+  const abilityMod = getAbilityFoodModifier(species?.specialAbilities);
+  if (abilityMod === 0) return 0;
+
   const base = Math.max(1, Math.ceil(totalPopulation / ORGANICS_PER_POPULATION));
   const racialMod = speciesReproductionTrait ? (speciesReproductionTrait / 5) : 1;
-  return Math.ceil(base * racialMod);
+  return Math.ceil(base * racialMod * abilityMod);
+}
+
+/**
+ * Calculate how many people the planet's ecosystem can naturally sustain.
+ * This is based on fertility and maxPopulation — it represents the carrying
+ * capacity of the land before any artificial food infrastructure.
+ */
+export function getNaturalFoodCapacity(planet: { fertility?: number; maxPopulation: number }): number {
+  const fertility = planet.fertility ?? 50;
+  return Math.floor((fertility / 100) * planet.maxPopulation);
 }
 
 /** Result of applying the food-consumption step to empire resources. */
@@ -555,8 +607,9 @@ export function applyFoodConsumption(
   resources: EmpireResources,
   totalPopulation: number,
   speciesReproductionTrait?: number,
+  species?: { specialAbilities?: string[] },
 ): FoodConsumptionResult {
-  const consumed = calculateOrganicsConsumption(totalPopulation, speciesReproductionTrait);
+  const consumed = calculateOrganicsConsumption(totalPopulation, speciesReproductionTrait, species);
 
   if (consumed === 0) {
     return { resources, isStarving: false, consumed: 0 };

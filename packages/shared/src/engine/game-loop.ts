@@ -2536,6 +2536,7 @@ function stepFoodConsumption(state: GameTickState): GameTickState {
       currentResources,
       totalPopulation,
       empire.species.traits.reproduction,
+      empire.species,
     );
 
     state = applyResources(state, empire.id, updatedResources);
@@ -4989,19 +4990,19 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
   }
 
   // Seed per-empire resource stockpiles from starting values.
-  // Organics are seeded proportionally to starting population.  We provide a
-  // generous buffer of 200 ticks of consumption so that the early game is not
-  // dominated by food micromanagement before the player has had a chance to
-  // build Hydroponics Bays.  Food pressure increases naturally as the stockpile
-  // is consumed faster than planets produce.
+  // Home worlds start at natural food capacity (fertility% of maxPop), so
+  // production ≈ consumption at game start.  A small buffer is provided for
+  // comfort while the player explores the food system.
   const empireResourcesMap = new Map<string, EmpireResources>();
   for (const empire of gameState.empires) {
     const startingPop = gameState.galaxy.systems
       .flatMap(s => s.planets)
       .filter(p => p.ownerId === empire.id)
       .reduce((sum, p) => sum + p.currentPopulation, 0);
-    // 1 organic per 50 000 pop per tick; seed 200 ticks worth as a comfortable buffer.
-    const startingOrganics = Math.max(100, Math.floor(startingPop / 50_000) * 200);
+    // Provide ~100 ticks of consumption buffer.  With the new 1-food-per-10M
+    // scale, absolute numbers are much smaller.
+    const tickConsumption = Math.max(1, Math.ceil(startingPop / 10_000_000));
+    const startingOrganics = Math.max(50, tickConsumption * 100);
     empireResourcesMap.set(empire.id, {
       credits: empire.credits,
       minerals: 200,

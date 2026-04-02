@@ -101,6 +101,9 @@ const ACCENT: Record<BuildingType, string> = {
   // ── Pyrenth ────────────────────────────────────────────────────────────
   elemental_forge:           '#ff6622',
   seismic_resonator:         '#dd8844',
+  // ── Tiered food buildings ──────────────────────────────────────────────
+  concentrated_farming:      '#88cc44',
+  greenhouse_farming:        '#66aa44',
   // ── Zone infrastructure ───────────────────────────────────────────────
   underground_complex:       '#886644',
 };
@@ -4377,6 +4380,9 @@ const DRAW_FNS: Record<BuildingType, DrawFn> = {
   // ── Pyrenth ────────────────────────────────────────────────────────────────
   elemental_forge:           drawElementalForge,
   seismic_resonator:         drawSeismicResonator,
+  // ── Tiered food buildings ───────────────────────────────────────────────────
+  concentrated_farming:      drawHydroponicsBay,   // reuse hydroponics art for now
+  greenhouse_farming:        drawHydroponicsBay,   // reuse hydroponics art for now
   // ── Zone infrastructure ───────────────────────────────────────────────────
   underground_complex:       drawUndergroundComplex,
 };

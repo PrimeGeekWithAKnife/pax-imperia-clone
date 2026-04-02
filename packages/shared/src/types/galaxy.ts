@@ -199,6 +199,9 @@ export type BuildingType =
   // ── Pyrenth unique buildings ──────────────────────────────────────────────
   | 'elemental_forge'
   | 'seismic_resonator'
+  // ── Tiered food buildings ────────────────────────────────────────────────
+  | 'concentrated_farming'
+  | 'greenhouse_farming'
   // ── Zone infrastructure ─────────────────────────────────────────────────
   | 'underground_complex';
 

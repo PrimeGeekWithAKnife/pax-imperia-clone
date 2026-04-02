@@ -192,32 +192,31 @@ describe('Species — Zod validation and racial buildings', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('Food balance — hydroponics sustains population', () => {
-  it('1 hydroponics bay (8 organics) sustains up to 80,000 population without starvation', () => {
+  it('1 hydroponics bay (8 organics) sustains up to 80M population without starvation', () => {
     // 1 hydroponics bay produces 8 organics per tick
     const organicsProduced = BUILDING_DEFINITIONS.hydroponics_bay.baseProduction.organics ?? 0;
     expect(organicsProduced).toBe(8);
 
-    // Population consumes ceil(pop / 10,000) organics per tick
-    // At 80,000: ceil(80000/10000) = 8 organics consumed
-    const consumed = calculateOrganicsConsumption(80_000);
+    // Population consumes ceil(pop / 10,000,000) organics per tick
+    // At 80M: ceil(80M/10M) = 8 organics consumed
+    const consumed = calculateOrganicsConsumption(80_000_000);
     expect(consumed).toBe(8);
 
     // 8 produced >= 8 consumed — no starvation
     expect(organicsProduced).toBeGreaterThanOrEqual(consumed);
   });
 
-  it('80,001 population begins starvation with only 1 hydroponics bay', () => {
-    // At 80,001: ceil(80001/10000) = 9 > 8
-    const consumed = calculateOrganicsConsumption(80_001);
+  it('80M+ population begins starvation with only 1 hydroponics bay', () => {
+    // At 80,000,001: ceil(80000001/10000000) = 9 > 8
+    const consumed = calculateOrganicsConsumption(80_000_001);
     expect(consumed).toBe(9);
     const organicsProduced = 8;
     expect(organicsProduced).toBeLessThan(consumed);
   });
 
   it('tiny population still consumes at least 1 organic', () => {
-    // Even 1 person eats
     expect(calculateOrganicsConsumption(1)).toBe(1);
-    expect(calculateOrganicsConsumption(2_000)).toBe(1);
+    expect(calculateOrganicsConsumption(2_000_000)).toBe(1);
   });
 
   it('zero population consumes zero organics', () => {
@@ -228,8 +227,8 @@ describe('Food balance — hydroponics sustains population', () => {
     expect(calculateOrganicsConsumption(-500)).toBe(0);
   });
 
-  it('ORGANICS_PER_POPULATION is 10,000', () => {
-    expect(ORGANICS_PER_POPULATION).toBe(10_000);
+  it('ORGANICS_PER_POPULATION is 10,000,000', () => {
+    expect(ORGANICS_PER_POPULATION).toBe(10_000_000);
   });
 });
 

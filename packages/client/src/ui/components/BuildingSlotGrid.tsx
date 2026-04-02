@@ -87,6 +87,9 @@ const BUILDING_ABBREV: Record<BuildingType, string> = {
   // -- Pyrenth -------------------------------------------------------------
   elemental_forge: 'EF',
   seismic_resonator: 'SR',
+  // -- Tiered food buildings ------------------------------------------------
+  concentrated_farming: 'CF',
+  greenhouse_farming: 'GF',
   // -- Zone infrastructure -------------------------------------------------
   underground_complex: 'UC',
 };

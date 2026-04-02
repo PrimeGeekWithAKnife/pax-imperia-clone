@@ -342,10 +342,23 @@ export function initializeGame(config: GameSetupConfig): GameState {
       level: 1,
     }));
 
+    // Home world fertility boost — a species' home planet must have above-
+    // average fertility (life evolved here for millions of years).  This also
+    // prevents starting the game in immediate starvation.
+    const homePlanet = planetResult.planet;
+    const boostedFertility = Math.max(50, homePlanet.fertility ?? 50);
+
+    // Starting population = what the planet can naturally sustain.  A species
+    // that achieved spaceflight has had plenty of time to fill its world up to
+    // the ecosystem's carrying capacity: (fertility/100) * maxPopulation.
+    const naturalCapacity = Math.floor((boostedFertility / 100) * homePlanet.maxPopulation);
+    const startingPopulation = Math.max(1_000_000, naturalCapacity);
+
     const colonisedPlanet: Planet = {
-      ...planetResult.planet,
+      ...homePlanet,
+      fertility: boostedFertility,
       ownerId: empireId,
-      currentPopulation: 5_000_000,
+      currentPopulation: startingPopulation,
       buildings: startingBuildings,
     };
 

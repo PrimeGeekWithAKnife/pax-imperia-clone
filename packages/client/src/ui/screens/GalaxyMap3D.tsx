@@ -1497,11 +1497,69 @@ function CometTrail({ comet, galaxyRadius, cx, cy }: {
   );
 }
 
+// ── Minimap bridge — emits viewport & handles navigate clicks ────────────────
+
+// Reusable objects for MinimapBridge to avoid per-frame allocation
+const _mmRaycaster = new THREE.Raycaster();
+const _mmPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _mmNDC = new THREE.Vector2();
+const _mmHits = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+const _mmCornerNDC: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+const _mmViewport = { x: 0, y: 0, width: 0, height: 0 };
+
+function MinimapBridge({ galaxyWidth, galaxyHeight }: {
+  galaxyWidth: number;
+  galaxyHeight: number;
+}) {
+  const { camera } = useThree();
+
+  // Emit engine:viewport_changed every frame by projecting the 3D camera frustum
+  // onto the XZ galaxy plane (y=0) to get a 2D viewport rectangle.
+  useFrame(() => {
+    const game = (window as any).__EX_NIHILO_GAME__ as
+      | { events: { emit: (e: string, d: unknown) => void } }
+      | undefined;
+    if (!game) return;
+
+    // Project the four screen corners onto the y=0 plane
+    let hitCount = 0;
+    for (let i = 0; i < 4; i++) {
+      _mmNDC.set(_mmCornerNDC[i][0], _mmCornerNDC[i][1]);
+      _mmRaycaster.setFromCamera(_mmNDC, camera);
+      if (_mmRaycaster.ray.intersectPlane(_mmPlane, _mmHits[i])) {
+        hitCount++;
+      }
+    }
+    if (hitCount < 4) return;
+
+    // Compute bounding box of the projected corners (in world XZ)
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      const c = _mmHits[i];
+      if (c.x < minX) minX = c.x;
+      if (c.x > maxX) maxX = c.x;
+      if (c.z < minZ) minZ = c.z;
+      if (c.z > maxZ) maxZ = c.z;
+    }
+
+    // Galaxy uses x/y in the 2D layout but x/z in the 3D scene
+    _mmViewport.x = minX;
+    _mmViewport.y = minZ;
+    _mmViewport.width = maxX - minX;
+    _mmViewport.height = maxZ - minZ;
+    game.events.emit('engine:viewport_changed', _mmViewport);
+  });
+
+  return null;
+}
+
 // ── Camera controller with focus-on-star support ────────────────────────────
 
-function GalaxyCamera({ focusTarget, galaxyCentre }: {
+function GalaxyCamera({ focusTarget, galaxyCentre, galaxyWidth, galaxyHeight }: {
   focusTarget: [number, number, number] | null;
   galaxyCentre: [number, number, number];
+  galaxyWidth: number;
+  galaxyHeight: number;
 }) {
   const controlsRef = useRef<any>(null);
 
@@ -1523,6 +1581,29 @@ function GalaxyCamera({ focusTarget, galaxyCentre }: {
       true // smooth transition
     );
   }, [focusTarget]);
+
+  // Handle minimap click navigation
+  useEffect(() => {
+    const game = (window as any).__EX_NIHILO_GAME__ as
+      | { events: { on: (e: string, fn: (d: unknown) => void) => void; off: (e: string, fn: (d: unknown) => void) => void } }
+      | undefined;
+    if (!game) return;
+
+    const handler = (data: unknown) => {
+      if (!controlsRef.current) return;
+      const { normX, normY } = data as { normX: number; normY: number };
+      const worldX = normX * galaxyWidth;
+      const worldZ = normY * galaxyHeight;
+      // Smooth transition to look at the clicked point from above
+      controlsRef.current.setLookAt(
+        worldX, 80, worldZ + 40,
+        worldX, 0, worldZ,
+        true,
+      );
+    };
+    game.events.on('minimap:navigate', handler);
+    return () => { game.events.off('minimap:navigate', handler); };
+  }, [galaxyWidth, galaxyHeight]);
 
   return (
     <CameraControls
@@ -1746,7 +1827,10 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
         <SystemLabels systems={galaxy.systems} playerEmpireId={playerEmpireId} />
 
         {/* Camera controls */}
-        <GalaxyCamera focusTarget={focusTarget} galaxyCentre={galaxyCentre} />
+        <GalaxyCamera focusTarget={focusTarget} galaxyCentre={galaxyCentre} galaxyWidth={galaxy.width} galaxyHeight={galaxy.height} />
+
+        {/* Minimap viewport bridge */}
+        <MinimapBridge galaxyWidth={galaxy.width} galaxyHeight={galaxy.height} />
 
         {/* Post-processing */}
         <PostFX />
