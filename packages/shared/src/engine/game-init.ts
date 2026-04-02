@@ -373,34 +373,43 @@ export function initializeGame(config: GameSetupConfig): GameState {
       'shipyard',
     ];
 
-    // Add extra food buildings for hungry species
-    if (foodModifier > 1.0) {
-      // Calculate how much extra food production is needed.
-      // The deficit per 10M people is (modifier - 1.0) food units.
-      // Pick the best available building for this planet's fertility.
-      const extraFoodType: BuildingType =
-        boostedFertility >= 60 ? 'concentrated_farming' :
-        boostedFertility >= 20 ? 'greenhouse_farming' :
-        'hydroponics_bay';
-      // Add 1-2 extra food buildings based on how hungry the species is
-      startingBuildingTypes.push(extraFoodType);
-      if (foodModifier >= 1.3) {
-        startingBuildingTypes.push(extraFoodType);
-      }
-    }
+    // Starting population must be what the planet can actually sustain.
+    // Natural food production covers (fertility/100) × maxPop people at a
+    // base rate. High-consumption species (reproduction trait > 5) eat more,
+    // so fewer people can be fed by the same ecosystem. Starting buildings
+    // (hydroponics etc.) provide a small buffer but the population must not
+    // exceed what natural food + starting buildings can sustain.
+    //
+    // A civilisation doesn't fill a planet to capacity before spaceflight —
+    // they grow to what the land can feed and expand from there.
+    const naturalCapacity = Math.floor((boostedFertility / 100) * homePlanet.maxPopulation);
+
+    // Starting population: the number of people the land can naturally feed.
+    //
+    // The planet produces food based on its fertility (naturalCap / 10M organics).
+    // The species consumes (pop / 10M × foodModifier) organics.
+    // Break-even: naturalCap / 10M = pop / 10M × foodModifier
+    //           → pop = naturalCap / foodModifier
+    //
+    // Start at 85% of the sustainable population to provide a small food
+    // surplus from starting buildings. High-reproduction species start with
+    // fewer people but grow faster — a natural biological tradeoff.
+    //
+    // Examples on a 75% fertility, 8B max planet (naturalCap = 6B):
+    //   Teranos (repro 5, mod 1.0): 5.1B — comfortable surplus
+    //   Sylvani (repro 8, mod 1.6): 3.2B — smaller but growing fast
+    //   Nexari  (repro 2, mod 0.4): 6.0B — capped at naturalCap (huge surplus)
+    const sustainablePopulation = Math.floor(naturalCapacity / Math.max(foodModifier, 0.1));
+    const startingPopulation = Math.max(
+      1_000_000,
+      Math.min(Math.floor(sustainablePopulation * 0.85), naturalCapacity),
+    );
 
     const startingBuildings: Building[] = startingBuildingTypes.map(type => ({
       id: generateId(),
       type,
       level: 1,
     }));
-
-    // Starting population = natural food capacity.  A species that evolved on
-    // this world filled it to the carrying capacity the ecosystem allows.
-    // The food modifier no longer reduces starting pop because high-consumption
-    // species now start with extra food buildings to compensate.
-    const naturalCapacity = Math.floor((boostedFertility / 100) * homePlanet.maxPopulation);
-    const startingPopulation = Math.max(1_000_000, naturalCapacity);
 
     const colonisedPlanet: Planet = {
       ...homePlanet,

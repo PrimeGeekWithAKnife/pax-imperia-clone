@@ -2693,10 +2693,21 @@ function stepFoodConsumption(state: GameTickState): GameTickState {
     state = applyResources(state, empire.id, updatedResources);
 
     if (isStarving && ownedPlanets.length > 0) {
-      // Each planet loses 0.5 % of its population (minimum 1) when starving.
+      // Graduated population loss based on shortage severity:
+      //   severe (15-40%):   0.1% per tick — slow decline, time to fix
+      //   critical (40-99%): 0.5% per tick — urgent crisis
+      //   famine (100%):     2.0% per tick — catastrophic
+      const { shortageLevel } = applyFoodConsumption(
+        currentResources, totalPopulation,
+        empire.species.traits.reproduction, empire.species,
+      );
+      const lossRate = shortageLevel === 'famine' ? 0.02
+        : shortageLevel === 'critical' ? 0.005
+        : 0.001; // severe
+
       for (const planet of ownedPlanets) {
         if (planet.currentPopulation <= 0) continue;
-        const loss = Math.max(1, Math.floor(planet.currentPopulation * 0.005));
+        const loss = Math.max(1, Math.floor(planet.currentPopulation * lossRate));
         const newPop = Math.max(0, planet.currentPopulation - loss);
 
         if (newPop <= 0 && planet.currentPopulation < 1000) {

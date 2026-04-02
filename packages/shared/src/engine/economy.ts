@@ -169,13 +169,16 @@ export function calculatePlanetProduction(
   addPartial(production, typeBonuses);
 
   // --- Natural food production from planet fertility ---
-  // The planet's ecosystem sustains population up to (fertility/100) * maxPop
-  // without any food buildings.  Below this natural ceiling, food production
-  // equals consumption (the land feeds its people).  Above it, production is
-  // capped at the ceiling and buildings must make up the difference.
+  // The land produces food based on its fertility and size, not based on
+  // how many people are there. A fertile planet grows crops whether or not
+  // anyone harvests them. Production is capped at the natural carrying
+  // capacity: (fertility/100) × maxPop converted to organics units.
+  //
+  // Species metabolism doesn't change what the land produces — it changes
+  // how much each person consumes. A 75% fertile, 8B planet always produces
+  // 600 organics. Teranos (1.0x) can feed 6B, Sylvani (1.6x) can feed 3.75B.
   const naturalCap = getNaturalFoodCapacity(planet);
-  const sustainedPop = Math.min(planet.currentPopulation, naturalCap);
-  const naturalFood = Math.ceil(sustainedPop / ORGANICS_PER_POPULATION);
+  const naturalFood = Math.ceil(naturalCap / ORGANICS_PER_POPULATION);
   production.organics += naturalFood;
 
   // --- Building output ---
@@ -579,6 +582,18 @@ export function getNaturalFoodCapacity(planet: { fertility?: number; maxPopulati
   return Math.floor((fertility / 100) * planet.maxPopulation);
 }
 
+/**
+ * Food shortage severity — a gradient, not a binary switch.
+ *
+ * - none:     Supply meets or exceeds demand. No effects.
+ * - mild:     0-5% shortfall. Prices rise, slight unhappiness, no pop loss.
+ * - moderate: 5-15% shortfall. Partial shortages, happiness penalty, growth slows.
+ * - severe:   15-40% shortfall. Persistent shortages, slow population decline.
+ * - critical: 40%+ shortfall. Actual starvation, significant population loss.
+ * - famine:   No food at all. Catastrophic population loss.
+ */
+export type FoodShortageLevel = 'none' | 'mild' | 'moderate' | 'severe' | 'critical' | 'famine';
+
 /** Result of applying the food-consumption step to empire resources. */
 export interface FoodConsumptionResult {
   /** Updated resource stockpile after organics have been deducted. */
@@ -590,6 +605,10 @@ export interface FoodConsumptionResult {
   isStarving: boolean;
   /** Organics consumed this tick (may be 0). */
   consumed: number;
+  /** Shortage severity level (gradient, not binary). */
+  shortageLevel: FoodShortageLevel;
+  /** Percentage shortfall (0 = fully fed, 100 = no food at all). */
+  shortfallPercent: number;
 }
 
 /**
@@ -612,11 +631,27 @@ export function applyFoodConsumption(
   const consumed = calculateOrganicsConsumption(totalPopulation, speciesReproductionTrait, species);
 
   if (consumed === 0) {
-    return { resources, isStarving: false, consumed: 0 };
+    return { resources, isStarving: false, consumed: 0, shortageLevel: 'none', shortfallPercent: 0 };
   }
 
   const remaining = resources.organics - consumed;
-  const isStarving = remaining < 0;
+
+  // Compute shortfall as a percentage of demand
+  const shortfallPercent = remaining >= 0
+    ? 0
+    : Math.min(100, Math.round(Math.abs(remaining) / consumed * 100));
+
+  // Map to severity level
+  let shortageLevel: FoodShortageLevel;
+  if (shortfallPercent === 0)       shortageLevel = 'none';
+  else if (shortfallPercent <= 5)   shortageLevel = 'mild';
+  else if (shortfallPercent <= 15)  shortageLevel = 'moderate';
+  else if (shortfallPercent <= 40)  shortageLevel = 'severe';
+  else if (shortfallPercent < 100)  shortageLevel = 'critical';
+  else                              shortageLevel = 'famine';
+
+  // Legacy compatibility: isStarving = true only at severe+ (actual pop loss)
+  const isStarving = shortfallPercent > 15;
 
   return {
     resources: {
@@ -625,5 +660,7 @@ export function applyFoodConsumption(
     },
     isStarving,
     consumed,
+    shortageLevel,
+    shortfallPercent,
   };
 }

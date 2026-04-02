@@ -113,8 +113,9 @@ describe('calculatePlanetProduction', () => {
     expect(result.population).toBe(0);
     expect(result.taxIncome).toBe(0);
     expect(result.buildingOutputs).toHaveLength(0);
-    // terran planet bonus: organics +5, energy +1
-    expect(result.production.organics).toBe(5);
+    // Natural food from land: ceil(naturalCap / 10M) where naturalCap = (50/100)*1B = 500M → 50
+    // Plus terran planet bonus: organics +5
+    expect(result.production.organics).toBe(55);
     expect(result.production.energy).toBe(1);
     expect(result.production.minerals).toBe(0);
     expect(result.production.researchPoints).toBe(0);
@@ -215,8 +216,8 @@ describe('calculatePlanetProduction', () => {
 
     const result = calculatePlanetProduction(planet, species, empire);
 
-    // ocean bonus: organics +10, energy +1
-    expect(result.production.organics).toBeCloseTo(10);
+    // Natural food from land: 50 + ocean bonus: organics +10
+    expect(result.production.organics).toBeCloseTo(60);
     expect(result.production.energy).toBeCloseTo(1);
   });
 
