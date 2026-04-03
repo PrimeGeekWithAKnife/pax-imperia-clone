@@ -2055,7 +2055,7 @@ export function App(): React.ReactElement {
     setEventLogEntries([]);
     setManagedPlanet(null);
     setManagedSystemId(null);
-    setGameSpeed('normal');
+    setGameSpeed('paused');
     // Apply empire name and government from setup to the player empire state
     setPlayerEmpire(prev => ({
       ...prev,
