@@ -485,6 +485,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
       technologies: [],
       currentAge: 'nano_atomic',
       isAI: playerSetup.isAI,
+      homeSystemId,
       government: playerSetup.government ?? playerSetup.species.defaultGovernment ?? 'democracy',
       // AI personality: explicit > inferred from species traits > defensive fallback.
       // Trait-based inference means combat-focused species (Drakmari, Khazari) will

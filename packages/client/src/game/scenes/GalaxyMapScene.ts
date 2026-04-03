@@ -297,8 +297,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.galaxy = engineAfterCleanup.getState().gameState.galaxy;
       const playerEmpire = engineAfterCleanup.getState().gameState.empires.find(e => !e.isAI);
       if (playerEmpire) {
-        const homeSystem = this.galaxy.systems.find(s => s.ownerId === playerEmpire.id);
-        this.homeSystemId = homeSystem?.id ?? null;
+        this.homeSystemId = playerEmpire.homeSystemId
+          ?? this.galaxy.systems.find(s => s.ownerId === playerEmpire.id)?.id
+          ?? null;
         this.knownSystemIds = new Set(playerEmpire.knownSystems);
       } else {
         for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
@@ -369,8 +370,9 @@ export class GalaxyMapScene extends Phaser.Scene {
       this.galaxy = gameState.galaxy;
       const playerEmpire = gameState.empires.find(e => !e.isAI);
       if (playerEmpire) {
-        const homeSystem = gameState.galaxy.systems.find(s => s.ownerId === playerEmpire.id);
-        this.homeSystemId = homeSystem?.id ?? null;
+        this.homeSystemId = playerEmpire.homeSystemId
+          ?? gameState.galaxy.systems.find(s => s.ownerId === playerEmpire.id)?.id
+          ?? null;
         this.knownSystemIds = new Set(playerEmpire.knownSystems);
       } else {
         for (const sys of this.galaxy.systems) this.knownSystemIds.add(sys.id);
@@ -557,11 +559,15 @@ export class GalaxyMapScene extends Phaser.Scene {
     if (this.homeSystemId) {
       const homeSys = this.galaxy.systems.find(s => s.id === this.homeSystemId);
       if (homeSys) {
+        console.log('[GalaxyMapScene] Centering on home system', homeSys.name, 'at', homeSys.position);
         this.cameraOffset.x = cx - homeSys.position.x * this.currentZoom;
         this.cameraOffset.y = cy - homeSys.position.y * this.currentZoom;
         this.applyWorldTransform();
         return;
       }
+      console.warn('[GalaxyMapScene] homeSystemId set but system not found in galaxy:', this.homeSystemId);
+    } else {
+      console.warn('[GalaxyMapScene] homeSystemId is null — falling back to galaxy centre');
     }
 
     this.centerGalaxy();

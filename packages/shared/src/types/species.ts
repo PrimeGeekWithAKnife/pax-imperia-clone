@@ -67,6 +67,8 @@ export interface Empire {
   isAI: boolean;
   aiPersonality?: AIPersonality;
   government: GovernmentType;
+  /** The system ID where this empire started. Set at game creation, never changes. */
+  homeSystemId?: string;
   /** Accumulated resource production multipliers from tech effects (e.g. { energy: 1.5, minerals: 1.2 }). */
   resourceBonuses?: Record<string, number>;
   /** Rolled per-game personality from species psychology data. */
