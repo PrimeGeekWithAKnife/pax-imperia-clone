@@ -13,6 +13,10 @@ interface MinimapProps {
   knownSystems?: string[];
   /** Empire ID → colour hex string for ownership display. */
   empireColorMap?: Map<string, string>;
+  /** Player's empire name for the minimap header. */
+  empireName?: string;
+  /** Player's government type for display. */
+  governmentLabel?: string;
 }
 
 const MINIMAP_WIDTH = 200;
@@ -43,6 +47,8 @@ export function Minimap({
   viewport = null,
   knownSystems,
   empireColorMap,
+  empireName,
+  governmentLabel,
 }: MinimapProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -186,7 +192,10 @@ export function Minimap({
 
   return (
     <div className="minimap">
-      <div className="minimap__label">GALAXY MAP</div>
+      <div className="minimap__label">
+        {empireName || 'GALAXY MAP'}
+        {governmentLabel && <span style={{ opacity: 0.5, marginLeft: '6px', fontSize: '9px' }}>{governmentLabel}</span>}
+      </div>
       <canvas
         ref={canvasRef}
         width={MINIMAP_WIDTH}

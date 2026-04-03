@@ -2473,6 +2473,8 @@ export function App(): React.ReactElement {
         viewport={viewport}
         knownSystems={playerEmpire.knownSystems}
         empireColorMap={empireColorMap}
+        empireName={playerEmpire.name}
+        governmentLabel={playerEmpire.government}
       />
 
       <EventLog entries={eventLogEntries} />

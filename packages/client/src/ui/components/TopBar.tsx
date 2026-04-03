@@ -117,22 +117,7 @@ export function TopBar({
 
   return (
     <div className="top-bar">
-      {/* Empire identity: government icon + race icon + name + turn */}
-      <div className="top-bar__identity">
-        {government && (
-          <span className="top-bar__icon" title={`Government: ${govName}`}>
-            {GOV_ICONS[government] ?? '🏛'}
-          </span>
-        )}
-        {speciesName && (
-          <span className="top-bar__icon" title={`Species: ${speciesName}`}>
-            👽
-          </span>
-        )}
-        <span className="top-bar__empire-name" title={empireName}>
-          {empireName ? empireName : 'EX NIHILO'}
-        </span>
-      </div>
+      {/* Turn counter (empire identity moved to minimap header) */}
       {currentTick !== undefined && (
         <div className="top-bar__turn" title="Current game turn">
           Turn {currentTick}

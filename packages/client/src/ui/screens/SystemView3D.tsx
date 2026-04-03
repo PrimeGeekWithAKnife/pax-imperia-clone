@@ -922,12 +922,14 @@ function SystemCamera({ focusTarget }: { focusTarget: [number, number, number] |
     );
   }, []);
 
-  // Smooth transition to focus target (planet)
+  // Smooth transition to focus target (planet orbit)
   useEffect(() => {
     if (!controlsRef.current || !focusTarget) return;
     const [tx, ty, tz] = focusTarget;
+    // Scale camera distance with orbit radius so outer planets aren't lost
+    const dist = Math.sqrt(tx * tx + tz * tz) || 10;
     controlsRef.current.setLookAt(
-      tx + 3, ty + 4, tz + 5,
+      tx * 0.5, dist * 0.5, dist * 0.4,  // between star and orbit, above
       tx, ty, tz,
       true,
     );
@@ -982,15 +984,15 @@ export function SystemView3D({ system, playerEmpireId, initialPlanetId, onPlanet
     [system.planets],
   );
 
-  // Compute the focus target when a planet is selected
+  // Compute the focus target when a planet is selected.
+  // We aim the camera at a point on the orbit ring at angle 0 (positive X axis),
+  // and position it between the star and that point so both stay in frame.
   const focusTarget = useMemo<[number, number, number] | null>(() => {
     if (!selectedPlanetId) return null;
     const idx = sortedPlanets.findIndex(p => p.id === selectedPlanetId);
     if (idx < 0) return null;
-    // Return a point on the orbit -- camera will track it
     const orbitRadius = ORBIT_BASE_RADIUS + idx * ORBIT_STEP;
-    // Use a static angle for the camera target (planet moves, camera follows general area)
-    return [orbitRadius * 0.7, 0, orbitRadius * 0.7];
+    return [orbitRadius, 0, 0];
   }, [selectedPlanetId, sortedPlanets]);
 
   const handlePlanetSelect = useCallback((planet: Planet) => {
