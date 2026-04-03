@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { ShipComponent, ShipDesign, ComponentType, HullClass } from '@nova-imperia/shared';
+import type { ShipComponent, ShipDesign, ComponentType, HullClass, CoreSystemRole } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics';
 import {
   validateDesign,
@@ -7,6 +7,8 @@ import {
   autoEquipDesign,
   getAvailableComponents,
   TECH_AGES,
+  ALL_CORE_SYSTEM_ROLES,
+  CORE_SYSTEM_LABELS,
 } from '@nova-imperia/shared';
 import type { DesignStats } from '@nova-imperia/shared';
 import { HULL_TEMPLATES, SHIP_COMPONENTS } from '@nova-imperia/shared-data/ships/index.js';
@@ -78,7 +80,17 @@ const COMP_TYPE_LABEL: Record<ComponentType, string> = {
   advanced_sensors:    'Advanced Sensors',
   damage_control:      'Damage Control',
   ecm_suite:           'ECM Suite',
+  scanner:             'Scanner',
+  power_reactor:       'Power Reactor',
+  rcs_thrusters:       'RCS Thrusters',
+  temperature_control: 'Temperature Control',
+  comms_array:         'Comms Array',
+  bio_reclamation:     'Bio Reclamation',
+  computer_core:       'Computer Core',
 };
+
+/** Core system roles that require crew (skipped for unmanned hulls). */
+const CREW_SYSTEM_ROLES: CoreSystemRole[] = ['life_support', 'bio_reclamation', 'comms_array'];
 
 // Key stat name for a component type
 function keyStat(component: ShipComponent): string {
@@ -116,6 +128,18 @@ function keyStat(component: ShipComponent): string {
       return `+${s['moraleRecovery'] ?? 0} morale`;
     case 'special':
       return `cost ${component.cost}`;
+    case 'power_reactor':
+      return `+${s['powerOutput'] ?? 0} pw`;
+    case 'rcs_thrusters':
+      return `+${s['evasionBonus'] ?? 0}% eva`;
+    case 'temperature_control':
+      return `${s['heatDissipation'] ?? 0} heat`;
+    case 'comms_array':
+      return `rng ${s['signalRange'] ?? 0}`;
+    case 'bio_reclamation':
+      return `+${s['supplyBonus'] ?? 0} supply`;
+    case 'computer_core':
+      return `+${s['accuracyBonus'] ?? 0}% acc`;
   }
 }
 
@@ -213,6 +237,11 @@ export function ShipDesignerScreen({
   const [assignments, setAssignments] = useState<SlotAssignment[]>([]);
   const [armourPlating, setArmourPlating] = useState(0);
 
+  // ── Core system overrides ───────────────────────────────────────────────────
+  const [coreSystemOverrides, setCoreSystemOverrides] = useState<
+    Array<{ role: CoreSystemRole; componentId: string }>
+  >([]);
+
   // ── Slot/component picker state ─────────────────────────────────────────────
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -249,8 +278,9 @@ export function ShipDesignerScreen({
       totalCost: 0,
       empireId,
       armourPlating,
+      coreSystemOverrides: coreSystemOverrides.length > 0 ? coreSystemOverrides : undefined,
     }),
-    [designName, hull.class, assignments, empireId, armourPlating],
+    [designName, hull.class, assignments, empireId, armourPlating, coreSystemOverrides],
   );
 
   const validationResult = useMemo(
@@ -309,8 +339,17 @@ export function ShipDesignerScreen({
     setSelectedHullClass(hullClass);
     setAssignments([]);
     setArmourPlating(0);
+    setCoreSystemOverrides([]);
     setSelectedSlotId(null);
     setPickerOpen(false);
+  }, []);
+
+  const handleCoreSystemChange = useCallback((role: CoreSystemRole, componentId: string) => {
+    setCoreSystemOverrides((prev) => {
+      const filtered = prev.filter((o) => o.role !== role);
+      if (!componentId) return filtered; // empty = reset to Mk I baseline
+      return [...filtered, { role, componentId }];
+    });
   }, []);
 
   const handleSlotClick = useCallback((slotId: string) => {
@@ -382,6 +421,7 @@ export function ShipDesignerScreen({
       setDesignName(design.name);
       setAssignments(design.components);
       setArmourPlating(design.armourPlating ?? 0);
+      setCoreSystemOverrides(design.coreSystemOverrides ?? []);
       setSelectedSlotId(null);
       setPickerOpen(false);
     },
@@ -414,48 +454,142 @@ export function ShipDesignerScreen({
 
         {/* Main three-column body */}
         <div className="ship-designer__body">
-          {/* ── LEFT: Hull Selection ───────────────────────────────────── */}
+          {/* ── LEFT: Hull Selection + Core Systems ──────────────────── */}
           <div className="ship-designer__left">
             <div className="sd-col-label">HULL CLASS</div>
-            <div className="sd-hull-list">
-              {HULL_TEMPLATES.map((h) => {
-                const unlocked = isHullUnlocked(h.requiredAge, currentAge);
-                const isSelected = h.class === selectedHullClass;
 
-                return (
-                  <button
-                    key={h.class}
-                    type="button"
-                    className={`sd-hull-item ${isSelected ? 'sd-hull-item--selected' : ''} ${!unlocked ? 'sd-hull-item--locked' : ''}`}
-                    onClick={() => unlocked && handleHullSelect(h.class)}
-                    disabled={!unlocked}
-                    title={!unlocked ? `Requires: ${AGE_DISPLAY[h.requiredAge] ?? h.requiredAge}` : h.name}
-                  >
-                    <div className="sd-hull-icon">
-                      <HullIcon hullClass={h.class} />
-                    </div>
-                    <div className="sd-hull-info">
-                      <div className="sd-hull-name">{h.name}</div>
-                      <div className="sd-hull-stats">
-                        <span>{h.baseHullPoints} HP</span>
-                        <span>
-                          W:{h.slotLayout.filter(s => s.category === 'weapon').length}
-                          {' '}D:{h.slotLayout.filter(s => s.category === 'defence').length}
-                          {' '}I:{h.slotLayout.filter(s => s.category === 'internal').length}
+            {/* Large hull icon */}
+            <div className="sd-hull-icon-large">
+              {(() => {
+                const iconSrc = renderShipIcon(selectedHullClass, 96);
+                if (iconSrc) {
+                  return <img src={iconSrc} alt={hull.name} width={96} height={96} />;
+                }
+                return <span className="sd-hull-icon-text-lg">{HULL_CLASS_ICON[selectedHullClass]}</span>;
+              })()}
+            </div>
+
+            {/* Hull dropdown */}
+            <select
+              className="sd-hull-dropdown"
+              value={selectedHullClass}
+              onChange={(e) => {
+                const hc = e.target.value as HullClass;
+                if (isHullUnlocked(HULL_TEMPLATES.find(h => h.class === hc)?.requiredAge ?? '', currentAge)) {
+                  handleHullSelect(hc);
+                }
+              }}
+            >
+              <optgroup label="Available">
+                {HULL_TEMPLATES.filter(h => isHullUnlocked(h.requiredAge, currentAge)).map(h => (
+                  <option key={h.class} value={h.class}>
+                    {h.name} (W:{h.slotLayout.filter(s => s.category === 'weapon').length} D:{h.slotLayout.filter(s => s.category === 'defence').length} I:{h.slotLayout.filter(s => s.category === 'internal').length})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Locked">
+                {HULL_TEMPLATES.filter(h => !isHullUnlocked(h.requiredAge, currentAge)).map(h => (
+                  <option key={h.class} value={h.class} disabled>
+                    {h.name} — {AGE_DISPLAY[h.requiredAge] ?? h.requiredAge}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+
+            {/* Hull summary */}
+            <div className="sd-hull-summary">
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">HP</span>
+                <span className="sd-hull-summary-value">{hull.baseHullPoints}</span>
+              </div>
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">Cost</span>
+                <span className="sd-hull-summary-value">{hull.baseCost}cr</span>
+              </div>
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">W/D/I</span>
+                <span className="sd-hull-summary-value">
+                  {hull.slotLayout.filter(s => s.category === 'weapon').length}/
+                  {hull.slotLayout.filter(s => s.category === 'defence').length}/
+                  {hull.slotLayout.filter(s => s.category === 'internal').length}
+                </span>
+              </div>
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">Crew</span>
+                <span className="sd-hull-summary-value">{hull.baseCrew ?? 0}</span>
+              </div>
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">Supply</span>
+                <span className="sd-hull-summary-value">{hull.baseSupplyCapacity ?? 15}t</span>
+              </div>
+              <div className="sd-hull-summary-item">
+                <span className="sd-hull-summary-label">Speed</span>
+                <span className="sd-hull-summary-value">{hull.baseSpeed}</span>
+              </div>
+            </div>
+
+            {/* Core systems */}
+            <div className="sd-core-systems">
+              <div className="sd-core-systems-title">CORE SYSTEMS</div>
+              {hull.manned === false ? (
+                <div className="sd-core-unmanned-msg">
+                  UNMANNED — no crew systems required
+                </div>
+              ) : (
+                ALL_CORE_SYSTEM_ROLES
+                  .filter(role => hull.manned !== false || !CREW_SYSTEM_ROLES.includes(role))
+                  .map((role) => {
+                    // Find all core system components for this role
+                    const roleComponents = SHIP_COMPONENTS
+                      .filter(c => c.coreSystemRole === role)
+                      .sort((a, b) => a.cost - b.cost);
+
+                    // Current override for this role
+                    const override = coreSystemOverrides.find(o => o.role === role);
+                    const currentComp = override
+                      ? roleComponents.find(c => c.id === override.componentId)
+                      : roleComponents[0]; // Mk I baseline
+
+                    // Filter tiers by age
+                    const availableTiers = roleComponents.filter(c => {
+                      if (!c.minAge) return true;
+                      return isHullUnlocked(c.minAge, currentAge);
+                    });
+
+                    return (
+                      <div key={role} className="sd-core-system-row">
+                        <span className="sd-core-system-name" title={CORE_SYSTEM_LABELS[role]}>
+                          {CORE_SYSTEM_LABELS[role]}
                         </span>
-                        <span>{h.baseCost}cr</span>
-                        {h.slotLayout.some(s => s.category === 'warp_drive') && <span>WARP</span>}
-                        {h.hangarSlots && <span>{h.hangarSlots.count} bays</span>}
+                        <select
+                          className="sd-core-system-select"
+                          value={override?.componentId ?? ''}
+                          onChange={(e) => handleCoreSystemChange(role, e.target.value)}
+                          title={currentComp?.name ?? 'Mk I'}
+                        >
+                          <option value="">Mk I</option>
+                          {roleComponents.slice(1).map(c => {
+                            const available = availableTiers.includes(c);
+                            const tierLabel = c.name.includes('Mk III') || c.name.includes('Mk3')
+                              ? 'Mk III'
+                              : c.name.includes('Mk II') || c.name.includes('Mk2')
+                                ? 'Mk II'
+                                : c.name.split(' ').slice(-1)[0] ?? c.name;
+                            return (
+                              <option
+                                key={c.id}
+                                value={c.id}
+                                disabled={!available}
+                              >
+                                {tierLabel} ({c.cost}cr){!available ? ` — ${AGE_DISPLAY[c.minAge ?? ''] ?? c.minAge}` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
-                      {!unlocked && (
-                        <div className="sd-hull-locked-msg">
-                          Requires: {AGE_DISPLAY[h.requiredAge] ?? h.requiredAge}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                    );
+                  })
+              )}
             </div>
           </div>
 
@@ -510,6 +644,7 @@ export function ShipDesignerScreen({
                 highlightWeaponSlotId={highlightWeaponSlotId}
                 showArcs={showArcs}
                 height={280}
+                coreSystemOverrides={coreSystemOverrides}
               />
             </div>
 
@@ -675,23 +810,13 @@ export function ShipDesignerScreen({
               </div>
             </div>
 
-            {/* Aggregated stats */}
+            {/* ── OFFENCE ─────────────────────────────────────────── */}
             <div className="sd-stats-section">
-              <div className="sd-stats-section-label">COMBAT STATS</div>
-
-              {/* Stat with compare bars */}
+              <div className="sd-stats-section-label">OFFENCE</div>
               {(
                 [
                   { label: 'Total Damage',   value: designStats.totalDamage,   compare: compareStats?.totalDamage,   unit: 'dmg' },
-                  { label: 'Shield Strength',value: designStats.totalShields,  compare: compareStats?.totalShields,  unit: 'str' },
-                  { label: 'Armor Rating',   value: designStats.totalArmor,    compare: compareStats?.totalArmor,    unit: 'AR'  },
-                  { label: 'Speed',          value: designStats.speed,         compare: compareStats?.speed,         unit: ''    },
-                  { label: 'Sensor Range',   value: designStats.sensorRange,   compare: compareStats?.sensorRange,   unit: ''    },
-                  { label: 'Repair Rate',    value: designStats.repairRate,    compare: compareStats?.repairRate,    unit: '/t'  },
                   { label: 'Accuracy Bonus', value: designStats.accuracyBonus, compare: compareStats?.accuracyBonus, unit: '%'   },
-                  { label: 'Evasion Bonus',  value: designStats.evasionBonus,  compare: compareStats?.evasionBonus,  unit: '%'   },
-                  { label: 'Power Output',   value: designStats.powerOutput,   compare: compareStats?.powerOutput,   unit: ''    },
-                  { label: 'Power Draw',     value: designStats.powerDraw,     compare: compareStats?.powerDraw,     unit: ''    },
                 ] as const
               ).map(({ label, value, compare, unit }) => {
                 const hasCompare = compare !== undefined && compare !== null;
@@ -699,15 +824,12 @@ export function ShipDesignerScreen({
                 const pct = (value / max) * 100;
                 const cmpPct = hasCompare ? ((compare ?? 0) / max) * 100 : 0;
                 const diff = hasCompare ? value - (compare ?? 0) : 0;
-
                 return (
                   <div key={label} className="sd-stat-bar-row">
                     <div className="sd-stat-bar-header">
                       <span className="sd-stat-label">{label}</span>
                       <div className="sd-stat-bar-values">
-                        <span className="sd-stat-value">
-                          {value}{unit}
-                        </span>
+                        <span className="sd-stat-value">{value}{unit}</span>
                         {hasCompare && (
                           <span className={`sd-stat-diff ${diff > 0 ? 'sd-stat-diff--pos' : diff < 0 ? 'sd-stat-diff--neg' : ''}`}>
                             {diff > 0 ? `+${diff}` : diff}
@@ -716,27 +838,105 @@ export function ShipDesignerScreen({
                       </div>
                     </div>
                     <div className="sd-stat-bar-track">
-                      <div
-                        className="sd-stat-bar-fill"
-                        style={{ width: `${pct}%` }}
-                      />
-                      {hasCompare && (
-                        <div
-                          className="sd-stat-bar-compare"
-                          style={{ width: `${cmpPct}%` }}
-                        />
-                      )}
+                      <div className="sd-stat-bar-fill" style={{ width: `${pct}%` }} />
+                      {hasCompare && <div className="sd-stat-bar-compare" style={{ width: `${cmpPct}%` }} />}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Power balance */}
+            {/* ── DEFENCE ─────────────────────────────────────────── */}
             <div className="sd-stats-section">
-              <div className="sd-stats-section-label">POWER</div>
+              <div className="sd-stats-section-label">DEFENCE</div>
+              {(
+                [
+                  { label: 'Shield Strength',value: designStats.totalShields,       compare: compareStats?.totalShields,       unit: 'str' },
+                  { label: 'Armour Rating',  value: designStats.totalArmor,         compare: compareStats?.totalArmor,         unit: 'AR'  },
+                  { label: 'Evasion Bonus',  value: designStats.evasionBonus,       compare: compareStats?.evasionBonus,       unit: '%'   },
+                  { label: 'Effective HP',   value: designStats.effectiveHullPoints, compare: compareStats?.effectiveHullPoints, unit: ''    },
+                ] as const
+              ).map(({ label, value, compare, unit }) => {
+                const hasCompare = compare !== undefined && compare !== null;
+                const max = hasCompare ? Math.max(value, compare, 1) : Math.max(value, 1);
+                const pct = (value / max) * 100;
+                const cmpPct = hasCompare ? ((compare ?? 0) / max) * 100 : 0;
+                const diff = hasCompare ? value - (compare ?? 0) : 0;
+                return (
+                  <div key={label} className="sd-stat-bar-row">
+                    <div className="sd-stat-bar-header">
+                      <span className="sd-stat-label">{label}</span>
+                      <div className="sd-stat-bar-values">
+                        <span className="sd-stat-value">{value}{unit}</span>
+                        {hasCompare && (
+                          <span className={`sd-stat-diff ${diff > 0 ? 'sd-stat-diff--pos' : diff < 0 ? 'sd-stat-diff--neg' : ''}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="sd-stat-bar-track">
+                      <div className="sd-stat-bar-fill" style={{ width: `${pct}%` }} />
+                      {hasCompare && <div className="sd-stat-bar-compare" style={{ width: `${cmpPct}%` }} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── MOBILITY ────────────────────────────────────────── */}
+            <div className="sd-stats-section">
+              <div className="sd-stats-section-label">MOBILITY</div>
+              {(
+                [
+                  { label: 'Speed',        value: designStats.speed,       compare: compareStats?.speed,       unit: '' },
+                  { label: 'Sensor Range', value: designStats.sensorRange, compare: compareStats?.sensorRange, unit: '' },
+                ] as const
+              ).map(({ label, value, compare, unit }) => {
+                const hasCompare = compare !== undefined && compare !== null;
+                const max = hasCompare ? Math.max(value, compare, 1) : Math.max(value, 1);
+                const pct = (value / max) * 100;
+                const cmpPct = hasCompare ? ((compare ?? 0) / max) * 100 : 0;
+                const diff = hasCompare ? value - (compare ?? 0) : 0;
+                return (
+                  <div key={label} className="sd-stat-bar-row">
+                    <div className="sd-stat-bar-header">
+                      <span className="sd-stat-label">{label}</span>
+                      <div className="sd-stat-bar-values">
+                        <span className="sd-stat-value">{value}{unit}</span>
+                        {hasCompare && (
+                          <span className={`sd-stat-diff ${diff > 0 ? 'sd-stat-diff--pos' : diff < 0 ? 'sd-stat-diff--neg' : ''}`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="sd-stat-bar-track">
+                      <div className="sd-stat-bar-fill" style={{ width: `${pct}%` }} />
+                      {hasCompare && <div className="sd-stat-bar-compare" style={{ width: `${cmpPct}%` }} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── LOGISTICS ───────────────────────────────────────── */}
+            <div className="sd-stats-section">
+              <div className="sd-stats-section-label">LOGISTICS</div>
               <div className="sd-stat-row">
-                <span className="sd-stat-label">Engine Output</span>
+                <span className="sd-stat-label">Crew</span>
+                <span className="sd-stat-value">{designStats.crewCount}</span>
+              </div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Supply Capacity</span>
+                <span className="sd-stat-value">{designStats.supplyCapacity}t</span>
+              </div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Mass</span>
+                <span className="sd-stat-value">{designStats.mass}</span>
+              </div>
+              <div className="sd-stat-row">
+                <span className="sd-stat-label">Power Output</span>
                 <span className="sd-stat-value">{designStats.powerOutput}</span>
               </div>
               {designStats.powerBuffer > 0 && (
@@ -746,7 +946,7 @@ export function ShipDesignerScreen({
                 </div>
               )}
               <div className="sd-stat-row">
-                <span className="sd-stat-label">Systems Draw</span>
+                <span className="sd-stat-label">Power Draw</span>
                 <span className="sd-stat-value">-{designStats.powerDraw}</span>
               </div>
               <div className="sd-stat-row sd-stat-row--total">

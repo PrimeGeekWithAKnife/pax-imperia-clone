@@ -14,7 +14,9 @@ import type {
   SlotPosition,
   ShipComponent,
   ComponentType,
+  CoreSystemRole,
 } from '@nova-imperia/shared';
+import { ALL_CORE_SYSTEM_ROLES } from '@nova-imperia/shared';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,8 @@ export interface ShipModel3DProps {
   /** Width/height of the viewport */
   width?: number;
   height?: number;
+  /** Core system tier overrides — upgraded systems shown brighter/larger. */
+  coreSystemOverrides?: Array<{ role: CoreSystemRole; componentId: string }>;
 }
 
 // ── Hull cross-section profiles ──────────────────────────────────────────────
@@ -204,7 +208,16 @@ const INTERNAL_COMPARTMENT_COLOUR: Partial<Record<ComponentType, number>> = {
   damage_control: 0x888780,
   ecm_suite: 0x7f77dd,
   special: 0xef9f27,
+  power_reactor: 0xef9f27,
+  rcs_thrusters: 0xd85a30,
+  temperature_control: 0xe24b4a,
+  comms_array: 0x5dcaa5,
+  bio_reclamation: 0x1d9e75,
+  computer_core: 0x7f77dd,
 };
+
+/** Base teal-grey colour for core system wireframe boxes */
+const CORE_SYSTEM_BASE_COLOUR = 0x6b8a7a;
 
 /** Component types that count as weapons (get mount spheres and arcs) */
 const WEAPON_TYPES: ComponentType[] = [
@@ -693,6 +706,64 @@ function InternalCompartment({
   );
 }
 
+/** Core system spine: 9 small wireframe boxes along the ship centreline. */
+function CoreSystemSpine({
+  sections,
+  overrides,
+}: {
+  sections: HullSection[];
+  overrides?: Array<{ role: CoreSystemRole; componentId: string }>;
+}): React.ReactElement {
+  const overrideSet = useMemo(
+    () => new Set((overrides ?? []).map(o => o.role)),
+    [overrides],
+  );
+
+  // Compute evenly spaced z-positions along the hull spine
+  const positions = useMemo(() => {
+    const minZ = sections[0]?.z ?? -2;
+    const maxZ = sections[sections.length - 1]?.z ?? 2;
+    const span = maxZ - minZ;
+    const margin = span * 0.1;
+    const usableMin = minZ + margin;
+    const usableMax = maxZ - margin;
+    const count = ALL_CORE_SYSTEM_ROLES.length;
+
+    return ALL_CORE_SYSTEM_ROLES.map((role, i) => {
+      const t = count > 1 ? i / (count - 1) : 0.5;
+      const z = usableMin + t * (usableMax - usableMin);
+      const upgraded = overrideSet.has(role);
+      return { role, z, upgraded };
+    });
+  }, [sections, overrideSet]);
+
+  return (
+    <group>
+      {positions.map(({ role, z, upgraded }) => {
+        const size = upgraded ? 0.16 : 0.11;
+        const fillOpacity = upgraded ? 0.12 : 0.06;
+        const wireOpacity = upgraded ? 0.35 : 0.18;
+        const colour = CORE_SYSTEM_BASE_COLOUR;
+
+        return (
+          <group key={role} position={[0, 0, z]}>
+            {/* Faint fill */}
+            <mesh>
+              <boxGeometry args={[size, size, size]} />
+              <meshBasicMaterial color={colour} transparent opacity={fillOpacity} />
+            </mesh>
+            {/* Wireframe */}
+            <mesh>
+              <boxGeometry args={[size, size, size]} />
+              <meshBasicMaterial color={colour} wireframe transparent opacity={wireOpacity} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 // ── Scene rotation controller ────────────────────────────────────────────────
 
 interface RotationState {
@@ -832,12 +903,14 @@ function ShipGroup({
   highlightWeaponSlotId,
   showArcs,
   rotationState,
+  coreSystemOverrides,
 }: {
   hullClass: HullClass;
   components: Array<{ slot: SlotPosition; component: ShipComponent | null }>;
   highlightWeaponSlotId?: string | null;
   showArcs?: boolean;
   rotationState: React.MutableRefObject<RotationState>;
+  coreSystemOverrides?: Array<{ role: CoreSystemRole; componentId: string }>;
 }): React.ReactElement {
   const groupRef = useRef<THREE.Group>(null);
   const sections = HULL_PROFILES[hullClass] ?? HULL_PROFILES.destroyer;
@@ -934,6 +1007,9 @@ function ShipGroup({
           />
         );
       })}
+
+      {/* Core system spine (teal-grey boxes along centreline) */}
+      <CoreSystemSpine sections={sections} overrides={coreSystemOverrides} />
     </group>
   );
 }
@@ -969,6 +1045,7 @@ function ShipModelScene({
   showArcs,
   onCompassChange,
   onSetViewRef,
+  coreSystemOverrides,
 }: {
   hullClass: HullClass;
   components: Array<{ slot: SlotPosition; component: ShipComponent | null }>;
@@ -976,6 +1053,7 @@ function ShipModelScene({
   showArcs?: boolean;
   onCompassChange: (label: string) => void;
   onSetViewRef: (fn: (preset: ViewPreset) => void) => void;
+  coreSystemOverrides?: Array<{ role: CoreSystemRole; componentId: string }>;
 }): React.ReactElement {
   const { state, setView, compassLabel } = useRotationControls();
 
@@ -1009,6 +1087,7 @@ function ShipModelScene({
         highlightWeaponSlotId={highlightWeaponSlotId}
         showArcs={showArcs}
         rotationState={state}
+        coreSystemOverrides={coreSystemOverrides}
       />
     </>
   );
@@ -1023,6 +1102,7 @@ export function ShipModel3D({
   showArcs = false,
   width,
   height,
+  coreSystemOverrides,
 }: ShipModel3DProps): React.ReactElement {
   const [compassLabel, setCompassLabel] = useState('FWD');
   const setViewRef = useRef<((preset: ViewPreset) => void) | null>(null);
@@ -1133,6 +1213,7 @@ export function ShipModel3D({
           showArcs={showArcs}
           onCompassChange={setCompassLabel}
           onSetViewRef={handleSetViewRef}
+          coreSystemOverrides={coreSystemOverrides}
         />
       </Canvas>
     </div>

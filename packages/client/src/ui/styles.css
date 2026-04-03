@@ -3971,7 +3971,7 @@
 /* Body: three columns */
 .ship-designer__body {
   display: grid;
-  grid-template-columns: 220px 1fr 280px;
+  grid-template-columns: 200px 1fr 280px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
@@ -3998,7 +3998,7 @@
   text-transform: none;
 }
 
-/* ── Left column: hull list ── */
+/* ── Left column: hull selection + core systems ── */
 
 .ship-designer__left {
   overflow-y: auto;
@@ -4006,81 +4006,196 @@
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  width: 200px;
+  min-width: 200px;
 }
 
-.sd-hull-list {
+/* Hull icon (large) at top of left panel */
+.sd-hull-icon-large {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
 }
 
-.sd-hull-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
+.sd-hull-icon-large img {
+  image-rendering: pixelated;
+}
+
+.sd-hull-icon-large .sd-hull-icon-text-lg {
+  font-size: 28px;
+  color: var(--color-accent);
+  letter-spacing: -0.05em;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Hull dropdown select */
+.sd-hull-dropdown {
+  width: 100%;
+  background: rgba(0, 20, 40, 0.6);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 24px 6px 8px;
+  outline: none;
+  border-radius: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2300d4ff' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+
+.sd-hull-dropdown:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.15);
+}
+
+.sd-hull-dropdown option {
+  background: #0a0a1a;
+  color: var(--color-text);
+}
+
+.sd-hull-dropdown option:disabled {
+  color: #665533;
+}
+
+/* Hull summary below dropdown */
+.sd-hull-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+  font-size: 10px;
+  padding: 8px;
+  margin-bottom: 12px;
   border: 1px solid var(--color-border);
   background: rgba(0, 180, 220, 0.04);
   border-radius: 2px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s, border-color 0.12s;
-  pointer-events: auto;
-  width: 100%;
 }
 
-.sd-hull-item:hover:not(:disabled) {
-  background: rgba(0, 212, 255, 0.08);
-  border-color: var(--color-border-bright);
-}
-
-.sd-hull-item--selected {
-  background: rgba(0, 212, 255, 0.12) !important;
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
-}
-
-.sd-hull-item--locked {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.sd-hull-icon {
-  font-size: 14px;
-  color: var(--color-accent);
-  letter-spacing: -0.05em;
-  flex-shrink: 0;
-  min-width: 28px;
-  padding-top: 1px;
-}
-
-.sd-hull-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sd-hull-name {
-  font-size: 13px;
-  color: var(--color-text);
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
-.sd-hull-stats {
+.sd-hull-summary-item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1px 0;
+}
+
+.sd-hull-summary-label {
+  color: var(--color-text-muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sd-hull-summary-value {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: right;
+}
+
+/* Core systems panel */
+.sd-core-systems {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sd-core-systems-title {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.8;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+}
+
+.sd-core-system-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 4px;
+  border: 1px solid rgba(0, 180, 220, 0.08);
+  background: rgba(0, 180, 220, 0.02);
+  border-radius: 2px;
+  transition: border-color 0.12s;
+}
+
+.sd-core-system-row:hover {
+  border-color: rgba(0, 180, 220, 0.2);
+}
+
+.sd-core-system-name {
   font-size: 9px;
   color: var(--color-text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sd-hull-locked-msg {
+.sd-core-system-select {
+  background: rgba(0, 20, 40, 0.5);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
   font-size: 9px;
-  color: #cc8844;
-  margin-top: 3px;
+  padding: 2px 16px 2px 4px;
+  outline: none;
+  border-radius: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2300d4ff' stroke-width='1' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  flex-shrink: 0;
+  max-width: 90px;
+}
+
+.sd-core-system-select option {
+  background: #0a0a1a;
+  color: var(--color-text);
+}
+
+.sd-core-system-select option:disabled {
+  color: #665533;
+}
+
+.sd-core-unmanned-msg {
+  font-size: 10px;
+  color: #6688aa;
   letter-spacing: 0.04em;
+  padding: 8px;
+  border: 1px solid rgba(0, 180, 220, 0.15);
+  background: rgba(0, 180, 220, 0.04);
+  border-radius: 2px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Stat group wrappers for right panel */
+.sd-stat-group {
+  margin-bottom: 12px;
+}
+
+.sd-stat-group-title {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.7;
 }
 
 /* ── Center column: slot layout ── */
