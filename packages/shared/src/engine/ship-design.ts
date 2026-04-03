@@ -514,6 +514,24 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
     case 'special':
       // No dominant stat for 'special'; fall back to cost as a quality proxy
       return component.cost;
+
+    case 'power_reactor':
+      return s['powerOutput'] ?? 0;
+
+    case 'rcs_thrusters':
+      return (s['evasionBonus'] ?? 0) + (s['turnRate'] ?? 0);
+
+    case 'temperature_control':
+      return s['heatDissipation'] ?? 0;
+
+    case 'comms_array':
+      return (s['signalRange'] ?? 0) + (s['commsBonus'] ?? 0) * 0.3;
+
+    case 'bio_reclamation':
+      return (s['supplyBonus'] ?? 0) + (s['waterRecycling'] ?? 0) * 0.1;
+
+    case 'computer_core':
+      return (s['processingPower'] ?? 0) + (s['accuracyBonus'] ?? 0);
   }
 }
 

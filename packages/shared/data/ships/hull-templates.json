@@ -37,7 +37,10 @@
     ],
     "baseCost": 150,
     "baseSpeed": 10,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": false,
+    "baseSupplyCapacity": 0,
+    "baseCrew": 0
   },
   {
     "class": "scout",
@@ -104,7 +107,10 @@
     ],
     "baseCost": 500,
     "baseSpeed": 8,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": true,
+    "baseSupplyCapacity": 12,
+    "baseCrew": 20
   },
   {
     "class": "transport",
@@ -163,7 +169,10 @@
     ],
     "baseCost": 1000,
     "baseSpeed": 5,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": true,
+    "baseSupplyCapacity": 20,
+    "baseCrew": 30
   },
   {
     "class": "destroyer",
@@ -272,7 +281,10 @@
     ],
     "baseCost": 1000,
     "baseSpeed": 6,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": true,
+    "baseSupplyCapacity": 15,
+    "baseCrew": 50
   },
   {
     "class": "coloniser",
@@ -335,7 +347,10 @@
     ],
     "baseCost": 2000,
     "baseSpeed": 4,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": true,
+    "baseSupplyCapacity": 25,
+    "baseCrew": 40
   },
   {
     "class": "cruiser",
@@ -490,7 +505,10 @@
     ],
     "baseCost": 5000,
     "baseSpeed": 5,
-    "requiredAge": "nano_atomic"
+    "requiredAge": "nano_atomic",
+    "manned": true,
+    "baseSupplyCapacity": 18,
+    "baseCrew": 120
   },
   {
     "class": "carrier",
@@ -666,7 +684,10 @@
           "quantity": 1
         }
       ]
-    }
+    },
+    "manned": true,
+    "baseSupplyCapacity": 20,
+    "baseCrew": 200
   },
   {
     "class": "battleship",
@@ -867,7 +888,10 @@
     ],
     "baseCost": 10000,
     "baseSpeed": 3,
-    "requiredAge": "fusion"
+    "requiredAge": "fusion",
+    "manned": true,
+    "baseSupplyCapacity": 16,
+    "baseCrew": 300
   },
   {
     "class": "dreadnought",
@@ -1104,7 +1128,10 @@
     ],
     "baseCost": 20000,
     "baseSpeed": 2,
-    "requiredAge": "nano_fusion"
+    "requiredAge": "nano_fusion",
+    "manned": true,
+    "baseSupplyCapacity": 14,
+    "baseCrew": 500
   },
   {
     "class": "battle_station",
@@ -1388,6 +1415,9 @@
           "quantity": 5
         }
       ]
-    }
+    },
+    "manned": true,
+    "baseSupplyCapacity": 30,
+    "baseCrew": 800
   }
 ]

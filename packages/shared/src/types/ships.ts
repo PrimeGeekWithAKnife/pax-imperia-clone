@@ -34,6 +34,12 @@ export interface HullTemplate {
   /** Hangar configuration — defines bay count and what each bay can hold.
    *  Each bay can hold ONE option from the carries array (e.g. 1 carrier OR 5 destroyers). */
   hangarSlots?: { count: number; carries: Array<{ hull: HullClass; quantity: number }> };
+  /** Whether this hull requires crew. Probes/drones are unmanned. Defaults to true. */
+  manned?: boolean;
+  /** Base supply capacity in turns for manned hulls. Defaults to 15. */
+  baseSupplyCapacity?: number;
+  /** Base crew complement for this hull class. */
+  baseCrew?: number;
 }
 
 export interface SlotPosition {
@@ -65,7 +71,42 @@ export type ComponentType =
   | 'advanced_sensors'
   | 'damage_control'
   | 'ecm_suite'
-  | 'scanner';
+  | 'scanner'
+  | 'power_reactor'
+  | 'rcs_thrusters'
+  | 'temperature_control'
+  | 'comms_array'
+  | 'bio_reclamation'
+  | 'computer_core';
+
+/** Core system roles — every manned ship has one of each at baseline Mk I. */
+export type CoreSystemRole =
+  | 'computer_core'
+  | 'life_support'
+  | 'sensor_suite'
+  | 'power_reactor'
+  | 'rcs_thrusters'
+  | 'main_engine'
+  | 'temperature_control'
+  | 'comms_array'
+  | 'bio_reclamation';
+
+export const ALL_CORE_SYSTEM_ROLES: CoreSystemRole[] = [
+  'computer_core', 'life_support', 'sensor_suite', 'power_reactor',
+  'rcs_thrusters', 'main_engine', 'temperature_control', 'comms_array', 'bio_reclamation',
+];
+
+export const CORE_SYSTEM_LABELS: Record<CoreSystemRole, string> = {
+  computer_core: 'Computer Core',
+  life_support: 'Life Support',
+  sensor_suite: 'Sensor Suite',
+  power_reactor: 'Power Reactor',
+  rcs_thrusters: 'RCS Thrusters',
+  main_engine: 'Main Engine',
+  temperature_control: 'Temperature Control',
+  comms_array: 'Comms Array',
+  bio_reclamation: 'Bio Reclamation',
+};
 
 /** Component types that belong to each slot category. */
 export const SLOT_CATEGORY_TYPES: Record<SlotCategory, ComponentType[]> = {
@@ -73,7 +114,7 @@ export const SLOT_CATEGORY_TYPES: Record<SlotCategory, ComponentType[]> = {
   defence: ['shield', 'armor'],
   engine: ['engine'],
   warp_drive: ['warp_drive'],
-  internal: ['sensor', 'repair_drone', 'special', 'life_support', 'targeting_computer', 'advanced_sensors', 'damage_control', 'ecm_suite', 'scanner'],
+  internal: ['sensor', 'repair_drone', 'special', 'life_support', 'targeting_computer', 'advanced_sensors', 'damage_control', 'ecm_suite', 'scanner', 'power_reactor', 'rcs_thrusters', 'temperature_control', 'comms_array', 'bio_reclamation', 'computer_core'],
 };
 
 export type WeaponCategory =
@@ -93,6 +134,8 @@ export interface ShipComponent {
   requiredTech: string | null;
   /** Minimum tech age required for this component (for skirmish/design filtering). */
   minAge?: string;
+  /** If set, this component serves as a tier upgrade for the named core system. */
+  coreSystemRole?: CoreSystemRole;
 }
 
 export interface ShipDesign {
@@ -104,6 +147,8 @@ export interface ShipDesign {
   empireId: string;
   /** Armour plating fraction (0 = none, 1 = maximum). Affects HP and cost. */
   armourPlating?: number;
+  /** Core system tier overrides. Missing entries use Mk I baseline. */
+  coreSystemOverrides?: Array<{ role: CoreSystemRole; componentId: string }>;
 }
 
 export type CrewExperienceLevel =
@@ -149,6 +194,14 @@ export interface Ship {
   crewExperience?: CrewExperienceLevel;
   /** If set, this ship is carried inside another ship (carrier/battle station). */
   carriedBy?: string;
+  /** Turns of supply remaining. Omit for backward compat (treated as full). */
+  suppliesRemaining?: number;
+  /** Maximum supply capacity derived from hull + bio reclamation tier. */
+  maxSupplies?: number;
+  /** Magazine fill level 0-1. Omit for backward compat (treated as 1.0). */
+  magazineLevel?: number;
+  /** Crew count derived from hull class. */
+  crewCount?: number;
 }
 
 export interface SystemDamage {
@@ -157,6 +210,13 @@ export interface SystemDamage {
   shields: number;
   sensors: number;
   warpDrive: number;
+  computerCore?: number;
+  lifeSupport?: number;
+  rcsThrusters?: number;
+  temperatureControl?: number;
+  commsArray?: number;
+  bioReclamation?: number;
+  powerReactor?: number;
 }
 
 export interface Fleet {
