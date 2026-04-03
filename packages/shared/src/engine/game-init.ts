@@ -513,7 +513,7 @@ export function initializeGame(config: GameSetupConfig): GameState {
     fleets: allFleets,
     ships: allShips,
     currentTick: 0,
-    speed: 'normal',
+    speed: 'paused',
     status: 'playing',
     ...(config.victoryCriteria && config.victoryCriteria.length > 0
       ? { victoryCriteria: config.victoryCriteria as VictoryCriteria[] }

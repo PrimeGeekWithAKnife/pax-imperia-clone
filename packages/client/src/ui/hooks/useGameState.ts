@@ -24,7 +24,7 @@ export function useGameState(): GameState & GameStateActions {
   const [selectedSystem, setSelectedSystemRaw] = useState<StarSystem | null>(null);
   const [selectedPlanet, setSelectedPlanetRaw] = useState<Planet | null>(null);
   const [currentScene, setCurrentSceneRaw] = useState<string>('');
-  const [gameSpeed, setGameSpeedRaw] = useState<GameSpeedName>('normal');
+  const [gameSpeed, setGameSpeedRaw] = useState<GameSpeedName>('paused');
 
   const setSelectedSystem = useCallback((system: StarSystem | null) => {
     setSelectedSystemRaw(system);

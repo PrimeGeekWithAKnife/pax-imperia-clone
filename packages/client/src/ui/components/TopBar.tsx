@@ -2,6 +2,24 @@ import React, { useCallback, useRef, useEffect } from 'react';
 import type { GameSpeedName, GovernmentType } from '@nova-imperia/shared';
 import { STARTING_CREDITS, STARTING_RESEARCH_POINTS, GOVERNMENTS } from '@nova-imperia/shared';
 
+/** Unicode icons for each government type. */
+const GOV_ICONS: Record<GovernmentType, string> = {
+  democracy: '🗳',
+  republic: '🏛',
+  federation: '🤝',
+  autocracy: '👑',
+  empire: '⚜',
+  theocracy: '✝',
+  oligarchy: '💎',
+  military_junta: '🎖',
+  technocracy: '🔬',
+  hive_mind: '🧠',
+  forced_labour: '⛓',
+  dictatorship: '✊',
+  equality: '⚖',
+  tribal_council: '🪶',
+};
+
 /** Compact number formatter: 1000 → 1K, 1000000 → 1M, 1000000000 → 1B */
 function compact(n: number): string {
   const abs = Math.abs(n);
@@ -28,10 +46,12 @@ interface TopBarProps {
   minerals?: number;
   energy?: number;
   organics?: number;
-  /** Government type for the player's empire, shown as a badge. */
+  /** Government type for the player's empire, shown as an icon. */
   government?: GovernmentType;
   /** Empire name for display. */
   empireName?: string;
+  /** Species name for the race icon tooltip. */
+  speciesName?: string;
   /** Current game tick, displayed as "Turn N". */
   currentTick?: number;
 }
@@ -67,6 +87,7 @@ export function TopBar({
   organics = 0,
   government,
   empireName,
+  speciesName,
   currentTick,
 }: TopBarProps): React.ReactElement {
   const prevRef = useRef({ credits, minerals, energy, organics, researchPoints });
@@ -96,15 +117,22 @@ export function TopBar({
 
   return (
     <div className="top-bar">
-      {/* Title + empire info */}
-      <div className="top-bar__title">
-        {empireName ? empireName : 'EX NIHILO'}
+      {/* Empire identity: government icon + race icon + name + turn */}
+      <div className="top-bar__identity">
+        {government && (
+          <span className="top-bar__icon" title={`Government: ${govName}`}>
+            {GOV_ICONS[government] ?? '🏛'}
+          </span>
+        )}
+        {speciesName && (
+          <span className="top-bar__icon" title={`Species: ${speciesName}`}>
+            👽
+          </span>
+        )}
+        <span className="top-bar__empire-name" title={empireName}>
+          {empireName ? empireName : 'EX NIHILO'}
+        </span>
       </div>
-      {govName && (
-        <div className="top-bar__gov-badge" title={`Government: ${govName}`}>
-          {govName}
-        </div>
-      )}
       {currentTick !== undefined && (
         <div className="top-bar__turn" title="Current game turn">
           Turn {currentTick}

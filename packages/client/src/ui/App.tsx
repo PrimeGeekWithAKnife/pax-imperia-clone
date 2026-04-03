@@ -2406,6 +2406,7 @@ export function App(): React.ReactElement {
         onOpenEspionage={handleOpenEspionage}
         government={playerEmpire.government}
         empireName={playerEmpire.name}
+        speciesName={playerEmpire.species?.name}
         currentTick={currentTick}
       />
 
