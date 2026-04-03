@@ -5,6 +5,8 @@ interface SystemInfoPanelProps {
   system: StarSystem | null;
   /** Optional map of empireId → empire name for resolving owner display names. */
   empireNameMap?: Map<string, string>;
+  /** Fired when the player double-clicks a planet in the list. */
+  onPlanetDoubleClick?: (planet: Planet, system: StarSystem) => void;
 }
 
 const STAR_COLORS: Record<string, string> = {
@@ -82,7 +84,7 @@ function formatPopulation(n: number): string {
   return String(n);
 }
 
-export function SystemInfoPanel({ system, empireNameMap }: SystemInfoPanelProps): React.ReactElement | null {
+export function SystemInfoPanel({ system, empireNameMap, onPlanetDoubleClick }: SystemInfoPanelProps): React.ReactElement | null {
   const visible = system !== null;
 
   return (
@@ -139,7 +141,12 @@ export function SystemInfoPanel({ system, empireNameMap }: SystemInfoPanelProps)
               const isColony = planet.ownerId != null && planet.currentPopulation > 0;
               const isOvercrowded = planet.maxPopulation > 0 && planet.currentPopulation / planet.maxPopulation > 0.95;
               return (
-                <li key={planet.id} className="planet-list-item" style={{ flexWrap: 'wrap' }}>
+                <li
+                  key={planet.id}
+                  className="planet-list-item"
+                  style={{ flexWrap: 'wrap', cursor: onPlanetDoubleClick ? 'pointer' : undefined }}
+                  onDoubleClick={() => onPlanetDoubleClick?.(planet, system)}
+                >
                   {isColony ? (
                     <span
                       title={`Colony health: ${hp}`}

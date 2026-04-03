@@ -968,12 +968,14 @@ function PostFX() {
 export interface SystemView3DProps {
   system: StarSystem;
   playerEmpireId?: string;
+  /** Pre-select and focus on this planet when the view opens. */
+  initialPlanetId?: string | null;
   onPlanetSelected?: (planet: Planet) => void;
   onClose?: () => void;
 }
 
-export function SystemView3D({ system, playerEmpireId, onPlanetSelected, onClose }: SystemView3DProps) {
-  const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
+export function SystemView3D({ system, playerEmpireId, initialPlanetId, onPlanetSelected, onClose }: SystemView3DProps) {
+  const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(initialPlanetId ?? null);
 
   const sortedPlanets = useMemo(
     () => [...system.planets].sort((a, b) => a.orbitalIndex - b.orbitalIndex),

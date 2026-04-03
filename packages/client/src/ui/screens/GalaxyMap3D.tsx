@@ -1724,6 +1724,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorM
   const [selectedId, setSelectedId] = useState<string | null>(playerHomeSystemId);
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
   const [viewingSystem, setViewingSystem] = useState<StarSystem | null>(null);
+  const [initialPlanetId, setInitialPlanetId] = useState<string | null>(null);
   const lastClickTimeRef = useRef<number>(0);
   const lastClickIdRef = useRef<string | null>(null);
 
@@ -1761,9 +1762,12 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorM
     lastClickIdRef.current = systemId;
 
     if (isDoubleClick) {
-      // Double-click: enter system view
+      // Double-click: enter system view (no pre-selected planet)
       const sys = systemMap.get(systemId);
-      if (sys) setViewingSystem(sys);
+      if (sys) {
+        setInitialPlanetId(null);
+        setViewingSystem(sys);
+      }
       return;
     }
 
@@ -1784,6 +1788,21 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorM
       setTooltipInfo({ system: sys, screenX: screenPos.x, screenY: screenPos.y });
     }
   }, [systemMap]);
+
+  // Listen for "enter system view" events from the SystemInfoPanel planet double-click
+  useEffect(() => {
+    const game = (window as any).__EX_NIHILO_GAME__ as
+      | { events: { on: (e: string, fn: (d: unknown) => void) => void; off: (e: string, fn: (d: unknown) => void) => void } }
+      | undefined;
+    if (!game) return;
+    const handler = (data: unknown) => {
+      const { system, planetId } = data as { system: StarSystem; planetId?: string };
+      setInitialPlanetId(planetId ?? null);
+      setViewingSystem(system);
+    };
+    game.events.on('galaxy:enter_system_view', handler);
+    return () => { game.events.off('galaxy:enter_system_view', handler); };
+  }, []);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 1, pointerEvents: 'auto' }}>
@@ -1872,11 +1891,12 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorM
         <SystemView3D
           system={viewingSystem}
           playerEmpireId={playerEmpireId}
+          initialPlanetId={initialPlanetId}
           onPlanetSelected={(planet) => {
             const game = (window as any).__EX_NIHILO_GAME__;
             if (game?.events) game.events.emit('planet:selected', planet);
           }}
-          onClose={() => setViewingSystem(null)}
+          onClose={() => { setViewingSystem(null); setInitialPlanetId(null); }}
         />
       )}
     </div>

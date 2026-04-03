@@ -635,6 +635,24 @@ export function App(): React.ReactElement {
     [],
   );
 
+  // Double-click a planet in the SystemInfoPanel on the galaxy map.
+  // Owned planet → open management. Otherwise → enter system view focused on it.
+  const handlePlanetDoubleClickFromPanel = useCallback(
+    (planet: Planet, system: StarSystem) => {
+      if (planet.ownerId === playerEmpire.id) {
+        setManagedPlanet(planet);
+        setManagedSystemId(system.id);
+      } else {
+        // Enter system view with this planet pre-selected
+        const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
+          | { events: { emit: (e: string, d: unknown) => void } }
+          | undefined;
+        game?.events?.emit('galaxy:enter_system_view', { system, planetId: planet.id });
+      }
+    },
+    [playerEmpire.id],
+  );
+
   // Phaser emits empire resource updates so the build picker knows affordability
   const handleResourcesUpdate = useCallback(
     (resources: EmpireResources) => {
@@ -2430,7 +2448,7 @@ export function App(): React.ReactElement {
         currentTick={currentTick}
       />
 
-      <SystemInfoPanel system={selectedSystem} empireNameMap={empireNameMap} />
+      <SystemInfoPanel system={selectedSystem} empireNameMap={empireNameMap} onPlanetDoubleClick={handlePlanetDoubleClickFromPanel} />
 
       <PlanetDetailPanel
         planet={selectedPlanet}
