@@ -1338,6 +1338,100 @@ function stepShipRepair(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// Step 1b+: Supply Consumption — manned ships in deep space consume supplies
+// ---------------------------------------------------------------------------
+
+/**
+ * Process supply consumption for all ships each tick.
+ *
+ * Ships at friendly systems (any planet owned by the fleet's empire) have
+ * their supplies and magazine fully replenished. Ships in deep space
+ * (no friendly planet in system) consume 1 supply per tick if manned.
+ */
+function stepSupplyConsumption(state: GameTickState): GameTickState {
+  const systems = state.gameState.galaxy.systems;
+  let ships = state.gameState.ships;
+  let anyChanged = false;
+
+  // Build a map of systemId -> set of empire IDs that own planets there
+  const systemOwners = new Map<string, Set<string>>();
+  for (const system of systems) {
+    for (const planet of system.planets) {
+      if (!planet.ownerId) continue;
+      let owners = systemOwners.get(system.id);
+      if (!owners) {
+        owners = new Set();
+        systemOwners.set(system.id, owners);
+      }
+      owners.add(planet.ownerId);
+    }
+  }
+
+  // Pre-build fleet empire lookup
+  const fleetEmpireMap = new Map<string, string>();
+  for (const fleet of state.gameState.fleets) {
+    fleetEmpireMap.set(fleet.id, fleet.empireId);
+  }
+
+  // Look up designs for manned check
+  const designMap = state.shipDesigns ?? new Map();
+
+  for (const ship of ships) {
+    if (!ship.fleetId) continue;
+
+    const empireId = fleetEmpireMap.get(ship.fleetId);
+    if (!empireId) continue;
+
+    // Check if ship design is manned
+    const design = designMap.get(ship.designId);
+    const hull = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
+    const isManned = hull ? hull.manned !== false : true;
+
+    if (!isManned) continue;
+
+    // Determine if the ship's system is friendly
+    const systemId = ship.position.systemId;
+    const owners = systemOwners.get(systemId);
+    const isFriendly = owners != null && owners.has(empireId);
+
+    const maxSupplies = ship.maxSupplies ?? hull?.baseSupplyCapacity ?? 15;
+
+    if (isFriendly) {
+      // Resupply: reset supplies and magazine
+      if (ship.suppliesRemaining !== maxSupplies || (ship.magazineLevel ?? 1.0) < 1.0) {
+        if (!anyChanged) { ships = [...ships]; anyChanged = true; }
+        ships = ships.map(s => s.id === ship.id ? {
+          ...s,
+          suppliesRemaining: maxSupplies,
+          maxSupplies: maxSupplies,
+          magazineLevel: 1.0,
+        } : s);
+      }
+    } else {
+      // Deep space: consume 1 supply
+      const current = ship.suppliesRemaining ?? maxSupplies;
+      const next = current - 1;
+      if (!anyChanged) { ships = [...ships]; anyChanged = true; }
+      ships = ships.map(s => s.id === ship.id ? {
+        ...s,
+        suppliesRemaining: next,
+        maxSupplies: maxSupplies,
+      } : s);
+    }
+  }
+
+  if (!anyChanged) return state;
+
+  return {
+    ...state,
+    gameState: {
+      ...state.gameState,
+      ships,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 1c: Orbital Debris Processing
 // ---------------------------------------------------------------------------
 
@@ -5282,6 +5376,9 @@ export function processGameTick(
 
   // 1b. Ship Repair (ships at friendly systems with spaceports heal)
   s = stepShipRepair(s);
+
+  // 1b+. Supply Consumption (manned ships in deep space use supplies; friendly systems resupply)
+  s = stepSupplyConsumption(s);
 
   // 1c. Orbital Debris Processing (decay, damage, cascade)
   s = stepOrbitalDebris(s);

@@ -44,6 +44,7 @@ import type { GameNotification } from '../types/notification.js';
 import { createNotification } from './notifications.js';
 import type { NarrativeChainProgress } from './narrative.js';
 import type { NarrativeChain } from '../types/narrative.js';
+import { HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 
 export const SAVE_FORMAT_VERSION = '0.3.0';
 
@@ -197,7 +198,12 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
 export function deserializeTickState(data: SerializedTickState): GameTickState {
   const migratedDesigns: Array<[string, ShipDesign]> = (data.shipDesigns ?? []).map(
     ([id, design]) => {
-      const migrated: ShipDesign = { ...design, armourPlating: design.armourPlating ?? 0 };
+      const migrated: ShipDesign = {
+        ...design,
+        armourPlating: design.armourPlating ?? 0,
+        // Backward compat: ensure coreSystemOverrides exists
+        coreSystemOverrides: design.coreSystemOverrides ?? [],
+      };
       return [id, migrated] as [string, ShipDesign];
     },
   );
@@ -253,6 +259,25 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     espionageEventLog: data.espionageEventLog ?? [],
     warTerritoryTrackers: new Map(),
   };
+
+  // Backward compat: patch ships missing supply/magazine/crew fields
+  const designLookup = new Map(migratedDesigns);
+  if (base.gameState.ships) {
+    base.gameState.ships = base.gameState.ships.map(ship => {
+      const design = designLookup.get(ship.designId);
+      const hull = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
+      const baseSupply = hull?.baseSupplyCapacity ?? 15;
+      const baseCrew = hull?.baseCrew ?? 0;
+
+      return {
+        ...ship,
+        suppliesRemaining: ship.suppliesRemaining ?? baseSupply,
+        maxSupplies: ship.maxSupplies ?? baseSupply,
+        magazineLevel: ship.magazineLevel ?? 1.0,
+        crewCount: ship.crewCount ?? baseCrew,
+      };
+    });
+  }
 
   // Attach dynamic fields via mutable record cast
   const ext = base as unknown as Record<string, unknown>;

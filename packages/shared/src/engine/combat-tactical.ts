@@ -865,7 +865,7 @@ export function initializeTacticalCombat(
       const y = startY + row * lineSpacing;
 
       const design = designs.get(ship.designId);
-      const extracted = extractShipStats(design, componentById);
+      const extracted = extractShipStats(design, componentById, ship.magazineLevel ?? 1.0);
 
       return {
         id: generateId(),
@@ -1001,10 +1001,13 @@ interface ExtractedStats {
 
 /**
  * Extract tactical stats from a ShipDesign + components lookup.
+ * @param magazineLevel  Magazine fill level 0-1. Scales starting ammo for
+ *                       all finite-ammo weapons. Defaults to 1.0 (full).
  */
 function extractShipStats(
   design: ShipDesign | undefined,
   componentById: Map<string, ShipComponent>,
+  magazineLevel = 1.0,
 ): ExtractedStats {
   const weapons: TacticalWeapon[] = [];
   let speed = 0;
@@ -1026,6 +1029,7 @@ function extractShipStats(
         if (comp.type === 'fighter_bay') {
           // Fighter bays use per-fighter damage; ammo = number of fighters
           const fighterCount = comp.stats['fighterCount'] ?? 4;
+          const scaledFighters = Math.max(1, Math.round(fighterCount * magazineLevel));
           const fighterDmg = comp.stats['damage'] ?? 8;
           weapons.push({
             componentId: comp.id,
@@ -1036,12 +1040,16 @@ function extractShipStats(
             cooldownMax: computeCooldown(comp),
             cooldownLeft: 0,
             facing: defaultWeaponFacing(comp.type),
-            ammo: fighterCount,
+            ammo: scaledFighters,
             maxAmmo: fighterCount,
           });
         } else {
           const dmg = comp.stats['damage'] ?? 0;
-          const ammo = computeAmmo(weaponType, comp.id);
+          const baseAmmo = computeAmmo(weaponType, comp.id);
+          // Scale finite ammo by magazine level (depleted ships start with less)
+          const ammo = baseAmmo != null
+            ? Math.max(1, Math.round(baseAmmo * magazineLevel))
+            : undefined;
           weapons.push({
             componentId: comp.id,
             type: weaponType,
@@ -1052,7 +1060,7 @@ function extractShipStats(
             cooldownLeft: 0,
             facing: defaultWeaponFacing(comp.type),
             ammo,
-            maxAmmo: ammo,
+            maxAmmo: baseAmmo,
           });
         }
       }

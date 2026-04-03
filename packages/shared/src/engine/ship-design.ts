@@ -10,7 +10,7 @@ import type { HullTemplate, ShipComponent, ShipDesign, Ship, ComponentType, Slot
 import { getEffectiveHullPoints, getEffectiveCost } from '../types/ships.js';
 import { generateId } from '../utils/id.js';
 import { TECH_AGES } from '../constants/game.js';
-import { HULL_TEMPLATES } from '../../data/ships/index.js';
+import { HULL_TEMPLATES, SHIP_COMPONENT_BY_ID } from '../../data/ships/index.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -38,6 +38,14 @@ export interface DesignStats {
   powerBuffer: number;
   /** Net power balance (output + buffer - draw). Negative = underpowered. */
   powerBalance: number;
+  /** Crew complement from hull template. */
+  crewCount: number;
+  /** Supply capacity in turns (hull base + bio reclamation bonus). */
+  supplyCapacity: number;
+  /** Estimated mass: hull mass + component mass + armour mass. */
+  mass: number;
+  /** Whether this design requires a crew. Unmanned hulls (probes) are false. */
+  manned: boolean;
 }
 
 export interface ValidationResult {
@@ -223,6 +231,10 @@ export function calculateDesignStats(
     powerDraw: 0,
     powerBuffer: 0,
     powerBalance: 0,
+    crewCount: hull.baseCrew ?? 0,
+    supplyCapacity: hull.baseSupplyCapacity ?? 15,
+    mass: hull.baseHullPoints * 10,
+    manned: hull.manned !== false,
   };
 
   for (const assignment of design.components) {
@@ -304,10 +316,61 @@ export function calculateDesignStats(
     }
   }
 
+  // Accumulate mass from slot components (each component's cost * 0.1 as a proxy)
+  for (const assignment of design.components) {
+    const component = componentById.get(assignment.componentId);
+    if (!component) continue;
+    stats.mass += component.cost * 0.1;
+  }
+
+  // Accumulate armour mass (armour plating adds hull mass proportional to fraction)
+  stats.mass += hull.baseHullPoints * 10 * ap * 2;
+
+  // Core system overrides — accumulate stat bonuses from upgraded tiers
+  if (design.coreSystemOverrides) {
+    for (const override of design.coreSystemOverrides) {
+      const comp = SHIP_COMPONENT_BY_ID[override.componentId] ?? componentById.get(override.componentId);
+      if (!comp) continue;
+
+      // All core systems may draw power
+      stats.powerDraw += comp.stats['powerDraw'] ?? 0;
+
+      // Add cost and mass contribution
+      stats.cost += comp.cost;
+      stats.mass += comp.cost * 0.1;
+
+      switch (override.role) {
+        case 'power_reactor':
+          stats.powerOutput += comp.stats['powerOutput'] ?? 0;
+          break;
+        case 'rcs_thrusters':
+          stats.evasionBonus += comp.stats['evasionBonus'] ?? 0;
+          break;
+        case 'computer_core':
+          stats.accuracyBonus += comp.stats['accuracyBonus'] ?? 0;
+          break;
+        case 'bio_reclamation':
+          stats.supplyCapacity += comp.stats['supplyBonus'] ?? 0;
+          break;
+        case 'main_engine':
+          stats.speed = Math.max(stats.speed, comp.stats['speed'] ?? 0);
+          stats.powerOutput += comp.stats['powerOutput'] ?? 0;
+          break;
+        default:
+          // sensor_suite, life_support, temperature_control, comms_array
+          // — stat bonuses handled via their component type in the slot loop above
+          break;
+      }
+    }
+  }
+
   // Apply hull base speed as a floor if no engine was fitted
   if (stats.speed === 0) {
     stats.speed = hull.baseSpeed;
   }
+
+  // Round mass to nearest integer for display
+  stats.mass = Math.round(stats.mass);
 
   // Calculate net power balance
   stats.powerBalance = stats.powerOutput + stats.powerBuffer - stats.powerDraw;
@@ -331,6 +394,22 @@ export function createShipFromDesign(
   systemId: string,
 ): Ship {
   const hp = getEffectiveHullPoints(hull.baseHullPoints, design.armourPlating ?? 0);
+  const isManned = hull.manned !== false;
+  const baseSupply = hull.baseSupplyCapacity ?? 15;
+
+  // Compute supply bonus from bio reclamation core system overrides
+  let supplyBonus = 0;
+  if (design.coreSystemOverrides) {
+    for (const override of design.coreSystemOverrides) {
+      if (override.role === 'bio_reclamation') {
+        const comp = SHIP_COMPONENT_BY_ID[override.componentId];
+        if (comp) supplyBonus += comp.stats['supplyBonus'] ?? 0;
+      }
+    }
+  }
+
+  const maxSupplies = baseSupply + supplyBonus;
+
   return {
     id: generateId(),
     designId: design.id,
@@ -346,6 +425,10 @@ export function createShipFromDesign(
     },
     position: { systemId },
     fleetId: null,
+    suppliesRemaining: isManned ? maxSupplies : undefined,
+    maxSupplies: isManned ? maxSupplies : undefined,
+    magazineLevel: 1.0,
+    crewCount: hull.baseCrew ?? 0,
   };
 }
 
