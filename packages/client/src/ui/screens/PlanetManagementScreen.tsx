@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { Planet, Building, BuildingType, ShipDesign, HullClass, TechAge } from '@nova-imperia/shared';
 import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, BASE_TAX_RATE, canBuildOnPlanet, HULL_TEMPLATE_BY_CLASS, UNIVERSAL_TECH_BY_ID, getEffectiveMaxPopulation, getPlanetConstructionRate, canUpgradeBuilding, getUpgradeCost, getUpgradeBuildTime, getMaxLevelForAge, getBuildingSlots, ZONE_MAINTENANCE_MULTIPLIER } from '@nova-imperia/shared';
-import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION, getNaturalFoodCapacity, getAbilityFoodModifier, calculateOrganicsConsumption, PREBUILT_SPECIES_BY_ID } from '@nova-imperia/shared';
+import { calculateEnergyProduction, calculateEnergyDemand, calculateWasteCapacity, calculateWasteProduction, calculateWasteReduction, getEnergyHappinessModifier, ORGANICS_PER_POPULATION, getNaturalFoodCapacity, getAbilityFoodModifier, calculateOrganicsConsumption, PREBUILT_SPECIES_BY_ID, createInitialDemographics, calculatePlanetHappiness } from '@nova-imperia/shared';
+import type { HappinessFactor } from '@nova-imperia/shared';
 import type { EmpireResources } from '@nova-imperia/shared';
 import type { TerraformingProgress } from '@nova-imperia/shared';
 import { estimateTicksRemaining } from '@nova-imperia/shared';
@@ -1246,12 +1247,53 @@ export function PlanetManagementScreen({
                         {Math.round(netWaste * 10) / 10}/{wasteCapacity > 0 ? wasteCapacity.toLocaleString() : '--'}
                       </span>
                     </div>
-                    <div className="pm-indicator-row">
-                      <span className="pm-indicator-label">Morale</span>
-                      <span className="pm-indicator-value" style={{ color: happinessColor }}>
-                        {happinessLabel} ({happinessScore})
-                      </span>
-                    </div>
+                    {(() => {
+                      // Full happiness breakdown on hover
+                      const playerSpecies = playerSpeciesId ? PREBUILT_SPECIES_BY_ID[playerSpeciesId] : undefined;
+                      let happinessFactors: HappinessFactor[] = [];
+                      try {
+                        const report = calculatePlanetHappiness(planet, empireResources, false, playerSpecies);
+                        happinessFactors = report.factors;
+                      } catch {
+                        // Fallback — show basic score only
+                      }
+
+                      return (
+                        <div className="pm-indicator-row pm-morale-hover-wrapper">
+                          <span className="pm-indicator-label">Morale</span>
+                          <span className="pm-indicator-value" style={{ color: happinessColor }}>
+                            {happinessLabel} ({happinessScore})
+                          </span>
+                          {happinessFactors.length > 0 && (
+                            <div className="pm-morale-tooltip">
+                              <div className="pm-morale-tooltip__title">Morale Breakdown</div>
+                              {happinessFactors.map((f, i) => (
+                                <div key={i} className="pm-morale-tooltip__row">
+                                  <span className="pm-morale-tooltip__label">{f.label}</span>
+                                  <span
+                                    className="pm-morale-tooltip__value"
+                                    style={{ color: f.points >= 0 ? '#10b981' : '#ef4444' }}
+                                  >
+                                    {f.points >= 0 ? '+' : ''}{f.points}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="pm-morale-tooltip__divider" />
+                              <div className="pm-morale-tooltip__row">
+                                <span className="pm-morale-tooltip__label" style={{ fontWeight: 'bold' }}>Base</span>
+                                <span className="pm-morale-tooltip__value" style={{ color: '#00d4ff', fontWeight: 'bold' }}>60</span>
+                              </div>
+                              <div className="pm-morale-tooltip__row">
+                                <span className="pm-morale-tooltip__label" style={{ fontWeight: 'bold' }}>Total</span>
+                                <span className="pm-morale-tooltip__value" style={{ color: happinessColor, fontWeight: 'bold' }}>
+                                  {happinessScore}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -1605,9 +1647,111 @@ export function PlanetManagementScreen({
                   <div className="pm-divider" />
 
                   <div className="pm-section-label">DEMOGRAPHICS</div>
-                  <div className="pm-prod-empty" style={{ fontStyle: 'italic', fontSize: '10px' }}>
-                    Detailed demographics coming soon — species breakdown, age groups, happiness distribution.
-                  </div>
+                  {(() => {
+                    if (planet.currentPopulation <= 0) {
+                      return <div className="pm-prod-empty">No population — demographics unavailable.</div>;
+                    }
+                    const speciesId = playerSpeciesId ?? 'human';
+                    const demo = createInitialDemographics(planet.currentPopulation, speciesId);
+                    const totalPop = demo.totalPopulation || 1;
+
+                    // Age percentages
+                    const youngPct = Math.round((demo.age.young / totalPop) * 100);
+                    const workingPct = Math.round((demo.age.workingAge / totalPop) * 100);
+                    const elderlyPct = 100 - youngPct - workingPct;
+
+                    // Loyalty percentages
+                    const loyalPct = Math.round((demo.loyalty.loyal / totalPop) * 100);
+                    const contentPct = Math.round((demo.loyalty.content / totalPop) * 100);
+                    const disgruntledPct = Math.round((demo.loyalty.disgruntled / totalPop) * 100);
+                    const rebelliousPct = 100 - loyalPct - contentPct - disgruntledPct;
+
+                    // Top vocations by count (exclude general)
+                    const vocationEntries: [string, number][] = [
+                      ['Scientists', demo.vocations.scientists],
+                      ['Workers', demo.vocations.workers],
+                      ['Military', demo.vocations.military],
+                      ['Merchants', demo.vocations.merchants],
+                      ['Admin', demo.vocations.administrators],
+                      ['Educators', demo.vocations.educators],
+                      ['Medical', demo.vocations.medical],
+                    ];
+                    const topVocations = vocationEntries
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 4);
+                    const maxVocation = topVocations[0]?.[1] || 1;
+
+                    return (
+                      <div className="pm-demographics">
+                        {/* Age distribution */}
+                        <div className="pm-demo-group">
+                          <div className="pm-demo-heading">Age Distribution</div>
+                          <div className="pm-demo-stacked-bar">
+                            <div className="pm-demo-stacked-seg" style={{ width: `${youngPct}%`, background: '#3b82f6' }} title={`Young: ${youngPct}%`} />
+                            <div className="pm-demo-stacked-seg" style={{ width: `${workingPct}%`, background: '#10b981' }} title={`Working: ${workingPct}%`} />
+                            <div className="pm-demo-stacked-seg" style={{ width: `${elderlyPct}%`, background: '#8b5cf6' }} title={`Elderly: ${elderlyPct}%`} />
+                          </div>
+                          <div className="pm-demo-legend">
+                            <span><span className="pm-demo-dot" style={{ background: '#3b82f6' }} />Young {youngPct}%</span>
+                            <span><span className="pm-demo-dot" style={{ background: '#10b981' }} />Working {workingPct}%</span>
+                            <span><span className="pm-demo-dot" style={{ background: '#8b5cf6' }} />Elderly {elderlyPct}%</span>
+                          </div>
+                        </div>
+
+                        {/* Top vocations */}
+                        <div className="pm-demo-group">
+                          <div className="pm-demo-heading">Top Vocations</div>
+                          {topVocations.map(([label, count]) => (
+                            <div key={label} className="pm-demo-bar-row">
+                              <span className="pm-demo-bar-label">{label}</span>
+                              <div className="pm-demo-bar-track">
+                                <div
+                                  className="pm-demo-bar-fill"
+                                  style={{ width: `${Math.round((count / maxVocation) * 100)}%`, background: '#00d4ff' }}
+                                />
+                              </div>
+                              <span className="pm-demo-bar-value">{formatPopulation(count)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Loyalty */}
+                        <div className="pm-demo-group">
+                          <div className="pm-demo-heading">Loyalty</div>
+                          <div className="pm-demo-stacked-bar">
+                            <div className="pm-demo-stacked-seg" style={{ width: `${loyalPct}%`, background: '#10b981' }} title={`Loyal: ${loyalPct}%`} />
+                            <div className="pm-demo-stacked-seg" style={{ width: `${contentPct}%`, background: '#3b82f6' }} title={`Content: ${contentPct}%`} />
+                            <div className="pm-demo-stacked-seg" style={{ width: `${disgruntledPct}%`, background: '#f59e0b' }} title={`Disgruntled: ${disgruntledPct}%`} />
+                            <div className="pm-demo-stacked-seg" style={{ width: `${rebelliousPct}%`, background: '#ef4444' }} title={`Rebellious: ${rebelliousPct}%`} />
+                          </div>
+                          <div className="pm-demo-legend">
+                            <span><span className="pm-demo-dot" style={{ background: '#10b981' }} />Loyal {loyalPct}%</span>
+                            <span><span className="pm-demo-dot" style={{ background: '#3b82f6' }} />Content {contentPct}%</span>
+                            <span><span className="pm-demo-dot" style={{ background: '#f59e0b' }} />Disgruntled {disgruntledPct}%</span>
+                            <span><span className="pm-demo-dot" style={{ background: '#ef4444' }} />Rebellious {rebelliousPct}%</span>
+                          </div>
+                        </div>
+
+                        {/* Education & Health */}
+                        <div className="pm-demo-group">
+                          <div className="pm-demo-bar-row">
+                            <span className="pm-demo-bar-label">Education</span>
+                            <div className="pm-demo-bar-track">
+                              <div className="pm-demo-bar-fill" style={{ width: `${demo.educationLevel}%`, background: '#3b82f6' }} />
+                            </div>
+                            <span className="pm-demo-bar-value">{demo.educationLevel}</span>
+                          </div>
+                          <div className="pm-demo-bar-row">
+                            <span className="pm-demo-bar-label">Health</span>
+                            <div className="pm-demo-bar-track">
+                              <div className="pm-demo-bar-fill" style={{ width: `${demo.healthLevel}%`, background: '#10b981' }} />
+                            </div>
+                            <span className="pm-demo-bar-value">{demo.healthLevel}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
 

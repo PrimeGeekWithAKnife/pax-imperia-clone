@@ -10448,6 +10448,171 @@ button:active:not(:disabled),
   font-weight: bold;
 }
 
+/* ── Planet demographics ──────────────────────────────────────── */
+
+.pm-demographics {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-demo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pm-demo-heading {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.pm-demo-stacked-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(0, 180, 220, 0.08);
+  border: 1px solid rgba(0, 180, 220, 0.15);
+}
+
+.pm-demo-stacked-seg {
+  height: 100%;
+  min-width: 1px;
+  transition: width 0.2s ease;
+}
+
+.pm-demo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.pm-demo-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
+.pm-demo-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.pm-demo-bar-label {
+  width: 58px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pm-demo-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 180, 220, 0.08);
+  border: 1px solid rgba(0, 180, 220, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pm-demo-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.pm-demo-bar-value {
+  width: 36px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text);
+}
+
+/* ── Morale hover tooltip ─────────────────────────────────────── */
+
+.pm-morale-hover-wrapper {
+  position: relative;
+  cursor: default;
+}
+
+.pm-morale-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  max-width: 260px;
+  padding: 8px 10px;
+  background: rgba(6, 8, 22, 0.97);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text);
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 212, 255, 0.08);
+  animation: panel-fade-in 0.12s ease both;
+}
+
+.pm-morale-hover-wrapper:hover .pm-morale-tooltip {
+  display: block;
+}
+
+.pm-morale-tooltip__title {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.pm-morale-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1px 0;
+  gap: 10px;
+}
+
+.pm-morale-tooltip__label {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pm-morale-tooltip__value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.pm-morale-tooltip__divider {
+  border: none;
+  border-top: 1px solid rgba(0, 212, 255, 0.15);
+  margin: 4px 0;
+}
+
 /* ================================================================
    ESPIONAGE SCREEN
 ================================================================ */
