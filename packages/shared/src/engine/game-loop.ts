@@ -606,7 +606,8 @@ function processPlayerActions(
             continue;
           }
 
-          const check = canColoniseWithShip(coloniserShip, fleet, fleetSystem, planetId, empire.species);
+          const systemFleets = state.gameState.fleets.filter(f => f.position.systemId === fleetSystem.id);
+          const check = canColoniseWithShip(coloniserShip, fleet, fleetSystem, planetId, empire.species, systemFleets);
           if (!check.allowed) {
             console.warn(`[game-loop] ColonizePlanet rejected: ${check.reason}`);
             rejectAction(empireId, `Colonisation rejected: ${check.reason}`);
@@ -700,6 +701,18 @@ function processPlayerActions(
 
         // Look up minerals from the resource map.
         const empMinerals = state.empireResourcesMap.get(empireId)?.minerals ?? 0;
+
+        // Check for foreign fleets blocking colonisation via patrol/aggressive stance
+        const blockingMigFleet = state.gameState.fleets.find(f =>
+          f.empireId !== empireId &&
+          f.position.systemId === systemId &&
+          f.ships.length > 0 &&
+          (f.stance === 'patrol' || f.stance === 'aggressive')
+        );
+        if (blockingMigFleet) {
+          rejectAction(empireId, 'Foreign military forces on patrol are blocking colonisation in this system.');
+          continue;
+        }
 
         // Validate using canStartMigration.
         const check = canStartMigration(
@@ -1017,6 +1030,22 @@ function stepFleetMovement(
               dipState = makeFirstContact(dipState, fleet.empireId, foreignId, tick);
               (state as unknown as Record<string, unknown>).diplomacyState = dipState;
 
+              // Emit first contact events for both sides
+              events.push({
+                type: 'FirstContact',
+                tick,
+                empireId: fleet.empireId,
+                foreignEmpireId: foreignId,
+                systemId: arrivedSystemId,
+              });
+              events.push({
+                type: 'FirstContact',
+                tick,
+                empireId: foreignId,
+                foreignEmpireId: fleet.empireId,
+                systemId: arrivedSystemId,
+              });
+
               // Create psychology relationships for both empires
               const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
                 Map<string, EmpirePsychologicalState>;
@@ -1152,7 +1181,15 @@ function stepFleetMovement(
             const habitablePlanet = arrSystem?.planets.find(
               p => !p.ownerId && calculateHabitability(p, arrEmpire!.species).score >= 40,
             );
-            if (habitablePlanet && arrSystem) {
+            // Check if foreign fleets on patrol/aggressive stance block colonisation
+            const blockingFleet = arrSystem ? fleets.find(f =>
+              f.empireId !== arrivedFleetForColonise.empireId &&
+              f.position.systemId === arrSystem.id &&
+              f.ships.length > 0 &&
+              (f.stance === 'patrol' || f.stance === 'aggressive')
+            ) : undefined;
+
+            if (habitablePlanet && arrSystem && !blockingFleet) {
               // Colonise: use tech-based founding package
               const aiResearchedTechs = arrEmpire!.technologies ?? [];
               const foundingBuildingTypes = getFoundingBuildings(aiResearchedTechs);

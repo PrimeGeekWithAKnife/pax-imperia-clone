@@ -89,6 +89,7 @@ import type {
   ColonyEstablishedEvent,
   MigrationStartedEvent,
   MigrationWaveEvent,
+  FirstContactGameEvent,
   MigrationOrder,
   GameEvent,
   TacticalState,
@@ -322,6 +323,22 @@ export class GameEngine {
               systemId: ce.systemId,
               empireId: ce.empireId,
             });
+          }
+          break;
+        }
+        case 'FirstContact': {
+          const fc = event as FirstContactGameEvent;
+          // Notify both sides — the player sees the event regardless of who moved
+          if (fc.empireId === this.getPlayerEmpireId()) {
+            const foreignEmpire = this.tickState.gameState.empires.find(e => e.id === fc.foreignEmpireId);
+            const systemName = this.tickState.gameState.galaxy.systems.find(s => s.id === fc.systemId)?.name ?? 'unknown system';
+            this.game.events.emit('engine:notification', createNotification(
+              'first_contact',
+              'First Contact',
+              `We have made first contact with the ${foreignEmpire?.name ?? 'unknown empire'} in the ${systemName} system.`,
+              this.tickState.gameState.currentTick,
+              [{ id: 'open_diplomacy', label: 'Open Diplomacy' }],
+            ));
           }
           break;
         }

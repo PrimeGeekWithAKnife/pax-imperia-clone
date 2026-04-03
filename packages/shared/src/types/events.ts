@@ -283,6 +283,17 @@ export interface EspionageResultEvent {
   tick: number;
 }
 
+export interface FirstContactGameEvent {
+  type: 'FirstContact';
+  tick: number;
+  /** The empire making contact (fleet owner). */
+  empireId: string;
+  /** The empire discovered. */
+  foreignEmpireId: string;
+  /** System where contact occurred. */
+  systemId: string;
+}
+
 export type GameEvent =
   | FleetMovedEvent
   | CombatStartedEvent
@@ -304,4 +315,5 @@ export type GameEvent =
   | TerraformingCompleteEvent
   | GovernorDiedEvent
   | GovernorAppointedEvent
-  | EspionageResultEvent;
+  | EspionageResultEvent
+  | FirstContactGameEvent;

@@ -1045,6 +1045,8 @@ export function canColoniseWithShip(
   targetSystem: StarSystem,
   targetPlanetId: string,
   species: Species,
+  /** All fleets in the target system — used for stance-based colonisation blocking. */
+  systemFleets?: Fleet[],
 ): { allowed: boolean; reason?: string } {
   // Ship must be a coloniser hull class.  We resolve the hull class via the
   // ship's design ID — the caller is responsible for passing the correct ship
@@ -1115,6 +1117,23 @@ export function canColoniseWithShip(
       allowed: false,
       reason: `Habitability too low (${report.score}/100, minimum ${MIN_COLONIZE_HABITABILITY})`,
     };
+  }
+
+  // Check if foreign fleets on patrol or aggressive stance are blocking colonisation.
+  // Patrol stance actively prevents colonisation; aggressive stance also blocks
+  // (they'd attack). Defensive and evasive stances permit colonisation.
+  if (systemFleets) {
+    const blockingFleet = systemFleets.find(f => {
+      if (f.empireId === fleet.empireId) return false;    // Own fleets don't block
+      if (f.ships.length === 0) return false;             // Empty fleets don't block
+      return f.stance === 'patrol' || f.stance === 'aggressive';
+    });
+    if (blockingFleet) {
+      return {
+        allowed: false,
+        reason: 'Foreign military forces are contesting this system — colonisation blocked',
+      };
+    }
   }
 
   return { allowed: true };
