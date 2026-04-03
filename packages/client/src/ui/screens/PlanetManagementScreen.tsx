@@ -774,6 +774,12 @@ export function PlanetManagementScreen({
     setUpgradeTarget(null);
   }, [upgradeTarget, onUpgrade, planet.id]);
 
+  /** Direct upgrade from the "+" button on a building tile — no popover needed. */
+  const handleDirectUpgrade = useCallback((building: Building) => {
+    if (!onUpgrade) return;
+    onUpgrade(planet.id, building.id);
+  }, [onUpgrade, planet.id]);
+
   const handleSelectBuilding = useCallback(
     (type: BuildingType) => {
       setPickerOpen(false);
@@ -1396,132 +1402,11 @@ export function PlanetManagementScreen({
               onEmptySlotClick={handleEmptySlotClick}
               onBuildingClick={handleBuildingClick}
               onDemolish={onDemolish ? handleDemolishRequest : undefined}
+              onUpgrade={onUpgrade ? handleDirectUpgrade : undefined}
+              planet={planet}
+              empireResources={empireResources}
+              currentAge={currentAge}
             />
-
-            {upgradeTarget && (() => {
-              const def = BUILDING_DEFINITIONS[upgradeTarget.type];
-              const check = canUpgradeBuilding(planet, upgradeTarget.id, currentAge);
-              const cost = getUpgradeCost(upgradeTarget.type, upgradeTarget.level);
-              const buildTime = getUpgradeBuildTime(upgradeTarget.type, upgradeTarget.level);
-              const isMaxLevel = upgradeTarget.level >= def.maxLevel;
-              const ageCap = getMaxLevelForAge(upgradeTarget.type, currentAge);
-              const isAgeCapped = upgradeTarget.level >= ageCap && !isMaxLevel;
-              const canAfford = Object.entries(cost).every(([key, amount]) =>
-                (empireResources[key as keyof EmpireResources] ?? 0) >= (amount ?? 0),
-              );
-
-              return (
-                <div className="upgrade-popover">
-                  <div className="upgrade-popover__header">
-                    <span className="upgrade-popover__name">{def.name}</span>
-                    <span className="upgrade-popover__level">
-                      Lv.{upgradeTarget.level}
-                      {isMaxLevel ? ' (MAX)' : isAgeCapped ? ` / ${ageCap} (age limit)` : ` → ${upgradeTarget.level + 1}`}
-                    </span>
-                    <button
-                      type="button"
-                      className="upgrade-popover__close panel-close-btn"
-                      onClick={() => setUpgradeTarget(null)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <p className="upgrade-popover__desc">{def.description}</p>
-
-                  {/* Current building stats at this level */}
-                  <div className="upgrade-popover__stats">
-                    <span className="upgrade-popover__stats-label">Output at Lv.{upgradeTarget.level}:</span>
-                    {(() => {
-                      const lvlMult = Math.pow(BUILDING_LEVEL_MULTIPLIER, upgradeTarget.level - 1);
-                      const entries: Array<{ label: string; value: string; positive: boolean }> = [];
-
-                      for (const [key, base] of Object.entries(def.baseProduction)) {
-                        if (base && base > 0) {
-                          const scaled = Math.round(base * lvlMult * 10) / 10;
-                          entries.push({ label: RESOURCE_LABELS[key] ?? key, value: `+${scaled}`, positive: true });
-                        }
-                      }
-
-                      if (def.energyConsumption > 0) {
-                        const scaled = Math.round(def.energyConsumption * lvlMult * 10) / 10;
-                        entries.push({ label: 'Energy draw', value: `-${scaled}`, positive: false });
-                      }
-
-                      if (def.wasteOutput > 0) {
-                        const scaled = Math.round(def.wasteOutput * lvlMult * 10) / 10;
-                        entries.push({ label: 'Waste', value: `+${scaled}`, positive: false });
-                      }
-
-                      const bldgZoneMult = ZONE_MAINTENANCE_MULTIPLIER[upgradeTarget.slotZone ?? 'surface'] ?? 1;
-                      for (const [key, base] of Object.entries(def.maintenanceCost)) {
-                        if (base && base > 0) {
-                          const maintCost = Math.round(base * bldgZoneMult * 10) / 10;
-                          entries.push({ label: `${RESOURCE_LABELS[key] ?? key} maint.`, value: `-${maintCost}`, positive: false });
-                        }
-                      }
-
-                      if (def.happinessImpact !== 0) {
-                        entries.push({
-                          label: 'Happiness',
-                          value: `${def.happinessImpact > 0 ? '+' : ''}${def.happinessImpact}`,
-                          positive: def.happinessImpact > 0,
-                        });
-                      }
-
-                      if (entries.length === 0) return null;
-
-                      return entries.map((e, i) => (
-                        <span key={i} className={`upgrade-popover__stat ${e.positive ? '' : 'upgrade-popover__stat--negative'}`}>
-                          {e.label}: {e.value}
-                        </span>
-                      ));
-                    })()}
-                  </div>
-
-                  {!isMaxLevel && !isAgeCapped && (
-                    <>
-                      <div className="upgrade-popover__costs">
-                        <span className="upgrade-popover__label">Upgrade cost:</span>
-                        {Object.entries(cost).map(([key, amount]) => (
-                          <span
-                            key={key}
-                            className={`upgrade-popover__cost ${
-                              (empireResources[key as keyof EmpireResources] ?? 0) < (amount ?? 0)
-                                ? 'upgrade-popover__cost--unaffordable'
-                                : ''
-                            }`}
-                          >
-                            {RESOURCE_ICONS[key] ?? key}: {amount}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="upgrade-popover__time">
-                        Build time: {buildTime} construction points
-                      </div>
-                    </>
-                  )}
-
-                  {isAgeCapped && (
-                    <div className="upgrade-popover__reason">
-                      Advance to the next technology age to unlock further upgrades.
-                    </div>
-                  )}
-
-                  {!isMaxLevel && !isAgeCapped && (
-                    <button
-                      type="button"
-                      className="sc-btn sc-btn--primary upgrade-popover__btn"
-                      disabled={!check.allowed || !canAfford}
-                      onClick={handleConfirmUpgrade}
-                      title={!check.allowed ? check.reason : !canAfford ? 'Insufficient resources' : `Upgrade to Lv.${upgradeTarget.level + 1}`}
-                    >
-                      Upgrade to Lv.{upgradeTarget.level + 1}
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
 
           </div>
 

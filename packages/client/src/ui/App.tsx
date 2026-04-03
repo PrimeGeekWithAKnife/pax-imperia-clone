@@ -52,6 +52,8 @@ import { ColonyListScreen } from './screens/ColonyListScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
 import type { GameStatistics } from './screens/VictoryScreen';
 import { MultiplayerLobbyScreen } from './screens/MultiplayerLobbyScreen';
+import { LeadershipScreen } from './screens/LeadershipScreen';
+import type { EmpireLeader, LeaderRole } from '@nova-imperia/shared';
 import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
@@ -71,7 +73,7 @@ import {
 } from '@nova-imperia/shared';
 import type { HullClass } from '@nova-imperia/shared';
 
-type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'diplomat' | 'fleet' | 'espionage' | 'economy' | 'colony-list' | 'victory' | 'skirmish';
+type AppScreen = 'game' | 'species-creator' | 'game-setup' | 'multiplayer' | 'research' | 'ship-designer' | 'diplomacy' | 'diplomat' | 'fleet' | 'espionage' | 'economy' | 'colony-list' | 'victory' | 'skirmish' | 'leadership';
 
 /** Mock research state: a few Dawn Age techs completed, nothing active. */
 const MOCK_RESEARCH_STATE: ResearchState = {
@@ -492,6 +494,10 @@ export function App(): React.ReactElement {
           case 'c':
           case 'C':
             if (gameStarted) setCurrentScreen('colony-list');
+            break;
+          case 'l':
+          case 'L':
+            if (gameStarted) setCurrentScreen('leadership');
             break;
         }
       } else if (e.key === 'Escape') {
@@ -964,6 +970,21 @@ export function App(): React.ReactElement {
   const handleCloseColonyList = useCallback(() => {
     setCurrentScreen('game');
   }, []);
+
+  const handleOpenLeadership = useCallback(() => {
+    setCurrentScreen('leadership');
+  }, []);
+
+  const handleCloseLeadership = useCallback(() => {
+    setCurrentScreen('game');
+  }, []);
+
+  const handleReplaceLeader = useCallback((role: LeaderRole, newLeader: EmpireLeader) => {
+    const engine = getGameEngine();
+    if (engine && playerEmpire) {
+      engine.replaceLeader(playerEmpire.id, role, newLeader);
+    }
+  }, [playerEmpire]);
 
   /** Open a planet's management screen from the colony list. */
   const handleColonyListOpenPlanet = useCallback((planet: Planet, systemId: string) => {
@@ -2401,6 +2422,22 @@ export function App(): React.ReactElement {
     );
   }
 
+  if (currentScreen === 'leadership') {
+    const empireLeaders = getGameEngine()?.getLeaders()?.filter(
+      (l: EmpireLeader) => l.empireId === playerEmpire.id,
+    ) ?? [];
+    return (
+      <div className="ui-overlay">
+        <LeadershipScreen
+          leaders={empireLeaders}
+          playerEmpireId={playerEmpire.id}
+          onReplaceLeader={handleReplaceLeader}
+          onClose={handleCloseLeadership}
+        />
+      </div>
+    );
+  }
+
   // Don't render game HUD until a game is actually running
   // But still allow the settings/pause menu overlay and save/load screen from the main menu
   if (!gameStarted) {
@@ -2442,6 +2479,7 @@ export function App(): React.ReactElement {
         onOpenEconomy={handleOpenEconomy}
         onOpenColonyList={handleOpenColonyList}
         onOpenEspionage={handleOpenEspionage}
+        onOpenLeadership={handleOpenLeadership}
         government={playerEmpire.government}
         empireName={playerEmpire.name}
         speciesName={playerEmpire.species?.name}

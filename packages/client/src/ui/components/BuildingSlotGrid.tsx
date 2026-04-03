@@ -1,12 +1,45 @@
-import React, { useState } from 'react';
-import type { Building, BuildingType } from '@nova-imperia/shared';
-import { BUILDING_DEFINITIONS } from '@nova-imperia/shared';
+import React, { useState, useCallback, useRef } from 'react';
+import type { Building, BuildingType, TechAge } from '@nova-imperia/shared';
+import { BUILDING_DEFINITIONS, BUILDING_LEVEL_MULTIPLIER, ZONE_MAINTENANCE_MULTIPLIER, canUpgradeBuilding, getUpgradeCost, getMaxLevelForAge } from '@nova-imperia/shared';
+import type { Planet, EmpireResources } from '@nova-imperia/shared';
 import { renderBuildingSlotIcon } from '../../assets/graphics';
 
 /** A building currently in the production queue. */
 interface QueuedBuilding {
   type: string;
   targetZone?: 'surface' | 'orbital' | 'underground';
+}
+
+/** Resource labels for tooltips */
+const RESOURCE_LABELS: Record<string, string> = {
+  credits: 'Credits',
+  minerals: 'Minerals',
+  rareElements: 'Rare Elements',
+  energy: 'Energy',
+  organics: 'Organics',
+  exoticMaterials: 'Exotic Materials',
+  faith: 'Faith',
+  researchPoints: 'Research',
+};
+
+const RESOURCE_ICONS: Record<string, string> = {
+  credits: 'CR',
+  minerals: 'MN',
+  rareElements: 'RE',
+  energy: 'EN',
+  organics: 'OR',
+  exoticMaterials: 'EX',
+  faith: 'FT',
+  researchPoints: 'RP',
+};
+
+/** UK English overrides for building names */
+const UK_BUILDING_NAME_OVERRIDES: Partial<Record<BuildingType, string>> = {
+  defense_grid: 'Defence Grid',
+};
+
+function getDisplayName(type: BuildingType): string {
+  return UK_BUILDING_NAME_OVERRIDES[type] ?? BUILDING_DEFINITIONS[type].name;
 }
 
 interface BuildingSlotGridProps {
@@ -22,6 +55,14 @@ interface BuildingSlotGridProps {
   onBuildingClick: (building: Building, slotIndex: number) => void;
   /** Called when the player clicks the demolish button on an occupied slot. */
   onDemolish?: (building: Building) => void;
+  /** Called when the player clicks the upgrade "+" button on an occupied slot. */
+  onUpgrade?: (building: Building) => void;
+  /** Planet data — needed for canUpgradeBuilding checks. */
+  planet?: Planet;
+  /** Empire resources — needed for affordability checks on upgrade. */
+  empireResources?: EmpireResources;
+  /** Current tech age — gates upgrade level caps. */
+  currentAge?: TechAge;
 }
 
 const BUILDING_ABBREV: Record<BuildingType, string> = {
@@ -142,6 +183,132 @@ function SlotIcon({ buildingType, level }: SlotIconProps): React.ReactElement {
   );
 }
 
+// -- Building hover tooltip ----------------------------------------------------
+
+interface BuildingTooltipProps {
+  building: Building;
+  def: ReturnType<typeof getBuildingDef>;
+  currentAge: TechAge;
+}
+
+function BuildingTooltip({ building, def, currentAge }: BuildingTooltipProps): React.ReactElement | null {
+  if (!def) return null;
+
+  const lvlMult = Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level - 1);
+  const isMaxLevel = building.level >= def.maxLevel;
+  const ageCap = getMaxLevelForAge(building.type, currentAge);
+  const isAgeCapped = building.level >= ageCap && !isMaxLevel;
+
+  // Collect current effects
+  const effects: Array<{ label: string; value: string; positive: boolean }> = [];
+
+  for (const [key, base] of Object.entries(def.baseProduction)) {
+    if (base && base > 0) {
+      const scaled = Math.round(base * lvlMult * 10) / 10;
+      effects.push({ label: RESOURCE_LABELS[key] ?? key, value: `+${scaled}`, positive: true });
+    }
+  }
+
+  if (def.energyConsumption > 0) {
+    const scaled = Math.round(def.energyConsumption * lvlMult * 10) / 10;
+    effects.push({ label: 'Energy draw', value: `-${scaled}`, positive: false });
+  }
+
+  if (def.wasteOutput > 0) {
+    const scaled = Math.round(def.wasteOutput * lvlMult * 10) / 10;
+    effects.push({ label: 'Waste', value: `+${scaled}`, positive: false });
+  }
+
+  const bldgZoneMult = ZONE_MAINTENANCE_MULTIPLIER[building.slotZone ?? 'surface'] ?? 1;
+  for (const [key, base] of Object.entries(def.maintenanceCost)) {
+    if (base && base > 0) {
+      const maintCost = Math.round(base * bldgZoneMult * 10) / 10;
+      effects.push({ label: `${RESOURCE_LABELS[key] ?? key} maint.`, value: `-${maintCost}`, positive: false });
+    }
+  }
+
+  if (def.happinessImpact !== 0) {
+    effects.push({
+      label: 'Happiness',
+      value: `${def.happinessImpact > 0 ? '+' : ''}${def.happinessImpact}`,
+      positive: def.happinessImpact > 0,
+    });
+  }
+
+  if (def.populationCapacityBonus) {
+    const scaled = def.populationCapacityBonus * building.level;
+    effects.push({ label: 'Pop. capacity', value: `+${(scaled / 1_000_000).toFixed(1)}M`, positive: true });
+  }
+
+  if (def.specialEffects) {
+    for (const fx of def.specialEffects) {
+      effects.push({ label: fx, value: '', positive: true });
+    }
+  }
+
+  // Next level preview
+  let nextLevelEffects: Array<{ label: string; value: string; positive: boolean }> | null = null;
+  if (!isMaxLevel && !isAgeCapped) {
+    const nextMult = Math.pow(BUILDING_LEVEL_MULTIPLIER, building.level);
+    nextLevelEffects = [];
+    for (const [key, base] of Object.entries(def.baseProduction)) {
+      if (base && base > 0) {
+        const scaled = Math.round(base * nextMult * 10) / 10;
+        nextLevelEffects.push({ label: RESOURCE_LABELS[key] ?? key, value: `+${scaled}`, positive: true });
+      }
+    }
+  }
+
+  return (
+    <div className="bsg-tooltip" onClick={(e) => e.stopPropagation()}>
+      <div className="bsg-tooltip__header">
+        <span className="bsg-tooltip__name">{getDisplayName(building.type)}</span>
+        <span className="bsg-tooltip__level">
+          Lv.{building.level}{isMaxLevel ? ' (MAX)' : isAgeCapped ? ` / ${ageCap}` : ` / ${def.maxLevel}`}
+        </span>
+      </div>
+
+      {effects.length > 0 && (
+        <div className="bsg-tooltip__effects">
+          {effects.map((e, i) => (
+            <div key={i} className="bsg-tooltip__effect-row">
+              <span className="bsg-tooltip__effect-label">{e.label}</span>
+              {e.value && (
+                <span
+                  className="bsg-tooltip__effect-value"
+                  style={{ color: e.positive ? '#44cc88' : '#cc6644' }}
+                >
+                  {e.value}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {nextLevelEffects && nextLevelEffects.length > 0 && (
+        <div className="bsg-tooltip__next">
+          <span className="bsg-tooltip__next-label">Lv.{building.level + 1} output:</span>
+          {nextLevelEffects.map((e, i) => (
+            <span key={i} className="bsg-tooltip__next-value" style={{ color: '#44cc88' }}>
+              {e.label}: {e.value}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {isMaxLevel && (
+        <div className="bsg-tooltip__status">Maximum level reached</div>
+      )}
+      {isAgeCapped && (
+        <div className="bsg-tooltip__status" style={{ color: '#cc8844' }}>
+          Technology advancement required
+        </div>
+      )}
+    </div>
+  );
+}
+
 // -- SlotSection helper -------------------------------------------------------
 
 interface SlotSectionProps {
@@ -152,6 +319,10 @@ interface SlotSectionProps {
   onEmptySlotClick: () => void;
   onBuildingClick: (building: Building, slotIndex: number) => void;
   onDemolish?: (building: Building) => void;
+  onUpgrade?: (building: Building) => void;
+  planet?: Planet;
+  empireResources?: EmpireResources;
+  currentAge?: TechAge;
 }
 
 function SlotSection({
@@ -162,7 +333,25 @@ function SlotSection({
   onEmptySlotClick,
   onBuildingClick,
   onDemolish,
+  onUpgrade,
+  planet,
+  empireResources,
+  currentAge = 'nano_atomic',
 }: SlotSectionProps): React.ReactElement {
+  const [hoveredBuildingId, setHoveredBuildingId] = useState<string | null>(null);
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slotRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const handleMouseEnter = useCallback((buildingId: string) => {
+    if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+    tooltipTimerRef.current = setTimeout(() => setHoveredBuildingId(buildingId), 250);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
+    tooltipTimerRef.current = null;
+    setHoveredBuildingId(null);
+  }, []);
   // Build slot array: existing buildings first, then queued, then empty
   const slotArray: Array<Building | QueuedBuilding | null> = [];
   for (let i = 0; i < slots.total; i++) {
@@ -228,17 +417,52 @@ function SlotSection({
 
         const def = getBuildingDef(building.type);
 
+        // Upgrade availability check
+        const upgradeCheck = planet ? canUpgradeBuilding(planet, building.id, currentAge) : { allowed: false, reason: 'No planet data' };
+        const isMaxLevel = building.level >= (def?.maxLevel ?? 99);
+        const ageCap = getMaxLevelForAge(building.type, currentAge);
+        const isAgeCapped = building.level >= ageCap && !isMaxLevel;
+        const upgradeCost = getUpgradeCost(building.type, building.level);
+        const canAffordUpgrade = empireResources
+          ? Object.entries(upgradeCost).every(([key, amount]) =>
+              (empireResources[key as keyof EmpireResources] ?? 0) >= (amount ?? 0),
+            )
+          : false;
+        const upgradeEnabled = upgradeCheck.allowed && canAffordUpgrade;
+
+        // Build the upgrade tooltip reason
+        let upgradeTooltip: string;
+        if (isMaxLevel) {
+          upgradeTooltip = 'Maximum level reached';
+        } else if (isAgeCapped) {
+          upgradeTooltip = 'Technology advancement required for further upgrades';
+        } else if (!upgradeCheck.allowed) {
+          upgradeTooltip = upgradeCheck.reason ?? 'Cannot upgrade';
+        } else if (!canAffordUpgrade) {
+          const missing = Object.entries(upgradeCost)
+            .filter(([key, amount]) => (empireResources?.[key as keyof EmpireResources] ?? 0) < (amount ?? 0))
+            .map(([key, amount]) => `${RESOURCE_ICONS[key] ?? key}: need ${amount}, have ${Math.floor(empireResources?.[key as keyof EmpireResources] ?? 0)}`)
+            .join(', ');
+          upgradeTooltip = `Insufficient resources — ${missing}`;
+        } else {
+          upgradeTooltip = `Upgrade to Lv.${building.level + 1}`;
+        }
+
+        const isHovered = hoveredBuildingId === building.id;
+
         return (
           <div
             key={index}
             className="bsg-slot bsg-slot--occupied"
             style={{ position: 'relative' }}
+            ref={(el) => { if (el) slotRefs.current.set(building.id, el); }}
+            onMouseEnter={() => handleMouseEnter(building.id)}
+            onMouseLeave={handleMouseLeave}
           >
             <button
               className="bsg-slot__main"
               onClick={() => onBuildingClick(building, index)}
               aria-label={`${def?.name ?? building.type} level ${building.level}`}
-              title={`${def?.name ?? building.type} (Lv.${building.level})`}
               style={{
                 background: 'none',
                 border: 'none',
@@ -255,6 +479,20 @@ function SlotSection({
               <SlotIcon buildingType={building.type} level={building.level} />
               <span className="bsg-slot__level">Lv.{building.level}</span>
             </button>
+            {/* Upgrade "+" button — top-left */}
+            {onUpgrade && !isMaxLevel && (
+              <button
+                className={`bsg-slot__upgrade ${upgradeEnabled ? '' : 'bsg-slot__upgrade--disabled'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (upgradeEnabled) onUpgrade(building);
+                }}
+                aria-label={upgradeTooltip}
+                title={upgradeTooltip}
+              >
+                +
+              </button>
+            )}
             {onDemolish && (
               <button
                 className="bsg-slot__demolish"
@@ -267,6 +505,10 @@ function SlotSection({
               >
                 ✕
               </button>
+            )}
+            {/* Hover tooltip */}
+            {isHovered && def && (
+              <BuildingTooltip building={building} def={def} currentAge={currentAge} />
             )}
           </div>
         );
@@ -289,6 +531,10 @@ export function BuildingSlotGrid({
   onEmptySlotClick,
   onBuildingClick,
   onDemolish,
+  onUpgrade,
+  planet,
+  empireResources,
+  currentAge,
 }: BuildingSlotGridProps): React.ReactElement {
   const surfaceBuildings = buildings.filter(b => (b.slotZone ?? 'surface') === 'surface');
   const orbitalBuildings = buildings.filter(b => b.slotZone === 'orbital');
@@ -309,6 +555,10 @@ export function BuildingSlotGrid({
         onEmptySlotClick={() => onEmptySlotClick('surface')}
         onBuildingClick={onBuildingClick}
         onDemolish={onDemolish}
+        onUpgrade={onUpgrade}
+        planet={planet}
+        empireResources={empireResources}
+        currentAge={currentAge}
       />
 
       {/* Orbital */}
@@ -323,6 +573,10 @@ export function BuildingSlotGrid({
             onEmptySlotClick={() => onEmptySlotClick('orbital')}
             onBuildingClick={onBuildingClick}
             onDemolish={onDemolish}
+            onUpgrade={onUpgrade}
+            planet={planet}
+            empireResources={empireResources}
+            currentAge={currentAge}
           />
         </div>
       )}
@@ -339,6 +593,10 @@ export function BuildingSlotGrid({
             onEmptySlotClick={() => onEmptySlotClick('underground')}
             onBuildingClick={onBuildingClick}
             onDemolish={onDemolish}
+            onUpgrade={onUpgrade}
+            planet={planet}
+            empireResources={empireResources}
+            currentAge={currentAge}
           />
         </div>
       )}

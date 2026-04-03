@@ -43,6 +43,7 @@ interface TopBarProps {
   onOpenEconomy?: () => void;
   onOpenColonyList?: () => void;
   onOpenEspionage?: () => void;
+  onOpenLeadership?: () => void;
   minerals?: number;
   energy?: number;
   organics?: number;
@@ -82,6 +83,7 @@ export function TopBar({
   onOpenEconomy,
   onOpenColonyList,
   onOpenEspionage,
+  onOpenLeadership,
   minerals = 0,
   energy = 0,
   organics = 0,
@@ -150,6 +152,7 @@ export function TopBar({
         )}
         <button className="speed-btn" onClick={onOpenFleet} title="Fleet (F)" data-tooltip="Fleet (F)">⚓ Fleet</button>
         <button className="speed-btn" onClick={onOpenEconomy} title="Economy (E)" data-tooltip="Economy (E)">₵ Economy</button>
+        <button className="speed-btn" onClick={onOpenLeadership} title="Leadership (L)" data-tooltip="Leadership (L)">Leaders</button>
         {onOpenColonyList && (
           <button className="speed-btn" onClick={onOpenColonyList} title="Colony List (C)" data-tooltip="Colony List (C)">🏛 Colonies</button>
         )}
