@@ -986,9 +986,16 @@ export function App(): React.ReactElement {
     setActiveSystemId(null);
   }, []);
 
-  // Engine emits 'engine:galaxy_updated' with the Galaxy object each tick
+  // Engine emits 'engine:galaxy_updated' with the Galaxy object each tick.
+  // Also sync the player empire so GalaxyMap3D has the real empire ID
+  // immediately — otherwise it stays as the MOCK until the first tick fires.
   const handleGalaxyUpdated = useCallback((g: Galaxy) => {
     setGalaxy(g);
+    const engine = getGameEngine();
+    if (engine) {
+      const playerEmp = engine.getState().gameState.empires.find(e => !e.isAI);
+      if (playerEmp) setPlayerEmpire(playerEmp);
+    }
   }, []);
 
   // Engine emits 'engine:planet_colonised' after a colonisation action succeeds
@@ -2073,13 +2080,14 @@ export function App(): React.ReactElement {
         const eng = getGameEngine();
         if (eng) {
           const state = eng.getState();
-          // Resources
-          const pid = state.gameState.empires.find(e => !e.isAI)?.id;
-          if (pid) {
-            const res = state.empireResourcesMap.get(pid);
+          // Sync player empire so GalaxyMap3D / minimap get the real ID + knownSystems
+          const playerEmp = state.gameState.empires.find(e => !e.isAI);
+          if (playerEmp) {
+            setPlayerEmpire(playerEmp);
+            const res = state.empireResourcesMap.get(playerEmp.id);
             if (res) setEmpireResources(res);
           }
-          // Galaxy (for minimap)
+          // Galaxy (for minimap + 3D map)
           if (state.gameState.galaxy) {
             setGalaxy(state.gameState.galaxy);
           }

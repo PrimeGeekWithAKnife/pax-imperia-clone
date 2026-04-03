@@ -1704,11 +1704,17 @@ interface GalaxyMap3DProps {
 }
 
 export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorMap, onSystemSelected, onClose }: GalaxyMap3DProps) {
-  // Find player's home system to use as initial focus
+  // Find player's home system to use as initial focus.
+  // Prefer Empire.homeSystemId (set at game creation), fall back to planet ownership search.
   const playerHomeSystemId = useMemo(() => {
     if (!playerEmpireId) return null;
+    const engine = getGameEngine();
+    if (engine) {
+      const empire = engine.getState().gameState.empires.find(e => e.id === playerEmpireId);
+      if (empire?.homeSystemId) return empire.homeSystemId;
+    }
     for (const system of galaxy.systems) {
-      if (system.planets.some(p => p.ownerId === playerEmpireId)) {
+      if (system.ownerId === playerEmpireId || system.planets.some(p => p.ownerId === playerEmpireId)) {
         return system.id;
       }
     }
