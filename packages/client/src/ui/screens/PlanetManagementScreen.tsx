@@ -747,7 +747,6 @@ export function PlanetManagementScreen({
     setPickerOpen(true);
   }, []);
 
-  const [upgradeTarget, setUpgradeTarget] = useState<Building | null>(null);
   // Remember last viewed tab across planet changes
   const [activeTab, setActiveTab] = useState<'build-queue' | 'population' | 'economy' | 'orbitals'>(
     () => {
@@ -764,15 +763,9 @@ export function PlanetManagementScreen({
     try { sessionStorage.setItem('planet-mgmt-tab', tab); } catch { /* ignore */ }
   }, []);
 
-  const handleBuildingClick = useCallback((building: Building, _index: number) => {
-    setUpgradeTarget(prev => (prev?.id === building.id ? null : building));
+  const handleBuildingClick = useCallback((_building: Building, _index: number) => {
+    // Building click — reserved for future use (info panel, selection, etc.)
   }, []);
-
-  const handleConfirmUpgrade = useCallback(() => {
-    if (!upgradeTarget || !onUpgrade) return;
-    onUpgrade(planet.id, upgradeTarget.id);
-    setUpgradeTarget(null);
-  }, [upgradeTarget, onUpgrade, planet.id]);
 
   /** Direct upgrade from the "+" button on a building tile — no popover needed. */
   const handleDirectUpgrade = useCallback((building: Building) => {
