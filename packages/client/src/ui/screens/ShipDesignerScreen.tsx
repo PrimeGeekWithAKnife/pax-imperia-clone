@@ -12,6 +12,7 @@ import type { DesignStats } from '@nova-imperia/shared';
 import { HULL_TEMPLATES, SHIP_COMPONENTS } from '@nova-imperia/shared-data/ships/index.js';
 import { ShipSlotView } from '../components/ShipSlotView';
 import type { SlotAssignment } from '../components/ShipSlotView';
+import { ShipModel3D } from '../components/ShipModel3D';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -216,6 +217,10 @@ export function ShipDesignerScreen({
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // ── 3D model state ──────────────────────────────────────────────────────────
+  const [highlightWeaponSlotId, setHighlightWeaponSlotId] = useState<string | null>(null);
+  const [showArcs, setShowArcs] = useState(false);
+
   // ── Comparison design ───────────────────────────────────────────────────────
   const [compareDesignId, setCompareDesignId] = useState<string | null>(null);
 
@@ -257,6 +262,17 @@ export function ShipDesignerScreen({
     () => calculateDesignStats(currentDesign, hull, SHIP_COMPONENTS),
     [currentDesign, hull],
   );
+
+  // Build the 3D model's component array from current hull and assignments
+  const model3DComponents = useMemo(() => {
+    return hull.slotLayout.map((slot) => {
+      const assignment = assignments.find((a) => a.slotId === slot.id);
+      const component = assignment
+        ? SHIP_COMPONENTS.find((c) => c.id === assignment.componentId) ?? null
+        : null;
+      return { slot, component };
+    });
+  }, [hull.slotLayout, assignments]);
 
   // Slot that is currently selected (for picker)
   const selectedSlot = useMemo(
@@ -443,13 +459,58 @@ export function ShipDesignerScreen({
             </div>
           </div>
 
-          {/* ── CENTER: Slot Layout ────────────────────────────────────── */}
+          {/* ── CENTER: 3D Model + Slot Layout ─────────────────────────── */}
           <div className="ship-designer__center">
             <div className="sd-col-label">
               {hull.name.toUpperCase()} — SLOT LAYOUT
               <span className="sd-col-label-hint">
                 {assignments.length}/{hull.maxSlots} filled
               </span>
+            </div>
+
+            {/* 3D ship model preview */}
+            <div className="sd-model-3d-wrap" style={{ flexShrink: 0, marginBottom: 8 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 4,
+              }}>
+                <span style={{
+                  fontSize: 9,
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-accent)',
+                  opacity: 0.7,
+                  textTransform: 'uppercase',
+                }}>
+                  3D Preview
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowArcs((v) => !v)}
+                  style={{
+                    fontSize: 9,
+                    padding: '2px 8px',
+                    background: showArcs
+                      ? 'rgba(0, 212, 255, 0.12)'
+                      : 'rgba(10, 10, 26, 0.6)',
+                    border: `1px solid ${showArcs ? 'rgba(0, 212, 255, 0.4)' : 'rgba(0, 180, 220, 0.2)'}`,
+                    borderRadius: 4,
+                    color: showArcs ? 'var(--color-accent)' : '#6688aa',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  {showArcs ? 'Hide arcs' : 'Show arcs'}
+                </button>
+              </div>
+              <ShipModel3D
+                hullClass={selectedHullClass}
+                components={model3DComponents}
+                highlightWeaponSlotId={highlightWeaponSlotId}
+                showArcs={showArcs}
+                height={280}
+              />
             </div>
 
             <div className="sd-slot-area">
@@ -459,6 +520,7 @@ export function ShipDesignerScreen({
                 components={SHIP_COMPONENTS}
                 selectedSlotId={selectedSlotId}
                 onSlotClick={handleSlotClick}
+                onSlotHover={setHighlightWeaponSlotId}
               />
             </div>
 

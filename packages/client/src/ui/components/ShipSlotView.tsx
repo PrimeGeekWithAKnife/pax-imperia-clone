@@ -14,6 +14,8 @@ interface ShipSlotViewProps {
   components: ShipComponent[];
   selectedSlotId: string | null;
   onSlotClick: (slotId: string) => void;
+  /** Called when a slot is hovered/unhovered (slot id or null). */
+  onSlotHover?: (slotId: string | null) => void;
 }
 
 // ── Component type colors ──────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ export function ShipSlotView({
   components,
   selectedSlotId,
   onSlotClick,
+  onSlotHover,
 }: ShipSlotViewProps): React.ReactElement {
   const [hoveredSlotId, setHoveredSlotId] = useState<string | null>(null);
 
@@ -189,8 +192,8 @@ export function ShipSlotView({
                 boxShadow: shadow,
               }}
               onClick={() => onSlotClick(slot.id)}
-              onMouseEnter={() => setHoveredSlotId(slot.id)}
-              onMouseLeave={() => setHoveredSlotId(null)}
+              onMouseEnter={() => { setHoveredSlotId(slot.id); onSlotHover?.(slot.id); }}
+              onMouseLeave={() => { setHoveredSlotId(null); onSlotHover?.(null); }}
               title={`${slot.id} [${slot.size}] — ${slot.allowedTypes.join(', ')}`}
             >
               {/* Facing arrow */}
