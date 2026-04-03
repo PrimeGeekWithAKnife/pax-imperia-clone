@@ -333,8 +333,8 @@
         "category": "internal"
       }
     ],
-    "baseCost": 8000,
-    "baseSpeed": 3,
+    "baseCost": 2000,
+    "baseSpeed": 4,
     "requiredAge": "nano_atomic"
   },
   {

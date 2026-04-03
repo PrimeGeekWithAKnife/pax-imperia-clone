@@ -17,6 +17,7 @@ import type { GameState } from '../types/game-state.js';
 import type { Empire } from '../types/species.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { StarSystem } from '../types/galaxy.js';
+import { calculateHabitability } from './colony.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -223,13 +224,16 @@ export function calculateVictoryProgress(
 
 function buildConquestStatus(empire: Empire, gameState: GameState): VictoryConditionStatus {
   // Conquest requires:
-  //  1. Control 75% of all COLONISABLE planets (maxPopulation > 0), not just colonised ones
+  //  1. Control 75% of planets this species can actually colonise (habitability >= 10)
   //  2. Eliminate 75% of rival empires
   //
-  // This means you can't win by just grabbing empty planets — you must
-  // actually conquer most of the galaxy AND destroy most of your rivals.
+  // The denominator uses species-specific habitability so toxic worlds that a
+  // species cannot colonise don't inflate the target. Gas giants (maxPop 0)
+  // are excluded entirely.
   const allPlanets = getAllPlanets(gameState.galaxy);
-  const colonisable = allPlanets.filter(p => p.maxPopulation > 0);
+  const colonisable = allPlanets.filter(p =>
+    p.maxPopulation > 0 && calculateHabitability(p, empire.species).score >= 10,
+  );
   const owned = colonisable.filter(p => p.ownerId === empire.id).length;
   const planetFraction = colonisable.length > 0 ? owned / colonisable.length : 0;
 
@@ -270,9 +274,11 @@ function buildDominanceStatus(
   gameState: GameState,
   councilLeaderEmpireId: string | null,
 ): VictoryConditionStatus {
-  // Planet check: 50% of all colonisable planets
+  // Planet check: 50% of planets this species can colonise (habitability >= 10)
   const allPlanets = getAllPlanets(gameState.galaxy);
-  const colonisable = allPlanets.filter(p => p.maxPopulation > 0);
+  const colonisable = allPlanets.filter(p =>
+    p.maxPopulation > 0 && calculateHabitability(p, empire.species).score >= 10,
+  );
   const owned = colonisable.filter(p => p.ownerId === empire.id).length;
   const planetFraction = colonisable.length > 0 ? owned / colonisable.length : 0;
   const planetsMet = planetFraction >= DOMINANCE_PLANET_THRESHOLD;

@@ -97,6 +97,8 @@ import {
   ZONE_COST_MULTIPLIER,
   canColoniseWithShip,
   coloniseWithShip,
+  getFoundingBuildings,
+  getFoundingPopulation,
   canUpgradeBuilding,
   addUpgradeToQueue,
   getUpgradeCost,
@@ -618,10 +620,12 @@ function processPlayerActions(
             continue;
           }
 
-          // Pass the empire's current tech age for tiered starter buildings
+          // Pass the empire's researched techs for tech-based founding packages
           const empireResearchState = state.researchStates.get(empireId);
           const currentAge = empireResearchState?.currentAge ?? 'nano_atomic';
-          const result = coloniseWithShip(fleetSystem, planetId, empireId, fleet, coloniserShip.id, currentAge);
+          const empireObj = state.gameState.empires.find(e => e.id === empireId);
+          const researchedTechs = empireObj?.technologies ?? [];
+          const result = coloniseWithShip(fleetSystem, planetId, empireId, fleet, coloniserShip.id, currentAge, researchedTechs);
           systems = systems.map(s => s.id === fleetSystem.id ? result.system : s);
 
           // Update the fleet (ship consumed)
@@ -1143,12 +1147,18 @@ function stepFleetMovement(
               p => !p.ownerId && calculateHabitability(p, arrEmpire!.species).score >= 40,
             );
             if (habitablePlanet && arrSystem) {
-              // Colonise: set planet ownership, consume coloniser ship
+              // Colonise: use tech-based founding package
+              const aiResearchedTechs = arrEmpire!.technologies ?? [];
+              const foundingBuildingTypes = getFoundingBuildings(aiResearchedTechs);
+              const foundingPop = getFoundingPopulation(aiResearchedTechs);
+              const foundingBuildings = foundingBuildingTypes.map(type => ({
+                id: generateId(), type: type as any, level: 1, condition: 100,
+              }));
               const updatedPlanet = {
                 ...habitablePlanet,
                 ownerId: arrivedFleetForColonise.empireId,
-                currentPopulation: 5000,
-                buildings: [{ id: generateId(), type: 'population_center' as any, level: 1, condition: 100 }],
+                currentPopulation: foundingPop,
+                buildings: foundingBuildings,
                 productionQueue: [],
               };
               const updatedSystems = state.gameState.galaxy.systems.map(s =>
@@ -3593,8 +3603,9 @@ function buildEmpireStateSnapshot(
  * Maximum number of AI decisions to execute per empire per tick.
  * Keeps per-tick processing bounded and prevents the AI from executing
  * an overwhelming burst of actions in a single frame.
+ * 8 allows: research + 2 fleet moves + 2 ship builds + building + colonise + diplomacy
  */
-const AI_DECISIONS_PER_TICK = 5;
+const AI_DECISIONS_PER_TICK = 8;
 
 function stepAIDecisions(
   state: GameTickState,
@@ -3634,14 +3645,16 @@ function stepAIDecisions(
       ['build', 'research', 'build_ship', 'move_fleet', 'recruit_spy', 'assign_spy', 'colonize', 'diplomacy', 'war'].includes(d.type)
     );
 
-    // Guarantee at least 1 research and 1 move_fleet decision per tick to prevent
-    // starvation from high-priority build/colonise decisions consuming all slots
+    // Guarantee at least 1 research, 1 move_fleet, and 1 build_ship decision per tick
+    // to prevent starvation from in-system colonize decisions consuming all slots
     const guaranteedTypes = new Set<string>();
     const guaranteed: AIDecision[] = [];
     const researchDecision = executableDecisions.find(d => d.type === 'research');
     if (researchDecision) { guaranteed.push(researchDecision); guaranteedTypes.add('research'); }
     const moveDecision = executableDecisions.find(d => d.type === 'move_fleet');
     if (moveDecision) { guaranteed.push(moveDecision); guaranteedTypes.add('move_fleet'); }
+    const buildShipDecision = executableDecisions.find(d => d.type === 'build_ship');
+    if (buildShipDecision) { guaranteed.push(buildShipDecision); guaranteedTypes.add('build_ship'); }
     const remaining = executableDecisions.filter(d => !guaranteedTypes.has(d.type) || d !== guaranteed.find(g => g.type === d.type));
     const remainingSlots = Math.max(0, AI_DECISIONS_PER_TICK - guaranteed.length);
     const topOther = selectTopDecisions(remaining, remainingSlots);
@@ -4160,8 +4173,10 @@ function executeAIBuildShip(
   if (!hasShipyard) return state;
 
   // Don't queue more ships if there are already 2+ orders for this planet
+  // Exception: coloniser/scout builds can use a 3rd slot to prevent warships from starving expansion
   const pendingForPlanet = state.productionOrders.filter(o => o.planetId === planetId).length;
-  if (pendingForPlanet >= 2) return state;
+  const maxQueue = (requestedHull === 'coloniser' || requestedHull === 'scout') ? 3 : 2;
+  if (pendingForPlanet >= maxQueue) return state;
 
   // Find an available design for this empire
   const empire = state.gameState.empires.find(e => e.id === empireId);

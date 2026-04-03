@@ -1134,30 +1134,51 @@ export function canColoniseWithShip(
  * @throws if the planet is not found in the system.
  */
 /**
- * Colony ship tier determines what starter buildings are placed.
- * Higher tiers (unlocked through tech ages) give the colony a head start.
+ * Determine founding buildings based on researched coloniser techs.
+ * Each tech adds specific buildings to the founding package.
+ * Always includes population_center as the base.
  */
-const COLONY_SHIP_TIER_BUILDINGS: BuildingType[][] = [
-  ['population_center'],                                                          // Tier 1 (nano_atomic)
-  ['population_center', 'factory'],                                               // Tier 2 (fusion)
-  ['population_center', 'factory', 'mining_facility'],                            // Tier 3 (nano_fusion)
-  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay'],         // Tier 4 (anti_matter)
-  ['population_center', 'factory', 'mining_facility', 'hydroponics_bay', 'fusion_reactor'], // Tier 5 (singularity)
-];
+export function getFoundingBuildings(researchedTechs: string[]): BuildingType[] {
+  const buildings: BuildingType[] = ['population_center'];
+  const has = (id: string) => researchedTechs.includes(id);
+
+  // Universal techs
+  if (has('colonial_engineering') || has('nexari_network_seeding') || has('teranos_manifest_destiny')) {
+    buildings.push('factory');
+  }
+  if (has('colonial_agriculture') || has('sylvani_living_ships') || has('teranos_manifest_destiny')) {
+    buildings.push('hydroponics_bay');
+  }
+  if (has('colonial_power_systems') || has('teranos_manifest_destiny')) {
+    buildings.push('power_plant');
+  }
+  if (has('fortified_settlements') || has('drakmari_war_colonisation') || has('khazari_hive_seeding')) {
+    buildings.push('military_bunker' as BuildingType);
+  }
+
+  // Species-specific extras
+  if (has('nexari_network_seeding')) {
+    buildings.push('research_lab');
+  }
+  if (has('drakmari_war_colonisation')) {
+    buildings.push('shipyard');
+  }
+
+  return buildings;
+}
 
 /**
- * Map tech age to colony ship tier (0-indexed).
- * Higher ages unlock better-equipped colony ships.
+ * Determine founding population based on researched coloniser techs.
  */
-function getColonyShipTier(currentAge: string): number {
-  switch (currentAge) {
-    case 'nano_atomic': return 0;
-    case 'fusion': return 1;
-    case 'nano_fusion': return 2;
-    case 'anti_matter': return 3;
-    case 'singularity': return 4;
-    default: return 0;
-  }
+export function getFoundingPopulation(researchedTechs: string[]): number {
+  let pop = COLONISER_SHIP_INITIAL_POPULATION;
+  const has = (id: string) => researchedTechs.includes(id);
+
+  if (has('population_acceleration')) pop += 5000;
+  if (has('khazari_hive_seeding')) pop += 3000;
+  if (has('sylvani_living_ships')) pop += 1000;
+
+  return pop;
 }
 
 export function coloniseWithShip(
@@ -1166,7 +1187,8 @@ export function coloniseWithShip(
   empireId: string,
   fleet: Fleet,
   shipId: string,
-  currentAge = 'nano_atomic',
+  _currentAge = 'nano_atomic',
+  researchedTechs: string[] = [],
 ): { system: StarSystem; fleet: Fleet } {
   const planetIndex = system.planets.findIndex(p => p.id === targetPlanetId);
   if (planetIndex === -1) {
@@ -1177,9 +1199,9 @@ export function coloniseWithShip(
 
   const planet = system.planets[planetIndex]!;
 
-  // Determine colony ship tier from current tech age
-  const tier = getColonyShipTier(currentAge);
-  const buildingTypes = COLONY_SHIP_TIER_BUILDINGS[tier] ?? COLONY_SHIP_TIER_BUILDINGS[0]!;
+  // Determine founding package from researched coloniser techs
+  const buildingTypes = getFoundingBuildings(researchedTechs);
+  const initialPop = getFoundingPopulation(researchedTechs);
 
   const starterBuildings: Building[] = buildingTypes.map(type => ({
     id: generateId(),
@@ -1190,7 +1212,7 @@ export function coloniseWithShip(
   const colonisedPlanet: Planet = {
     ...planet,
     ownerId: empireId,
-    currentPopulation: COLONISER_SHIP_INITIAL_POPULATION,
+    currentPopulation: initialPop,
     buildings: [...planet.buildings, ...starterBuildings],
   };
 

@@ -501,16 +501,16 @@ function inferVictoryGoal(
   // Default: all criteria enabled
   const criteria = activeCriteria && activeCriteria.length > 0
     ? activeCriteria
-    : ['conquest', 'economic', 'research', 'diplomatic'] as VictoryCriteria[];
+    : ['conquest', 'dominance', 'economic', 'research', 'diplomatic', 'score'] as VictoryCriteria[];
 
-  // Personality → preferred victory path
+  // Personality → preferred victory path (includes dominance and score)
   const preferenceOrder: Record<AIPersonality, VictoryCriteria[]> = {
-    aggressive:   ['conquest', 'economic', 'research', 'diplomatic'],
-    defensive:    ['diplomatic', 'economic', 'research', 'conquest'],
-    economic:     ['economic', 'diplomatic', 'research', 'conquest'],
-    diplomatic:   ['diplomatic', 'economic', 'research', 'conquest'],
-    expansionist: ['conquest', 'economic', 'diplomatic', 'research'],
-    researcher:   ['research', 'economic', 'diplomatic', 'conquest'],
+    aggressive:   ['conquest', 'dominance', 'economic', 'score', 'research', 'diplomatic'],
+    defensive:    ['diplomatic', 'dominance', 'economic', 'score', 'research', 'conquest'],
+    economic:     ['economic', 'diplomatic', 'dominance', 'score', 'research', 'conquest'],
+    diplomatic:   ['diplomatic', 'dominance', 'economic', 'score', 'research', 'conquest'],
+    expansionist: ['conquest', 'dominance', 'economic', 'score', 'diplomatic', 'research'],
+    researcher:   ['research', 'economic', 'dominance', 'score', 'diplomatic', 'conquest'],
   };
 
   const preferred = preferenceOrder[personality];
@@ -770,6 +770,11 @@ export function evaluateWarStrategy(
       warScore += 20;
       reasons.push('Pursuing conquest victory — war serves our objective');
       break;
+    case 'dominance':
+      // Dominance needs both political influence and territorial control
+      warScore += 10;
+      reasons.push('Pursuing dominance victory — territorial expansion serves our objective');
+      break;
     case 'economic':
       // War drains resources; only fight if economically necessary
       warScore -= 10;
@@ -787,6 +792,10 @@ export function evaluateWarStrategy(
       warScore -= 20;
       peaceScore += 15;
       reasons.push('Pursuing diplomatic victory — war damages standing');
+      break;
+    case 'score':
+      // Score victory benefits from balanced play
+      reasons.push('Pursuing score victory — balanced approach');
       break;
   }
 
@@ -1245,26 +1254,36 @@ export function evaluateMilitaryActions(
     }
   }
 
-  // Scout unexplored systems — pick the smallest fleet (probes/scouts) for scouting
+  // Scout unexplored systems — send idle fleets to explore the frontier
+  // For conquest/dominance, exploration is critical to find colonisation targets
   if (unexplored.length > 0) {
-    const scoutTarget = unexplored[0]!;
     const personality = empire.aiPersonality ?? 'defensive';
-    const basePriority = personality === 'expansionist' ? 55 : 35;
-    // Prefer smallest fleet for scouting (likely a probe)
+    const milVictoryGoal = inferVictoryGoal(personality, gameState?.victoryCriteria);
+    const isExpGoal = milVictoryGoal === 'conquest' || milVictoryGoal === 'dominance';
+    const scoutBasePriority = isExpGoal ? 75 : personality === 'expansionist' ? 65 : 40;
+    // Send multiple scouts to different unexplored systems
     const idleFleets = empireFleets.filter(f => !f.destination);
-    const scoutFleet = idleFleets.length > 0
-      ? idleFleets.reduce((a, b) => a.ships.length <= b.ships.length ? a : b)
-      : empireFleets[0]!;
-    decisions.push({
-      type: 'move_fleet',
-      priority: applyWeight(basePriority, 'move_fleet', personality),
-      params: {
-        fleetId: scoutFleet.id,
-        destinationSystemId: scoutTarget,
-        purpose: 'scout',
-      },
-      reasoning: `Scout unexplored system ${scoutTarget}`,
-    });
+    const maxScouts = isExpGoal ? 3 : personality === 'expansionist' ? 2 : 1;
+    const assignedScoutTargets = new Set<string>();
+
+    // Sort idle fleets smallest-first (prefer probes/scouts for scouting)
+    const sortedIdle = [...idleFleets].sort((a, b) => a.ships.length - b.ships.length);
+
+    for (let si = 0; si < Math.min(maxScouts, sortedIdle.length, unexplored.length); si++) {
+      const target = unexplored.find(s => !assignedScoutTargets.has(s));
+      if (!target) break;
+      assignedScoutTargets.add(target);
+      decisions.push({
+        type: 'move_fleet',
+        priority: applyWeight(scoutBasePriority, 'move_fleet', personality),
+        params: {
+          fleetId: sortedIdle[si]!.id,
+          destinationSystemId: target,
+          purpose: 'scout',
+        },
+        reasoning: `Scout unexplored system ${target} (${unexplored.length} frontier systems)`,
+      });
+    }
   }
 
   // Evaluate war/peace strategy per opponent using the multi-factor engine
@@ -1963,8 +1982,12 @@ export function generateAIDecisions(
 
   const ownedPlanets = getEmpirePlanets(empire, gameState.galaxy);
 
+  // Victory goal boosts colonisation priority for territorial victories
+  const decisionVictoryGoal = inferVictoryGoal(personality, gameState.victoryCriteria);
+  const expansionBoost = (decisionVictoryGoal === 'conquest' || decisionVictoryGoal === 'dominance') ? 1.5 : 1.0;
+
   const colonization = evaluateColonizationTargets(empire, gameState.galaxy, empire.species).map(
-    d => ({ ...d, priority: applyWeight(d.priority, 'colonize', personality, sitCtx) }),
+    d => ({ ...d, priority: Math.min(100, applyWeight(d.priority, 'colonize', personality, sitCtx) * expansionBoost) }),
   );
 
   const research = evaluateResearchPriority(empire, researchState, personality, allTechs);
@@ -2033,50 +2056,64 @@ export function generateAIDecisions(
       });
     }
 
-    // Build a colony ship if we have none and can afford it (expansion priority)
-    // Check designs directly from the state's shipDesigns map
+    // Build colony ships for expansion — scaled by victory goal and available targets
     const stateDesigns = (gameState as unknown as Record<string, unknown>).shipDesigns as
       | Map<string, { hull: string }> | undefined;
     const empireShipIds = new Set(empireFleets.flatMap(f => f.ships));
     const empireShips = gameState.ships.filter(s => empireShipIds.has(s.id));
-    const hasColoniser = empireShips.some(s => {
+    const coloniserCount = empireShips.filter(s => {
       const design = stateDesigns?.get(s.designId);
       return design?.hull === 'coloniser';
-    });
-    if (!hasColoniser && ownedPlanets.length < 5) {
+    }).length;
+
+    // Check expansion opportunities: known unclaimed planets OR unexplored systems
+    const knownUnclaimedHabitable = gameState.galaxy.systems
+      .filter(s => empire.knownSystems.includes(s.id))
+      .flatMap(s => s.planets)
+      .filter(p => p.maxPopulation > 0 && !p.ownerId).length;
+    const hasUnexploredSystems = gameState.galaxy.systems.length > empire.knownSystems.length;
+    const hasExpansionTargets = knownUnclaimedHabitable > 0 || hasUnexploredSystems;
+
+    // Victory goal drives expansion aggressiveness
+    const victoryGoal = inferVictoryGoal(personality, gameState.victoryCriteria);
+    const isExpansionGoal = victoryGoal === 'conquest' || victoryGoal === 'dominance';
+    // Conquest/dominance: up to 3 colonisers at once; expansionist personality: 2; others: 1
+    const maxColonisers = isExpansionGoal ? 3 : personality === 'expansionist' ? 2 : 1;
+
+    if (coloniserCount < maxColonisers && hasExpansionTargets) {
+      const basePriority = isExpansionGoal ? 85 : personality === 'expansionist' ? 75 : 50;
       shipDecisions.push({
         type: 'build_ship',
-        priority: applyWeight(personality === 'expansionist' ? 75 : 50, 'build_ship', personality),
+        priority: applyWeight(basePriority, 'build_ship', personality),
         params: { planetId: shipyard.id, hullClass: 'coloniser' },
-        reasoning: `Build colony ship for expansion (${ownedPlanets.length} planets)`,
+        reasoning: `Build colony ship for expansion (${ownedPlanets.length} planets, ${knownUnclaimedHabitable} unclaimed targets, goal=${victoryGoal})`,
       });
     }
 
-    // Build a scout if we have no probes/scouts for exploration
-    const hasScout = empireShips.some(s => {
+    // Build scouts for exploration — more for expansion-focused empires
+    const scoutCount = empireShips.filter(s => {
       const design = stateDesigns?.get(s.designId);
       return design?.hull === 'scout' || design?.hull === 'deep_space_probe';
-    });
-    if (!hasScout) {
+    }).length;
+    const maxScouts = isExpansionGoal ? 3 : personality === 'expansionist' ? 2 : 1;
+    if (scoutCount < maxScouts && hasUnexploredSystems) {
+      const scoutPriority = isExpansionGoal ? 70 : 45;
       shipDecisions.push({
         type: 'build_ship',
-        priority: applyWeight(45, 'build_ship', personality),
+        priority: applyWeight(scoutPriority, 'build_ship', personality),
         params: { planetId: shipyard.id, hullClass: 'scout' },
-        reasoning: 'Build scout for exploration (no scouts available)',
+        reasoning: `Build scout for exploration (${scoutCount}/${maxScouts} scouts, ${isExpansionGoal ? 'expansion goal' : 'general'})`,
       });
     }
   }
 
-  // Cross-system colonisation: send colony ship fleets to uncolonised habitable systems
+  // Cross-system colonisation: send ALL idle colony ship fleets to uncolonised systems
   const stateDesignsOuter = (gameState as unknown as Record<string, unknown>).shipDesigns as
     | Map<string, { hull: string }> | undefined;
   const empireShipIdsOuter = new Set(empireFleets.flatMap(f => f.ships));
-  const hasAnyColoniser = gameState.ships
-    .filter(s => empireShipIdsOuter.has(s.id))
-    .some(s => stateDesignsOuter?.get(s.designId)?.hull === 'coloniser');
-  if (hasAnyColoniser) {
-    // Find a fleet with a coloniser ship
-    const coloniserFleet = empireFleets.find(f => {
+  {
+    // Find all idle fleets containing a coloniser ship
+    const coloniserFleets = empireFleets.filter(f => {
       if (f.destination) return false; // Already moving
       return f.ships.some(shipId => {
         const ship = gameState.ships.find(s => s.id === shipId);
@@ -2085,25 +2122,40 @@ export function generateAIDecisions(
         return design?.hull === 'coloniser';
       });
     });
-    if (coloniserFleet) {
-      // Find a known system with an uncolonised habitable planet
-      const targetSystem = gameState.galaxy.systems.find(s =>
-        empire.knownSystems.includes(s.id) &&
-        !s.planets.some(p => p.ownerId === empire.id) &&
-        s.planets.some(p => !p.ownerId && calculateHabitability(p, empire.species).score >= 40),
-      );
-      if (targetSystem) {
-        shipDecisions.push({
-          type: 'move_fleet',
-          priority: applyWeight(personality === 'expansionist' ? 80 : 60, 'move_fleet', personality),
-          params: {
-            fleetId: coloniserFleet.id,
-            destinationSystemId: targetSystem.id,
-            purpose: 'colonise',
-          },
-          reasoning: `Send colony ship to ${targetSystem.name ?? targetSystem.id} for colonisation`,
-        });
-      }
+
+    // Find all known systems with uncolonised habitable planets
+    const targetSystems = gameState.galaxy.systems.filter(s =>
+      empire.knownSystems.includes(s.id) &&
+      !s.planets.some(p => p.ownerId === empire.id) &&
+      s.planets.some(p => !p.ownerId && calculateHabitability(p, empire.species).score >= 40),
+    );
+
+    // Also find unexplored systems as fallback targets for coloniser-led exploration
+    const knownSystemSet = new Set(empire.knownSystems);
+    const unexploredSystems = gameState.galaxy.systems.filter(s => !knownSystemSet.has(s.id));
+
+    // Dispatch each idle coloniser to a unique target system
+    const assignedTargets = new Set<string>();
+    const colVictoryGoal = inferVictoryGoal(personality, gameState.victoryCriteria);
+    const isColExpansionGoal = colVictoryGoal === 'conquest' || colVictoryGoal === 'dominance';
+    const baseMoveP = isColExpansionGoal ? 85 : personality === 'expansionist' ? 80 : 60;
+
+    for (const fleet of coloniserFleets) {
+      // Prefer known habitable targets; fall back to unexplored systems
+      const knownTarget = targetSystems.find(s => !assignedTargets.has(s.id));
+      const target = knownTarget ?? unexploredSystems.find(s => !assignedTargets.has(s.id));
+      if (!target) break;
+      assignedTargets.add(target.id);
+      shipDecisions.push({
+        type: 'move_fleet',
+        priority: applyWeight(baseMoveP, 'move_fleet', personality),
+        params: {
+          fleetId: fleet.id,
+          destinationSystemId: target.id,
+          purpose: 'colonise',
+        },
+        reasoning: `Send colony ship to ${target.name ?? target.id} for ${knownTarget ? 'colonisation' : 'exploration + colonisation'}`,
+      });
     }
   }
 
@@ -2145,13 +2197,16 @@ export function selectTopDecisions(decisions: AIDecision[], maxDecisions: number
 
   for (const decision of decisions) {
     // Build a deduplication key from type + primary target param
+    // For build_ship, include hullClass so warship and coloniser builds don't collide
     const targetKey =
       (decision.params['planetId'] as string | undefined) ??
       (decision.params['techId'] as string | undefined) ??
       (decision.params['targetEmpireId'] as string | undefined) ??
       (decision.params['destinationSystemId'] as string | undefined) ??
       '';
-    const key = `${decision.type}:${targetKey}`;
+    const hullSuffix = decision.type === 'build_ship' && decision.params['hullClass']
+      ? `:${decision.params['hullClass']}` : '';
+    const key = `${decision.type}:${targetKey}${hullSuffix}`;
 
     if (seen.has(key)) continue;
     seen.add(key);

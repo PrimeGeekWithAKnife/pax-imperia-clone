@@ -7265,6 +7265,171 @@
         }
       ],
       "icon": "tech_bio_synthetic_fusion"
+    },
+
+    {
+      "id": "colonial_engineering",
+      "name": "Colonial Engineering",
+      "description": "Modular colony ship blueprints reduce material waste and construction time. Pre-fabricated habitat sections allow rapid deployment of industrial infrastructure upon landing, giving new settlements a factory from day one.",
+      "category": "construction",
+      "age": "nano_atomic",
+      "cost": 800,
+      "prerequisites": ["modular_architecture"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_factory" },
+        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 20 }
+      ],
+      "icon": "tech_colonial_engineering"
+    },
+    {
+      "id": "colonial_agriculture",
+      "name": "Colonial Agriculture",
+      "description": "Seed banks, soil microbiome starters, and automated hydroponic bays are packed into every colony ship. New worlds no longer face the spectre of famine in their first seasons — food security is guaranteed from landfall.",
+      "category": "biology",
+      "age": "nano_atomic",
+      "cost": 1000,
+      "prerequisites": ["molecular_biology"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_farm" },
+        { "type": "stat_bonus", "stat": "colony_growth_rate", "value": 5 }
+      ],
+      "icon": "tech_colonial_agriculture"
+    },
+    {
+      "id": "colonial_power_systems",
+      "name": "Colonial Power Systems",
+      "description": "Compact fusion micro-reactors integrated into the colony ship hull can be deployed as a permanent power plant upon landing. New settlements enjoy reliable energy from their first day, powering factories and defences alike.",
+      "category": "construction",
+      "age": "fusion",
+      "cost": 2500,
+      "prerequisites": ["colonial_engineering", "fusion_reactor_tech"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_power_plant" },
+        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 10 }
+      ],
+      "icon": "tech_colonial_power_systems"
+    },
+    {
+      "id": "colonial_warp_optimisation",
+      "name": "Colonial Warp Optimisation",
+      "description": "Specialised warp field geometries compensate for the colony ship's massive hull, allowing the vessel to maintain formation speed with military escorts. Expansion across the galaxy becomes a matter of months, not years.",
+      "category": "propulsion",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": ["colonial_engineering", "fusion_drives"],
+      "effects": [
+        { "type": "stat_bonus", "stat": "colony_ship_speed", "value": 3 }
+      ],
+      "icon": "tech_colonial_warp_optimisation"
+    },
+    {
+      "id": "fortified_settlements",
+      "name": "Fortified Settlements",
+      "description": "Armoured colonial transports carry prefabricated military bunkers, point-defence turrets, and reinforced shelters. Colonies founded on contested worlds can defend themselves from the moment the landing craft touches down.",
+      "category": "construction",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": ["colonial_power_systems", "advanced_materials"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_bunker" },
+        { "type": "stat_bonus", "stat": "colony_ship_defense", "value": 50 }
+      ],
+      "icon": "tech_fortified_settlements"
+    },
+    {
+      "id": "population_acceleration",
+      "name": "Population Acceleration",
+      "description": "Bioengineered growth hormones, fertility treatments, and cryogenically preserved colonists dramatically increase the founding population of new settlements. Colonies reach productive capacity in a fraction of the usual time.",
+      "category": "biology",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": ["colonial_agriculture", "genetic_optimisation"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_growth" },
+        { "type": "stat_bonus", "stat": "colony_initial_population", "value": 5000 }
+      ],
+      "icon": "tech_population_acceleration"
+    },
+
+    {
+      "id": "drakmari_war_colonisation",
+      "name": "War Colonisation Doctrine",
+      "description": "The Drakmari approach colonisation as they approach everything: as conquest. Military landing craft double as colony ships, establishing fortified beachheads with integrated weapons production and garrison facilities.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": ["colonial_engineering"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_shipyard" },
+        { "type": "enable_ability", "ability": "colony_founding_bunker" },
+        { "type": "stat_bonus", "stat": "colony_ship_defense", "value": 30 }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_war_colonisation"
+    },
+    {
+      "id": "sylvani_living_ships",
+      "name": "Living Colony Ships",
+      "description": "Sylvani bioengineers grow their colony ships from living organic matter. These vessels carry entire ecosystems within their hulls — forests, fungal networks, and pollinator swarms — that transplant seamlessly onto a new world.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": ["colonial_agriculture"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_farm" },
+        { "type": "enable_ability", "ability": "colony_founding_growth" },
+        { "type": "stat_bonus", "stat": "colony_growth_rate", "value": 10 }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_living_ships"
+    },
+    {
+      "id": "nexari_network_seeding",
+      "name": "Network Seeding Protocol",
+      "description": "Every Nexari colony ship carries a neural network hub and assimilation node, ensuring the new settlement is integrated into the collective consciousness before the landing struts deploy. Knowledge flows freely from the first moment.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": ["colonial_engineering"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_research" },
+        { "type": "enable_ability", "ability": "colony_founding_factory" },
+        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 15 }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_network_seeding"
+    },
+    {
+      "id": "teranos_manifest_destiny",
+      "name": "Manifest Destiny",
+      "description": "The Teranos believe expansion is not merely desirable but a biological imperative. Their colonial programme is the most efficient in the galaxy, packing every ship with factories, farms, and innovation labs — everything needed to turn a barren rock into a thriving world.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": ["colonial_engineering", "colonial_agriculture"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_factory" },
+        { "type": "enable_ability", "ability": "colony_founding_farm" },
+        { "type": "enable_ability", "ability": "colony_founding_power_plant" }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_manifest_destiny"
+    },
+    {
+      "id": "khazari_hive_seeding",
+      "name": "Hive Seeding",
+      "description": "Khazari queens carry the genetic template for an entire colony within their bodies. Their colony ships are mobile hives that can deploy a fully functioning population centre, breeding chambers, and defensive spore walls upon arrival.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": ["colonial_agriculture"],
+      "effects": [
+        { "type": "enable_ability", "ability": "colony_founding_growth" },
+        { "type": "enable_ability", "ability": "colony_founding_bunker" },
+        { "type": "stat_bonus", "stat": "colony_initial_population", "value": 3000 }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_hive_seeding"
     }
   ],
   "ageGates": {
