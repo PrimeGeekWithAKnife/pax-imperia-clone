@@ -224,12 +224,11 @@ export function calculateVictoryProgress(
 
 function buildConquestStatus(empire: Empire, gameState: GameState): VictoryConditionStatus {
   // Conquest requires:
-  //  1. Control 75% of planets this species can actually colonise (habitability >= 10)
+  //  1. Control 75% of colonisable planets (including those held by rivals — take them by force)
   //  2. Eliminate 75% of rival empires
   //
-  // The denominator uses species-specific habitability so toxic worlds that a
-  // species cannot colonise don't inflate the target. Gas giants (maxPop 0)
-  // are excluded entirely.
+  // The denominator includes all planets this species could colonise (habitability >= 10),
+  // whether currently owned by anyone or unclaimed. Conquest is a military victory path.
   const allPlanets = getAllPlanets(gameState.galaxy);
   const colonisable = allPlanets.filter(p =>
     p.maxPopulation > 0 && calculateHabitability(p, empire.species).score >= 10,
@@ -274,13 +273,17 @@ function buildDominanceStatus(
   gameState: GameState,
   councilLeaderEmpireId: string | null,
 ): VictoryConditionStatus {
-  // Planet check: 50% of planets this species can colonise (habitability >= 10)
+  // Planet check: 50% of non-rival colonisable planets (peaceful expansion path).
+  // Denominator = unclaimed habitable + your own colonies (excludes rival-held worlds).
+  // You win by settling the frontier, not conquering — distinct from conquest victory.
   const allPlanets = getAllPlanets(gameState.galaxy);
-  const colonisable = allPlanets.filter(p =>
-    p.maxPopulation > 0 && calculateHabitability(p, empire.species).score >= 10,
-  );
-  const owned = colonisable.filter(p => p.ownerId === empire.id).length;
-  const planetFraction = colonisable.length > 0 ? owned / colonisable.length : 0;
+  const myPlanets = allPlanets.filter(p => p.ownerId === empire.id && p.maxPopulation > 0).length;
+  const availablePool = allPlanets.filter(p =>
+    p.maxPopulation > 0 &&
+    (p.ownerId === empire.id || !p.ownerId) &&
+    calculateHabitability(p, empire.species).score >= 10,
+  ).length;
+  const planetFraction = availablePool > 0 ? myPlanets / availablePool : 0;
   const planetsMet = planetFraction >= DOMINANCE_PLANET_THRESHOLD;
 
   // Council leadership check
@@ -291,12 +294,12 @@ function buildDominanceStatus(
   const leaderProgress = isCouncilLeader ? 100 : 0;
   const progress = Math.round((planetProgress + leaderProgress) / 2);
 
-  const planetNeeded = Math.ceil(colonisable.length * DOMINANCE_PLANET_THRESHOLD);
+  const planetNeeded = Math.ceil(availablePool * DOMINANCE_PLANET_THRESHOLD);
 
   return {
     type: 'dominance',
     name: 'Galactic Dominance',
-    description: `Lead the Galactic Council (${isCouncilLeader ? 'Yes' : 'No'}) and control ${Math.round(DOMINANCE_PLANET_THRESHOLD * 100)}% of habitable planets (${owned}/${planetNeeded}).`,
+    description: `Lead the Galactic Council (${isCouncilLeader ? 'Yes' : 'No'}) and control ${Math.round(DOMINANCE_PLANET_THRESHOLD * 100)}% of available planets (${myPlanets}/${planetNeeded}).`,
     progress,
     isAchieved: isCouncilLeader && planetsMet,
   };
