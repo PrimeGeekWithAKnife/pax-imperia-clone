@@ -932,7 +932,8 @@ function ShipGroup({
     }));
   }, [components, sections]);
 
-  // Separate weapon slots and internal slots
+  // Separate weapon slots and internal slots.
+  // Show ALL weapon-category slots (even empty) as mount points on the hull.
   const weaponSlots = useMemo(() => {
     return components
       .map(({ slot, component }, i) => ({
@@ -942,10 +943,12 @@ function ShipGroup({
       }))
       .filter(
         ({ slot, component }) =>
-          component && WEAPON_TYPES.includes(component.type),
+          slot.category === 'weapon' ||
+          (component && WEAPON_TYPES.includes(component.type)),
       );
   }, [components, slotPositions]);
 
+  // Show ALL non-weapon slots — empty ones render as dim outlines
   const internalSlots = useMemo(() => {
     return components
       .map(({ slot, component }, i) => ({
@@ -954,8 +957,9 @@ function ShipGroup({
         pos: slotPositions[i]!.pos,
       }))
       .filter(
-        ({ component }) =>
-          component && !WEAPON_TYPES.includes(component.type),
+        ({ slot, component }) =>
+          slot.category !== 'weapon' &&
+          !(component && WEAPON_TYPES.includes(component.type)),
       );
   }, [components, slotPositions]);
 
@@ -967,21 +971,25 @@ function ShipGroup({
       {/* Engine nozzles */}
       <EngineNozzles sections={sections} />
 
-      {/* Weapon mount points */}
+      {/* Weapon mount points — shown for ALL weapon slots, dim grey when empty */}
       {weaponSlots.map(({ slot, component, pos }) => {
-        const colour = WEAPON_MOUNT_COLOUR[component!.type] ?? 0x5dcaa5;
+        const hasWeapon = component && WEAPON_TYPES.includes(component.type);
+        const colour = hasWeapon
+          ? (WEAPON_MOUNT_COLOUR[component!.type] ?? 0x5dcaa5)
+          : 0x445566; // dim grey placeholder for empty mount
         const dir = facingDirection(slot.facing);
 
         return (
           <React.Fragment key={slot.id}>
             <WeaponMount position={pos} colour={colour} direction={dir} />
 
-            {/* Firing arcs */}
+            {/* Firing arcs — always show the slot's arc coverage area;
+                equipped weapons are bright, empty mounts show dim outlines */}
             {showArcs && (
               <FiringArc
                 position={pos}
                 arcs={getWeaponArcs(slot)}
-                colour={colour}
+                colour={hasWeapon ? colour : 0x556677}
                 highlighted={highlightWeaponSlotId === slot.id}
                 dimmed={
                   highlightWeaponSlotId != null &&
@@ -993,10 +1001,12 @@ function ShipGroup({
         );
       })}
 
-      {/* Internal compartments */}
+      {/* Internal compartments — shown for all slots, dim when empty */}
       {internalSlots.map(({ slot, component, pos }) => {
-        const colour =
-          INTERNAL_COMPARTMENT_COLOUR[component!.type] ?? 0x888780;
+        const hasComponent = component != null;
+        const colour = hasComponent
+          ? (INTERNAL_COMPARTMENT_COLOUR[component!.type] ?? 0x888780)
+          : 0x334455; // dim outline for empty internal slot
 
         return (
           <InternalCompartment
