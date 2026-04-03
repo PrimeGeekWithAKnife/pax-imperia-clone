@@ -644,18 +644,18 @@ export function evaluateTreatyProposal(
 ): { accept: boolean; reason: string; counterTerms?: Record<string, number> } {
   // Cannot negotiate while at war.
   if (relation.status === 'at_war') {
-    return { accept: false, reason: 'We are at war — no treaties possible.' };
+    return { accept: false, reason: 'Your envoys are turned away at the border. There can be no negotiations while our forces clash in the void. Seek peace first.' };
   }
 
   // Must have made first contact.
   if (relation.firstContact === -1) {
-    return { accept: false, reason: 'No diplomatic contact has been established.' };
+    return { accept: false, reason: 'We have had no contact with this civilisation. Our diplomats cannot reach an empire we have not yet encountered.' };
   }
 
   // Avoid duplicate treaties of the same type.
   const alreadyHas = relation.treaties.some((t) => t.type === proposal.treatyType);
   if (alreadyHas) {
-    return { accept: false, reason: `A ${proposal.treatyType} treaty is already in effect.` };
+    return { accept: false, reason: `We already have a ${proposal.treatyType.replace(/_/g, ' ')} agreement in place. There is no need for a duplicate arrangement.` };
   }
 
   const personality: AIPersonality = target.aiPersonality ?? 'diplomatic';
@@ -673,18 +673,43 @@ export function evaluateTreatyProposal(
   const effectiveThreshold = baseThreshold - diplomacyBonus - trustModifier - typeModifier;
 
   if (relation.attitude < effectiveThreshold) {
-    return {
-      accept: false,
-      reason: `Insufficient goodwill — attitude ${relation.attitude} below required ${Math.round(effectiveThreshold)}.`,
+    const gap = effectiveThreshold - relation.attitude;
+    const treatyLabel = proposal.treatyType.replace(/_/g, ' ');
+    // Near miss — warm but cautious
+    if (gap < 15) {
+      const nearMissResponses: Record<AIPersonality, string> = {
+        diplomatic: `We appreciate your initiative regarding a ${treatyLabel}. Our people are warming to yours, but we feel it is prudent to continue building trust before formalising such an arrangement.`,
+        aggressive: `Your proposal for a ${treatyLabel} is... premature. Prove your strength and commitment first, then we shall reconsider.`,
+        defensive: `We are grateful for the offer of a ${treatyLabel}, and we see the wisdom in it. However, our council advises patience — let us continue our positive exchanges a while longer.`,
+        expansionist: `A ${treatyLabel}? Interesting. We are not opposed, but we need to see that your interests align more closely with ours before committing.`,
+        researcher: `We find the prospect of a ${treatyLabel} intellectually stimulating. However, our analysis suggests the relationship requires further maturation. We encourage continued cooperation.`,
+        economic: `We see the commercial merit in a ${treatyLabel}. But our risk assessment suggests we should deepen our trade relations first. Keep the credits flowing, and we shall revisit this soon.`,
+      };
+      return { accept: false, reason: nearMissResponses[personality] ?? nearMissResponses.diplomatic };
+    }
+    // Far from threshold — polite but firm
+    const farResponses: Record<AIPersonality, string> = {
+      diplomatic: `We must respectfully decline your proposal for a ${treatyLabel} at this time. Our peoples have not yet developed the mutual understanding such an agreement requires.`,
+      aggressive: `We have no interest in a ${treatyLabel} with you. Actions speak louder than words — demonstrate your worth.`,
+      defensive: `A ${treatyLabel} requires a foundation of trust we have not yet established. We suggest beginning with more modest overtures.`,
+      expansionist: `We do not see sufficient strategic alignment for a ${treatyLabel} at present. Perhaps in time, as our spheres of influence find common ground.`,
+      researcher: `Our analysis indicates the conditions for a ${treatyLabel} are not yet met. We suggest continued scientific and cultural exchange as a precursor.`,
+      economic: `The risk-reward calculus for a ${treatyLabel} does not favour us at this juncture. Perhaps increased trade would help change this assessment.`,
     };
+    return { accept: false, reason: farResponses[personality] ?? farResponses.diplomatic };
   }
 
   // Additional check: alliance requires high trust
   if (proposal.treatyType === 'alliance' && relation.trust < 50) {
-    return {
-      accept: false,
-      reason: `Trust too low for an alliance (${relation.trust}/100 — need at least 50).`,
+    const allianceResponses: Record<AIPersonality, string> = {
+      diplomatic: 'An alliance is a profound commitment. While our relations are positive, we feel we must know each other better before entrusting our defence to one another.',
+      aggressive: 'An alliance means trusting you with our survival. That trust has not been earned yet.',
+      defensive: 'We value the sentiment behind your alliance proposal. However, true alliances are forged through shared adversity and time — we are not there yet.',
+      expansionist: 'An alliance is tempting, but we must be certain our territorial ambitions are compatible before making such a binding commitment.',
+      researcher: 'Alliance requires deep mutual trust. Our diplomatic data suggests we should continue building confidence through research sharing and trade first.',
+      economic: 'An alliance carries significant obligations. We would prefer to strengthen our economic ties further before considering such a close partnership.',
     };
+    return { accept: false, reason: allianceResponses[personality] ?? allianceResponses.diplomatic };
   }
 
   // Aggressive personalities may counter-propose weaker terms for military treaties
@@ -696,15 +721,22 @@ export function evaluateTreatyProposal(
     counterTerms = { creditTransfer: 100 };
     return {
       accept: true,
-      reason: 'Accepted with additional compensation terms.',
+      reason: 'We accept your proposal — but our military commitment comes at a price. We expect compensation for the protection we extend to your borders.',
       counterTerms,
     };
   }
 
-  return {
-    accept: true,
-    reason: `${proposal.treatyType} treaty accepted.`,
+  // Acceptance — personality-flavoured
+  const treatyLabel = proposal.treatyType.replace(/_/g, ' ');
+  const acceptResponses: Record<AIPersonality, string> = {
+    diplomatic: `We are pleased to accept your ${treatyLabel} proposal. May this agreement mark the beginning of a lasting partnership between our peoples.`,
+    aggressive: `Your ${treatyLabel} proposal serves our mutual interests. We accept — do not give us cause to regret this decision.`,
+    defensive: `We gratefully accept the ${treatyLabel}. Together, we shall be stronger against the uncertainties of the galaxy.`,
+    expansionist: `A ${treatyLabel} aligns well with our vision for the sector. We accept with enthusiasm.`,
+    researcher: `Excellent — a ${treatyLabel} opens new avenues for collaboration. We accept and look forward to the exchange of knowledge.`,
+    economic: `This ${treatyLabel} should prove profitable for us both. We are pleased to accept.`,
   };
+  return { accept: true, reason: acceptResponses[personality] ?? acceptResponses.diplomatic };
 }
 
 /**
