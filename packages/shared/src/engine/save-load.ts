@@ -247,6 +247,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
       counterIntelLevel: new Map(data.espionageCounterIntel ?? []),
     },
     espionageEventLog: data.espionageEventLog ?? [],
+    warTerritoryTrackers: new Map(),
   };
 
   // Attach dynamic fields via mutable record cast

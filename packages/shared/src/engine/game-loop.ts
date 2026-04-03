@@ -168,6 +168,7 @@ import {
   generateAIDecisions,
   selectTopDecisions,
   type AIDecision,
+  type WarTerritoryTracker,
 } from './ai.js';
 import {
   initialiseEspionage,
@@ -402,6 +403,11 @@ export interface GameTickState {
    * Most recent events are appended at the end.
    */
   espionageEventLog: EspionageEvent[];
+  /**
+   * Per-empire war territory tracking for stalemate detection.
+   * Key = empireId. Updated each tick during AI decisions.
+   */
+  warTerritoryTrackers: Map<string, WarTerritoryTracker>;
 }
 
 /** The result returned by processGameTick. */
@@ -3619,13 +3625,27 @@ function stepAIDecisions(
 
     const personality = empire.aiPersonality ?? 'defensive';
 
-    // 1. Evaluate the strategic situation
+    // 1. Evaluate the strategic situation (with stalemate detection)
+    const trackers = state.warTerritoryTrackers ?? new Map<string, WarTerritoryTracker>();
+    if (!trackers.has(empire.id)) {
+      const ownedCount = state.gameState.galaxy.systems
+        .flatMap(s => s.planets).filter(p => p.ownerId === empire.id).length;
+      trackers.set(empire.id, {
+        lastPlanetCount: ownedCount,
+        lastChangeTick: state.gameState.currentTick,
+        opponentPlanets: new Map(),
+        opponentLastChange: new Map(),
+      });
+    }
     const evaluation = evaluateEmpireState(
       empire,
       state.gameState.galaxy,
       state.gameState.fleets,
       state.gameState.ships,
+      state.gameState.currentTick,
+      trackers.get(empire.id),
     );
+    state = { ...state, warTerritoryTrackers: trackers };
 
     // 2. Generate and rank all possible decisions
     // Attach shipDesigns to gameState so AI can check existing ship types
@@ -5438,6 +5458,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
       e.id,
       e.psychology ? initPsychologicalState(e.psychology) : undefined,
     ]).filter((entry): entry is [string, EmpirePsychologicalState] => entry[1] !== undefined)),
+    warTerritoryTrackers: new Map(),
   } as GameTickState;
 }
 

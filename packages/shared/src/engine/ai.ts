@@ -47,6 +47,23 @@ export interface AIEvaluation {
   expansionPotential: number;
   /** Threat level per opponent empire, 0–100. */
   threatAssessment: Map<string, number>;
+  /** Wars flagged as stalemates (opponent empireId → ticks stalled). */
+  stalemateWars: Map<string, number>;
+}
+
+/**
+ * Per-empire war territory tracking. Stored on GameTickState.
+ * Records planet counts at intervals to detect stalemates.
+ */
+export interface WarTerritoryTracker {
+  /** Planet count last recorded. */
+  lastPlanetCount: number;
+  /** Tick when territory last changed. */
+  lastChangeTick: number;
+  /** Per-war-opponent: their planet count at last check. */
+  opponentPlanets: Map<string, number>;
+  /** Per-war-opponent: tick when their territory last changed. */
+  opponentLastChange: Map<string, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1035,11 +1052,16 @@ export function evaluateWarStrategy(
  * Evaluate the current state of an empire and return a snapshot of key metrics
  * and threat assessments that feed into decision generation.
  */
+/** Stalemate threshold: if neither side's territory changes for this many ticks, flag it. */
+const STALEMATE_TICKS = 500;
+
 export function evaluateEmpireState(
   empire: Empire,
   galaxy: Galaxy,
   fleets: Fleet[],
   ships: Ship[],
+  currentTick = 0,
+  territoryTracker?: WarTerritoryTracker,
 ): AIEvaluation {
   const ownedPlanets = getEmpirePlanets(empire, galaxy);
   const empireFleets = getEmpireFleets(empire, fleets);
@@ -1089,6 +1111,41 @@ export function evaluateEmpireState(
     threatAssessment.set(opponentId, rawThreat);
   }
 
+  // Detect stalemate wars: territory hasn't changed for either side in N ticks
+  const stalemateWars = new Map<string, number>();
+  if (territoryTracker && currentTick > STALEMATE_TICKS) {
+    // Update tracker with current state
+    const myPlanets = ownedPlanets.length;
+    if (myPlanets !== territoryTracker.lastPlanetCount) {
+      territoryTracker.lastPlanetCount = myPlanets;
+      territoryTracker.lastChangeTick = currentTick;
+    }
+
+    // Check each active war
+    for (const rel of empire.diplomacy) {
+      if (rel.status !== 'at_war') continue;
+      const oppId = rel.empireId;
+      const oppPlanets = galaxy.systems.flatMap(s => s.planets).filter(p => p.ownerId === oppId).length;
+
+      const prevOppPlanets = territoryTracker.opponentPlanets.get(oppId) ?? oppPlanets;
+      const prevOppChange = territoryTracker.opponentLastChange.get(oppId) ?? currentTick;
+
+      if (oppPlanets !== prevOppPlanets) {
+        territoryTracker.opponentPlanets.set(oppId, oppPlanets);
+        territoryTracker.opponentLastChange.set(oppId, currentTick);
+      }
+
+      // Stalemate if NEITHER side's territory changed for STALEMATE_TICKS
+      const myStaleTicks = currentTick - territoryTracker.lastChangeTick;
+      const oppStaleTicks = currentTick - (territoryTracker.opponentLastChange.get(oppId) ?? currentTick);
+      const staleTicks = Math.min(myStaleTicks, oppStaleTicks);
+
+      if (staleTicks >= STALEMATE_TICKS) {
+        stalemateWars.set(oppId, staleTicks);
+      }
+    }
+  }
+
   return {
     empireId: empire.id,
     militaryPower,
@@ -1096,6 +1153,7 @@ export function evaluateEmpireState(
     techLevel,
     expansionPotential,
     threatAssessment,
+    stalemateWars,
   };
 }
 
@@ -1984,13 +2042,28 @@ export function generateAIDecisions(
 
   // Victory goal boosts colonisation priority for territorial victories
   const decisionVictoryGoal = inferVictoryGoal(personality, gameState.victoryCriteria);
-  const expansionBoost = (decisionVictoryGoal === 'conquest' || decisionVictoryGoal === 'dominance') ? 1.5 : 1.0;
+  const isInStalemate = evaluation.stalemateWars.size > 0;
+  // Stalemate: boost expansion even higher — outgrow the rival while maintaining the front
+  const expansionBoost = isInStalemate ? 2.0
+    : (decisionVictoryGoal === 'conquest' || decisionVictoryGoal === 'dominance') ? 1.5
+    : 1.0;
 
   const colonization = evaluateColonizationTargets(empire, gameState.galaxy, empire.species).map(
     d => ({ ...d, priority: Math.min(100, applyWeight(d.priority, 'colonize', personality, sitCtx) * expansionBoost) }),
   );
 
-  const research = evaluateResearchPriority(empire, researchState, personality, allTechs);
+  let research = evaluateResearchPriority(empire, researchState, personality, allTechs);
+  // During stalemate, boost weapon/defence research to break the deadlock
+  if (isInStalemate) {
+    research = research.map(d => {
+      const techId = d.params['techId'] as string | undefined;
+      const tech = techId ? allTechs.find(t => t.id === techId) : undefined;
+      const isCombatTech = tech && (tech.category === 'weapons' || tech.category === 'defense');
+      const isAgeTech = tech?.effects?.some((e: any) => e.type === 'age_unlock');
+      const boost = isAgeTech ? 2.0 : isCombatTech ? 1.8 : 1.0;
+      return { ...d, priority: Math.min(100, d.priority * boost) };
+    });
+  }
 
   // Compute average empire happiness for war strategy analysis
   const empireHappinessScores = ownedPlanets
@@ -2023,7 +2096,14 @@ export function generateAIDecisions(
     priority: applyWeight(d.priority, 'build', personality),
   }));
 
-  const diplomatic = evaluateDiplomaticActions(empire, evaluation, personality);
+  // Stalemate boosts diplomacy (seek allies), espionage (destabilise rival),
+  // and weapon/defence research (break the deadlock with better tech)
+  const stalemateMultiplier = isInStalemate ? 1.8 : 1.0;
+
+  const diplomatic = evaluateDiplomaticActions(empire, evaluation, personality).map(d => ({
+    ...d,
+    priority: Math.min(100, d.priority * stalemateMultiplier),
+  }));
 
   const building = evaluateBuildingPriority(empire, ownedPlanets, personality, evaluation);
 
@@ -2160,7 +2240,10 @@ export function generateAIDecisions(
   }
 
   // Espionage: recruit spies and assign missions against rival empires
-  const espionageDecisions = evaluateEspionageActions(empire, gameState, personality, evaluation);
+  const espionageDecisions = evaluateEspionageActions(empire, gameState, personality, evaluation).map(d => ({
+    ...d,
+    priority: Math.min(100, d.priority * stalemateMultiplier),
+  }));
 
   const allDecisions = [
     ...colonization,
