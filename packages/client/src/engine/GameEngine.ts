@@ -81,7 +81,7 @@ import {
 } from '@nova-imperia/shared';
 import type { DiplomacyState } from '@nova-imperia/shared';
 import type { Fleet, Ship } from '@nova-imperia/shared';
-import type { ResearchState, Governor, SpyAgent, SpyMission } from '@nova-imperia/shared';
+import type { ResearchState, Governor, SpyAgent, SpyMission, EmpireLeader, LeaderRole } from '@nova-imperia/shared';
 import type {
   FleetMovedEvent,
   CombatResolvedEvent,
@@ -1799,6 +1799,31 @@ export class GameEngine {
   /** Replace the governors array in the tick state. */
   setGovernors(governors: Governor[]): void {
     this.tickState = { ...this.tickState, governors };
+  }
+
+  /** Get all empire-wide leaders. */
+  getLeaders(): EmpireLeader[] {
+    return this.tickState.leaders ?? [];
+  }
+
+  /** Replace a leader for a given empire and role. */
+  replaceLeader(empireId: string, role: LeaderRole, newLeader: EmpireLeader): void {
+    const leaders = (this.tickState.leaders ?? []).filter(
+      l => !(l.empireId === empireId && l.role === role),
+    );
+    leaders.push(newLeader);
+    this.tickState = { ...this.tickState, leaders };
+  }
+
+  /** Assign or clear an admiral name on a fleet. */
+  setFleetAdmiral(fleetId: string, admiralName: string | undefined): void {
+    const fleets = this.tickState.gameState.fleets.map(f =>
+      f.id === fleetId ? { ...f, admiralName: admiralName || undefined } : f,
+    );
+    this.tickState = {
+      ...this.tickState,
+      gameState: { ...this.tickState.gameState, fleets },
+    };
   }
 
   loadState(newState: GameTickState): void {

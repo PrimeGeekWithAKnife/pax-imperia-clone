@@ -22,6 +22,7 @@ import type { EmpireResources } from '../types/resources.js';
 import type { ShipDesign, ShipComponent } from '../types/ships.js';
 import type { GameState } from '../types/game-state.js';
 import type { Governor } from '../types/governor.js';
+import type { EmpireLeader } from '../types/leaders.js';
 import type { PlanetWasteState, PlanetEnergyState } from '../types/waste.js';
 import type { SpyAgent, EspionageEvent } from './espionage.js';
 import { initialiseEspionage } from './espionage.js';
@@ -70,6 +71,7 @@ export interface SerializedTickState {
   shipDesigns: Array<[string, ShipDesign]>;
   shipComponents: ShipComponent[];
   governors: Governor[];
+  leaders: EmpireLeader[];
   wasteMap: Array<[string, PlanetWasteState]>;
   energyStateMap: Array<[string, PlanetEnergyState]>;
   disabledBuildingsMap: Array<[string, string[]]>;
@@ -147,6 +149,7 @@ export function serializeTickState(state: GameTickState): SerializedTickState {
     shipDesigns: Array.from((state.shipDesigns ?? new Map()).entries()),
     shipComponents: state.shipComponents ?? [],
     governors: state.governors ?? [],
+    leaders: state.leaders ?? [],
     wasteMap: Array.from(state.wasteMap.entries()),
     energyStateMap: Array.from(state.energyStateMap.entries()),
     disabledBuildingsMap: Array.from(state.disabledBuildingsMap.entries()),
@@ -239,6 +242,7 @@ export function deserializeTickState(data: SerializedTickState): GameTickState {
     shipDesigns: new Map(migratedDesigns),
     shipComponents: data.shipComponents,
     governors: data.governors ?? [],
+    leaders: data.leaders ?? [],
     wasteMap: new Map(data.wasteMap ?? []),
     energyStateMap: new Map(data.energyStateMap ?? []),
     disabledBuildingsMap: new Map(data.disabledBuildingsMap ?? []),

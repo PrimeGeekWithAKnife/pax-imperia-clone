@@ -9,6 +9,7 @@ export * from './resources.js';
 export * from './technology.js';
 export * from './government.js';
 export * from './governor.js';
+export * from './leaders.js';
 export * from './trade-routes.js';
 export * from './ai-personality.js';
 export * from './first-contact.js';

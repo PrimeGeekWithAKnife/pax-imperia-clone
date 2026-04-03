@@ -47,6 +47,8 @@ import { getEffectiveHullPoints } from '../types/ships.js';
 import { TRANSPORT_CAPACITY } from './ground-combat.js';
 import type { EmpireResources } from '../types/resources.js';
 import type { Governor } from '../types/governor.js';
+import type { EmpireLeader } from '../types/leaders.js';
+import { generateStartingLeaders, processLeadersTick, tickLeaderExperience, generateLeader } from './leaders.js';
 import { GOVERNMENTS } from '../types/government.js';
 import type {
   GameAction,
@@ -393,6 +395,11 @@ export interface GameTickState {
    * At most one governor should exist per planet at any time.
    */
   governors: Governor[];
+  /**
+   * Empire-wide leaders (Head of Research, Spy Master, Admiral, General).
+   * One of each role per empire, generated at game start, replaced on death.
+   */
+  leaders: EmpireLeader[];
   /**
    * Espionage state — spy agents, counter-intel levels for all empires.
    * Processed once per tick by stepEspionage.
@@ -2431,6 +2438,36 @@ function stepGovernors(
   }
 
   return { ...state, governors: updated };
+}
+
+/**
+ * Age all empire-wide leaders by one tick.
+ * Dead leaders are auto-replaced with a new random leader for that role.
+ */
+function stepLeaders(
+  state: GameTickState,
+  events: GameEvent[],
+): GameTickState {
+  if (state.leaders.length === 0) return state;
+
+  const experiencedLeaders = state.leaders.map(l => tickLeaderExperience(l));
+  const { updated, died } = processLeadersTick(experiencedLeaders);
+
+  // Auto-replace dead leaders with a fresh appointment
+  const replacements: EmpireLeader[] = [];
+  for (const leader of died) {
+    const replacement = generateLeader(leader.empireId, leader.role);
+    replacements.push(replacement);
+    events.push({
+      type: 'Notification',
+      empireId: leader.empireId,
+      message: `${leader.name}, your ${leader.role.replace(/_/g, ' ')}, has died. ${replacement.name} has been appointed as replacement.`,
+      category: 'government',
+      tick: state.gameState.currentTick,
+    } as unknown as GameEvent);
+  }
+
+  return { ...state, leaders: [...updated, ...replacements] };
 }
 
 // ---------------------------------------------------------------------------
@@ -5279,6 +5316,9 @@ export function processGameTick(
   // 3f. Governor ageing (age all governors; emit GovernorDied for those that expire)
   s = stepGovernors(s, events);
 
+  // 3g. Empire leader ageing (Head of Research, Spy Master, Admiral, General)
+  s = stepLeaders(s, events);
+
   // 4. Resource Production (applies happiness production multipliers, governor modifiers, and energy deficit penalties)
   s = stepResourceProduction(s);
 
@@ -5453,6 +5493,12 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     }
   }
 
+  // Generate empire-wide leaders (Head of Research, Spy Master, Admiral, General)
+  const startingLeaders: EmpireLeader[] = [];
+  for (const empire of gameState.empires) {
+    startingLeaders.push(...generateStartingLeaders(empire.id));
+  }
+
   // Generate default ship designs for starting age hulls
   const shipDesigns = new Map<string, ShipDesign>();
   for (const empire of gameState.empires) {
@@ -5485,6 +5531,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     energyStateMap: new Map<string, PlanetEnergyState>(),
     disabledBuildingsMap: new Map<string, string[]>(),
     governors: startingGovernors,
+    leaders: startingLeaders,
     shipDesigns,
     shipComponents: [...SHIP_COMPONENTS],
     espionageState: initialiseEspionage(gameState.empires.map(e => e.id)),
