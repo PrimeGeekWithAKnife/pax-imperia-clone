@@ -11,6 +11,8 @@ interface MinimapProps {
   viewport?: { x: number; y: number; width: number; height: number } | null;
   /** System IDs the player has discovered. When provided, only known systems are rendered. */
   knownSystems?: string[];
+  /** Empire ID → colour hex string for ownership display. */
+  empireColorMap?: Map<string, string>;
 }
 
 const MINIMAP_WIDTH = 200;
@@ -40,6 +42,7 @@ export function Minimap({
   galaxyHeight = 1000,
   viewport = null,
   knownSystems,
+  empireColorMap,
 }: MinimapProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -100,6 +103,29 @@ export function Minimap({
       }
     }
 
+    // Draw empire ownership rings behind star dots
+    if (empireColorMap) {
+      for (const sys of visibleSystems) {
+        if (!sys.ownerId || !empireColorMap.has(sys.ownerId)) continue;
+        const ox = toMapX(sys.position.x);
+        const oy = toMapY(sys.position.y);
+        const empCol = empireColorMap.get(sys.ownerId)!;
+        // Filled circle at low opacity
+        ctx.beginPath();
+        ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = empCol;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        // Ring outline
+        ctx.beginPath();
+        ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+        ctx.strokeStyle = empCol;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+
     // Draw star systems
     for (const sys of visibleSystems) {
       const mx = toMapX(sys.position.x);
@@ -131,7 +157,7 @@ export function Minimap({
       ctx.lineWidth = 1;
       ctx.strokeRect(rx, ry, rw, rh);
     }
-  }, [systems, galaxyWidth, galaxyHeight, viewport, knownSystems]);
+  }, [systems, galaxyWidth, galaxyHeight, viewport, knownSystems, empireColorMap]);
 
   // Redraw on prop changes
   useEffect(() => {

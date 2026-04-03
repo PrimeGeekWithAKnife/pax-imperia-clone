@@ -1656,7 +1656,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.starLayer.add(spikeGfx);
   }
 
-  // ── Home ring ──────────────────────────────────────────────────────────────
+  // ── Ownership rings (empire-coloured) ───────────────────────────────────────
 
   private createHomeRing(): void {
     this.homeRing = this.add.graphics();
@@ -1666,19 +1666,33 @@ export class GalaxyMapScene extends Phaser.Scene {
 
   private drawHomeRing(): void {
     this.homeRing.clear();
-    if (!this.homeSystemId) return;
 
-    const sys = this.galaxy.systems.find(s => s.id === this.homeSystemId);
-    if (!sys) return;
+    // Build empire colour lookup from live engine state
+    const empireColors = new Map<string, number>();
+    const engine = getGameEngine();
+    if (engine) {
+      for (const emp of engine.getState().gameState.empires) {
+        empireColors.set(emp.id, parseInt(emp.color.replace('#', ''), 16));
+      }
+    }
 
-    const visuals = STAR_VISUALS[sys.starType];
-    const ringRadius = visuals.glowRadius + 6;
+    for (const sys of this.galaxy.systems) {
+      if (!sys.ownerId) continue;
+      const color = empireColors.get(sys.ownerId) ?? 0x00d4ff;
+      const visuals = STAR_VISUALS[sys.starType];
+      const ringRadius = visuals.glowRadius + 6;
+      const isHome = sys.id === this.homeSystemId;
 
-    this.homeRing.lineStyle(2 / this.currentZoom, 0x00d4ff, 0.65);
-    this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius);
+      // Inner ring — brighter for home system
+      this.homeRing.lineStyle((isHome ? 2 : 1.2) / this.currentZoom, color, isHome ? 0.65 : 0.45);
+      this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius);
 
-    this.homeRing.lineStyle(1 / this.currentZoom, 0x00d4ff, 0.3);
-    this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius + 6);
+      // Outer glow ring
+      if (isHome) {
+        this.homeRing.lineStyle(1 / this.currentZoom, color, 0.3);
+        this.homeRing.strokeCircle(sys.position.x, sys.position.y, ringRadius + 6);
+      }
+    }
   }
 
   // ── Selection ─────────────────────────────────────────────────────────────────

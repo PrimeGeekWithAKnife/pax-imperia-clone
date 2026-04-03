@@ -51,21 +51,21 @@ const STAR_SCALE: Record<StarType, number> = {
 
 // ── Empire ownership colours ────────────────────────────────────────────────
 
-const PLAYER_COLOUR = '#00d4ff';
-const AI_EMPIRE_COLOURS = [
+const FALLBACK_PLAYER_COLOUR = '#00d4ff';
+const FALLBACK_AI_COLOURS = [
   '#ff6d00', '#e91e63', '#9c27b0', '#4caf50',
   '#ffc107', '#00bcd4', '#795548', '#ff5722',
 ];
 
-/** Return a consistent colour for a given ownerId. */
-function getEmpireColour(ownerId: string, playerEmpireId?: string): string {
-  if (ownerId === playerEmpireId) return PLAYER_COLOUR;
-  // Hash the ownerId to pick a colour deterministically
+/** Return the empire's assigned colour, falling back to a hash if not in the map. */
+function getEmpireColour(ownerId: string, empireColorMap?: Map<string, string>, playerEmpireId?: string): string {
+  if (empireColorMap?.has(ownerId)) return empireColorMap.get(ownerId)!;
+  if (ownerId === playerEmpireId) return FALLBACK_PLAYER_COLOUR;
   let hash = 0;
   for (let i = 0; i < ownerId.length; i++) {
     hash = ((hash << 5) - hash + ownerId.charCodeAt(i)) | 0;
   }
-  return AI_EMPIRE_COLOURS[Math.abs(hash) % AI_EMPIRE_COLOURS.length];
+  return FALLBACK_AI_COLOURS[Math.abs(hash) % FALLBACK_AI_COLOURS.length];
 }
 
 // ── Utility: Y offset for system (consistent across components) ─────────────
@@ -930,7 +930,7 @@ function StarCores({ systems, onStarClick, onStarHover, knownSystemIds }: StarFi
 
 // ── Empire ownership rings ──────────────────────────────────────────────────
 
-function EmpireRings({ systems, playerEmpireId }: { systems: StarSystem[]; playerEmpireId?: string }) {
+function EmpireRings({ systems, playerEmpireId, empireColorMap }: { systems: StarSystem[]; playerEmpireId?: string; empireColorMap?: Map<string, string> }) {
   const ownedSystems = useMemo(
     () => systems.filter(s => s.ownerId != null && (
       !playerEmpireId || s.discovered?.[playerEmpireId]
@@ -944,7 +944,7 @@ function EmpireRings({ systems, playerEmpireId }: { systems: StarSystem[]; playe
     <group>
       {ownedSystems.map(sys => {
         const yOffset = systemYOffset(sys);
-        const empireCol = getEmpireColour(sys.ownerId!, playerEmpireId);
+        const empireCol = getEmpireColour(sys.ownerId!, empireColorMap, playerEmpireId);
         return (
           <mesh
             key={`empire-ring-${sys.id}`}
@@ -996,7 +996,7 @@ function SelectionRing({ position }: { position: [number, number, number] }) {
 
 // ── System name labels (drei Html, distance-culled) ─────────────────────────
 
-function SystemLabels({ systems, playerEmpireId }: { systems: StarSystem[]; playerEmpireId?: string }) {
+function SystemLabels({ systems, playerEmpireId, empireColorMap }: { systems: StarSystem[]; playerEmpireId?: string; empireColorMap?: Map<string, string> }) {
   const { camera } = useThree();
   const [visibleSystems, setVisibleSystems] = useState<StarSystem[]>([]);
   const prevCountRef = useRef(0);
@@ -1034,7 +1034,7 @@ function SystemLabels({ systems, playerEmpireId }: { systems: StarSystem[]; play
               fontFamily: 'monospace',
               fontSize: 11,
               color: sys.ownerId
-                ? getEmpireColour(sys.ownerId, playerEmpireId)
+                ? getEmpireColour(sys.ownerId, empireColorMap, playerEmpireId)
                 : '#8899bb',
               textShadow: '0 0 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)',
               whiteSpace: 'nowrap',
@@ -1061,9 +1061,10 @@ interface FleetBadgeData {
   offsetIndex: number;
 }
 
-function FleetIndicators({ systems, playerEmpireId }: {
+function FleetIndicators({ systems, playerEmpireId, empireColorMap }: {
   systems: StarSystem[];
   playerEmpireId?: string;
+  empireColorMap?: Map<string, string>;
 }) {
   const { camera } = useThree();
   const [badges, setBadges] = useState<FleetBadgeData[]>([]);
@@ -1120,7 +1121,7 @@ function FleetIndicators({ systems, playerEmpireId }: {
       const sysId = fleet.position.systemId;
       if (!isPlayer && !observedSystemIds.has(sysId)) continue;
 
-      const colour = getEmpireColour(fleet.empireId, playerEmpireId);
+      const colour = getEmpireColour(fleet.empireId, empireColorMap, playerEmpireId);
       const order = orderByFleet.get(fleet.id);
 
       if (order && order.currentSegment > 0 && order.currentSegment < order.path.length) {
@@ -1162,7 +1163,7 @@ function FleetIndicators({ systems, playerEmpireId }: {
         stationaryList.push({
           fleet,
           shipCount: fleet.ships.length,
-          colour: getEmpireColour(fleet.empireId, playerEmpireId),
+          colour: getEmpireColour(fleet.empireId, empireColorMap, playerEmpireId),
           worldPos: [sys.position.x, yBase, sys.position.y],
           offsetIndex: idx,
         });
@@ -1697,11 +1698,12 @@ interface GalaxyMap3DProps {
   galaxy: Galaxy;
   playerEmpireId?: string;
   knownSystems?: string[];
+  empireColorMap?: Map<string, string>;
   onSystemSelected?: (system: StarSystem) => void;
   onClose?: () => void;
 }
 
-export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSelected, onClose }: GalaxyMap3DProps) {
+export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, empireColorMap, onSystemSelected, onClose }: GalaxyMap3DProps) {
   // Find player's home system to use as initial focus
   const playerHomeSystemId = useMemo(() => {
     if (!playerEmpireId) return null;
@@ -1818,7 +1820,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
         <Hyperlanes systems={galaxy.systems} />
 
         {/* Fleet position badges and in-transit animation */}
-        <FleetIndicators systems={galaxy.systems} playerEmpireId={playerEmpireId} />
+        <FleetIndicators systems={galaxy.systems} playerEmpireId={playerEmpireId} empireColorMap={empireColorMap} />
 
         {/* Waypoint route lines for player fleets */}
         <WaypointRouteLines systems={galaxy.systems} playerEmpireId={playerEmpireId} />
@@ -1827,7 +1829,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
         <Comets galaxy={galaxy} />
 
         {/* Empire ownership rings */}
-        <EmpireRings systems={galaxy.systems} playerEmpireId={playerEmpireId} />
+        <EmpireRings systems={galaxy.systems} playerEmpireId={playerEmpireId} empireColorMap={empireColorMap} />
 
         {/* Billboard star sprites — soft radial glow, replaces old sphere glows */}
         <StarSprites systems={galaxy.systems} knownSystemIds={knownSystemIdSet} />
@@ -1844,7 +1846,7 @@ export function GalaxyMap3D({ galaxy, playerEmpireId, knownSystems, onSystemSele
         {focusTarget && <SelectionRing position={focusTarget} />}
 
         {/* System name labels (distance-culled) */}
-        <SystemLabels systems={galaxy.systems} playerEmpireId={playerEmpireId} />
+        <SystemLabels systems={galaxy.systems} playerEmpireId={playerEmpireId} empireColorMap={empireColorMap} />
 
         {/* Camera controls */}
         <GalaxyCamera focusTarget={focusTarget} galaxyCentre={galaxyCentre} galaxyWidth={galaxy.width} galaxyHeight={galaxy.height} />

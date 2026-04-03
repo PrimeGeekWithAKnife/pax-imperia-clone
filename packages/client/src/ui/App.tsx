@@ -355,6 +355,18 @@ export function App(): React.ReactElement {
     return map;
   }, [playerEmpire, knownEmpires]);
 
+  const empireColorMap = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    map.set(playerEmpire.id, playerEmpire.color);
+    const engine = getGameEngine();
+    if (engine) {
+      for (const emp of engine.getState().gameState.empires) {
+        map.set(emp.id, emp.color);
+      }
+    }
+    return map;
+  }, [playerEmpire]);
+
   // ── Derive active migration info for the currently selected planet ──
   const activeMigrationForPanel = useMemo((): ActiveMigrationInfo | null => {
     if (!selectedPlanet) return null;
@@ -2434,6 +2446,7 @@ export function App(): React.ReactElement {
         galaxyHeight={galaxy?.height ?? 1000}
         viewport={viewport}
         knownSystems={playerEmpire.knownSystems}
+        empireColorMap={empireColorMap}
       />
 
       <EventLog entries={eventLogEntries} />
@@ -2617,6 +2630,7 @@ export function App(): React.ReactElement {
           galaxy={(galaxy || getGameEngine()?.getState().gameState.galaxy)!}
           playerEmpireId={playerEmpire.id}
           knownSystems={playerEmpire.knownSystems}
+          empireColorMap={empireColorMap}
           onSystemSelected={(sys) => {
             const game = (window as any).__EX_NIHILO_GAME__;
             if (game?.events) game.events.emit('system:selected', sys);

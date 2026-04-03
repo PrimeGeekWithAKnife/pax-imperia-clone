@@ -108,6 +108,7 @@ interface MigrationAnimation {
 export class SystemViewScene extends Phaser.Scene {
   private system!: StarSystem;
   private orbitEntries: OrbitEntry[] = [];
+  private empireColours = new Map<string, string>();
 
   // ── World container (zoomed + panned) ─────────────────────────────────────
   private worldContainer!: Phaser.GameObjects.Container;
@@ -731,7 +732,8 @@ export class SystemViewScene extends Phaser.Scene {
     }
 
     // Build maps of empireId → colour and speciesId for quick lookup
-    const empireColours = new Map<string, string>();
+    this.empireColours = new Map<string, string>();
+    const empireColours = this.empireColours;
     const empireSpecies = new Map<string, string>();
     for (const empire of state.gameState.empires) {
       empireColours.set(empire.id, empire.color);
@@ -1235,15 +1237,17 @@ export class SystemViewScene extends Phaser.Scene {
     }
 
     if (planet.ownerId !== null) {
+      const ownerHex = this.empireColours?.get(planet.ownerId);
+      const ownerColor = ownerHex ? parseInt(ownerHex.replace('#', ''), 16) : 0x00d4ff;
       const ownerRing = this.add.graphics();
-      ownerRing.lineStyle(2, 0x00d4ff, 0.75);
+      ownerRing.lineStyle(2, ownerColor, 0.75);
       ownerRing.strokeCircle(0, 0, radius + 4);
       container.add(ownerRing);
 
       const flag = this.add.graphics();
-      flag.fillStyle(0x00d4ff, 0.9);
+      flag.fillStyle(ownerColor, 0.9);
       flag.fillRect(-4, -(radius + 14), 8, 6);
-      flag.lineStyle(1, 0x00d4ff, 1);
+      flag.lineStyle(1, ownerColor, 1);
       flag.lineBetween(0, -(radius + 14), 0, -(radius + 4));
       container.add(flag);
     } else if (planet.currentPopulation > 0) {
