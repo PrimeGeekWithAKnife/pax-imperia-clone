@@ -1759,6 +1759,12 @@ export class GameEngine {
         researchPoints: full?.researchPoints ?? e.researchPoints,
       };
     }));
+    this.game.events.emit('engine:notification', {
+      empireId: playerEmpire.id,
+      message: `Spy agent recruited. Cost: ${SPY_RECRUIT_COST} credits.`,
+      category: 'espionage',
+      tick: this.tickState.gameState.currentTick,
+    });
 
     return true;
   }
@@ -2142,6 +2148,13 @@ export class GameEngine {
     const relation = getRelation(diplomacyState, playerEmpireId, targetEmpireId);
     if (!relation) return { accepted: false, reason: 'No diplomatic contact.' };
 
+    // Cooldown: at least 10 turns between diplomatic actions with the same empire
+    const DIPLOMACY_COOLDOWN = 10;
+    if (relation.lastInteraction > 0 && tick - relation.lastInteraction < DIPLOMACY_COOLDOWN) {
+      const remaining = DIPLOMACY_COOLDOWN - (tick - relation.lastInteraction);
+      return { accepted: false, reason: `Diplomatic channels busy. Wait ${remaining} more turn${remaining > 1 ? 's' : ''}.` };
+    }
+
     // Check if the target is an AI empire
     const targetEmpire = this.tickState.gameState.empires.find(e => e.id === targetEmpireId);
     const playerEmpire = this.tickState.gameState.empires.find(e => e.id === playerEmpireId);
@@ -2211,6 +2224,14 @@ export class GameEngine {
     if (!diplomacyState) return false;
     const playerEmpireId = this.getPlayerEmpireId();
     if (!playerEmpireId) return false;
+    const tick = this.tickState.gameState.currentTick;
+
+    // Cooldown check
+    const GIFT_COOLDOWN = 10;
+    const relation = getRelation(diplomacyState, playerEmpireId, targetEmpireId);
+    if (relation && relation.lastInteraction > 0 && tick - relation.lastInteraction < GIFT_COOLDOWN) {
+      return false;
+    }
 
     // Check player can afford it
     const resources = this.tickState.empireResourcesMap.get(playerEmpireId);
@@ -2236,7 +2257,6 @@ export class GameEngine {
     };
 
     // Apply attitude bonus (1 point per 100 credits, minimum 1)
-    const tick = this.tickState.gameState.currentTick;
     const attitudeBonus = Math.max(1, Math.round(amount / 100));
     const newState = modifyAttitudeFn(
       diplomacyState,
@@ -2263,6 +2283,21 @@ export class GameEngine {
         researchPoints: full?.researchPoints ?? e.researchPoints,
       };
     }));
+
+    // Notification with AI acknowledgement
+    const targetEmpire = this.tickState.gameState.empires.find(e => e.id === targetEmpireId);
+    const targetName = targetEmpire?.name ?? 'Unknown Empire';
+    const reactionText = attitudeBonus >= 10
+      ? `${targetName} is deeply grateful for your generosity.`
+      : attitudeBonus >= 5
+        ? `${targetName} thanks you for the generous gift.`
+        : `${targetName} acknowledges your gift.`;
+    this.game.events.emit('engine:notification', {
+      empireId: playerEmpireId,
+      message: `Sent ${amount.toLocaleString()} credits to ${targetName}. Relations improved by +${attitudeBonus}. ${reactionText}`,
+      category: 'diplomacy',
+      tick,
+    });
 
     return true;
   }

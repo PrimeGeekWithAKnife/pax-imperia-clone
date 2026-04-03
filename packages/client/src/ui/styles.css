@@ -10627,6 +10627,7 @@ button:active:not(:disabled),
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .espionage-screen__header {
