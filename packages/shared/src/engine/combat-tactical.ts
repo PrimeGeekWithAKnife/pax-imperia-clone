@@ -199,7 +199,8 @@ export interface TacticalShip {
   velocity: { x: number; y: number }; // current drift (Newtonian momentum)
   facing: number;        // radians (0 = +x direction)
   speed: number;         // max speed (pixels per tick)
-  acceleration: number;  // thrust per tick (speed / mass — lighter = faster accel)
+  acceleration: number;  // main engine thrust per tick (lighter = faster accel)
+  rcsThrust: number;     // RCS thruster force — direction-independent braking/strafing
   turnRate: number;      // radians per tick
   hull: number;
   maxHull: number;
@@ -997,10 +998,11 @@ export function initializeTacticalCombat(
         // Max speed comes from the hull — engines don't make you faster,
         // they make you accelerate faster (more thrust).
         speed: hullTemplate?.baseSpeed ?? extracted.speed,
-        // Acceleration = engine thrust / mass. Engine speed stat is thrust.
-        // Hull baseSpeed is NOT thrust — it's the velocity cap.
+        // Acceleration = engine thrust / mass.
         acceleration: Math.max(extracted.speed, 1)
           / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
+        // RCS provides direction-independent thrust for braking without turning
+        rcsThrust: extracted.rcsThrust ?? 0,
         // Turn rate scales inversely with mass. Drones turn on a pin,
         // battleships lumber. Unmanned craft (drones) get a 2x bonus.
         turnRate: (hullTemplate?.manned === false ? 0.20 : 0.10)
@@ -1056,6 +1058,7 @@ export function initializeTacticalCombat(
         facing: angle + Math.PI, // face outward
         speed: 0,
         acceleration: 0,
+        rcsThrust: 0,
         turnRate: Math.PI, // can rotate freely to aim
         hull: maxHullValue,
         maxHull: maxHullValue,
@@ -1117,6 +1120,7 @@ export function initializeTacticalCombat(
 interface ExtractedStats {
   speed: number;
   turnRate: number;
+  rcsThrust: number;
   maxShields: number;
   armour: number;
   sensorRange: number;
@@ -1234,6 +1238,9 @@ function extractShipStats(
         case 'engine':
           speed = Math.max(speed, comp.stats['speed'] ?? 0);
           break;
+        case 'rcs_thrusters':
+          evasionBonus += comp.stats['evasionBonus'] ?? 0;
+          break;
         case 'shield':
           maxShields += comp.stats['shieldStrength'] ?? 0;
           break;
@@ -1277,6 +1284,7 @@ function extractShipStats(
   return {
     speed: speed > 0 ? speed : DEFAULT_SPEED,
     turnRate: DEFAULT_TURN_RATE,
+    rcsThrust: evasionBonus * 0.1, // RCS evasion stat → small omnidirectional thrust
     maxShields,
     armour,
     sensorRange: sensorRange > 0 ? sensorRange : DEFAULT_SENSOR_RANGE,
@@ -1726,10 +1734,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   }
 }
 
-/** Drag coefficient — velocity decays by this fraction per tick.
- *  0.99 = momentum persists for ~70 ticks. Ships must thrust retrograde
- *  or arc to change direction. Lower = more "ice skating". */
-const SPACE_DRAG = 0.99;
+/** No drag in space — momentum is conserved. Ships drift at constant
+ *  velocity until they thrust in another direction. The only way to
+ *  stop is to turn around and burn retrograde. */
+const SPACE_DRAG = 1.0;
 /** Max velocity magnitude (prevents runaway speeds). */
 const MAX_VELOCITY = 12;
 
@@ -1772,12 +1780,25 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
   let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
   const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
-  // Retrograde braking — ship must turn and burn to decelerate
-  if (currentSpeed > 0.3) {
+  // Braking in space — two options:
+  // 1. Main engine: effective only when facing roughly retrograde
+  // 2. RCS thrusters: always apply retrograde regardless of facing (weaker)
+  if (currentSpeed > 0.2) {
     const retroAngle = Math.atan2(-vy, -vx);
-    const brakeForce = (ship.acceleration ?? ship.speed) * 0.25 * crewJitterMul(exp);
-    vx += Math.cos(retroAngle) * brakeForce;
-    vy += Math.sin(retroAngle) * brakeForce;
+
+    // Main engine braking — depends on facing
+    const facingDelta = Math.abs(normaliseAngle(newFacing - retroAngle));
+    const mainBrakeEfficiency = Math.max(0, Math.cos(facingDelta));
+    const mainBrake = (ship.acceleration ?? ship.speed) * 0.3 * mainBrakeEfficiency * crewJitterMul(exp);
+    vx += Math.cos(newFacing) * mainBrake;
+    vy += Math.sin(newFacing) * mainBrake;
+
+    // RCS braking — always retrograde, regardless of facing (weaker)
+    const rcsBrake = (ship.rcsThrust ?? 0) * crewJitterMul(exp);
+    if (rcsBrake > 0) {
+      vx += Math.cos(retroAngle) * rcsBrake;
+      vy += Math.sin(retroAngle) * rcsBrake;
+    }
   }
 
   return {
@@ -1855,12 +1876,23 @@ function moveToward(
     const thrustAngle = newFacing + jitterAngle;
     newVx += Math.cos(thrustAngle) * accel * 0.3;
     newVy += Math.sin(thrustAngle) * accel * 0.3;
-  } else if (currentSpeed > 0.5) {
-    // Retrograde braking — jitter on brake timing/force
+  } else if (currentSpeed > 0.3) {
+    // Within minDist — need to slow down.
     const retroAngle = Math.atan2(-vy, -vx);
-    const brakeForce = accel * 0.2 * crewJitterMul(exp);
-    newVx += Math.cos(retroAngle) * brakeForce;
-    newVy += Math.sin(retroAngle) * brakeForce;
+
+    // Main engine braking — only effective when facing retrograde
+    const facingDelta = Math.abs(normaliseAngle(newFacing - retroAngle));
+    const mainBrakeEfficiency = Math.max(0, Math.cos(facingDelta));
+    const mainBrake = accel * 0.3 * mainBrakeEfficiency * crewJitterMul(exp);
+    newVx += Math.cos(newFacing) * mainBrake;
+    newVy += Math.sin(newFacing) * mainBrake;
+
+    // RCS braking — always retrograde regardless of facing
+    const rcsBrake = (ship.rcsThrust ?? 0) * crewJitterMul(exp);
+    if (rcsBrake > 0) {
+      newVx += Math.cos(retroAngle) * rcsBrake;
+      newVy += Math.sin(retroAngle) * rcsBrake;
+    }
   }
 
   // Apply drag (simulates micro-thruster corrections / space friction lite)
