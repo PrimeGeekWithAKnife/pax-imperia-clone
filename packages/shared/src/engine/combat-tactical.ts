@@ -1352,49 +1352,33 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
 
   // ── Captain self-assessment ──────────────────────────────────────
   // Captains assess their own ship state and may override orders.
-  // This runs BEFORE order/stance processing so it can force retreat.
+  // Only triggers under extreme conditions — does NOT run on stance
+  // changes, only on genuine survival threats.
 
   const hpFraction = ship.hull / ship.maxHull;
   const shieldFraction = ship.maxShields > 0 ? ship.shields / ship.maxShields : 1;
   const morale = ship.crew.morale;
-  const weaponsWorking = ship.weapons.filter(
-    w => w.type !== 'point_defense' && (w.ammo === undefined || w.ammo > 0),
-  ).length;
-  const totalWeapons = ship.weapons.filter(w => w.type !== 'point_defense').length;
-  const ammoRemaining = totalWeapons > 0 ? weaponsWorking / totalWeapons : 0;
 
   // Critical damage: captain may disobey and flee
-  if (hpFraction < 0.15 && ship.stance !== 'aggressive') {
-    // Near death — captain overrides to flee unless aggressive
+  if (hpFraction < 0.15 && ship.stance !== 'aggressive' && ship.damageTakenThisTick > 0) {
     return moveShip({ ...updated, order: { type: 'flee' }, stance: 'flee' }, state);
   }
 
   // Low morale: crew refuses to advance, retreats
-  if (morale < 20 && ship.stance !== 'aggressive') {
+  if (morale < 15 && ship.stance !== 'aggressive') {
     return moveShip({ ...updated, order: { type: 'flee' }, stance: 'flee' }, state);
   }
 
   // Tactical retreat: shields down and badly hurt — pull back to recharge
-  if (shieldFraction < 0.1 && hpFraction < 0.4 && ship.maxShields > 0 && ship.stance !== 'aggressive') {
-    // Retreat to map edge on our side to recharge shields
+  if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0
+      && ship.stance !== 'aggressive' && ship.damageTakenThisTick > 0) {
     const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
     const retreatY = ship.position.y;
     const retreatDist = dist(ship.position, { x: retreatX, y: retreatY });
     if (retreatDist > 30) {
       return moveToward(updated, { x: retreatX, y: retreatY }, 20);
     }
-    // At retreat position — hold and let shields recharge
     return updated;
-  }
-
-  // No weapons left: captain pulls back (useless in combat)
-  if (ammoRemaining === 0 && totalWeapons > 0 && ship.stance !== 'aggressive') {
-    return moveShip({ ...updated, stance: 'evasive' }, state);
-  }
-
-  // Shaky morale: captain switches to evasive (won't flee but won't charge)
-  if (morale < 40 && ship.stance === 'aggressive') {
-    return moveShip({ ...updated, stance: 'at_ease' }, state);
   }
 
   // ── Normal order/stance processing ───────────────────────────────
@@ -1492,25 +1476,17 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     }
 
     case 'at_ease': {
-      // Captain's judgement — engage but reposition intelligently
-      // If in a good firing position (within range), hold and turn to broadside
-      if (d <= maxRange && d >= engageDistance(ship) * 0.5) {
-        const desiredAngle = angleTo(ship.position, target.position);
-        const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-        const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-        return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
-      }
-      // Too far — close to engage distance
-      if (d > maxRange) {
+      // Captain's judgement — engage but hold a comfortable firing position.
+      // Approach to engagement distance, then hold and face the target.
+      if (d > engageDistance(ship) * 1.1) {
+        // Too far — close to engagement range
         return moveToward(updated, target.position, engageDistance(ship));
       }
-      // Too close — back off slightly
-      if (d < engageDistance(ship) * 0.4) {
-        const awayX = ship.position.x + (ship.position.x - target.position.x);
-        const awayY = ship.position.y + (ship.position.y - target.position.y);
-        return moveToward(updated, { x: awayX, y: awayY }, 0);
-      }
-      return moveToward(updated, target.position, engageDistance(ship));
+      // In a good position — hold and face target
+      const desiredAngle = angleTo(ship.position, target.position);
+      const angleDiff = normaliseAngle(desiredAngle - ship.facing);
+      const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+      return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
     }
 
     case 'evasive': {
@@ -2391,39 +2367,41 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   // ── Escape pods ─────────────────────────────────────────────────────────
   // Spawn pods from newly destroyed ships; update existing pod positions.
-  const newPods: EscapePod[] = [];
-  const alreadyDestroyedIds = new Set(state.ships.filter(s => s.destroyed).map(s => s.id));
-  for (const ship of ships) {
-    if (ship.destroyed && !alreadyDestroyedIds.has(ship.id)) {
-      // Newly destroyed — spawn 1-4 escape pods based on hull size
-      const podCount = ship.maxHull < 80 ? 1 : ship.maxHull < 200 ? 2 : ship.maxHull < 400 ? 3 : 4;
-      for (let i = 0; i < podCount; i++) {
-        // Pods scatter in random directions away from the battle
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 2 + Math.random() * 2;
-        newPods.push({
-          id: generateId(),
-          x: ship.position.x + (Math.random() - 0.5) * 10,
-          y: ship.position.y + (Math.random() - 0.5) * 10,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          side: ship.side,
-          ttl: 80 + Math.floor(Math.random() * 40), // ~80-120 ticks
-        });
+  let activePods: EscapePod[] = [];
+  try {
+    const newPods: EscapePod[] = [];
+    const alreadyDestroyedIds = new Set(
+      (state.ships ?? []).filter(s => s.destroyed).map(s => s.id),
+    );
+    for (const ship of ships) {
+      if (ship.destroyed && !alreadyDestroyedIds.has(ship.id) && ship.position) {
+        const podCount = ship.maxHull < 80 ? 1 : ship.maxHull < 200 ? 2 : ship.maxHull < 400 ? 3 : 4;
+        for (let i = 0; i < podCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 2;
+          newPods.push({
+            id: generateId(),
+            x: ship.position.x + (Math.random() - 0.5) * 10,
+            y: ship.position.y + (Math.random() - 0.5) * 10,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            side: ship.side,
+            ttl: 80 + Math.floor(Math.random() * 40),
+          });
+        }
       }
     }
+    activePods = [...(state.escapePods ?? []), ...newPods]
+      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, ttl: pod.ttl - 1 }))
+      .filter(pod => pod.ttl > 0 &&
+        pod.x > -50 && pod.x < BATTLEFIELD_WIDTH + 50 &&
+        pod.y > -50 && pod.y < BATTLEFIELD_HEIGHT + 50);
+  } catch {
+    // Escape pods are cosmetic — never crash the simulation
+    activePods = (state.escapePods ?? [])
+      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, ttl: pod.ttl - 1 }))
+      .filter(pod => pod.ttl > 0);
   }
-  // Update existing pods
-  const activePods = [...(state.escapePods ?? []), ...newPods]
-    .map(pod => ({
-      ...pod,
-      x: pod.x + pod.vx,
-      y: pod.y + pod.vy,
-      ttl: pod.ttl - 1,
-    }))
-    .filter(pod => pod.ttl > 0 &&
-      pod.x > -50 && pod.x < BATTLEFIELD_WIDTH + 50 &&
-      pod.y > -50 && pod.y < BATTLEFIELD_HEIGHT + 50);
 
   return {
     tick: state.tick + 1,
