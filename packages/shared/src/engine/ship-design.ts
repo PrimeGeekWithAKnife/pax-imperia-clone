@@ -508,27 +508,12 @@ export function autoEquipDesign(
     }
   }
 
-  // Set sensible armour plating defaults by hull class — heavier hulls get more
-  const ARMOUR_DEFAULTS: Record<string, number> = {
-    // Capital ships
-    battleship: 0.3, heavy_battleship: 0.3, battle_station: 0.3,
-    planet_killer: 0.3, space_station: 0.3, large_space_station: 0.3,
-    light_battleship: 0.25, super_carrier: 0.25,
-    // Cruisers & carriers
-    light_cruiser: 0.2, heavy_cruiser: 0.2, carrier: 0.2,
-    // Mid-size
-    frigate: 0.15, destroyer: 0.1, corvette: 0.1,
-    // Transports & support
-    transport: 0.1, large_transport: 0.1, cargo: 0.05, large_cargo: 0.05,
-    large_supplier: 0.05, small_space_station: 0.1,
-    // Light craft
-    patrol: 0.0, fighter: 0.0, bomber: 0.0, drone: 0.0, yacht: 0.0,
-    science_probe: 0.0, spy_probe: 0.0,
-    // Colonisers
-    coloniser_gen1: 0.0, coloniser_gen2: 0.0, coloniser_gen3: 0.05,
-    coloniser_gen4: 0.1, coloniser_gen5: 0.1,
-  };
-  const armourPlating = ARMOUR_DEFAULTS[hull.class] ?? 0;
+  // Full armour plating for all combat-capable ships; non-combat hulls get none
+  const NO_ARMOUR_HULLS = new Set([
+    'science_probe', 'spy_probe', 'yacht', 'cargo', 'large_cargo',
+    'large_supplier',
+  ]);
+  const armourPlating = NO_ARMOUR_HULLS.has(hull.class) ? 0 : 1.0;
 
   return {
     id: generateId(),

@@ -461,8 +461,24 @@ export function ShipDesignerScreen({
         {/* Header */}
         <div className="ship-designer__header">
           <div className="ship-designer__title">SHIP DESIGNER</div>
-          <div className="ship-designer__subtitle">
-            Design and configure ships for your empire
+          <div className="ship-designer__validation-bar">
+            <div className={`sd-validation-inline ${validationResult.valid ? 'sd-validation-inline--ok' : 'sd-validation-inline--err'}`}>
+              <span className="sd-validation-icon">
+                {validationResult.valid ? 'OK' : 'ERR'}
+              </span>
+              <span className="sd-validation-text">
+                {validationResult.valid
+                  ? 'Design is valid'
+                  : `${validationResult.errors.length} error${validationResult.errors.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            {!validationResult.valid && (
+              <ul className="sd-validation-errors-inline">
+                {validationResult.errors.map((e, i) => (
+                  <li key={i} className="sd-validation-error-inline">{e}</li>
+                ))}
+              </ul>
+            )}
           </div>
           <button
             type="button"
@@ -1004,27 +1020,6 @@ export function ShipDesignerScreen({
               </div>
             </div>
 
-            {/* Validation */}
-            <div className="sd-stats-section">
-              <div className="sd-stats-section-label">VALIDATION</div>
-              <div className={`sd-validation ${validationResult.valid ? 'sd-validation--ok' : 'sd-validation--err'}`}>
-                <span className="sd-validation-icon">
-                  {validationResult.valid ? 'OK' : 'ERR'}
-                </span>
-                <span className="sd-validation-text">
-                  {validationResult.valid
-                    ? 'Design is valid'
-                    : `${validationResult.errors.length} error${validationResult.errors.length !== 1 ? 's' : ''}`}
-                </span>
-              </div>
-              {!validationResult.valid && (
-                <ul className="sd-validation-errors">
-                  {validationResult.errors.map((e, i) => (
-                    <li key={i} className="sd-validation-error">{e}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
 
             {/* Comparison selector */}
             {savedDesigns.length > 0 && (
