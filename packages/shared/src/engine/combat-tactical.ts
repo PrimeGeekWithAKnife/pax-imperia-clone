@@ -1864,6 +1864,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         }
       }
 
+      // Small craft always orbit — never hold position or do simple approach
+      if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
+        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
+      }
+
       // No immediate threats — if within comfortable engagement range, hold and face
       // Use smartEngageDist (not maxRange) so we close to where MOST weapons fire
       if (d <= smartEngageDist * 1.1) {
@@ -1879,10 +1884,6 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const flankX = target.position.x - Math.cos(flankAngle) * smartEngageDist;
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment, state.ships);
-      }
-      // No attack order — cautiously advance
-      if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
-        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
       }
       return moveToward(updated, {
         x: target.position.x + spreadX,
