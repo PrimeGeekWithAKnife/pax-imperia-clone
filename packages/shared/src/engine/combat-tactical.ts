@@ -1476,13 +1476,68 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     }
 
     case 'at_ease': {
-      // Captain's judgement — engage but hold a comfortable firing position.
-      // Approach to engagement distance, then hold and face the target.
-      if (d > engageDistance(ship) * 1.1) {
-        // Too far — close to engagement range
+      // Captain's judgement — assess the situation before acting.
+      //
+      // Priority 1: Is someone shooting at us? Engage the threat.
+      // Priority 2: Is an ally nearby under fire? Move to assist.
+      // Priority 3: Enemy closing into our range? Face them, weapons ready.
+      // Priority 4: Nothing pressing? Hold position, face nearest enemy.
+
+      // Check if any enemy is actively targeting us
+      const threatToUs = state.ships.find(
+        (s) => s.side !== ship.side && !s.destroyed && !s.routed &&
+          s.order.type === 'attack' &&
+          (s.order.targetId === ship.id || s.order.targetId === ship.sourceShipId),
+      );
+
+      if (threatToUs) {
+        const threatDist = dist(ship.position, threatToUs.position);
+        if (threatDist <= maxRange) {
+          // Threat in range — hold position and face them
+          const desiredAngle = angleTo(ship.position, threatToUs.position);
+          const angleDiff = normaliseAngle(desiredAngle - ship.facing);
+          const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+          return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+        }
+        // Threat out of range — close to engage
+        return moveToward(updated, threatToUs.position, engageDistance(ship));
+      }
+
+      // Check if a nearby ally is under fire
+      const alliesUnderFire = state.ships.filter(
+        (s) => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed &&
+          s.damageTakenThisTick > 0,
+      );
+      if (alliesUnderFire.length > 0) {
+        // Find the closest ally taking damage
+        let closestAlly = alliesUnderFire[0]!;
+        let closestAllyDist = dist(ship.position, closestAlly.position);
+        for (const ally of alliesUnderFire) {
+          const ad = dist(ship.position, ally.position);
+          if (ad < closestAllyDist) { closestAlly = ally; closestAllyDist = ad; }
+        }
+        // Only assist if reasonably close (within 2x weapon range)
+        if (closestAllyDist < maxRange * 2) {
+          // Move toward the ally to provide fire support
+          return moveToward(updated, closestAlly.position, engageDistance(ship));
+        }
+      }
+
+      // No immediate threats — if enemy in range, hold and face them
+      if (d <= maxRange) {
+        const desiredAngle = angleTo(ship.position, target.position);
+        const angleDiff = normaliseAngle(desiredAngle - ship.facing);
+        const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+        return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+      }
+
+      // Nothing pressing and enemy out of range — hold position
+      // (don't charge across the map uninstructed)
+      if (ship.order.type === 'attack') {
+        // Explicit attack order — close to engagement range
         return moveToward(updated, target.position, engageDistance(ship));
       }
-      // In a good position — hold and face target
+      // No attack order — stay put, face the nearest enemy
       const desiredAngle = angleTo(ship.position, target.position);
       const angleDiff = normaliseAngle(desiredAngle - ship.facing);
       const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
