@@ -49,7 +49,7 @@ function getAvailableHulls(age: TechAge): Array<{ class: HullClass; name: string
   return HULL_TEMPLATES
     .filter(h => {
       const hullAgeIdx = TECH_AGES.findIndex(a => a.name === h.requiredAge);
-      return hullAgeIdx <= ageIdx && h.class !== 'coloniser' && h.class !== 'deep_space_probe';
+      return hullAgeIdx <= ageIdx && !h.class.startsWith('coloniser') && h.class !== 'science_probe' && h.class !== 'spy_probe';
     })
     .map(h => ({ class: h.class as HullClass, name: h.name, hp: h.baseHullPoints }));
 }
@@ -72,8 +72,8 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
   const [playerSpeciesId, setPlayerSpeciesId] = useState(PREBUILT_SPECIES[0].id);
   const [aiSpeciesId, setAiSpeciesId] = useState(PREBUILT_SPECIES[1].id);
   const [techAge, setTechAge] = useState<TechAge>('nano_atomic');
-  const [playerShips, setPlayerShips] = useState<HullClass[]>(['scout', 'destroyer']);
-  const [aiShips, setAiShips] = useState<HullClass[]>(['scout', 'destroyer']);
+  const [playerShips, setPlayerShips] = useState<HullClass[]>(['patrol', 'destroyer']);
+  const [aiShips, setAiShips] = useState<HullClass[]>(['patrol', 'destroyer']);
 
   const availableHulls = useMemo(() => getAvailableHulls(techAge), [techAge]);
   const playerSpecies = useMemo(() => PREBUILT_SPECIES.find(s => s.id === playerSpeciesId) ?? PREBUILT_SPECIES[0], [playerSpeciesId]);

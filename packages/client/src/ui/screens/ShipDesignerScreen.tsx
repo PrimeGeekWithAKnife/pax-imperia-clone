@@ -40,16 +40,38 @@ function isHullUnlocked(hullRequiredAge: string, currentAge: string): boolean {
 
 // Hull class icons using text characters
 const HULL_CLASS_ICON: Record<HullClass, string> = {
-  scout:            '>>',
-  destroyer:        '>>>',
-  transport:        '[]>',
-  cruiser:          '==>',
-  carrier:          '[##]',
-  battleship:       '###>',
-  coloniser:        '(O)>',
-  dreadnought:      '####>',
-  battle_station:   '[####]',
-  deep_space_probe: '(.)>',
+  science_probe:   '(.)>',
+  spy_probe:       '(~)>',
+  drone:           '*>',
+  fighter:         '>',
+  bomber:          '=>',
+  patrol:          '>>',
+  yacht:           '~>',
+  corvette:        '->>',
+  cargo:           '[=>',
+  transport:       '[]>',
+  frigate:         '-=>',
+  destroyer:       '>>>',
+  large_transport: '[[]>',
+  large_cargo:     '[[=>',
+  light_cruiser:   '==>',
+  heavy_cruiser:   '==>>',
+  large_supplier:  '[[#]>',
+  carrier:         '[##]',
+  light_battleship:'##>',
+  battleship:      '###>',
+  heavy_battleship:'####>',
+  super_carrier:   '[###]',
+  battle_station:  '[####]',
+  small_space_station: '{#}',
+  space_station:   '{##}',
+  large_space_station: '{###}',
+  planet_killer:   '#####>',
+  coloniser_gen1:  '(O)>',
+  coloniser_gen2:  '(OO)>',
+  coloniser_gen3:  '(OOO)>',
+  coloniser_gen4:  '(OOOO)>',
+  coloniser_gen5:  '(OOOOO)>',
 };
 
 // Human-readable age names for locked hull display
@@ -230,7 +252,7 @@ export function ShipDesignerScreen({
   }, [onClose]);
 
   // ── Hull selection ──────────────────────────────────────────────────────────
-  const [selectedHullClass, setSelectedHullClass] = useState<HullClass>('scout');
+  const [selectedHullClass, setSelectedHullClass] = useState<HullClass>('patrol');
 
   // ── Current working design ──────────────────────────────────────────────────
   const [designName, setDesignName] = useState('New Design');

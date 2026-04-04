@@ -45,17 +45,20 @@ const ZOOM_LERP = 0.12;    // fraction lerped per frame
  * Hull class priority for selecting a representative fleet icon — higher
  * index = larger / more imposing ship, used as the fleet badge thumbnail.
  */
-const HULL_CLASS_RANK: Record<HullClass, number> = {
-  deep_space_probe: 0,
-  scout: 1,
-  transport: 2,
-  coloniser: 3,
-  destroyer: 4,
-  cruiser: 5,
-  carrier: 6,
-  battleship: 7,
-  dreadnought: 8,
-  battle_station: 9,
+const HULL_CLASS_RANK: Partial<Record<HullClass, number>> = {
+  science_probe: 0, spy_probe: 0, drone: 0,
+  fighter: 1, bomber: 1, patrol: 1, yacht: 1,
+  corvette: 2,
+  cargo: 2, transport: 3,
+  coloniser_gen1: 3, coloniser_gen2: 3, coloniser_gen3: 3, coloniser_gen4: 3, coloniser_gen5: 3,
+  frigate: 4, destroyer: 5,
+  large_transport: 4, large_cargo: 4,
+  light_cruiser: 6, heavy_cruiser: 7,
+  large_supplier: 5, carrier: 8,
+  light_battleship: 9, battleship: 10,
+  heavy_battleship: 11, super_carrier: 12,
+  battle_station: 13, small_space_station: 12,
+  space_station: 14, large_space_station: 15, planet_killer: 16,
 };
 
 // ── SystemViewScene ────────────────────────────────────────────────────────────
@@ -749,12 +752,12 @@ export class SystemViewScene extends Phaser.Scene {
 
       // Determine the largest hull class in this fleet for the representative icon
       const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
-      let bestHullClass: HullClass = 'deep_space_probe';
+      let bestHullClass: HullClass = 'science_probe';
       let bestRank = -1;
       for (const ship of fleetShips) {
         const design = designsMap.get(ship.designId);
-        const hull: HullClass = (design?.hull as HullClass | undefined) ?? 'scout';
-        const rank = HULL_CLASS_RANK[hull];
+        const hull: HullClass = (design?.hull as HullClass | undefined) ?? 'patrol';
+        const rank = HULL_CLASS_RANK[hull] ?? 0;
         if (rank > bestRank) {
           bestRank = rank;
           bestHullClass = hull;

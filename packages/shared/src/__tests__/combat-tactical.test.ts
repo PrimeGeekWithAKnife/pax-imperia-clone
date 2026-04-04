@@ -87,7 +87,7 @@ function makeArmedDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -102,7 +102,7 @@ function makeProjectileDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Projectile Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'kinetic_cannon' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -117,7 +117,7 @@ function makeCarrierDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Carrier Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'light_fighter_bay' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -132,7 +132,7 @@ function makeDesignWithSensor(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Sensor Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
       { slotId: 'scout_turret_1', componentId: 'short_range_scanner' },
@@ -1338,7 +1338,7 @@ function makeMissileDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Missile Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'basic_missile' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -1353,7 +1353,7 @@ function makePointDefenceDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `PD Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'point_defense_turret' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -1807,7 +1807,7 @@ describe('Fighter / carrier mechanics', () => {
     const pdDesign: ShipDesign = {
       id: 'd-pd',
       name: 'PD Design',
-      hull: 'scout',
+      hull: 'corvette',
       components: [
         { slotId: 'scout_fore_1', componentId: 'point_defense_turret' },
         { slotId: 'scout_turret_1', componentId: 'deflector_shield' },

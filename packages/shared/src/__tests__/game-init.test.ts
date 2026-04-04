@@ -214,7 +214,7 @@ describe('initializeGame – starting fleet composition', () => {
       return acc;
     }, {});
 
-    expect(hullCounts['deep_space_probe']).toBe(1);
+    expect(hullCounts['science_probe']).toBe(1);
     expect(fleet.ships).toHaveLength(1);
   });
 

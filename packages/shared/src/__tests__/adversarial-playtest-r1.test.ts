@@ -854,9 +854,9 @@ describe('Scenario 5: Combat edge cases', () => {
   });
 
   it('combat with zero-weapon ships (probes) — eventually resolves (not infinite loop)', () => {
-    // Deep space probes have 10 HP and no weapons in a default design
-    const probe1 = makeTestShip('p1', 10, 'starting_deep_space_probe');
-    const probe2 = makeTestShip('p2', 10, 'starting_deep_space_probe');
+    // Science probes have 10 HP and no weapons in a default design
+    const probe1 = makeTestShip('p1', 10, 'starting_science_probe');
+    const probe2 = makeTestShip('p2', 10, 'starting_science_probe');
 
     const fleetA = makeTestFleet('fa', 'empire-a', ['p1']);
     const fleetB = makeTestFleet('fb', 'empire-b', ['p2']);

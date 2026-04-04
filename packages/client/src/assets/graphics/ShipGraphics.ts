@@ -1209,17 +1209,39 @@ function drawColoniser(
 
 // ── Dispatch table ─────────────────────────────────────────────────────────────
 
-const HULL_DRAW_FNS: Record<HullClass, DrawFn> = {
-  scout:            drawScout,
-  destroyer:        drawDestroyer,
-  transport:        drawTransport,
-  cruiser:          drawCruiser,
-  carrier:          drawCarrier,
-  battleship:       drawBattleship,
-  coloniser:        drawColoniser,
-  dreadnought:      drawBattleship,    // reuse battleship silhouette for now
-  battle_station:   drawCarrier,       // reuse carrier silhouette for now
-  deep_space_probe: drawScout,         // reuse scout silhouette for now
+const HULL_DRAW_FNS: Partial<Record<HullClass, DrawFn>> = {
+  science_probe:   drawScout,         // reuse scout silhouette for now
+  spy_probe:       drawScout,
+  drone:           drawScout,
+  fighter:         drawScout,
+  bomber:          drawScout,
+  patrol:          drawScout,
+  yacht:           drawScout,
+  corvette:        drawDestroyer,
+  cargo:           drawTransport,
+  transport:       drawTransport,
+  frigate:         drawDestroyer,
+  destroyer:       drawDestroyer,
+  large_transport: drawTransport,
+  large_cargo:     drawTransport,
+  light_cruiser:   drawCruiser,
+  heavy_cruiser:   drawCruiser,
+  large_supplier:  drawTransport,
+  carrier:         drawCarrier,
+  light_battleship:drawBattleship,
+  battleship:      drawBattleship,
+  heavy_battleship:drawBattleship,
+  super_carrier:   drawCarrier,
+  battle_station:  drawCarrier,       // reuse carrier silhouette for now
+  small_space_station: drawCarrier,
+  space_station:   drawCarrier,
+  large_space_station: drawCarrier,
+  planet_killer:   drawBattleship,
+  coloniser_gen1:  drawColoniser,
+  coloniser_gen2:  drawColoniser,
+  coloniser_gen3:  drawColoniser,
+  coloniser_gen4:  drawColoniser,
+  coloniser_gen5:  drawColoniser,
 };
 
 // ── Core render function ───────────────────────────────────────────────────────
@@ -1257,7 +1279,7 @@ function renderToDataUrl(
   if (familyDraw) {
     familyDraw(ctx, accentColour);
   } else {
-    HULL_DRAW_FNS[hullClass](ctx, accentColour, !thumbnail);
+    (HULL_DRAW_FNS[hullClass] ?? drawScout)(ctx, accentColour, !thumbnail);
   }
 
   ctx.restore();

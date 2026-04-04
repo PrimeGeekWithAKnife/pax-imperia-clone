@@ -210,25 +210,29 @@ export function createStartingFleet(
   const fleetId = generateId();
 
   const shipDefs: Array<{ hull: HullClass; name: string }> = [
-    { hull: 'deep_space_probe', name: `${empireName} Deep Space Probe I` },
+    { hull: 'science_probe', name: `${empireName} Science Probe I` },
   ];
 
-  const BASE_HULL_POINTS: Record<HullClass, number> = {
-    scout: 20,
-    destroyer: 60,
-    transport: 40,
-    cruiser: 120,
-    carrier: 200,
-    battleship: 300,
-    coloniser: 60,
-    dreadnought: 600,
-    battle_station: 800,
-    deep_space_probe: 10,
+  const BASE_HULL_POINTS: Partial<Record<HullClass, number>> = {
+    science_probe: 10, spy_probe: 10, drone: 15,
+    fighter: 15, bomber: 20, patrol: 20, yacht: 25,
+    corvette: 35,
+    cargo: 30, transport: 40,
+    frigate: 50, destroyer: 60,
+    large_transport: 60, large_cargo: 55,
+    light_cruiser: 120, heavy_cruiser: 160,
+    large_supplier: 100, carrier: 200,
+    light_battleship: 250, battleship: 300,
+    heavy_battleship: 600, super_carrier: 400,
+    battle_station: 800, small_space_station: 500,
+    space_station: 1000, large_space_station: 1500, planet_killer: 2000,
+    coloniser_gen1: 60, coloniser_gen2: 80, coloniser_gen3: 100,
+    coloniser_gen4: 140, coloniser_gen5: 200,
   };
 
   const ships: Ship[] = shipDefs.map(def => {
     const shipId = generateId();
-    const hp = BASE_HULL_POINTS[def.hull];
+    const hp = BASE_HULL_POINTS[def.hull] ?? 10;
     return {
       id: shipId,
       designId: `starting_${def.hull}`,

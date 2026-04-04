@@ -377,7 +377,7 @@ describe('Ground combat engine', () => {
 
   describe('transport capacity', () => {
     it('calculates troop count from hull classes', () => {
-      const hulls: HullClass[] = ['scout', 'destroyer', 'transport', 'cruiser'];
+      const hulls: HullClass[] = ['patrol', 'destroyer', 'transport', 'light_cruiser'];
       const capacity = calculateTransportCapacity(hulls);
       expect(capacity).toBe(10 + 50 + 500 + 200);
     });
@@ -386,8 +386,8 @@ describe('Ground combat engine', () => {
       expect(calculateTransportCapacity([])).toBe(0);
     });
 
-    it('deep space probes carry no troops', () => {
-      expect(calculateTransportCapacity(['deep_space_probe'])).toBe(0);
+    it('science probes carry no troops', () => {
+      expect(calculateTransportCapacity(['science_probe'])).toBe(0);
     });
 
     it('transport has the highest capacity', () => {

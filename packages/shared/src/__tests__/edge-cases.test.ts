@@ -284,17 +284,17 @@ describe('Starting conditions — initializeGame', () => {
     expect(state.fleets).toHaveLength(1);
   });
 
-  it('creates exactly 1 ship (deep space probe) for a single player', () => {
+  it('creates exactly 1 ship (science probe) for a single player', () => {
     expect(state.ships).toHaveLength(1);
-    expect(state.ships[0]!.designId).toBe('starting_deep_space_probe');
+    expect(state.ships[0]!.designId).toBe('starting_science_probe');
   });
 
-  it('the single ship is a deep space probe', () => {
+  it('the single ship is a science probe', () => {
     const ship = state.ships[0]!;
-    expect(ship.name).toContain('Deep Space Probe');
+    expect(ship.name).toContain('Science Probe');
   });
 
-  it('the fleet contains the deep space probe', () => {
+  it('the fleet contains the science probe', () => {
     const fleet = state.fleets[0]!;
     expect(fleet.ships).toHaveLength(1);
     expect(fleet.ships[0]).toBe(state.ships[0]!.id);

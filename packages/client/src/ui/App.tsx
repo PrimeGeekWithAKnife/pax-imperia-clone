@@ -1709,7 +1709,7 @@ export function App(): React.ReactElement {
         const ship = state.gameState.ships.find(s => s.id === shipId);
         if (!ship) continue;
         const design = designsMap.get(ship.designId);
-        if (design?.hull === 'coloniser') {
+        if (design?.hull.startsWith('coloniser')) {
           return ship;
         }
       }

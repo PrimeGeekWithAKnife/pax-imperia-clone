@@ -841,7 +841,7 @@ describe('Fix 6: Rejected actions emit notifications', () => {
     const hasColoniser = fleetShips.some(s => {
       const designs = state.shipDesigns ?? new Map();
       const design = designs.get(s.designId);
-      return design && (design as unknown as { hull: string }).hull === 'coloniser';
+      return design && (design as unknown as { hull: string }).hull.startsWith('coloniser');
     });
 
     if (!hasColoniser) {

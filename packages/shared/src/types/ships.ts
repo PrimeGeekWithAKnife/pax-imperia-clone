@@ -1,16 +1,19 @@
 /** Ship design and fleet types */
 
 export type HullClass =
-  | 'scout'
-  | 'destroyer'
-  | 'transport'
-  | 'cruiser'
-  | 'carrier'
-  | 'battleship'
-  | 'coloniser'
-  | 'dreadnought'
-  | 'battle_station'
-  | 'deep_space_probe';
+  | 'science_probe' | 'spy_probe' | 'drone'
+  | 'fighter' | 'bomber' | 'patrol' | 'yacht'
+  | 'corvette'
+  | 'cargo' | 'transport'
+  | 'frigate' | 'destroyer'
+  | 'large_transport' | 'large_cargo'
+  | 'light_cruiser' | 'heavy_cruiser'
+  | 'large_supplier' | 'carrier'
+  | 'light_battleship' | 'battleship'
+  | 'heavy_battleship' | 'super_carrier'
+  | 'battle_station' | 'small_space_station'
+  | 'space_station' | 'large_space_station' | 'planet_killer'
+  | 'coloniser_gen1' | 'coloniser_gen2' | 'coloniser_gen3' | 'coloniser_gen4' | 'coloniser_gen5';
 
 /** Slot categories — each slot belongs to exactly one category. */
 export type SlotCategory =
@@ -34,6 +37,18 @@ export interface HullTemplate {
   /** Hangar configuration — defines bay count and what each bay can hold.
    *  Each bay can hold ONE option from the carries array (e.g. 1 carrier OR 5 destroyers). */
   hangarSlots?: { count: number; carries: Array<{ hull: HullClass; quantity: number }> };
+  /** Hull type determines the wireframe model used. Multiple vessel classes can share a hull type. */
+  hullType?: string;
+  /** Ship length in metres. */
+  lengthMetres?: number;
+  /** Required shipyard size to build. */
+  requiredShipyard?: string;
+  /** Whether the player can build this vessel. */
+  playerBuildable?: boolean;
+  /** Intended role/purpose description. */
+  purpose?: string;
+  /** Build time in ticks. */
+  buildTime?: number;
   /** Whether this hull requires crew. Probes/drones are unmanned. Defaults to true. */
   manned?: boolean;
   /** Base supply capacity in turns for manned hulls. Defaults to 15. */
@@ -47,7 +62,7 @@ export interface SlotPosition {
   x: number;
   y: number;
   facing: 'fore' | 'aft' | 'port' | 'starboard' | 'turret';
-  size: 'small' | 'medium' | 'large';
+  size: 'small' | 'medium' | 'large' | 'huge' | 'colossal' | 'gargantuan';
   allowedTypes: ComponentType[];
   /** Slot category — determines which section this slot appears in. */
   category?: SlotCategory;

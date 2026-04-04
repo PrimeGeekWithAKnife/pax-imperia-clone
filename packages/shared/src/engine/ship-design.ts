@@ -57,11 +57,9 @@ export interface ValidationResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Size ordering: small < medium < large */
-const SIZE_ORDER: Record<SlotPosition['size'], number> = {
-  small: 1,
-  medium: 2,
-  large: 3,
+/** Size ordering: small < medium < large < huge < colossal < gargantuan */
+const SLOT_SIZE_ORDER: Record<string, number> = {
+  small: 0, medium: 1, large: 2, huge: 3, colossal: 4, gargantuan: 5,
 };
 
 /**
@@ -72,7 +70,7 @@ function componentFitsSize(
   componentSize: SlotPosition['size'],
   slotSize: SlotPosition['size'],
 ): boolean {
-  return SIZE_ORDER[componentSize] <= SIZE_ORDER[slotSize];
+  return (SLOT_SIZE_ORDER[componentSize] ?? 0) <= (SLOT_SIZE_ORDER[slotSize] ?? 0);
 }
 
 /**
@@ -512,16 +510,23 @@ export function autoEquipDesign(
 
   // Set sensible armour plating defaults by hull class — heavier hulls get more
   const ARMOUR_DEFAULTS: Record<string, number> = {
-    battleship: 0.3,
-    dreadnought: 0.3,
-    battle_station: 0.3,
-    cruiser: 0.2,
-    carrier: 0.2,
-    destroyer: 0.1,
-    transport: 0.1,
-    scout: 0.0,
-    coloniser: 0.0,
-    deep_space_probe: 0.0,
+    // Capital ships
+    battleship: 0.3, heavy_battleship: 0.3, battle_station: 0.3,
+    planet_killer: 0.3, space_station: 0.3, large_space_station: 0.3,
+    light_battleship: 0.25, super_carrier: 0.25,
+    // Cruisers & carriers
+    light_cruiser: 0.2, heavy_cruiser: 0.2, carrier: 0.2,
+    // Mid-size
+    frigate: 0.15, destroyer: 0.1, corvette: 0.1,
+    // Transports & support
+    transport: 0.1, large_transport: 0.1, cargo: 0.05, large_cargo: 0.05,
+    large_supplier: 0.05, small_space_station: 0.1,
+    // Light craft
+    patrol: 0.0, fighter: 0.0, bomber: 0.0, drone: 0.0, yacht: 0.0,
+    science_probe: 0.0, spy_probe: 0.0,
+    // Colonisers
+    coloniser_gen1: 0.0, coloniser_gen2: 0.0, coloniser_gen3: 0.05,
+    coloniser_gen4: 0.1, coloniser_gen5: 0.1,
   };
   const armourPlating = ARMOUR_DEFAULTS[hull.class] ?? 0;
 

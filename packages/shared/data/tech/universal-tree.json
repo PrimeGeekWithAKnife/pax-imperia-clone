@@ -789,7 +789,7 @@
       "effects": [
         {
           "type": "unlock_hull",
-          "hullClass": "cruiser"
+          "hullClass": "light_cruiser"
         }
       ],
       "icon": "tech_cruiser_architecture"

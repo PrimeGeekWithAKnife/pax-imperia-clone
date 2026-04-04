@@ -1022,7 +1022,7 @@ export const COLONISER_SHIP_INITIAL_POPULATION = 500;
  * star system.
  *
  * Requirements (all must be satisfied):
- * - `ship` must have a hull class of 'coloniser'.
+ * - `ship` must have a coloniser hull class (coloniser_gen1 through coloniser_gen5).
  * - `fleet` must be located in `targetSystem`.
  * - Target planet must be unowned (ownerId === null).
  * - Target planet must be unpopulated (currentPopulation === 0).
@@ -1059,12 +1059,13 @@ export function canColoniseWithShip(
   //
   // NOTE: The actual hull class lookup happens at the call site (game engine /
   // UI).  This function trusts that the caller has verified the ship's hull is
-  // 'coloniser' before invoking it.  The check below is a safety guard.
+  // a coloniser hull (coloniser_gen1..gen5) before invoking it.  The check
+  // below is a safety guard.
   //
   // We detect coloniser ships by checking whether the ship's designId contains
   // 'coloniser' (the auto-generated IDs do not), so callers should pass a
   // pre-validated ship.  The canonical approach is for the caller to look up
-  // the ShipDesign → HullTemplate and confirm hull.class === 'coloniser'.
+  // the ShipDesign → HullTemplate and confirm hull.class.startsWith('coloniser').
   // This function therefore only performs game-state validity checks.
 
   // Fleet must be in the target system.

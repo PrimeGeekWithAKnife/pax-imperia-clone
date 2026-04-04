@@ -73,16 +73,20 @@ export const EXPERIENCE_MULTIPLIER: Record<string, number> = {
 
 /** Transport capacity by hull class — how many troops each ship can carry. */
 export const TRANSPORT_CAPACITY: Record<HullClass, number> = {
-  scout: 10,
-  destroyer: 50,
-  cruiser: 200,
-  transport: 500,
-  carrier: 300,
-  battleship: 100,
-  coloniser: 100,
-  dreadnought: 150,
-  battle_station: 50,
-  deep_space_probe: 0,
+  science_probe: 0, spy_probe: 0, drone: 0,
+  fighter: 0, bomber: 0, patrol: 10, yacht: 5,
+  corvette: 20,
+  cargo: 100, transport: 500,
+  frigate: 30, destroyer: 50,
+  large_transport: 1000, large_cargo: 200,
+  light_cruiser: 200, heavy_cruiser: 250,
+  large_supplier: 150, carrier: 300,
+  light_battleship: 80, battleship: 100,
+  heavy_battleship: 150, super_carrier: 400,
+  battle_station: 50, small_space_station: 100,
+  space_station: 200, large_space_station: 500, planet_killer: 50,
+  coloniser_gen1: 100, coloniser_gen2: 150, coloniser_gen3: 200,
+  coloniser_gen4: 300, coloniser_gen5: 500,
 };
 
 /** Artillery vulnerability multiplier (takes extra damage). */

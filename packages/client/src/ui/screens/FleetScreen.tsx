@@ -37,7 +37,7 @@ const STANCE_DESCRIPTIONS: Record<FleetStance, string> = {
 const STANCES: FleetStance[] = ['aggressive', 'defensive', 'evasive', 'patrol'];
 
 function resolveHullClass(ship: Ship, designs: ShipDesign[]): HullClass {
-  return designs.find((d) => d.id === ship.designId)?.hull ?? 'scout';
+  return designs.find((d) => d.id === ship.designId)?.hull ?? 'patrol';
 }
 
 function emitToPhaser(eventName: string, data: unknown): void {

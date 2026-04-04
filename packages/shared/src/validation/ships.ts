@@ -43,7 +43,7 @@ export const SlotFacingSchema = z.enum([
   'turret',
 ]);
 
-export const SlotSizeSchema = z.enum(['small', 'medium', 'large']);
+export const SlotSizeSchema = z.enum(['small', 'medium', 'large', 'huge', 'colossal', 'gargantuan']);
 
 // ── SlotPosition ──────────────────────────────────────────────────────────────
 
@@ -75,6 +75,16 @@ export const HullTemplateSchema = z.object({
       quantity: z.number().int().positive(),
     })).min(1),
   }).optional(),
+  hullType: z.string().optional(),
+  lengthMetres: z.number().positive().optional(),
+  requiredShipyard: z.string().optional(),
+  playerBuildable: z.boolean().optional(),
+  purpose: z.string().optional(),
+  buildTime: z.number().int().positive().optional(),
+  manned: z.boolean().optional(),
+  baseMineralCost: z.number().int().nonnegative().optional(),
+  baseSupplyCapacity: z.number().int().positive().optional(),
+  baseCrew: z.number().int().nonnegative().optional(),
 });
 
 // ── ShipComponent ─────────────────────────────────────────────────────────────

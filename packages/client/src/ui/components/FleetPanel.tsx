@@ -47,10 +47,10 @@ const STANCES: FleetStance[] = ['aggressive', 'defensive', 'evasive', 'patrol'];
 
 /**
  * Resolve the hull class for a ship by looking up its design.
- * Returns 'scout' as a safe fallback when the design cannot be found.
+ * Returns 'patrol' as a safe fallback when the design cannot be found.
  */
 function resolveHullClass(ship: Ship, designs: ShipDesign[]): import('@nova-imperia/shared').HullClass {
-  return designs.find((d) => d.id === ship.designId)?.hull ?? 'scout';
+  return designs.find((d) => d.id === ship.designId)?.hull ?? 'patrol';
 }
 
 // ── FleetPanel ─────────────────────────────────────────────────────────────────

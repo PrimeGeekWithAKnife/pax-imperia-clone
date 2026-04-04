@@ -65,7 +65,7 @@ function makeArmedDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -83,7 +83,7 @@ function makeHeavyDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Heavy Design ${id}`,
-    hull: 'cruiser',
+    hull: 'light_cruiser',
     components: [
       { slotId: 'cruiser_fore_1', componentId: 'kinetic_cannon' },
       { slotId: 'cruiser_fore_2', componentId: 'kinetic_cannon' },
@@ -104,7 +104,7 @@ function makeUnarmedDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Unarmed Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'short_range_scanner' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -345,7 +345,7 @@ describe('damage resolution', () => {
     const aDesign: ShipDesign = {
       id: 'no-shield-a',
       name: 'No Shield A',
-      hull: 'scout',
+      hull: 'corvette',
       components: [
         { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
         { slotId: 'scout_turret_1', componentId: 'short_range_scanner' },
@@ -508,7 +508,7 @@ describe('morale', () => {
     const aDesign: ShipDesign = {
       id: 'ns-a2',
       name: 'NS A2',
-      hull: 'scout',
+      hull: 'corvette',
       components: [
         { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
         { slotId: 'scout_turret_1', componentId: 'short_range_scanner' },

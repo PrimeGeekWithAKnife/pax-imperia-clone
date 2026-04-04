@@ -142,19 +142,19 @@ describe('Asymmetric tech-age battles', () => {
 
   describe('Cruiser 3v3 — age gap battles', () => {
     it('Nano-Atomic vs Nano-Fusion (2 age gap)', () => {
-      const r = runAsymmetricBattle('nano_atomic', 'nano_fusion', 'cruiser', 3);
+      const r = runAsymmetricBattle('nano_atomic', 'nano_fusion', 'light_cruiser', 3);
       expect(r.winner).not.toBe('DRAW/TIMEOUT');
       console.log(`      Expectation: Nano-Fusion should dominate`);
     });
 
     it('Fusion vs Singularity (3 age gap)', () => {
-      const r = runAsymmetricBattle('fusion', 'singularity', 'cruiser', 3);
+      const r = runAsymmetricBattle('fusion', 'singularity', 'light_cruiser', 3);
       expect(r.winner).not.toBe('DRAW/TIMEOUT');
       console.log(`      Expectation: Singularity should obliterate`);
     });
 
     it('Nano-Atomic vs Singularity (4 age gap — maximum)', () => {
-      const r = runAsymmetricBattle('nano_atomic', 'singularity', 'cruiser', 3);
+      const r = runAsymmetricBattle('nano_atomic', 'singularity', 'light_cruiser', 3);
       expect(r.winner).not.toBe('DRAW/TIMEOUT');
       console.log(`      Expectation: Singularity should annihilate with no losses`);
     });

@@ -86,7 +86,7 @@ describe('Combat timing with updated balance', () => {
   });
 
   it('5v5 cruiser engagement (mixed weapons)', () => {
-    const r = runBattle('5v5 Cruisers (mixed)', 'cruiser', ['particle_beam', 'deflector_shield', 'fusion_reactor', 'kinetic_driver'], 5, 'cruiser', ['particle_beam', 'deflector_shield', 'fusion_reactor', 'kinetic_driver'], 5);
+    const r = runBattle('5v5 Cruisers (mixed)', 'light_cruiser', ['particle_beam', 'deflector_shield', 'fusion_reactor', 'kinetic_driver'], 5, 'light_cruiser', ['particle_beam', 'deflector_shield', 'fusion_reactor', 'kinetic_driver'], 5);
     console.log(`    Rating: ${r.ticks < 100 ? 'TOO FAST' : r.ticks < 300 ? 'GOOD' : r.ticks < 500 ? 'ACCEPTABLE' : 'TOO SLOW'}`);
     expect(r.ticks).toBeLessThan(800);
   });
@@ -104,13 +104,13 @@ describe('Combat timing with updated balance', () => {
   });
 
   it('1v1 dreadnought duel', () => {
-    const r = runBattle('1v1 Dreadnought', 'dreadnought', ['plasma_cannon', 'plasma_cannon', 'graviton_shield', 'graviton_shield', 'fusion_reactor'], 1, 'dreadnought', ['plasma_cannon', 'plasma_cannon', 'graviton_shield', 'graviton_shield', 'fusion_reactor'], 1);
+    const r = runBattle('1v1 Dreadnought', 'heavy_battleship', ['plasma_cannon', 'plasma_cannon', 'graviton_shield', 'graviton_shield', 'fusion_reactor'], 1, 'heavy_battleship', ['plasma_cannon', 'plasma_cannon', 'graviton_shield', 'graviton_shield', 'fusion_reactor'], 1);
     console.log(`    Rating: ${r.ticks < 150 ? 'TOO FAST' : r.ticks < 400 ? 'GOOD' : r.ticks < 600 ? 'ACCEPTABLE' : 'TOO SLOW'}`);
     expect(r.ticks).toBeLessThan(800);
   });
 
   it('ships are actually destroyed, not just routed', () => {
-    const r = runBattle('Destruction check 5v5', 'cruiser', ['particle_beam', 'kinetic_driver', 'deflector_shield', 'fusion_reactor'], 5, 'cruiser', ['particle_beam', 'kinetic_driver', 'deflector_shield', 'fusion_reactor'], 5);
+    const r = runBattle('Destruction check 5v5', 'light_cruiser', ['particle_beam', 'kinetic_driver', 'deflector_shield', 'fusion_reactor'], 5, 'light_cruiser', ['particle_beam', 'kinetic_driver', 'deflector_shield', 'fusion_reactor'], 5);
     const totalDestroyed = r.aDestroyed + r.dDestroyed;
     console.log(`    Total ships destroyed: ${totalDestroyed}`);
     console.log(`    Total ships routed: ${r.aRouted + r.dRouted}`);

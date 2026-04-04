@@ -44,9 +44,22 @@ interface HullSection {
   ry: number;
 }
 
-const HULL_PROFILES: Record<HullClass, HullSection[]> = {
-  // Scout: small, sleek, elongated needle
-  scout: [
+// Hull profiles keyed by hull TYPE (wireframe model).
+// Multiple vessel classes share the same hull type profile.
+const HULL_TYPE_PROFILES: Record<string, HullSection[]> = {
+  // Probe: tiny cylinder with antenna (5m)
+  probe: [
+    { z: -1.6, rx: 0.03, ry: 0.03 },
+    { z: -1.2, rx: 0.12, ry: 0.12 },
+    { z: -0.6, rx: 0.18, ry: 0.18 },
+    { z: 0.0,  rx: 0.20, ry: 0.20 },
+    { z: 0.6,  rx: 0.18, ry: 0.18 },
+    { z: 1.0,  rx: 0.14, ry: 0.14 },
+    { z: 1.4,  rx: 0.10, ry: 0.10 },
+  ],
+
+  // Stellar patrol: small, sleek, elongated needle (15m)
+  stellar_patrol: [
     { z: -2.4, rx: 0.04, ry: 0.04 },
     { z: -2.0, rx: 0.18, ry: 0.14 },
     { z: -1.4, rx: 0.34, ry: 0.26 },
@@ -57,7 +70,44 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 1.8,  rx: 0.20, ry: 0.16 },
   ],
 
-  // Destroyer: medium, angular, broader mid-section
+  // Stellar corvette: slightly larger patrol with thicker mid (25m)
+  stellar_corvette: [
+    { z: -2.6, rx: 0.04, ry: 0.04 },
+    { z: -2.0, rx: 0.22, ry: 0.16 },
+    { z: -1.2, rx: 0.40, ry: 0.30 },
+    { z: -0.4, rx: 0.50, ry: 0.38 },
+    { z: 0.4,  rx: 0.46, ry: 0.34 },
+    { z: 1.0,  rx: 0.38, ry: 0.28 },
+    { z: 1.6,  rx: 0.28, ry: 0.22 },
+    { z: 2.0,  rx: 0.20, ry: 0.16 },
+  ],
+
+  // Stellar cargo: boxy mid-section cargo hold (80m)
+  sterllar_cargo: [
+    { z: -2.2, rx: 0.06, ry: 0.06 },
+    { z: -1.8, rx: 0.30, ry: 0.30 },
+    { z: -1.0, rx: 0.50, ry: 0.48 },
+    { z: -0.2, rx: 0.55, ry: 0.50 },
+    { z: 0.6,  rx: 0.55, ry: 0.50 },
+    { z: 1.2,  rx: 0.48, ry: 0.46 },
+    { z: 1.8,  rx: 0.36, ry: 0.34 },
+    { z: 2.2,  rx: 0.24, ry: 0.22 },
+  ],
+
+  // Frigate: compact warship with angular bow (35m)
+  frigate: [
+    { z: -2.8, rx: 0.05, ry: 0.05 },
+    { z: -2.2, rx: 0.24, ry: 0.18 },
+    { z: -1.4, rx: 0.46, ry: 0.34 },
+    { z: -0.6, rx: 0.56, ry: 0.42 },
+    { z: 0.2,  rx: 0.54, ry: 0.40 },
+    { z: 0.8,  rx: 0.46, ry: 0.36 },
+    { z: 1.4,  rx: 0.36, ry: 0.28 },
+    { z: 2.0,  rx: 0.28, ry: 0.24 },
+    { z: 2.4,  rx: 0.22, ry: 0.20 },
+  ],
+
+  // Destroyer: medium angular warship (55m)
   destroyer: [
     { z: -3.0, rx: 0.06, ry: 0.06 },
     { z: -2.6, rx: 0.28, ry: 0.22 },
@@ -71,20 +121,34 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 2.9,  rx: 0.40, ry: 0.35 },
   ],
 
-  // Transport: boxy mid-section cargo hold, narrower at ends
-  transport: [
-    { z: -2.2, rx: 0.06, ry: 0.06 },
-    { z: -1.8, rx: 0.30, ry: 0.30 },
-    { z: -1.0, rx: 0.50, ry: 0.48 },
-    { z: -0.2, rx: 0.55, ry: 0.50 },
-    { z: 0.6,  rx: 0.55, ry: 0.50 },
-    { z: 1.2,  rx: 0.48, ry: 0.46 },
-    { z: 1.8,  rx: 0.36, ry: 0.34 },
-    { z: 2.2,  rx: 0.24, ry: 0.22 },
+  // Deep space cargo: large boxy freighter (250m)
+  deep_space_cargo: [
+    { z: -3.2, rx: 0.06, ry: 0.06 },
+    { z: -2.6, rx: 0.40, ry: 0.38 },
+    { z: -1.6, rx: 0.70, ry: 0.66 },
+    { z: -0.6, rx: 0.80, ry: 0.76 },
+    { z: 0.4,  rx: 0.80, ry: 0.76 },
+    { z: 1.4,  rx: 0.70, ry: 0.66 },
+    { z: 2.2,  rx: 0.52, ry: 0.50 },
+    { z: 2.8,  rx: 0.36, ry: 0.34 },
   ],
 
-  // Cruiser: larger, wider, imposing wedge
-  cruiser: [
+  // Small cruiser: imposing wedge (115m)
+  small_cruiser: [
+    { z: -3.4, rx: 0.06, ry: 0.06 },
+    { z: -2.8, rx: 0.28, ry: 0.20 },
+    { z: -2.0, rx: 0.56, ry: 0.40 },
+    { z: -1.0, rx: 0.82, ry: 0.58 },
+    { z: 0.0,  rx: 0.92, ry: 0.66 },
+    { z: 0.8,  rx: 0.88, ry: 0.62 },
+    { z: 1.6,  rx: 0.76, ry: 0.54 },
+    { z: 2.2,  rx: 0.64, ry: 0.48 },
+    { z: 2.8,  rx: 0.52, ry: 0.40 },
+    { z: 3.2,  rx: 0.42, ry: 0.34 },
+  ],
+
+  // Large cruiser: heavier wedge (155m)
+  large_cruiser: [
     { z: -3.6, rx: 0.06, ry: 0.06 },
     { z: -3.0, rx: 0.30, ry: 0.22 },
     { z: -2.2, rx: 0.60, ry: 0.44 },
@@ -97,7 +161,7 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 3.2,  rx: 0.50, ry: 0.40 },
   ],
 
-  // Carrier: wide flat deck silhouette
+  // Carrier: wide flat deck silhouette (320m)
   carrier: [
     { z: -3.4, rx: 0.10, ry: 0.06 },
     { z: -2.8, rx: 0.50, ry: 0.20 },
@@ -111,8 +175,22 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 3.8,  rx: 0.50, ry: 0.24 },
   ],
 
-  // Battleship: massive, imposing, thick hull
-  battleship: [
+  // Small battleship: thick hull warship (220m)
+  small_battleship: [
+    { z: -3.8, rx: 0.08, ry: 0.08 },
+    { z: -3.2, rx: 0.34, ry: 0.26 },
+    { z: -2.4, rx: 0.66, ry: 0.50 },
+    { z: -1.4, rx: 0.94, ry: 0.70 },
+    { z: -0.4, rx: 1.06, ry: 0.78 },
+    { z: 0.6,  rx: 1.02, ry: 0.74 },
+    { z: 1.4,  rx: 0.90, ry: 0.66 },
+    { z: 2.2,  rx: 0.76, ry: 0.58 },
+    { z: 2.8,  rx: 0.62, ry: 0.48 },
+    { z: 3.4,  rx: 0.48, ry: 0.38 },
+  ],
+
+  // Large battleship: massive, imposing (270m)
+  large_battleship: [
     { z: -4.0, rx: 0.08, ry: 0.08 },
     { z: -3.4, rx: 0.36, ry: 0.28 },
     { z: -2.6, rx: 0.72, ry: 0.56 },
@@ -126,21 +204,8 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 4.0,  rx: 0.44, ry: 0.36 },
   ],
 
-  // Coloniser: bulky, round cargo section
-  coloniser: [
-    { z: -2.8, rx: 0.06, ry: 0.06 },
-    { z: -2.2, rx: 0.24, ry: 0.24 },
-    { z: -1.4, rx: 0.60, ry: 0.60 },
-    { z: -0.4, rx: 0.80, ry: 0.80 },
-    { z: 0.4,  rx: 0.82, ry: 0.82 },
-    { z: 1.2,  rx: 0.74, ry: 0.74 },
-    { z: 1.8,  rx: 0.56, ry: 0.56 },
-    { z: 2.2,  rx: 0.36, ry: 0.36 },
-    { z: 2.6,  rx: 0.22, ry: 0.22 },
-  ],
-
-  // Dreadnought: enormous, angular, fortress-like
-  dreadnought: [
+  // Super carrier: enormous angular carrier/battleship hybrid (580m)
+  super_carrier: [
     { z: -4.6, rx: 0.08, ry: 0.08 },
     { z: -4.0, rx: 0.40, ry: 0.30 },
     { z: -3.0, rx: 0.82, ry: 0.62 },
@@ -154,9 +219,8 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 4.4,  rx: 0.50, ry: 0.40 },
   ],
 
-  // Battle station: massive orbital platform with wide central hub
-  // and docking ring — 1800m, dwarfs every ship class
-  battle_station: [
+  // Small space station: orbital platform (900m)
+  small_space_station: [
     { z: -4.0, rx: 0.30, ry: 0.30 },
     { z: -3.2, rx: 1.00, ry: 0.90 },
     { z: -2.0, rx: 1.80, ry: 1.50 },
@@ -169,17 +233,69 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 4.2,  rx: 0.30, ry: 0.30 },
   ],
 
-  // Deep space probe: tiny cylinder with antenna
-  deep_space_probe: [
-    { z: -1.6, rx: 0.03, ry: 0.03 },
-    { z: -1.2, rx: 0.12, ry: 0.12 },
-    { z: -0.6, rx: 0.18, ry: 0.18 },
-    { z: 0.0,  rx: 0.20, ry: 0.20 },
-    { z: 0.6,  rx: 0.18, ry: 0.18 },
-    { z: 1.0,  rx: 0.14, ry: 0.14 },
-    { z: 1.4,  rx: 0.10, ry: 0.10 },
+  // Large space station: massive multi-ring station (1400-5500m)
+  large_space_station: [
+    { z: -5.0, rx: 0.40, ry: 0.40 },
+    { z: -4.0, rx: 1.40, ry: 1.20 },
+    { z: -2.8, rx: 2.40, ry: 2.00 },
+    { z: -1.4, rx: 3.00, ry: 2.50 },
+    { z: 0.0,  rx: 3.20, ry: 2.70 },
+    { z: 1.4,  rx: 3.00, ry: 2.50 },
+    { z: 2.8,  rx: 2.40, ry: 2.00 },
+    { z: 4.0,  rx: 1.60, ry: 1.30 },
+    { z: 4.8,  rx: 0.80, ry: 0.70 },
+    { z: 5.2,  rx: 0.40, ry: 0.40 },
+  ],
+
+  // Coloniser (all generations share the same massive round hull)
+  coloniser_1st_gen: [
+    { z: -2.8, rx: 0.06, ry: 0.06 },
+    { z: -2.2, rx: 0.24, ry: 0.24 },
+    { z: -1.4, rx: 0.60, ry: 0.60 },
+    { z: -0.4, rx: 0.80, ry: 0.80 },
+    { z: 0.4,  rx: 0.82, ry: 0.82 },
+    { z: 1.2,  rx: 0.74, ry: 0.74 },
+    { z: 1.8,  rx: 0.56, ry: 0.56 },
+    { z: 2.2,  rx: 0.36, ry: 0.36 },
+    { z: 2.6,  rx: 0.22, ry: 0.22 },
   ],
 };
+// Later gen colonisers share the same wireframe
+HULL_TYPE_PROFILES['coloniser_2nd_gen'] = HULL_TYPE_PROFILES['coloniser_1st_gen'];
+HULL_TYPE_PROFILES['coloniser_3rd_gen'] = HULL_TYPE_PROFILES['coloniser_1st_gen'];
+HULL_TYPE_PROFILES['coloniser_4th_gen'] = HULL_TYPE_PROFILES['coloniser_1st_gen'];
+HULL_TYPE_PROFILES['coloniser_5th_gen'] = HULL_TYPE_PROFILES['coloniser_1st_gen'];
+
+/** Map vessel class to hull type for wireframe lookup. */
+const VESSEL_TO_HULL_TYPE: Record<string, string> = {
+  science_probe: 'probe', spy_probe: 'probe', drone: 'probe',
+  fighter: 'stellar_patrol', patrol: 'stellar_patrol', yacht: 'stellar_patrol',
+  bomber: 'stellar_corvette', corvette: 'stellar_corvette',
+  cargo: 'sterllar_cargo', transport: 'sterllar_cargo',
+  frigate: 'frigate',
+  destroyer: 'destroyer',
+  large_transport: 'deep_space_cargo', large_cargo: 'deep_space_cargo',
+  light_cruiser: 'small_cruiser',
+  heavy_cruiser: 'large_cruiser',
+  large_supplier: 'carrier', carrier: 'carrier',
+  light_battleship: 'small_battleship',
+  battleship: 'large_battleship',
+  heavy_battleship: 'super_carrier', super_carrier: 'super_carrier',
+  battle_station: 'small_space_station', small_space_station: 'small_space_station',
+  space_station: 'large_space_station', large_space_station: 'large_space_station', planet_killer: 'large_space_station',
+  coloniser_gen1: 'coloniser_1st_gen', coloniser_gen2: 'coloniser_2nd_gen',
+  coloniser_gen3: 'coloniser_3rd_gen', coloniser_gen4: 'coloniser_4th_gen',
+  coloniser_gen5: 'coloniser_5th_gen',
+};
+
+/** Look up the hull profile for a vessel class via its hull type. */
+function getHullProfile(hullClass: HullClass): HullSection[] {
+  const hullType = VESSEL_TO_HULL_TYPE[hullClass];
+  if (hullType && HULL_TYPE_PROFILES[hullType]) return HULL_TYPE_PROFILES[hullType];
+  // Direct key match fallback
+  if (HULL_TYPE_PROFILES[hullClass]) return HULL_TYPE_PROFILES[hullClass];
+  return HULL_TYPE_PROFILES['probe'];
+}
 
 // ── Colour constants ─────────────────────────────────────────────────────────
 
@@ -238,16 +354,20 @@ const WEAPON_TYPES: ComponentType[] = [
 // dreadnought ≈ supercarrier (USS Nimitz), battle station ≈ orbital platform.
 
 const SHIP_LENGTH_METRES: Record<HullClass, number> = {
-  deep_space_probe: 15,
-  scout: 65,
-  destroyer: 120,
-  transport: 95,
-  cruiser: 185,
-  carrier: 260,
-  battleship: 270,
-  coloniser: 155,
-  dreadnought: 350,
-  battle_station: 1800,
+  science_probe: 5, spy_probe: 5, drone: 5,
+  fighter: 15, bomber: 25, patrol: 15, yacht: 15,
+  corvette: 25,
+  cargo: 80, transport: 80,
+  frigate: 35, destroyer: 55,
+  large_transport: 250, large_cargo: 250,
+  light_cruiser: 115, heavy_cruiser: 155,
+  large_supplier: 320, carrier: 320,
+  light_battleship: 220, battleship: 270,
+  heavy_battleship: 580, super_carrier: 580,
+  battle_station: 900, small_space_station: 900,
+  space_station: 1400, large_space_station: 5500, planet_killer: 5500,
+  coloniser_gen1: 5500, coloniser_gen2: 5500, coloniser_gen3: 5500,
+  coloniser_gen4: 5500, coloniser_gen5: 5500,
 };
 
 // ── Compass labels ───────────────────────────────────────────────────────────
@@ -613,7 +733,7 @@ function HangarBays({
     const maxRx = Math.max(...sections.map(s => s.rx));
     const maxRy = Math.max(...sections.map(s => s.ry));
 
-    if (hullClass === 'carrier') {
+    if (hullClass === 'carrier' || hullClass === 'large_supplier') {
       // 3 destroyer bays — external cradles along the port side flight deck
       const bayLength = 0.8; // relative to hull
       const bayWidth = 0.12;
@@ -630,7 +750,7 @@ function HangarBays({
       });
     }
 
-    if (hullClass === 'battle_station') {
+    if (hullClass === 'battle_station' || hullClass === 'small_space_station' || hullClass === 'super_carrier' || hullClass === 'heavy_battleship') {
       // 3 carrier-sized docking arms — massive external cradles at 120° intervals
       const armLength = 1.6;
       const armWidth = 0.3;
@@ -656,7 +776,7 @@ function HangarBays({
 
   if (!bays) return null;
 
-  const isBattleStation = hullClass === 'battle_station';
+  const isBattleStation = hullClass === 'battle_station' || hullClass === 'small_space_station' || hullClass === 'space_station' || hullClass === 'large_space_station' || hullClass === 'planet_killer';
   const bayColour = isBattleStation ? 0xef9f27 : 0x5dcaa5;
   const strutColour = 0x5dcaa5;
 
@@ -1163,7 +1283,7 @@ function ShipGroup({
   coreSystemOverrides?: Array<{ role: CoreSystemRole; componentId: string }>;
 }): React.ReactElement {
   const groupRef = useRef<THREE.Group>(null);
-  const sections = HULL_PROFILES[hullClass] ?? HULL_PROFILES.destroyer;
+  const sections = getHullProfile(hullClass);
   const allSlots = components.map((c) => c.slot);
 
   // Apply rotation each frame

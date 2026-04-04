@@ -490,30 +490,42 @@ function getBuildingDisplayName(type: BuildingType): string {
 
 // ── Hull class display helpers ─────────────────────────────────────────────────
 
-const HULL_CLASS_LABELS: Record<HullClass, string> = {
-  scout: 'Scout',
-  destroyer: 'Destroyer',
-  transport: 'Transport',
-  cruiser: 'Cruiser',
-  carrier: 'Carrier',
-  battleship: 'Battleship',
-  coloniser: 'Colony Ship',
-  dreadnought: 'Dreadnought',
-  battle_station: 'Battle Station',
-  deep_space_probe: 'Deep Space Probe',
+const HULL_CLASS_LABELS: Partial<Record<HullClass, string>> = {
+  science_probe: 'Science Probe', spy_probe: 'Spy Probe', drone: 'Drone',
+  fighter: 'Fighter', bomber: 'Bomber', patrol: 'Patrol', yacht: 'Yacht',
+  corvette: 'Corvette',
+  cargo: 'Cargo', transport: 'Transport',
+  frigate: 'Frigate', destroyer: 'Destroyer',
+  large_transport: 'Large Transport', large_cargo: 'Large Cargo',
+  light_cruiser: 'Light Cruiser', heavy_cruiser: 'Heavy Cruiser',
+  large_supplier: 'Large Supplier', carrier: 'Carrier',
+  light_battleship: 'Light Battleship', battleship: 'Battleship',
+  heavy_battleship: 'Heavy Battleship', super_carrier: 'Super Carrier',
+  battle_station: 'Battle Station', small_space_station: 'Small Space Station',
+  space_station: 'Space Station', large_space_station: 'Large Space Station',
+  planet_killer: 'Planet Killer',
+  coloniser_gen1: 'Colony Ship Mk I', coloniser_gen2: 'Colony Ship Mk II',
+  coloniser_gen3: 'Colony Ship Mk III', coloniser_gen4: 'Colony Ship Mk IV',
+  coloniser_gen5: 'Colony Ship Mk V',
 };
 
-const HULL_CLASS_ICONS: Record<HullClass, string> = {
-  scout:            '🛸',
-  destroyer:        '⚔️',
-  transport:        '📦',
-  cruiser:          '🚀',
-  carrier:          '🛩️',
-  battleship:       '💥',
-  coloniser:        '🌍',
-  dreadnought:      '🔱',
-  battle_station:   '🏰',
-  deep_space_probe: '📡',
+const HULL_CLASS_ICONS: Partial<Record<HullClass, string>> = {
+  science_probe: '\uD83D\uDCE1', spy_probe: '\uD83D\uDD75\uFE0F', drone: '\uD83E\uDD16',
+  fighter: '\u2708\uFE0F', bomber: '\uD83D\uDCA3', patrol: '\uD83D\uDEF8', yacht: '\u26F5',
+  corvette: '\u2694\uFE0F',
+  cargo: '\uD83D\uDCE6', transport: '\uD83D\uDCE6',
+  frigate: '\u2694\uFE0F', destroyer: '\u2694\uFE0F',
+  large_transport: '\uD83D\uDCE6', large_cargo: '\uD83D\uDCE6',
+  light_cruiser: '\uD83D\uDE80', heavy_cruiser: '\uD83D\uDE80',
+  large_supplier: '\uD83D\uDCE6', carrier: '\uD83D\uDEE9\uFE0F',
+  light_battleship: '\uD83D\uDCA5', battleship: '\uD83D\uDCA5',
+  heavy_battleship: '\uD83D\uDD31', super_carrier: '\uD83D\uDEE9\uFE0F',
+  battle_station: '\uD83C\uDFF0', small_space_station: '\uD83C\uDFF0',
+  space_station: '\uD83C\uDFF0', large_space_station: '\uD83C\uDFF0',
+  planet_killer: '\u2620\uFE0F',
+  coloniser_gen1: '\uD83C\uDF0D', coloniser_gen2: '\uD83C\uDF0D',
+  coloniser_gen3: '\uD83C\uDF0D', coloniser_gen4: '\uD83C\uDF0D',
+  coloniser_gen5: '\uD83C\uDF0D',
 };
 
 function getShipBuildTime(design: ShipDesign): number {

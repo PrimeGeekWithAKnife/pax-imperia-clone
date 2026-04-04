@@ -161,7 +161,7 @@ function makeCruiserDesign(
   return {
     id,
     name: `Cruiser ${id}`,
-    hull: 'cruiser',
+    hull: 'light_cruiser',
     components: [
       { slotId: 'cruiser_weapon_1', componentId: weaponId },
       { slotId: 'cruiser_weapon_2', componentId: weaponId },
@@ -214,8 +214,8 @@ function makeDreadnoughtDesign(
 ): ShipDesign {
   return {
     id,
-    name: `Dreadnought ${id}`,
-    hull: 'dreadnought',
+    name: `Heavy Battleship ${id}`,
+    hull: 'heavy_battleship',
     components: [
       { slotId: 'dreadnought_weapon_1', componentId: weaponId },
       { slotId: 'dreadnought_weapon_2', componentId: weaponId },
@@ -937,7 +937,7 @@ describe('4. Battle Duration', () => {
       atkDesignFn: () => ({
         id: 'sc-dur-a',
         name: 'Scout A',
-        hull: 'scout' as const,
+        hull: 'corvette' as const,
         components: [
           { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
           { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
@@ -949,7 +949,7 @@ describe('4. Battle Duration', () => {
       defDesignFn: () => ({
         id: 'sc-dur-d',
         name: 'Scout D',
-        hull: 'scout' as const,
+        hull: 'corvette' as const,
         components: [
           { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
           { slotId: 'scout_turret_1', componentId: 'deflector_shield' },

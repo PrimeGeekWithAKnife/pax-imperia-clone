@@ -19,31 +19,39 @@ import type { HullClass } from '@nova-imperia/shared';
 // Length in world units for each hull class — from probe (~1.5) to battle
 // station (~24). Width and height are derived per-species.
 
-const HULL_SCALE: Record<HullClass, number> = {
-  deep_space_probe: 1.5,
-  scout:            2.0,
-  destroyer:        4.0,
-  transport:        5.0,
-  coloniser:        6.0,
-  cruiser:          8.0,
-  carrier:         10.0,
-  battleship:      14.0,
-  dreadnought:     20.0,
-  battle_station:  24.0,
+const HULL_SCALE: Partial<Record<HullClass, number>> = {
+  science_probe: 1.5, spy_probe: 1.5, drone: 1.5,
+  fighter: 1.8, bomber: 2.0, patrol: 2.0, yacht: 2.5,
+  corvette: 3.0,
+  cargo: 4.0, transport: 5.0,
+  frigate: 3.5, destroyer: 4.0,
+  large_transport: 6.0, large_cargo: 6.0,
+  light_cruiser: 8.0, heavy_cruiser: 9.0,
+  large_supplier: 7.0, carrier: 10.0,
+  light_battleship: 12.0, battleship: 14.0,
+  heavy_battleship: 20.0, super_carrier: 16.0,
+  battle_station: 24.0, small_space_station: 18.0,
+  space_station: 28.0, large_space_station: 36.0, planet_killer: 40.0,
+  coloniser_gen1: 6.0, coloniser_gen2: 7.0, coloniser_gen3: 8.0,
+  coloniser_gen4: 10.0, coloniser_gen5: 12.0,
 };
 
 /** Complexity tier — larger hulls get more detail parts. */
-const HULL_COMPLEXITY: Record<HullClass, number> = {
-  deep_space_probe: 0,
-  scout:            1,
-  destroyer:        2,
-  transport:        2,
-  coloniser:        2,
-  cruiser:          3,
-  carrier:          4,
-  battleship:       5,
-  dreadnought:      6,
-  battle_station:   7,
+const HULL_COMPLEXITY: Partial<Record<HullClass, number>> = {
+  science_probe: 0, spy_probe: 0, drone: 0,
+  fighter: 1, bomber: 1, patrol: 1, yacht: 1,
+  corvette: 2,
+  cargo: 2, transport: 2,
+  frigate: 2, destroyer: 2,
+  large_transport: 3, large_cargo: 3,
+  light_cruiser: 3, heavy_cruiser: 4,
+  large_supplier: 3, carrier: 4,
+  light_battleship: 5, battleship: 5,
+  heavy_battleship: 6, super_carrier: 5,
+  battle_station: 7, small_space_station: 6,
+  space_station: 7, large_space_station: 8, planet_killer: 8,
+  coloniser_gen1: 2, coloniser_gen2: 3, coloniser_gen3: 3,
+  coloniser_gen4: 4, coloniser_gen5: 5,
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

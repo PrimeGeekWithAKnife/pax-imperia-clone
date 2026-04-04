@@ -38,10 +38,10 @@ const AGE_MIN_COST: Record<TechAge, number> = {
 };
 
 const VALID_HULL_CLASSES: HullClass[] = [
-  'scout',
+  'patrol',
   'destroyer',
   'transport',
-  'cruiser',
+  'light_cruiser',
   'carrier',
   'battleship',
 ];
@@ -302,9 +302,9 @@ describe('Universal tech tree — hull unlock effects', () => {
     }
   });
 
-  it('cruiser is unlocked in the fusion age', () => {
+  it('light cruiser is unlocked in the fusion age', () => {
     const cruiserTechs = UNIVERSAL_TECHNOLOGIES.filter((t) =>
-      t.effects.some((e) => e.type === 'unlock_hull' && e.hullClass === 'cruiser'),
+      t.effects.some((e) => e.type === 'unlock_hull' && e.hullClass === 'light_cruiser'),
     );
     expect(cruiserTechs.length).toBeGreaterThan(0);
     for (const tech of cruiserTechs) {

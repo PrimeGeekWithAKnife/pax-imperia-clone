@@ -37,21 +37,21 @@ function getComponent(id: string): ShipComponent {
   return c;
 }
 
-/** Build a minimal valid design for a scout using starting components. */
+/** Build a minimal valid design for a corvette using starting components. */
 function makeValidScoutDesign(): { design: ShipDesign; hull: HullTemplate; usedComponents: ShipComponent[] } {
-  const hull = getHull('scout');
+  const hull = getHull('corvette');
   const engine = getComponent('ion_engine');
   const scanner = getComponent('short_range_scanner');
   const laser = getComponent('pulse_laser');
 
   const design: ShipDesign = {
     id: 'test-design-1',
-    name: 'Test Scout',
-    hull: 'scout',
+    name: 'Test Corvette',
+    hull: 'corvette',
     components: [
-      { slotId: 'scout_fore_1', componentId: laser.id },
-      { slotId: 'scout_turret_1', componentId: scanner.id },
-      { slotId: 'scout_aft_1', componentId: engine.id },
+      { slotId: 'corvette_weapon_6', componentId: laser.id },
+      { slotId: 'corvette_scanning_2', componentId: scanner.id },
+      { slotId: 'corvette_engine_0', componentId: engine.id },
     ],
     totalCost: 0,
     empireId: 'empire-1',
@@ -65,13 +65,21 @@ function makeValidScoutDesign(): { design: ShipDesign; hull: HullTemplate; usedC
 // ---------------------------------------------------------------------------
 
 describe('Hull templates data', () => {
-  it('exports exactly 10 hull templates', () => {
-    expect(HULL_TEMPLATES).toHaveLength(10);
+  it('exports exactly 32 hull templates', () => {
+    expect(HULL_TEMPLATES).toHaveLength(32);
   });
 
   it('contains all expected hull classes', () => {
     const classes = HULL_TEMPLATES.map((h) => h.class).sort();
-    expect(classes).toEqual(['battle_station', 'battleship', 'carrier', 'coloniser', 'cruiser', 'deep_space_probe', 'destroyer', 'dreadnought', 'scout', 'transport']);
+    expect(classes).toEqual([
+      'battle_station', 'battleship', 'bomber', 'cargo', 'carrier',
+      'coloniser_gen1', 'coloniser_gen2', 'coloniser_gen3', 'coloniser_gen4', 'coloniser_gen5',
+      'corvette', 'destroyer', 'drone', 'fighter', 'frigate',
+      'heavy_battleship', 'heavy_cruiser', 'large_cargo', 'large_space_station',
+      'large_supplier', 'large_transport', 'light_battleship', 'light_cruiser',
+      'patrol', 'planet_killer', 'science_probe', 'small_space_station',
+      'space_station', 'spy_probe', 'super_carrier', 'transport', 'yacht',
+    ]);
   });
 
   it('has unique classes', () => {
@@ -201,19 +209,19 @@ describe('validateDesign', () => {
   });
 
   it('fails when a component type is not allowed in the slot', () => {
-    const hull = getHull('scout');
-    // Ion engine in a fore (weapon/sensor-only) slot
+    const hull = getHull('corvette');
+    // Ion engine in a weapon slot
     const engine = getComponent('ion_engine');
     const scanner = getComponent('short_range_scanner');
 
     const design: ShipDesign = {
       id: 'bad-design-1',
-      name: 'Bad Scout',
-      hull: 'scout',
+      name: 'Bad Corvette',
+      hull: 'corvette',
       components: [
-        { slotId: 'scout_fore_1', componentId: engine.id },   // engine not allowed in fore slot
-        { slotId: 'scout_turret_1', componentId: scanner.id },
-        { slotId: 'scout_aft_1', componentId: engine.id },
+        { slotId: 'corvette_weapon_6', componentId: engine.id },   // engine not allowed in weapon slot
+        { slotId: 'corvette_scanning_2', componentId: scanner.id },
+        { slotId: 'corvette_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -225,18 +233,18 @@ describe('validateDesign', () => {
   });
 
   it('fails when a slot is assigned twice', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const laser = getComponent('pulse_laser');
     const engine = getComponent('ion_engine');
 
     const design: ShipDesign = {
       id: 'bad-design-2',
-      name: 'Duplicate Slot Scout',
-      hull: 'scout',
+      name: 'Duplicate Slot Corvette',
+      hull: 'corvette',
       components: [
-        { slotId: 'scout_fore_1', componentId: laser.id },
-        { slotId: 'scout_fore_1', componentId: laser.id }, // duplicate
-        { slotId: 'scout_aft_1', componentId: engine.id },
+        { slotId: 'corvette_weapon_6', componentId: laser.id },
+        { slotId: 'corvette_weapon_6', componentId: laser.id }, // duplicate
+        { slotId: 'corvette_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -248,18 +256,18 @@ describe('validateDesign', () => {
   });
 
   it('fails when no engine or warp drive is present', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const laser = getComponent('pulse_laser');
     const scanner = getComponent('short_range_scanner');
 
     const design: ShipDesign = {
       id: 'no-engine-design',
-      name: 'Engineless Scout',
-      hull: 'scout',
+      name: 'Engineless Corvette',
+      hull: 'corvette',
       components: [
-        { slotId: 'scout_fore_1', componentId: laser.id },
-        { slotId: 'scout_turret_1', componentId: scanner.id },
-        // No aft engine
+        { slotId: 'corvette_weapon_6', componentId: laser.id },
+        { slotId: 'corvette_scanning_2', componentId: scanner.id },
+        // No engine
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -271,16 +279,16 @@ describe('validateDesign', () => {
   });
 
   it('fails when a slot ID does not exist on the hull', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const engine = getComponent('ion_engine');
 
     const design: ShipDesign = {
       id: 'bad-slot-design',
-      name: 'Bad Slot Scout',
-      hull: 'scout',
+      name: 'Bad Slot Corvette',
+      hull: 'corvette',
       components: [
         { slotId: 'nonexistent_slot', componentId: engine.id },
-        { slotId: 'scout_aft_1', componentId: engine.id },
+        { slotId: 'corvette_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -292,16 +300,16 @@ describe('validateDesign', () => {
   });
 
   it('fails when a component ID cannot be resolved', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const engine = getComponent('ion_engine');
 
     const design: ShipDesign = {
       id: 'missing-comp-design',
-      name: 'Missing Component Scout',
-      hull: 'scout',
+      name: 'Missing Component Corvette',
+      hull: 'corvette',
       components: [
-        { slotId: 'scout_fore_1', componentId: 'nonexistent_component' },
-        { slotId: 'scout_aft_1', componentId: engine.id },
+        { slotId: 'corvette_weapon_6', componentId: 'nonexistent_component' },
+        { slotId: 'corvette_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -328,18 +336,16 @@ describe('calculateDesignStats', () => {
   });
 
   it('picks maximum speed across engine components', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const engine = getComponent('ion_engine');
     const warpDrive = getComponent('basic_warp_drive');
 
     const design: ShipDesign = {
       id: 'speed-design',
-      name: 'Speed Scout',
-      hull: 'scout',
+      name: 'Speed Corvette',
+      hull: 'corvette',
       components: [
-        { slotId: 'scout_fore_1', componentId: warpDrive.id },
-        { slotId: 'scout_turret_1', componentId: warpDrive.id },
-        { slotId: 'scout_aft_1', componentId: engine.id },
+        { slotId: 'corvette_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -360,11 +366,11 @@ describe('calculateDesignStats', () => {
       name: 'Shield Destroyer',
       hull: 'destroyer',
       components: [
-        { slotId: 'destroyer_fore_1', componentId: laser.id },
-        { slotId: 'destroyer_fore_2', componentId: laser.id },
-        { slotId: 'destroyer_turret_1', componentId: shield.id },
-        { slotId: 'destroyer_port_1', componentId: laser.id },
-        { slotId: 'destroyer_starboard_1', componentId: engine.id },
+        { slotId: 'destroyer_weapon_8', componentId: laser.id },
+        { slotId: 'destroyer_weapon_9', componentId: laser.id },
+        { slotId: 'destroyer_defence_6', componentId: shield.id },
+        { slotId: 'destroyer_weapon_10', componentId: laser.id },
+        { slotId: 'destroyer_engine_0', componentId: engine.id },
       ],
       totalCost: 0,
       empireId: 'empire-1',
@@ -443,15 +449,15 @@ describe('getAvailableComponents', () => {
 
 describe('autoEquipDesign', () => {
   it('fills all slots when enough starting components are available', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const design = autoEquipDesign(hull, STARTING_COMPONENTS);
 
-    // All 3 scout slots should be filled
+    // All corvette slots should be filled
     expect(design.components.length).toBe(hull.slotLayout.length);
   });
 
   it('assigns only one component per slot', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const design = autoEquipDesign(hull, STARTING_COMPONENTS);
 
     const slotIds = design.components.map((a) => a.slotId);
@@ -473,7 +479,7 @@ describe('autoEquipDesign', () => {
   });
 
   it('produces a design with at least one engine when components are available', () => {
-    const hull = getHull('scout');
+    const hull = getHull('corvette');
     const design = autoEquipDesign(hull, STARTING_COMPONENTS);
 
     const componentById = new Map(STARTING_COMPONENTS.map((c) => [c.id, c]));
@@ -485,17 +491,17 @@ describe('autoEquipDesign', () => {
     expect(hasEngine).toBe(true);
   });
 
-  it('auto-equips a cruiser with all slots filled using full starting set', () => {
-    const hull = getHull('cruiser');
+  it('auto-equips a light cruiser with all slots filled using full starting set', () => {
+    const hull = getHull('light_cruiser');
     const design = autoEquipDesign(hull, STARTING_COMPONENTS);
 
-    // Cruiser has 8 slots; all should be assigned (starting components cover all types)
+    // Light cruiser slots should all be assigned (starting components cover all types)
     expect(design.components.length).toBe(hull.slotLayout.length);
   });
 
   it('prefers high-damage components in weapon slots with advanced tech', () => {
-    const hull = getHull('scout');
-    // Include both pulse_laser and plasma_lance; fore slot allows weapon_beam
+    const hull = getHull('corvette');
+    // Include both pulse_laser and plasma_lance; weapon slot allows weapon_beam
     const plasmaLance = getComponent('plasma_lance');
     const pulseLaser = getComponent('pulse_laser');
     const engine = getComponent('ion_engine');
@@ -504,8 +510,8 @@ describe('autoEquipDesign', () => {
     const components = [pulseLaser, plasmaLance, engine, scanner];
     const design = autoEquipDesign(hull, components);
 
-    const foreAssignment = design.components.find((a) => a.slotId === 'scout_fore_1');
-    expect(foreAssignment?.componentId).toBe(plasmaLance.id);
+    const weaponAssignment = design.components.find((a) => a.slotId === 'corvette_weapon_6');
+    expect(weaponAssignment?.componentId).toBe(plasmaLance.id);
   });
 
   it('returns a design with the correct hull class', () => {

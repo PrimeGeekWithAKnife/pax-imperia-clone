@@ -42,27 +42,60 @@ export const TECH_AGES: TechAgeDefinition[] = [
   {
     name: 'nano_atomic',
     combatBonus: 0,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser'],
+    unlockedHulls: [
+      'science_probe', 'spy_probe', 'drone', 'fighter', 'bomber', 'patrol', 'yacht',
+      'corvette', 'cargo', 'transport', 'frigate', 'destroyer',
+      'coloniser_gen1',
+    ],
   },
   {
     name: 'fusion',
     combatBonus: 5,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship'],
+    unlockedHulls: [
+      'science_probe', 'spy_probe', 'drone', 'fighter', 'bomber', 'patrol', 'yacht',
+      'corvette', 'cargo', 'transport', 'frigate', 'destroyer',
+      'large_transport', 'large_cargo', 'light_cruiser',
+      'carrier', 'battleship',
+      'coloniser_gen1', 'coloniser_gen2',
+    ],
   },
   {
     name: 'nano_fusion',
     combatBonus: 10,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
+    unlockedHulls: [
+      'science_probe', 'spy_probe', 'drone', 'fighter', 'bomber', 'patrol', 'yacht',
+      'corvette', 'cargo', 'transport', 'frigate', 'destroyer',
+      'large_transport', 'large_cargo', 'light_cruiser', 'heavy_cruiser',
+      'large_supplier', 'carrier', 'light_battleship', 'battleship',
+      'heavy_battleship', 'super_carrier', 'battle_station', 'small_space_station',
+      'coloniser_gen1', 'coloniser_gen2', 'coloniser_gen3',
+    ],
   },
   {
     name: 'anti_matter',
     combatBonus: 20,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
+    unlockedHulls: [
+      'science_probe', 'spy_probe', 'drone', 'fighter', 'bomber', 'patrol', 'yacht',
+      'corvette', 'cargo', 'transport', 'frigate', 'destroyer',
+      'large_transport', 'large_cargo', 'light_cruiser', 'heavy_cruiser',
+      'large_supplier', 'carrier', 'light_battleship', 'battleship',
+      'heavy_battleship', 'super_carrier', 'battle_station', 'small_space_station',
+      'space_station', 'large_space_station',
+      'coloniser_gen1', 'coloniser_gen2', 'coloniser_gen3', 'coloniser_gen4',
+    ],
   },
   {
     name: 'singularity',
     combatBonus: 35,
-    unlockedHulls: ['scout', 'transport', 'deep_space_probe', 'coloniser', 'destroyer', 'cruiser', 'carrier', 'battleship', 'dreadnought', 'battle_station'],
+    unlockedHulls: [
+      'science_probe', 'spy_probe', 'drone', 'fighter', 'bomber', 'patrol', 'yacht',
+      'corvette', 'cargo', 'transport', 'frigate', 'destroyer',
+      'large_transport', 'large_cargo', 'light_cruiser', 'heavy_cruiser',
+      'large_supplier', 'carrier', 'light_battleship', 'battleship',
+      'heavy_battleship', 'super_carrier', 'battle_station', 'small_space_station',
+      'space_station', 'large_space_station', 'planet_killer',
+      'coloniser_gen1', 'coloniser_gen2', 'coloniser_gen3', 'coloniser_gen4', 'coloniser_gen5',
+    ],
   },
 ];
 

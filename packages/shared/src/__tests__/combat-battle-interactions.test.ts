@@ -62,7 +62,7 @@ function makeArmedDesign(id: string, empireId = 'empire-1'): ShipDesign {
   return {
     id,
     name: `Design ${id}`,
-    hull: 'scout',
+    hull: 'corvette',
     components: [
       { slotId: 'scout_fore_1', componentId: 'pulse_laser' },
       { slotId: 'scout_turret_1', componentId: 'deflector_shield' },

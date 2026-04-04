@@ -2126,7 +2126,7 @@ export function generateAIDecisions(
     if (totalShips < shipTarget) {
       const hullClass: HullClass =
         totalShips >= 10 ? 'battleship' :
-        totalShips >= 5  ? 'cruiser' :
+        totalShips >= 5  ? 'light_cruiser' :
         'destroyer';
       shipDecisions.push({
         type: 'build_ship',
@@ -2143,7 +2143,7 @@ export function generateAIDecisions(
     const empireShips = gameState.ships.filter(s => empireShipIds.has(s.id));
     const coloniserCount = empireShips.filter(s => {
       const design = stateDesigns?.get(s.designId);
-      return design?.hull === 'coloniser';
+      return design?.hull.startsWith('coloniser');
     }).length;
 
     // Check expansion opportunities: known unclaimed planets OR unexplored systems
@@ -2165,7 +2165,7 @@ export function generateAIDecisions(
       shipDecisions.push({
         type: 'build_ship',
         priority: applyWeight(basePriority, 'build_ship', personality),
-        params: { planetId: shipyard.id, hullClass: 'coloniser' },
+        params: { planetId: shipyard.id, hullClass: 'coloniser_gen1' },
         reasoning: `Build colony ship for expansion (${ownedPlanets.length} planets, ${knownUnclaimedHabitable} unclaimed targets, goal=${victoryGoal})`,
       });
     }
@@ -2173,7 +2173,7 @@ export function generateAIDecisions(
     // Build scouts for exploration — more for expansion-focused empires
     const scoutCount = empireShips.filter(s => {
       const design = stateDesigns?.get(s.designId);
-      return design?.hull === 'scout' || design?.hull === 'deep_space_probe';
+      return design?.hull === 'patrol' || design?.hull === 'science_probe';
     }).length;
     const maxScouts = isExpansionGoal ? 3 : personality === 'expansionist' ? 2 : 1;
     if (scoutCount < maxScouts && hasUnexploredSystems) {
@@ -2181,7 +2181,7 @@ export function generateAIDecisions(
       shipDecisions.push({
         type: 'build_ship',
         priority: applyWeight(scoutPriority, 'build_ship', personality),
-        params: { planetId: shipyard.id, hullClass: 'scout' },
+        params: { planetId: shipyard.id, hullClass: 'patrol' },
         reasoning: `Build scout for exploration (${scoutCount}/${maxScouts} scouts, ${isExpansionGoal ? 'expansion goal' : 'general'})`,
       });
     }
@@ -2199,7 +2199,7 @@ export function generateAIDecisions(
         const ship = gameState.ships.find(s => s.id === shipId);
         if (!ship) return false;
         const design = stateDesignsOuter?.get(ship.designId);
-        return design?.hull === 'coloniser';
+        return design?.hull.startsWith('coloniser');
       });
     });
 

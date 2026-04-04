@@ -46,13 +46,22 @@ export interface BattleResultsScreenProps {
 /** Return a short Unicode symbol representing the ship's hull class. */
 function shipIcon(hull: string): string {
   switch (hull) {
-    case 'scout':      return '\u25C7';
-    case 'destroyer':  return '\u25B7';
-    case 'transport':  return '\u25AD';
-    case 'cruiser':    return '\u25B6';
-    case 'carrier':    return '\u25C8';
-    case 'battleship': return '\u25C6';
-    default:           return '\u25B8';
+    case 'patrol':           return '\u25C7';
+    case 'corvette':
+    case 'frigate':
+    case 'destroyer':        return '\u25B7';
+    case 'transport':
+    case 'large_transport':
+    case 'cargo':
+    case 'large_cargo':      return '\u25AD';
+    case 'light_cruiser':
+    case 'heavy_cruiser':    return '\u25B6';
+    case 'carrier':
+    case 'super_carrier':    return '\u25C8';
+    case 'battleship':
+    case 'light_battleship':
+    case 'heavy_battleship': return '\u25C6';
+    default:                 return '\u25B8';
   }
 }
 

@@ -724,12 +724,12 @@ export class CombatScene extends Phaser.Scene {
       if (design) return design.hull;
     }
     // Fallback: guess from hull points
-    if (ship.maxHull < 30) return 'deep_space_probe';
-    if (ship.maxHull < 60) return 'scout';
+    if (ship.maxHull < 30) return 'science_probe';
+    if (ship.maxHull < 60) return 'patrol';
     if (ship.maxHull < 120) return 'destroyer';
-    if (ship.maxHull < 250) return 'cruiser';
+    if (ship.maxHull < 250) return 'light_cruiser';
     if (ship.maxHull < 450) return 'battleship';
-    return 'dreadnought';
+    return 'heavy_battleship';
   }
 
   private _createShipContainers(): void {

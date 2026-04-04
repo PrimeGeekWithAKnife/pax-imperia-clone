@@ -605,7 +605,7 @@ function processPlayerActions(
           const fleetShips = state.gameState.ships.filter(s => fleet.ships.includes(s.id));
           const coloniserShip = fleetShips.find(s => {
             const design = designsMap.get(s.designId);
-            return design && (design as unknown as { hull: string }).hull === 'coloniser';
+            return design && (design as unknown as { hull: string }).hull.startsWith('coloniser');
           });
           if (!coloniserShip) {
             console.warn(`[game-loop] ColonizePlanet fleet has no coloniser ship — skipping`);
@@ -1179,7 +1179,7 @@ function stepFleetMovement(
             .find(s => {
               if (!s) return false;
               const d = designsMap.get(s.designId);
-              return d?.hull === 'coloniser';
+              return d?.hull.startsWith('coloniser');
             });
           if (coloniserShip) {
             const arrSystem = state.gameState.galaxy.systems.find(
@@ -1437,16 +1437,20 @@ function stepSupplyConsumption(state: GameTickState): GameTickState {
 
 /** Hull class debris contribution — larger ships create more debris when destroyed. */
 const HULL_CLASS_DEBRIS_SIZE: Record<string, number> = {
-  scout: 1,
-  destroyer: 3,
-  transport: 2,
-  cruiser: 5,
-  carrier: 6,
-  battleship: 8,
-  coloniser: 3,
-  dreadnought: 12,
-  battle_station: 10,
-  deep_space_probe: 0,
+  science_probe: 0, spy_probe: 0, drone: 0,
+  fighter: 0, bomber: 0, patrol: 1, yacht: 1,
+  corvette: 2,
+  cargo: 2, transport: 2,
+  frigate: 3, destroyer: 3,
+  large_transport: 4, large_cargo: 4,
+  light_cruiser: 5, heavy_cruiser: 6,
+  large_supplier: 4, carrier: 6,
+  light_battleship: 7, battleship: 8,
+  heavy_battleship: 12, super_carrier: 10,
+  battle_station: 10, small_space_station: 8,
+  space_station: 14, large_space_station: 20, planet_killer: 25,
+  coloniser_gen1: 3, coloniser_gen2: 4, coloniser_gen3: 5,
+  coloniser_gen4: 6, coloniser_gen5: 8,
 };
 
 /** Natural debris decay rate per tick (0.5%). */
@@ -1881,7 +1885,7 @@ function stepCombatResolution(
         const destroyedShip = [...attackerShips, ...defenderShips].find(s => s.id === destroyedId);
         if (!destroyedShip) continue;
         const design = designs.get(destroyedShip.designId);
-        const hullClass = design?.hull ?? 'scout';
+        const hullClass = design?.hull ?? 'patrol';
         debrisAmount += (HULL_CLASS_DEBRIS_SIZE[hullClass] ?? 1) * 2;
       }
 
@@ -1930,7 +1934,7 @@ function stepCombatResolution(
         let attackerTransportStrength = 0;
         for (const s of winnerShips) {
           const design = designs.get(s.designId);
-          const hullClass: HullClass = design?.hull ?? 'scout';
+          const hullClass: HullClass = design?.hull ?? 'patrol';
           attackerTransportStrength += TRANSPORT_CAPACITY[hullClass] ?? 0;
         }
 
@@ -2163,7 +2167,7 @@ function stepUnopposedOccupation(state: GameTickState, events: GameEvent[]): Gam
           const fleetShips = ships.filter(s => fleet.ships.includes(s.id));
           for (const s of fleetShips) {
             const design = designs.get(s.designId);
-            const hullClass: HullClass = design?.hull ?? 'scout';
+            const hullClass: HullClass = design?.hull ?? 'patrol';
             transportStrength += TRANSPORT_CAPACITY[hullClass] ?? 0;
           }
         }
@@ -4363,7 +4367,7 @@ function executeAIBuildShip(
   // Don't queue more ships if there are already 2+ orders for this planet
   // Exception: coloniser/scout builds can use a 3rd slot to prevent warships from starving expansion
   const pendingForPlanet = state.productionOrders.filter(o => o.planetId === planetId).length;
-  const maxQueue = (requestedHull === 'coloniser' || requestedHull === 'scout') ? 3 : 2;
+  const maxQueue = (requestedHull?.startsWith('coloniser') || requestedHull === 'patrol' || requestedHull === 'science_probe') ? 3 : 2;
   if (pendingForPlanet >= maxQueue) return state;
 
   // Find an available design for this empire
@@ -4394,8 +4398,8 @@ function executeAIBuildShip(
   }
   if (!chosenDesign) {
     chosenDesign = empireDesigns.find(d => d.hull === 'destroyer')
-      ?? empireDesigns.find(d => d.hull === 'cruiser')
-      ?? empireDesigns.find(d => d.hull === 'scout')
+      ?? empireDesigns.find(d => d.hull === 'light_cruiser')
+      ?? empireDesigns.find(d => d.hull === 'patrol')
       ?? empireDesigns[0];
   }
   if (!chosenDesign) return state;
