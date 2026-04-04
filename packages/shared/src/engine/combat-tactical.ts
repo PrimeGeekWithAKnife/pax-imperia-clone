@@ -994,12 +994,17 @@ export function initializeTacticalCombat(
         position: { x, y },
         velocity: { x: 0, y: 0 },
         facing,
-        // Speed = max of hull baseSpeed and engine component speed
-        speed: Math.max(extracted.speed, hullTemplate?.baseSpeed ?? 0),
-        // Acceleration = engine power / mass. Lighter ships accelerate faster.
-        acceleration: Math.max(extracted.speed, hullTemplate?.baseSpeed ?? 0)
+        // Max speed comes from the hull — engines don't make you faster,
+        // they make you accelerate faster (more thrust).
+        speed: hullTemplate?.baseSpeed ?? extracted.speed,
+        // Acceleration = engine thrust / mass. Engine speed stat is thrust.
+        // Hull baseSpeed is NOT thrust — it's the velocity cap.
+        acceleration: Math.max(extracted.speed, 1)
           / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
-        turnRate: extracted.turnRate,
+        // Turn rate scales inversely with mass. Drones turn on a pin,
+        // battleships lumber. Unmanned craft (drones) get a 2x bonus.
+        turnRate: (hullTemplate?.manned === false ? 0.20 : 0.10)
+          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100)),
         hull: ship.hullPoints,
         maxHull: ship.maxHullPoints,
         shields: extracted.maxShields,
@@ -1721,8 +1726,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   }
 }
 
-/** Drag coefficient — velocity decays by this fraction per tick. */
-const SPACE_DRAG = 0.97;
+/** Drag coefficient — velocity decays by this fraction per tick.
+ *  0.99 = momentum persists for ~70 ticks. Ships must thrust retrograde
+ *  or arc to change direction. Lower = more "ice skating". */
+const SPACE_DRAG = 0.99;
 /** Max velocity magnitude (prevents runaway speeds). */
 const MAX_VELOCITY = 12;
 
@@ -1765,10 +1772,10 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
   let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
   const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
-  // Retrograde braking — uses acceleration (not max speed) for braking force
+  // Retrograde braking — ship must turn and burn to decelerate
   if (currentSpeed > 0.3) {
     const retroAngle = Math.atan2(-vy, -vx);
-    const brakeForce = (ship.acceleration ?? ship.speed) * 0.15 * crewJitterMul(exp);
+    const brakeForce = (ship.acceleration ?? ship.speed) * 0.25 * crewJitterMul(exp);
     vx += Math.cos(retroAngle) * brakeForce;
     vy += Math.sin(retroAngle) * brakeForce;
   }
