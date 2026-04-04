@@ -48,11 +48,11 @@ const ARMOUR_DEGRADATION_FACTOR = 0.5;
 const CATASTROPHIC_FAILURE_MAX = 0.1;
 
 /** Missile initial speed (pixels per tick). */
-const MISSILE_INITIAL_SPEED = 2;
+const MISSILE_INITIAL_SPEED = 4;
 /** Missile maximum speed (pixels per tick). */
-const MISSILE_MAX_SPEED = 12;
+const MISSILE_MAX_SPEED = 16;
 /** Missile acceleration (pixels per tick^2). */
-const MISSILE_ACCELERATION = 0.5;
+const MISSILE_ACCELERATION = 1.5;
 /** Hit radius for missile collision detection. */
 const MISSILE_HIT_RADIUS = 12;
 
@@ -65,12 +65,28 @@ const POINT_DEFENSE_DEFAULT_AMMO = 100;
 
 /** Per-missile-type physics and ammo profiles. */
 const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number }> = {
-  basic_missile:       { initSpeed: 4, maxSpeed: 10, accel: 1.0, ammo: 12, cooldown: 8 },   // rapid salvo
-  basic_torpedo:       { initSpeed: 2, maxSpeed: 12, accel: 0.5, ammo: 6, cooldown: 25 },   // standard
-  guided_torpedo:      { initSpeed: 2, maxSpeed: 14, accel: 0.6, ammo: 4, cooldown: 25 },   // precise tracker
-  fusion_torpedo:      { initSpeed: 1, maxSpeed: 10, accel: 0.3, ammo: 3, cooldown: 25 },   // slow heavy
-  antimatter_torpedo:  { initSpeed: 1, maxSpeed: 8, accel: 0.2, ammo: 2, cooldown: 25 },    // very slow, devastating
-  singularity_torpedo: { initSpeed: 0.5, maxSpeed: 6, accel: 0.15, ammo: 1, cooldown: 25 }, // crawls then locks
+  // All missiles outrun ships (fastest ship = 14). Slowest missile maxSpeed 12,
+  // fastest 30. Higher tech = faster, harder to intercept.
+  // nano_atomic age
+  basic_missile:       { initSpeed: 4,  maxSpeed: 12, accel: 1.5, ammo: 12, cooldown: 8 },   // cheap salvo
+  hv_missile:          { initSpeed: 6,  maxSpeed: 14, accel: 2.0, ammo: 8,  cooldown: 10 },  // high-velocity
+  basic_torpedo:       { initSpeed: 3,  maxSpeed: 12, accel: 1.0, ammo: 6,  cooldown: 20 },  // standard torpedo
+  torpedo_rack:        { initSpeed: 3,  maxSpeed: 12, accel: 1.0, ammo: 6,  cooldown: 20 },  // multi-tube
+  icbm_torpedo:        { initSpeed: 2,  maxSpeed: 10, accel: 0.5, ammo: 1,  cooldown: 40 },  // crude nuke — slowest
+  // fusion age
+  guided_torpedo:      { initSpeed: 5,  maxSpeed: 16, accel: 2.0, ammo: 4,  cooldown: 20 },  // smart tracking
+  cluster_missile:     { initSpeed: 5,  maxSpeed: 15, accel: 1.8, ammo: 4,  cooldown: 15 },  // splits near target
+  emp_torpedo:         { initSpeed: 5,  maxSpeed: 16, accel: 1.5, ammo: 3,  cooldown: 20 },  // EMP warhead
+  // nano_fusion age
+  fusion_torpedo:      { initSpeed: 6,  maxSpeed: 20, accel: 2.5, ammo: 3,  cooldown: 18 },  // fast heavy
+  swarm_missiles:      { initSpeed: 8,  maxSpeed: 22, accel: 3.0, ammo: 16, cooldown: 15 },  // overwhelming swarm
+  bunker_buster:       { initSpeed: 4,  maxSpeed: 18, accel: 1.5, ammo: 2,  cooldown: 25 },  // heavy penetrator
+  // anti_matter age
+  antimatter_torpedo:  { initSpeed: 8,  maxSpeed: 25, accel: 3.5, ammo: 2,  cooldown: 18 },  // fast and devastating
+  void_seeker:         { initSpeed: 10, maxSpeed: 28, accel: 4.0, ammo: 2,  cooldown: 18 },  // stealthy and fast
+  // singularity age
+  singularity_torpedo: { initSpeed: 12, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // near-impossible to intercept
+  phase_torpedo:       { initSpeed: 14, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // phases through shields
 };
 
 /** Default salvo count per missile component (how many missiles per volley). */
@@ -1581,7 +1597,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // Ships steer slightly away from nearby allies to avoid splash/AOE.
   // This is blended into the target position, NOT an early return,
   // so ships still advance while spreading.
-  const MINIMUM_ALLY_SPACING = 35;
+  // Small craft need wider spacing — splash damage is lethal at 10 HP
+  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 60 : 35;
   let spreadX = 0;
   let spreadY = 0;
   const allies = state.ships.filter(
@@ -1596,9 +1613,24 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     }
   }
 
+  // Small craft threshold — fighters, drones, bombers flank instead of charging
+  const isSmallCraft = ship.maxHull < 80;
+
   switch (ship.stance) {
     case 'aggressive': {
-      // Close to where ALL weapons can fire, with slight spread from allies
+      if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
+        // Small craft vs larger target: flank to the enemy's aft/blind spot.
+        // Compute a point behind the target (opposite their facing) offset
+        // by this ship's unique angle to create a spread attack.
+        const behindAngle = target.facing + Math.PI; // directly behind target
+        // Offset each ship slightly so they don't all aim for the same point
+        const spreadAngle = behindAngle + (ship.id.charCodeAt(0) % 7 - 3) * 0.25;
+        const flankDist = engageDistance(ship) * 0.8;
+        const flankX = target.position.x + Math.cos(spreadAngle) * flankDist + spreadX;
+        const flankY = target.position.y + Math.sin(spreadAngle) * flankDist + spreadY;
+        return moveToward(updated, { x: flankX, y: flankY }, 15, state.environment, state.ships);
+      }
+      // Regular ships: close to engagement distance with spread
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
@@ -1706,7 +1738,16 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment, state.ships);
       }
-      // No attack order — cautiously advance to where most weapons can fire
+      // No attack order — cautiously advance
+      if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
+        // Small craft: flank to aft even on at_ease
+        const behindAngle = target.facing + Math.PI;
+        const spreadAngle = behindAngle + (ship.id.charCodeAt(0) % 7 - 3) * 0.25;
+        const flankDist = smartEngageDist * 0.8;
+        const flankX = target.position.x + Math.cos(spreadAngle) * flankDist + spreadX;
+        const flankY = target.position.y + Math.sin(spreadAngle) * flankDist + spreadY;
+        return moveToward(updated, { x: flankX, y: flankY }, 15, state.environment, state.ships);
+      }
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
