@@ -82,8 +82,28 @@ function componentFitsSize(
  *  - engine/warp_drive with speed > 5 → medium
  *  - everything else → small
  */
+/** Heavy ordnance that requires medium+ slots — too big for fighters/drones. */
+const MEDIUM_SLOT_COMPONENTS = new Set([
+  // Heavy torpedoes/missiles
+  'icbm_torpedo', 'antimatter_torpedo', 'singularity_torpedo',
+  'bunker_buster', 'void_seeker', 'phase_torpedo',
+  'torpedo_rack', // multi-tube rack is bulky
+  // Heavy projectiles
+  'siege_cannon', 'hypermass_projector', 'antimatter_accelerator',
+  'singularity_driver',
+  // Capital beam weapons
+  'antimatter_beam', 'meson_projector',
+  'plasma_lance', 'singularity_beam', 'quantum_cascade',
+]);
+
+/** Capital weapons that require large+ slots. */
+const LARGE_SLOT_COMPONENTS = new Set([
+  'drone_swarm_bay', 'elite_fighter_bay', 'bomber_bay',
+]);
+
 function inferComponentSize(component: ShipComponent): SlotPosition['size'] {
-  if (component.type === 'fighter_bay') return 'large';
+  if (component.type === 'fighter_bay' || LARGE_SLOT_COMPONENTS.has(component.id)) return 'large';
+  if (MEDIUM_SLOT_COMPONENTS.has(component.id)) return 'medium';
   if (
     (component.type === 'engine' || component.type === 'warp_drive') &&
     (component.stats['speed'] ?? 0) > 5
@@ -591,8 +611,15 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
     case 'weapon_beam':
     case 'weapon_projectile':
     case 'weapon_missile':
-    case 'weapon_point_defense':
-      return (s['damage'] ?? 0) + (s['range'] ?? 0) * 0.5;
+    case 'weapon_point_defense': {
+      const range = s['range'] ?? 0;
+      const damage = s['damage'] ?? 0;
+      // Range is critical — a melee weapon is nearly useless in space.
+      // Heavily penalise very short range (< 3) to prevent battering rams
+      // being chosen as primary weapons.
+      const rangePenalty = range < 3 ? -20 : 0;
+      return damage + range * 2 + rangePenalty;
+    }
 
     case 'fighter_bay':
       return (s['fighterCount'] ?? 0) * (s['damage'] ?? 0);
