@@ -14,8 +14,9 @@
  *  - Sensor range determines detection radius
  */
 
-import type { Fleet, Ship, ShipDesign, ShipComponent, ComponentType } from '../types/ships.js';
+import type { Fleet, Ship, ShipDesign, ShipComponent, ComponentType, HullTemplate } from '../types/ships.js';
 import { generateId } from '../utils/id.js';
+import { HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -865,7 +866,8 @@ export function initializeTacticalCombat(
       const y = startY + row * lineSpacing;
 
       const design = designs.get(ship.designId);
-      const extracted = extractShipStats(design, componentById, ship.magazineLevel ?? 1.0);
+      const hullTemplate = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
+      const extracted = extractShipStats(design, componentById, ship.magazineLevel ?? 1.0, hullTemplate);
 
       return {
         id: generateId(),
@@ -1008,7 +1010,15 @@ function extractShipStats(
   design: ShipDesign | undefined,
   componentById: Map<string, ShipComponent>,
   magazineLevel = 1.0,
+  hull?: HullTemplate,
 ): ExtractedStats {
+  // Build slot facing lookup from hull template
+  const slotFacing = new Map<string, 'fore' | 'aft' | 'port' | 'starboard' | 'turret'>();
+  if (hull) {
+    for (const slot of hull.slotLayout) {
+      slotFacing.set(slot.id, slot.facing);
+    }
+  }
   const weapons: TacticalWeapon[] = [];
   let speed = 0;
   let maxShields = 0;
@@ -1026,6 +1036,9 @@ function extractShipStats(
 
       const weaponType = mapComponentType(comp.type);
       if (weaponType != null) {
+        // Use the actual slot facing from the hull template, fall back to default
+        const facing = slotFacing.get(assignment.slotId) ?? defaultWeaponFacing(comp.type);
+
         if (comp.type === 'fighter_bay') {
           // Fighter bays use per-fighter damage; ammo = number of fighters
           const fighterCount = comp.stats['fighterCount'] ?? 4;
@@ -1039,7 +1052,7 @@ function extractShipStats(
             accuracy: comp.stats['accuracy'] ?? 75,
             cooldownMax: computeCooldown(comp),
             cooldownLeft: 0,
-            facing: defaultWeaponFacing(comp.type),
+            facing,
             ammo: scaledFighters,
             maxAmmo: fighterCount,
           });
@@ -1058,7 +1071,7 @@ function extractShipStats(
             accuracy: comp.stats['accuracy'] ?? 75,
             cooldownMax: computeCooldown(comp),
             cooldownLeft: 0,
-            facing: defaultWeaponFacing(comp.type),
+            facing,
             ammo,
             maxAmmo: baseAmmo,
           });

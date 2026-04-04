@@ -984,7 +984,7 @@
   },
   {
     "class": "destroyer",
-    "name": "Detroyer",
+    "name": "Destroyer",
     "hullType": "destroyer",
     "baseHullPoints": 205,
     "maxSlots": 13,
@@ -1163,7 +1163,7 @@
     "baseCost": 1500,
     "baseMineralCost": 55,
     "baseSpeed": 8,
-    "requiredAge": "fusion",
+    "requiredAge": "nano_atomic",
     "manned": true,
     "baseSupplyCapacity": 25,
     "baseCrew": 12,
