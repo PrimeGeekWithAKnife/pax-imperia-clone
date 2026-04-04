@@ -196,8 +196,9 @@ export interface TacticalShip {
   name: string;
   side: 'attacker' | 'defender';
   position: { x: number; y: number };
+  velocity: { x: number; y: number }; // current drift (Newtonian momentum)
   facing: number;        // radians (0 = +x direction)
-  speed: number;         // pixels per tick
+  speed: number;         // max thrust (acceleration per tick)
   turnRate: number;      // radians per tick
   hull: number;
   maxHull: number;
@@ -896,6 +897,7 @@ export function initializeTacticalCombat(
         name: ship.name,
         side,
         position: { x, y },
+        velocity: { x: 0, y: 0 },
         facing,
         speed: extracted.speed,
         turnRate: extracted.turnRate,
@@ -946,6 +948,7 @@ export function initializeTacticalCombat(
           x: planetCX + Math.cos(angle) * 120,
           y: planetCY + Math.sin(angle) * 120,
         },
+        velocity: { x: 0, y: 0 },
         facing: angle + Math.PI, // face outward
         speed: 0,
         turnRate: Math.PI, // can rotate freely to aim
@@ -1492,10 +1495,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       // Hold position — only advance if no enemies are in range
       if (d <= maxRange) {
         // In range — hold and face target
-        const desiredAngle = angleTo(ship.position, target.position);
-        const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-        const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-        return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+        return holdAndFace(updated, angleTo(ship.position, target.position));
       }
       // Out of range with explicit attack order — slowly close
       if (ship.order.type === 'attack') {
@@ -1523,10 +1523,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const threatDist = dist(ship.position, threatToUs.position);
         if (threatDist <= smartEngageDist * 1.1) {
           // Threat within engagement range — hold and face them
-          const desiredAngle = angleTo(ship.position, threatToUs.position);
-          const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-          const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-          return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+          return holdAndFace(updated, angleTo(ship.position, threatToUs.position));
         }
         // Threat beyond engagement range — close
         return moveToward(updated, threatToUs.position, smartEngageDist, state.environment);
@@ -1582,10 +1579,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       // No immediate threats — if within comfortable engagement range, hold and face
       // Use smartEngageDist (not maxRange) so we close to where MOST weapons fire
       if (d <= smartEngageDist * 1.1) {
-        const desiredAngle = angleTo(ship.position, target.position);
-        const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-        const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-        return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+        return holdAndFace(updated, angleTo(ship.position, target.position));
       }
 
       // Out of comfortable range — close to engagement distance
@@ -1618,10 +1612,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         return moveToward(updated, target.position, maxRange * 0.9, state.environment);
       }
       // In the sweet spot — face target
-      const desiredAngle = angleTo(ship.position, target.position);
-      const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-      const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-      return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+      return holdAndFace(updated, angleTo(ship.position, target.position));
     }
 
     default:
@@ -1629,10 +1620,47 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   }
 }
 
+/** Drag coefficient — velocity decays by this fraction per tick. */
+const SPACE_DRAG = 0.97;
+/** Max velocity magnitude (prevents runaway speeds). */
+const MAX_VELOCITY = 12;
+
 /**
- * Turn toward a target position and move forward. Stop when within minDist.
- * Helmsmen steer around debris fields and asteroid fields rather than
- * flying through them.
+ * Hold position: face a direction while applying drift + retrograde braking.
+ * Ships don't stop instantly — they decelerate over several ticks.
+ */
+function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
+  const angleDiff = normaliseAngle(faceAngle - ship.facing);
+  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+  const newFacing = normaliseAngle(ship.facing + turnAmount);
+
+  let vx = (ship.velocity?.x ?? 0) * SPACE_DRAG;
+  let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
+  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+
+  // Apply retrograde braking thrust if still moving
+  if (currentSpeed > 0.3) {
+    const retroAngle = Math.atan2(-vy, -vx);
+    vx += Math.cos(retroAngle) * ship.speed * 0.15;
+    vy += Math.sin(retroAngle) * ship.speed * 0.15;
+  }
+
+  return {
+    ...ship,
+    facing: newFacing,
+    velocity: { x: vx, y: vy },
+    position: {
+      x: ship.position.x + vx,
+      y: ship.position.y + vy,
+    },
+  };
+}
+
+/**
+ * Newtonian movement: thrust toward target, accumulate velocity, drift.
+ * Ships have inertia — they accelerate toward a target but can't stop
+ * instantly. Heavier ships (lower speed stat) have less thrust.
+ * Helmsmen steer around debris fields and asteroid clusters.
  */
 function moveToward(
   ship: TacticalShip,
@@ -1641,46 +1669,72 @@ function moveToward(
   environment?: EnvironmentFeature[],
 ): TacticalShip {
   const d = dist(ship.position, target);
-  if (d <= minDist) return ship;
+  const vx = ship.velocity?.x ?? 0;
+  const vy = ship.velocity?.y ?? 0;
+  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
   // Turn toward target
   let desiredAngle = angleTo(ship.position, target);
 
   // ── Debris / asteroid avoidance ────────────────────────────────────
-  // If the direct path passes through a debris field or asteroid cluster,
-  // steer around it. Check if any hazard lies between us and the target.
   if (environment && environment.length > 0) {
     for (const feature of environment) {
       if (feature.type !== 'debris' && feature.type !== 'asteroid') continue;
-      // Is the hazard between us and our destination?
       const featureDist = dist(ship.position, feature);
-      if (featureDist > d) continue; // hazard is beyond target
-      if (featureDist < feature.radius * 0.5) continue; // already inside, just push through
-      // Would our path clip this hazard?
+      if (featureDist > d) continue;
+      if (featureDist < feature.radius * 0.5) continue;
       const angleToFeature = angleTo(ship.position, feature);
       const angleDelta = Math.abs(normaliseAngle(desiredAngle - angleToFeature));
       const angularSize = Math.atan2(feature.radius * 1.3, featureDist);
       if (angleDelta < angularSize) {
-        // Path is blocked — steer to whichever side of the hazard is closer
         const steerSign = normaliseAngle(desiredAngle - angleToFeature) >= 0 ? 1 : -1;
         desiredAngle = angleToFeature + angularSize * 1.2 * steerSign;
       }
     }
   }
 
+  // Turn toward desired angle
   const angleDiff = normaliseAngle(desiredAngle - ship.facing);
   const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
   const newFacing = normaliseAngle(ship.facing + turnAmount);
 
-  // Move forward in facing direction
-  const moveSpeed = ship.speed;
-  const actualMove = Math.min(moveSpeed, d - minDist);
-  const nx = ship.position.x + Math.cos(newFacing) * actualMove;
-  const ny = ship.position.y + Math.sin(newFacing) * actualMove;
+  // ── Thrust calculation ─────────────────────────────────────────────
+  // ship.speed is the thrust (acceleration) per tick.
+  const thrust = ship.speed;
+  let newVx = vx;
+  let newVy = vy;
+
+  if (d > minDist) {
+    // Thrust toward target in facing direction
+    newVx += Math.cos(newFacing) * thrust * 0.3;
+    newVy += Math.sin(newFacing) * thrust * 0.3;
+  } else if (currentSpeed > 0.5) {
+    // Within minDist — apply retrograde thrust to slow down
+    const retroAngle = Math.atan2(-vy, -vx);
+    newVx += Math.cos(retroAngle) * thrust * 0.2;
+    newVy += Math.sin(retroAngle) * thrust * 0.2;
+  }
+
+  // Apply drag (simulates micro-thruster corrections / space friction lite)
+  newVx *= SPACE_DRAG;
+  newVy *= SPACE_DRAG;
+
+  // Clamp to max velocity
+  const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
+  if (newSpeed > MAX_VELOCITY) {
+    const scale = MAX_VELOCITY / newSpeed;
+    newVx *= scale;
+    newVy *= scale;
+  }
+
+  // Apply velocity to position
+  const nx = ship.position.x + newVx;
+  const ny = ship.position.y + newVy;
 
   return {
     ...ship,
     facing: newFacing,
+    velocity: { x: newVx, y: newVy },
     position: { x: nx, y: ny },
   };
 }
