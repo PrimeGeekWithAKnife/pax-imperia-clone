@@ -297,6 +297,16 @@ export interface Admiral {
   emergencyRepairUsed: boolean;
 }
 
+export interface EscapePod {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  side: 'attacker' | 'defender';
+  ttl: number; // ticks remaining before pod exits map
+}
+
 export interface TacticalState {
   tick: number;
   ships: TacticalShip[];
@@ -305,6 +315,7 @@ export interface TacticalState {
   fighters: Fighter[];
   beamEffects: BeamEffect[];
   pointDefenceEffects: PointDefenceEffect[];
+  escapePods: EscapePod[];
   environment: EnvironmentFeature[];
   battlefieldWidth: number;
   battlefieldHeight: number;
@@ -968,6 +979,7 @@ export function initializeTacticalCombat(
     fighters: [],
     beamEffects: [],
     pointDefenceEffects: [],
+    escapePods: [],
     environment: generateEnvironment(),
     battlefieldWidth: BATTLEFIELD_WIDTH,
     battlefieldHeight: BATTLEFIELD_HEIGHT,
@@ -2332,6 +2344,42 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     outcome = 'attacker_wins';
   }
 
+  // ── Escape pods ─────────────────────────────────────────────────────────
+  // Spawn pods from newly destroyed ships; update existing pod positions.
+  const newPods: EscapePod[] = [];
+  const alreadyDestroyedIds = new Set(state.ships.filter(s => s.destroyed).map(s => s.id));
+  for (const ship of ships) {
+    if (ship.destroyed && !alreadyDestroyedIds.has(ship.id)) {
+      // Newly destroyed — spawn 1-4 escape pods based on hull size
+      const podCount = ship.maxHull < 80 ? 1 : ship.maxHull < 200 ? 2 : ship.maxHull < 400 ? 3 : 4;
+      for (let i = 0; i < podCount; i++) {
+        // Pods scatter in random directions away from the battle
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 2;
+        newPods.push({
+          id: generateId(),
+          x: ship.position.x + (Math.random() - 0.5) * 10,
+          y: ship.position.y + (Math.random() - 0.5) * 10,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          side: ship.side,
+          ttl: 80 + Math.floor(Math.random() * 40), // ~80-120 ticks
+        });
+      }
+    }
+  }
+  // Update existing pods
+  const activePods = [...(state.escapePods ?? []), ...newPods]
+    .map(pod => ({
+      ...pod,
+      x: pod.x + pod.vx,
+      y: pod.y + pod.vy,
+      ttl: pod.ttl - 1,
+    }))
+    .filter(pod => pod.ttl > 0 &&
+      pod.x > -50 && pod.x < BATTLEFIELD_WIDTH + 50 &&
+      pod.y > -50 && pod.y < BATTLEFIELD_HEIGHT + 50);
+
   return {
     tick: state.tick + 1,
     ships,
@@ -2340,6 +2388,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     fighters: [...fighters, ...newFighters],
     beamEffects: [...beamEffects, ...newBeamEffects],
     pointDefenceEffects: [...pointDefenceEffects, ...newPdEffects],
+    escapePods: activePods,
     environment: newEnvironment,
     battlefieldWidth: state.battlefieldWidth,
     battlefieldHeight: state.battlefieldHeight,

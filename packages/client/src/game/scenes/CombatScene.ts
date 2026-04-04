@@ -92,6 +92,14 @@ const FIGHTER_JITTER = 4; // random visual offset for swarming effect
 const PD_COLOR = 0xffffff;
 const PD_ALPHA = 0.85;
 const PD_STARBURST_RADIUS = 6;
+const PD_TRACER_COUNT = 3; // tracer dots along the intercept line
+const PD_TRACER_COLOR = 0xffdd44;
+
+/** Escape pod visual constants */
+const POD_SIZE = 2;
+const POD_COLOR = 0xffffcc;
+const POD_TRAIL_COLOR = 0xffaa44;
+const POD_BLINK_RATE = 8; // blink every N frames
 
 /** Beam style lookup by componentId */
 type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation';
@@ -271,6 +279,7 @@ export class CombatScene extends Phaser.Scene {
   /** Track which debris IDs we have already drawn (static once spawned). */
   private drawnDebrisIds = new Set<string>();
   private fighterGraphics!: Phaser.GameObjects.Graphics;
+  private escapePodGraphics!: Phaser.GameObjects.Graphics;
   private healthBarGraphics!: Phaser.GameObjects.Graphics;
   /** Cached ship size per ship id (computed once at creation). */
   private shipSizes = new Map<string, { base: number; height: number }>();
@@ -409,6 +418,8 @@ export class CombatScene extends Phaser.Scene {
     this.pdGraphics.setDepth(7);
     this.fighterGraphics = this.add.graphics();
     this.fighterGraphics.setDepth(7);
+    this.escapePodGraphics = this.add.graphics();
+    this.escapePodGraphics.setDepth(6);
 
     // ── Environment graphics (asteroids, nebulae, debris) ──────────────────
     this.environmentGraphics = this.add.graphics();
@@ -447,6 +458,7 @@ export class CombatScene extends Phaser.Scene {
     this._drawMissiles();
     this._drawPointDefence();
     this._drawFighters();
+    this._drawEscapePods();
     this._drawEnvironment();
     this._drawSelectionRing();
     this._updateSelectedInfo();
@@ -1274,8 +1286,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   /**
-   * Draw point defence: brief white intercept line from ship to target
-   * plus a small starburst flash at the intercept point.
+   * Draw point defence: tracer rounds streaming from ship to intercept point,
+   * with a starburst flash at the intercept.
    */
   private _drawPointDefence(): void {
     this.pdGraphics.clear();
@@ -1283,9 +1295,27 @@ export class CombatScene extends Phaser.Scene {
       const ship = this.tacticalState.ships.find(s => s.id === pd.shipId);
       if (!ship) continue;
       const alpha = (pd.ticksRemaining / 2) * PD_ALPHA;
+      const dx = pd.missileX - ship.position.x;
+      const dy = pd.missileY - ship.position.y;
+      const lineLen = Math.sqrt(dx * dx + dy * dy);
+      if (lineLen < 1) continue;
+      const nx = dx / lineLen;
+      const ny = dy / lineLen;
 
-      // ── Thin white intercept line ────────────────────────────────────────
-      this.pdGraphics.lineStyle(1.5, PD_COLOR, alpha * 0.7);
+      // ── Tracer rounds along the line ─────────────────────────────────────
+      // Animated dots that stream from ship to intercept point
+      const tick = this.tacticalState.tick;
+      for (let i = 0; i < PD_TRACER_COUNT; i++) {
+        const t = ((i / PD_TRACER_COUNT) + (tick * 0.15)) % 1.0;
+        const tx = ship.position.x + dx * t;
+        const ty = ship.position.y + dy * t;
+        const tracerAlpha = alpha * (0.5 + t * 0.5); // brighter near target
+        this.pdGraphics.fillStyle(PD_TRACER_COLOR, tracerAlpha);
+        this.pdGraphics.fillCircle(tx, ty, 1.5);
+      }
+
+      // ── Thin intercept line (faint) ──────────────────────────────────────
+      this.pdGraphics.lineStyle(0.8, PD_COLOR, alpha * 0.3);
       this.pdGraphics.lineBetween(
         ship.position.x, ship.position.y,
         pd.missileX, pd.missileY,
@@ -1295,20 +1325,66 @@ export class CombatScene extends Phaser.Scene {
       const burstAlpha = alpha * 0.9;
       const r = PD_STARBURST_RADIUS * (1 + (1 - pd.ticksRemaining / 2) * 0.5);
       // Centre bright dot
-      this.pdGraphics.fillStyle(PD_COLOR, burstAlpha);
-      this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 0.4);
-      // 4 cross-hair lines radiating from the intercept point
-      const spokes = 4;
+      this.pdGraphics.fillStyle(0xffff88, burstAlpha);
+      this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 0.5);
+      // 6 spokes radiating from the intercept point
+      const spokes = 6;
       for (let i = 0; i < spokes; i++) {
-        const angle = (i / spokes) * Math.PI * 2 + Math.PI / 4;
+        const angle = (i / spokes) * Math.PI * 2 + tick * 0.3;
         const tipX = pd.missileX + Math.cos(angle) * r;
         const tipY = pd.missileY + Math.sin(angle) * r;
-        this.pdGraphics.lineStyle(1, PD_COLOR, burstAlpha * 0.8);
+        this.pdGraphics.lineStyle(1, PD_TRACER_COLOR, burstAlpha * 0.8);
         this.pdGraphics.lineBetween(pd.missileX, pd.missileY, tipX, tipY);
       }
       // Outer ring flash
-      this.pdGraphics.lineStyle(1, 0xffffaa, burstAlpha * 0.4);
-      this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r);
+      this.pdGraphics.lineStyle(1, 0xffee66, burstAlpha * 0.5);
+      this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r * 1.2);
+      // Debris scatter dots
+      for (let i = 0; i < 4; i++) {
+        const debrisAngle = Math.random() * Math.PI * 2;
+        const debrisDist = r * (0.5 + Math.random());
+        this.pdGraphics.fillStyle(0xff8844, burstAlpha * 0.6);
+        this.pdGraphics.fillCircle(
+          pd.missileX + Math.cos(debrisAngle) * debrisDist,
+          pd.missileY + Math.sin(debrisAngle) * debrisDist,
+          1,
+        );
+      }
+    }
+  }
+
+  /**
+   * Draw escape pods — tiny blinking pods scattering from destroyed ships.
+   */
+  private _drawEscapePods(): void {
+    this.escapePodGraphics.clear();
+    const tick = this.tacticalState.tick;
+    for (const pod of (this.tacticalState.escapePods ?? [])) {
+      // Blinking distress signal
+      const blinkOn = Math.floor(tick / POD_BLINK_RATE) % 2 === 0;
+      const podAlpha = Math.min(1, pod.ttl / 20); // fade out as TTL drops
+
+      // ── Tiny engine trail ──────────────────────────────────────────────
+      const trailX = pod.x - pod.vx * 2;
+      const trailY = pod.y - pod.vy * 2;
+      this.escapePodGraphics.lineStyle(0.8, POD_TRAIL_COLOR, podAlpha * 0.4);
+      this.escapePodGraphics.lineBetween(trailX, trailY, pod.x, pod.y);
+
+      // ── Pod body (tiny diamond shape) ──────────────────────────────────
+      this.escapePodGraphics.fillStyle(POD_COLOR, podAlpha * 0.8);
+      this.escapePodGraphics.beginPath();
+      this.escapePodGraphics.moveTo(pod.x, pod.y - POD_SIZE);
+      this.escapePodGraphics.lineTo(pod.x + POD_SIZE * 0.6, pod.y);
+      this.escapePodGraphics.lineTo(pod.x, pod.y + POD_SIZE);
+      this.escapePodGraphics.lineTo(pod.x - POD_SIZE * 0.6, pod.y);
+      this.escapePodGraphics.closePath();
+      this.escapePodGraphics.fillPath();
+
+      // ── Blinking distress beacon ───────────────────────────────────────
+      if (blinkOn) {
+        this.escapePodGraphics.fillStyle(0xff4444, podAlpha * 0.9);
+        this.escapePodGraphics.fillCircle(pod.x, pod.y - POD_SIZE - 1, 1);
+      }
     }
   }
 
