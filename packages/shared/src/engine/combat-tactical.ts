@@ -33,7 +33,7 @@ const DEFAULT_TURN_RATE = 0.08;
 /** Default sensor range in battlefield units. */
 const DEFAULT_SENSOR_RANGE = 200;
 /** Multiplier to convert component range stat to battlefield units. */
-const RANGE_TO_BATTLEFIELD = 50;
+const RANGE_TO_BATTLEFIELD = 20;
 /** Fraction of max weapon range at which ships stop approaching. */
 const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
