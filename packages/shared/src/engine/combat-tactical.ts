@@ -1523,14 +1523,14 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
 
       if (threatToUs) {
         const threatDist = dist(ship.position, threatToUs.position);
-        if (threatDist <= maxRange) {
-          // Threat in range — face them
+        if (threatDist <= smartEngageDist * 1.1) {
+          // Threat within engagement range — hold and face them
           const desiredAngle = angleTo(ship.position, threatToUs.position);
           const angleDiff = normaliseAngle(desiredAngle - ship.facing);
           const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
           return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
         }
-        // Threat out of range — close to smart engagement distance
+        // Threat beyond engagement range — close
         return moveToward(updated, threatToUs.position, smartEngageDist, state.environment);
       }
 
@@ -1581,16 +1581,16 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         }
       }
 
-      // No immediate threats — if enemy well within range, hold and face them
-      // Use 90% of max range as threshold so we don't stop at the absolute edge
-      if (d <= maxRange * 0.9) {
+      // No immediate threats — if within comfortable engagement range, hold and face
+      // Use smartEngageDist (not maxRange) so we close to where MOST weapons fire
+      if (d <= smartEngageDist * 1.1) {
         const desiredAngle = angleTo(ship.position, target.position);
         const angleDiff = normaliseAngle(desiredAngle - ship.facing);
         const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
         return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
       }
 
-      // Enemy at range edge or beyond — captain closes to comfortable distance
+      // Out of comfortable range — close to engagement distance
       // With an explicit attack order: flank approach
       if (ship.order.type === 'attack') {
         const angleToTarget = angleTo(ship.position, target.position);
@@ -1600,8 +1600,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment);
       }
-      // No attack order — cautiously advance to weapon range
-      // (captain won't sit idle while enemies are on the field)
+      // No attack order — cautiously advance to where most weapons can fire
       return moveToward(updated, target.position, smartEngageDist, state.environment);
     }
 
