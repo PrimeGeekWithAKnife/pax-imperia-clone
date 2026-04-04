@@ -1376,7 +1376,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     const retreatY = ship.position.y;
     const retreatDist = dist(ship.position, { x: retreatX, y: retreatY });
     if (retreatDist > 30) {
-      return moveToward(updated, { x: retreatX, y: retreatY }, 20);
+      return moveToward(updated, { x: retreatX, y: retreatY }, 20, state.environment);
     }
     return updated;
   }
@@ -1388,7 +1388,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     const fleeTarget = ship.side === 'attacker'
       ? { x: -50, y: -50 }
       : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-    const result = moveToward(updated, fleeTarget, 2);
+    const result = moveToward(updated, fleeTarget, 2, state.environment);
     if (
       result.position.x < -20 || result.position.x > BATTLEFIELD_WIDTH + 20 ||
       result.position.y < -20 || result.position.y > BATTLEFIELD_HEIGHT + 20
@@ -1413,11 +1413,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const eDist = dist(ship.position, enemy.position);
         const detectionRange = engageDistance(ship) * 2.5;
         if (eDist < detectionRange) {
-          return moveToward(updated, enemy.position, engageDistance(ship));
+          return moveToward(updated, enemy.position, engageDistance(ship), state.environment);
         }
       }
     }
-    return moveToward(updated, waypoint, 2);
+    return moveToward(updated, waypoint, 2, state.environment);
   }
 
   // --- Defend order: stay near ally, engage threats to that ally ---
@@ -1435,12 +1435,12 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       );
       if (threatToAlly != null) {
         // Intercept the threat
-        return moveToward(updated, threatToAlly.position, engageDistance(ship));
+        return moveToward(updated, threatToAlly.position, engageDistance(ship), state.environment);
       }
       // No threat — stay near ally
       const allyDist = dist(ship.position, ally.position);
       if (allyDist > 60) {
-        return moveToward(updated, ally.position, 40);
+        return moveToward(updated, ally.position, 40, state.environment);
       }
     }
     // Fall through to stance-based idle behaviour
@@ -1456,7 +1456,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   switch (ship.stance) {
     case 'aggressive': {
       // Close to engagement distance and stay there
-      return moveToward(updated, target.position, engageDistance(ship));
+      return moveToward(updated, target.position, engageDistance(ship), state.environment);
     }
 
     case 'defensive': {
@@ -1470,7 +1470,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       }
       // Out of range with explicit attack order — slowly close
       if (ship.order.type === 'attack') {
-        return moveToward(updated, target.position, maxRange * 0.9);
+        return moveToward(updated, target.position, maxRange * 0.9, state.environment);
       }
       return updated;
     }
@@ -1500,7 +1500,37 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
         }
         // Threat out of range — close to engage
-        return moveToward(updated, threatToUs.position, engageDistance(ship));
+        return moveToward(updated, threatToUs.position, engageDistance(ship), state.environment);
+      }
+
+      // Cover a retreating or weakened ally — interpose between them and the enemy
+      const weakAllies = state.ships.filter(
+        (s) => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed &&
+          (s.hull / s.maxHull < 0.4 || s.order.type === 'flee' || s.stance === 'flee'),
+      );
+      if (weakAllies.length > 0) {
+        // Find the closest weak ally within 2x weapon range
+        let wardAlly: TacticalShip | null = null;
+        let wardDist = maxRange * 2;
+        for (const ally of weakAllies) {
+          const ad = dist(ship.position, ally.position);
+          if (ad < wardDist) { wardAlly = ally; wardDist = ad; }
+        }
+        if (wardAlly) {
+          // Find the nearest enemy to that ally
+          const enemyToAlly = state.ships
+            .filter(s => s.side !== ship.side && !s.destroyed && !s.routed)
+            .reduce<TacticalShip | null>((best, e) => {
+              const ed = dist(wardAlly!.position, e.position);
+              return (!best || ed < dist(wardAlly!.position, best.position)) ? e : best;
+            }, null);
+          if (enemyToAlly) {
+            // Position ourselves between the ally and the enemy
+            const midX = (wardAlly.position.x + enemyToAlly.position.x) / 2;
+            const midY = (wardAlly.position.y + enemyToAlly.position.y) / 2;
+            return moveToward(updated, { x: midX, y: midY }, 20, state.environment);
+          }
+        }
       }
 
       // Check if a nearby ally is under fire
@@ -1509,17 +1539,14 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           s.damageTakenThisTick > 0,
       );
       if (alliesUnderFire.length > 0) {
-        // Find the closest ally taking damage
         let closestAlly = alliesUnderFire[0]!;
         let closestAllyDist = dist(ship.position, closestAlly.position);
         for (const ally of alliesUnderFire) {
           const ad = dist(ship.position, ally.position);
           if (ad < closestAllyDist) { closestAlly = ally; closestAllyDist = ad; }
         }
-        // Only assist if reasonably close (within 2x weapon range)
         if (closestAllyDist < maxRange * 2) {
-          // Move toward the ally to provide fire support
-          return moveToward(updated, closestAlly.position, engageDistance(ship));
+          return moveToward(updated, closestAlly.position, engageDistance(ship), state.environment);
         }
       }
 
@@ -1535,7 +1562,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       // (don't charge across the map uninstructed)
       if (ship.order.type === 'attack') {
         // Explicit attack order — close to engagement range
-        return moveToward(updated, target.position, engageDistance(ship));
+        return moveToward(updated, target.position, engageDistance(ship), state.environment);
       }
       // No attack order — stay put, face the nearest enemy
       const desiredAngle = angleTo(ship.position, target.position);
@@ -1550,11 +1577,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         // Too close — retreat
         const awayX = ship.position.x + (ship.position.x - target.position.x);
         const awayY = ship.position.y + (ship.position.y - target.position.y);
-        return moveToward(updated, { x: awayX, y: awayY }, 0);
+        return moveToward(updated, { x: awayX, y: awayY }, 0, state.environment);
       }
       if (d > maxRange * 1.1) {
         // Too far — close to max range edge
-        return moveToward(updated, target.position, maxRange * 0.9);
+        return moveToward(updated, target.position, maxRange * 0.9, state.environment);
       }
       // In the sweet spot — face target
       const desiredAngle = angleTo(ship.position, target.position);
@@ -1570,17 +1597,43 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
 
 /**
  * Turn toward a target position and move forward. Stop when within minDist.
+ * Helmsmen steer around debris fields and asteroid fields rather than
+ * flying through them.
  */
 function moveToward(
   ship: TacticalShip,
   target: { x: number; y: number },
   minDist: number,
+  environment?: EnvironmentFeature[],
 ): TacticalShip {
   const d = dist(ship.position, target);
   if (d <= minDist) return ship;
 
   // Turn toward target
-  const desiredAngle = angleTo(ship.position, target);
+  let desiredAngle = angleTo(ship.position, target);
+
+  // ── Debris / asteroid avoidance ────────────────────────────────────
+  // If the direct path passes through a debris field or asteroid cluster,
+  // steer around it. Check if any hazard lies between us and the target.
+  if (environment && environment.length > 0) {
+    for (const feature of environment) {
+      if (feature.type !== 'debris' && feature.type !== 'asteroid') continue;
+      // Is the hazard between us and our destination?
+      const featureDist = dist(ship.position, feature);
+      if (featureDist > d) continue; // hazard is beyond target
+      if (featureDist < feature.radius * 0.5) continue; // already inside, just push through
+      // Would our path clip this hazard?
+      const angleToFeature = angleTo(ship.position, feature);
+      const angleDelta = Math.abs(normaliseAngle(desiredAngle - angleToFeature));
+      const angularSize = Math.atan2(feature.radius * 1.3, featureDist);
+      if (angleDelta < angularSize) {
+        // Path is blocked — steer to whichever side of the hazard is closer
+        const steerSign = normaliseAngle(desiredAngle - angleToFeature) >= 0 ? 1 : -1;
+        desiredAngle = angleToFeature + angularSize * 1.2 * steerSign;
+      }
+    }
+  }
+
   const angleDiff = normaliseAngle(desiredAngle - ship.facing);
   const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
   const newFacing = normaliseAngle(ship.facing + turnAmount);
