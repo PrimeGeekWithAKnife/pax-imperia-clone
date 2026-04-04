@@ -994,11 +994,11 @@ export function initializeTacticalCombat(
         position: { x, y },
         velocity: { x: 0, y: 0 },
         facing,
-        speed: extracted.speed,
-        // Acceleration = engine thrust / mass. Mass scales with hull + armour.
-        // A 10 HP drone with speed 12 accelerates ~6x faster than a 750 HP
-        // battleship with the same engine. Armour adds mass too.
-        acceleration: extracted.speed / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
+        // Speed = max of hull baseSpeed and engine component speed
+        speed: Math.max(extracted.speed, hullTemplate?.baseSpeed ?? 0),
+        // Acceleration = engine power / mass. Lighter ships accelerate faster.
+        acceleration: Math.max(extracted.speed, hullTemplate?.baseSpeed ?? 0)
+          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
         turnRate: extracted.turnRate,
         hull: ship.hullPoints,
         maxHull: ship.maxHullPoints,
@@ -1475,8 +1475,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   const morale = ship.crew.morale;
 
   if (ship.stance !== 'aggressive') {
-    // Critical damage while under fire → flee
-    if (hpFraction < 0.15 && ship.damageTakenThisTick > 0) {
+    // Critical hull damage while under fire and shields gone → flee
+    if (hpFraction < 0.15 && shieldFraction < 0.1 && ship.damageTakenThisTick > 0) {
       updated.order = { type: 'flee' };
       updated.stance = 'flee';
       const fleeTarget = ship.side === 'attacker'
@@ -1484,8 +1484,9 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
       return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
     }
-    // Low morale → flee
-    if (morale < 15) {
+    // Low morale AND actually taking hull damage → flee
+    // (shields still up = not in mortal danger, hold the line)
+    if (morale < 10 && hpFraction < 0.5) {
       updated.order = { type: 'flee' };
       updated.stance = 'flee';
       const fleeTarget = ship.side === 'attacker'
