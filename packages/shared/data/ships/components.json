@@ -3,185 +3,197 @@
     "id": "pulse_laser",
     "name": "Pulse Laser",
     "type": "weapon_beam",
-    "category": "energy",
-    "description": "Short-burst coherent light weapon",
+    "description": "Short-burst coherent light weapon \u2014 rapid fire, low damage per shot",
     "stats": {
       "damage": 10,
-      "range": 5,
+      "range": 8,
       "accuracy": 85,
-      "powerDraw": 3
+      "powerDraw": 3,
+      "rateOfFire": 3.0
     },
     "cost": 50,
-    "requiredTech": null,
-    "minAge": "nano_atomic"
+    "requiredTech": "high_energy_weapons",
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "phased_array",
     "name": "Phased Array",
     "type": "weapon_beam",
-    "category": "energy",
     "description": "Multi-emitter beam array with improved tracking",
     "stats": {
       "damage": 18,
-      "range": 6,
+      "range": 9,
       "accuracy": 90,
+      "powerDraw": 5,
       "piercingBonus": 5,
-      "powerDraw": 5
+      "rateOfFire": 2.0
     },
     "cost": 120,
     "requiredTech": "phased_arrays",
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "particle_beam_cannon",
     "name": "Particle Beam Cannon",
     "type": "weapon_beam",
-    "category": "energy",
     "description": "Accelerated particle stream that strips armour at the atomic level",
     "stats": {
       "damage": 28,
-      "range": 6,
+      "range": 9,
       "accuracy": 88,
+      "powerDraw": 7,
       "armorPenetration": 15,
-      "powerDraw": 7
+      "rateOfFire": 2.0
     },
     "cost": 200,
     "requiredTech": "particle_acceleration",
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "disruptor_beam",
     "name": "Disruptor Beam",
     "type": "weapon_beam",
-    "category": "energy",
     "description": "Disrupts molecular bonds \u2014 devastating against shields",
     "stats": {
       "damage": 40,
-      "range": 7,
+      "range": 10,
       "accuracy": 88,
+      "powerDraw": 8,
       "shieldPenetration": 20,
-      "powerDraw": 8
+      "rateOfFire": 2.0
     },
     "cost": 280,
     "requiredTech": "disruptor_beams",
-    "minAge": "anti_matter"
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "radiation_ray",
     "name": "Radiation Ray",
     "type": "weapon_beam",
-    "category": "energy",
     "description": "Ionising radiation projector \u2014 damages crew and systems through hull",
     "stats": {
       "damage": 22,
-      "range": 5,
+      "range": 8,
       "accuracy": 92,
+      "powerDraw": 6,
       "systemDamageBonus": 25,
       "crewDamage": 15,
-      "powerDraw": 6
+      "rateOfFire": 1.0
     },
     "cost": 240,
     "requiredTech": "directed_radiation",
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "plasma_lance",
     "name": "Plasma Lance",
     "type": "weapon_beam",
-    "category": "energy",
     "description": "Superheated plasma stream \u2014 the most powerful beam weapon",
     "stats": {
       "damage": 55,
-      "range": 8,
+      "range": 11,
       "accuracy": 82,
+      "powerDraw": 12,
       "armorPenetration": 30,
-      "powerDraw": 12
+      "rateOfFire": 1.0
     },
     "cost": 450,
     "requiredTech": "plasma_lances",
-    "minAge": "singularity"
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "kinetic_cannon",
     "name": "Kinetic Cannon",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "Electromagnetic railgun firing solid slugs",
     "stats": {
-      "damage": 15,
-      "range": 3,
-      "accuracy": 90,
-      "powerDraw": 2
+      "damage": 7,
+      "range": 13,
+      "accuracy": 72,
+      "powerDraw": 1,
+      "rateOfFire": 4.0
     },
     "cost": 60,
     "requiredTech": null,
-    "minAge": "nano_atomic"
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "battering_ram",
     "name": "Battering Ram",
     "type": "weapon_projectile",
-    "category": "mechanical",
     "description": "Reinforced prow spike for ramming manoeuvres",
     "stats": {
-      "damage": 25,
-      "range": 1,
-      "accuracy": 95,
-      "powerDraw": 0
+      "damage": 12,
+      "range": 11,
+      "accuracy": 76,
+      "powerDraw": 0,
+      "rateOfFire": 4.0
     },
     "cost": 70,
     "requiredTech": null,
-    "minAge": "nano_atomic"
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "mass_driver",
     "name": "Mass Driver",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "High-velocity mass accelerator \u2014 punches through armour at extreme range",
     "stats": {
-      "damage": 25,
-      "range": 7,
-      "accuracy": 85,
+      "damage": 15,
+      "range": 17,
+      "accuracy": 68,
+      "powerDraw": 2,
       "armorPenetration": 20,
-      "powerDraw": 4
+      "rateOfFire": 2.0
     },
     "cost": 180,
     "requiredTech": "mass_drivers",
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "gauss_cannon",
     "name": "Gauss Cannon",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "Magnetically accelerated rounds with devastating impact",
     "stats": {
-      "damage": 35,
-      "range": 6,
-      "accuracy": 88,
+      "damage": 20,
+      "range": 16,
+      "accuracy": 70,
+      "powerDraw": 3,
       "armorPenetration": 25,
-      "powerDraw": 6
+      "rateOfFire": 4.0
     },
     "cost": 300,
     "requiredTech": "gauss_technology",
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "basic_missile",
-    "name": "Basic Missile",
+    "name": "Missile Battery",
     "type": "weapon_missile",
-    "category": "propulsion",
-    "description": "Standard self-propelled guided missile",
+    "description": "Standard self-propelled guided missiles \u2014 rapid salvo fire",
     "stats": {
-      "damage": 18,
-      "range": 7,
+      "damage": 12,
+      "range": 20,
       "accuracy": 65,
-      "powerDraw": 1
+      "powerDraw": 1,
+      "rateOfFire": 2.0,
+      "areaOfEffect": 1
     },
     "cost": 70,
     "requiredTech": null,
-    "minAge": "nano_atomic"
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "basic_torpedo",
@@ -203,114 +215,121 @@
     "id": "guided_torpedo",
     "name": "Guided Torpedo",
     "type": "weapon_missile",
-    "category": "propulsion",
     "description": "Smart-tracking torpedo with terminal guidance",
     "stats": {
       "damage": 32,
-      "range": 10,
+      "range": 24,
       "accuracy": 80,
-      "blastRadius": 2,
-      "powerDraw": 2
+      "powerDraw": 2,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 2
     },
     "cost": 150,
     "requiredTech": "guided_torpedoes",
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "fusion_torpedo",
     "name": "Fusion Torpedo",
     "type": "weapon_missile",
-    "category": "propulsion",
     "description": "Fusion-warhead torpedo \u2014 massive blast radius",
     "stats": {
       "damage": 48,
-      "range": 10,
+      "range": 28,
       "accuracy": 75,
-      "blastRadius": 4,
-      "powerDraw": 2
+      "powerDraw": 2,
+      "rateOfFire": 0.5,
+      "areaOfEffect": 4
     },
     "cost": 250,
     "requiredTech": "fusion_warheads",
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "antimatter_torpedo",
     "name": "Antimatter Torpedo",
     "type": "weapon_missile",
-    "category": "propulsion",
     "description": "Antimatter annihilation warhead \u2014 devastating against capital ships",
     "stats": {
       "damage": 68,
-      "range": 12,
+      "range": 32,
       "accuracy": 72,
-      "blastRadius": 3,
-      "powerDraw": 3
+      "powerDraw": 3,
+      "rateOfFire": 0.5,
+      "areaOfEffect": 3
     },
     "cost": 400,
     "requiredTech": "antimatter_warheads",
-    "minAge": "anti_matter"
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "singularity_torpedo",
     "name": "Singularity Torpedo",
     "type": "weapon_missile",
-    "category": "propulsion",
     "description": "Creates a micro-singularity at the point of impact",
     "stats": {
       "damage": 95,
-      "range": 14,
+      "range": 35,
       "accuracy": 68,
-      "blastRadius": 5,
+      "powerDraw": 4,
       "graviticPull": 20,
-      "powerDraw": 4
+      "rateOfFire": 0.3,
+      "areaOfEffect": 5
     },
     "cost": 650,
     "requiredTech": "singularity_weapons",
-    "minAge": "singularity"
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "point_defense_turret",
     "name": "Point Defence Turret",
     "type": "weapon_point_defense",
-    "category": "kinetic",
     "description": "Rapid-fire close-in weapon system for intercepting missiles and fighters",
     "stats": {
       "damage": 5,
       "range": 2,
-      "interceptRate": 60,
-      "powerDraw": 2
+      "accuracy": 60,
+      "powerDraw": 1,
+      "interceptRate": 30,
+      "rateOfFire": 4.0
     },
     "cost": 45,
     "requiredTech": null,
-    "minAge": "nano_atomic"
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "flak_battery",
-    "name": "Flak Battery",
+    "name": "High Energy Flares",
     "type": "weapon_point_defense",
-    "category": "kinetic",
-    "description": "Area-denial fragmentation rounds \u2014 higher intercept rate",
+    "description": "Deploys high-energy flare bursts to confuse and destroy incoming missiles",
     "stats": {
-      "damage": 8,
+      "damage": 3,
       "range": 3,
-      "interceptRate": 75,
-      "powerDraw": 3
+      "accuracy": 70,
+      "powerDraw": 2,
+      "interceptRate": 45,
+      "rateOfFire": 2.0
     },
-    "cost": 120,
-    "requiredTech": "advanced_point_defense",
-    "minAge": "fusion"
+    "cost": 60,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "light_fighter_bay",
     "name": "Light Fighter Bay",
     "type": "fighter_bay",
-    "category": "propulsion",
     "description": "Launches 4 light strike craft",
     "stats": {
-      "fighterCount": 4,
       "damage": 8,
       "range": 6,
-      "powerDraw": 3
+      "powerDraw": 3,
+      "fighterCount": 4
     },
     "cost": 120,
     "requiredTech": null,
@@ -320,14 +339,13 @@
     "id": "heavy_fighter_bay",
     "name": "Heavy Fighter Bay",
     "type": "fighter_bay",
-    "category": "propulsion",
-    "description": "Launches 8 armoured strike craft",
+    "description": "Launches 8 heavily armoured strike craft",
     "stats": {
-      "fighterCount": 8,
       "damage": 15,
       "range": 8,
-      "armorRating": 5,
-      "powerDraw": 5
+      "powerDraw": 5,
+      "fighterCount": 8,
+      "armorRating": 5
     },
     "cost": 280,
     "requiredTech": "heavy_fighter_wings",
@@ -339,9 +357,9 @@
     "type": "shield",
     "description": "Basic energy barrier \u2014 absorbs incoming damage",
     "stats": {
+      "powerDraw": 4,
       "shieldStrength": 30,
-      "rechargeRate": 3,
-      "powerDraw": 4
+      "rechargeRate": 3
     },
     "cost": 70,
     "requiredTech": null,
@@ -353,10 +371,10 @@
     "type": "shield",
     "description": "Resonance-tuned shields with faster recharge",
     "stats": {
+      "powerDraw": 6,
       "shieldStrength": 55,
       "rechargeRate": 6,
-      "resonanceBonus": 10,
-      "powerDraw": 6
+      "resonanceBonus": 10
     },
     "cost": 160,
     "requiredTech": "shield_harmonics",
@@ -368,10 +386,10 @@
     "type": "shield",
     "description": "Ultra-dense energy barrier \u2014 excellent kinetic absorption",
     "stats": {
+      "powerDraw": 9,
       "shieldStrength": 90,
       "rechargeRate": 8,
-      "kineticAbsorption": 25,
-      "powerDraw": 9
+      "kineticAbsorption": 25
     },
     "cost": 300,
     "requiredTech": "neutronium_barriers",
@@ -381,12 +399,12 @@
     "id": "phase_shield",
     "name": "Phase Shield",
     "type": "shield",
-    "description": "Partially phase-shifts incoming projectiles \u2014 the pinnacle of anti-matter era shielding",
+    "description": "Partially phase-shifts incoming projectiles \u2014 the pinnacle of antimatter-era shielding",
     "stats": {
+      "powerDraw": 14,
       "shieldStrength": 140,
       "rechargeRate": 12,
-      "phaseShift": 40,
-      "powerDraw": 14
+      "phaseShift": 40
     },
     "cost": 500,
     "requiredTech": "phase_shields",
@@ -407,7 +425,7 @@
   },
   {
     "id": "advanced_composite_plate",
-    "name": "Advanced Composite Plate",
+    "name": "Advanced Composite",
     "type": "armor",
     "description": "Improved composite with ceramic interlayers",
     "stats": {
@@ -420,7 +438,7 @@
   },
   {
     "id": "enhanced_composite_plate",
-    "name": "Enhanced Composite Plate",
+    "name": "Enhanced Composite",
     "type": "armor",
     "description": "Molecular-bonded composite matrix",
     "stats": {
@@ -537,8 +555,8 @@
     "type": "engine",
     "description": "Basic ion thruster \u2014 reliable but low output",
     "stats": {
-      "speed": 3,
-      "powerOutput": 10
+      "powerOutput": 10,
+      "speed": 3
     },
     "cost": 65,
     "requiredTech": null,
@@ -550,8 +568,8 @@
     "type": "engine",
     "description": "Fusion-powered drive with significantly more power",
     "stats": {
-      "speed": 5,
-      "powerOutput": 18
+      "powerOutput": 18,
+      "speed": 5
     },
     "cost": 175,
     "requiredTech": "fusion_drives",
@@ -563,8 +581,8 @@
     "type": "engine",
     "description": "Antimatter annihilation engine \u2014 extreme power output",
     "stats": {
-      "speed": 7,
-      "powerOutput": 30
+      "powerOutput": 30,
+      "speed": 7
     },
     "cost": 350,
     "requiredTech": "antimatter_drives",
@@ -576,8 +594,8 @@
     "type": "engine",
     "description": "Harnesses a contained micro-singularity \u2014 ultimate power source",
     "stats": {
-      "speed": 9,
-      "powerOutput": 50
+      "powerOutput": 50,
+      "speed": 9
     },
     "cost": 600,
     "requiredTech": "singularity_drives",
@@ -589,9 +607,9 @@
     "type": "warp_drive",
     "description": "Enables inter-system travel by warping spacetime",
     "stats": {
+      "powerDraw": 4,
       "warpSpeed": 2,
-      "warpRange": 3,
-      "powerDraw": 4
+      "warpRange": 3
     },
     "cost": 90,
     "requiredTech": null,
@@ -603,9 +621,9 @@
     "type": "warp_drive",
     "description": "Improved warp coils for faster inter-system transit",
     "stats": {
+      "powerDraw": 6,
       "warpSpeed": 4,
-      "warpRange": 5,
-      "powerDraw": 6
+      "warpRange": 5
     },
     "cost": 200,
     "requiredTech": "enhanced_warp_coils",
@@ -617,9 +635,9 @@
     "type": "warp_drive",
     "description": "Tears a temporary wormhole \u2014 near-instant travel",
     "stats": {
+      "powerDraw": 10,
       "warpSpeed": 8,
-      "warpRange": 10,
-      "powerDraw": 10
+      "warpRange": 10
     },
     "cost": 500,
     "requiredTech": "transwarp_technology",
@@ -631,9 +649,9 @@
     "type": "sensor",
     "description": "Basic sensor array",
     "stats": {
+      "powerDraw": 1,
       "sensorRange": 3,
-      "detectionBonus": 5,
-      "powerDraw": 1
+      "detectionBonus": 5
     },
     "cost": 40,
     "requiredTech": null,
@@ -645,10 +663,10 @@
     "type": "sensor",
     "description": "Long-range detection array",
     "stats": {
+      "powerDraw": 3,
       "sensorRange": 8,
       "detectionBonus": 20,
-      "deepScanBonus": 15,
-      "powerDraw": 3
+      "deepScanBonus": 15
     },
     "cost": 200,
     "requiredTech": "dimensional_scanning",
@@ -660,9 +678,9 @@
     "type": "repair_drone",
     "description": "Automated repair drones",
     "stats": {
+      "powerDraw": 2,
       "repairRate": 5,
-      "repairRange": 1,
-      "powerDraw": 2
+      "repairRange": 1
     },
     "cost": 85,
     "requiredTech": null,
@@ -672,13 +690,13 @@
     "id": "grappling_claws",
     "name": "Grappling Claws",
     "type": "special",
-    "category": "mechanical",
     "description": "Mechanical appendages that latch onto and crush enemy hulls",
     "stats": {
       "damage": 15,
       "range": 1,
       "accuracy": 90,
-      "powerDraw": 1
+      "powerDraw": 1,
+      "rateOfFire": 1.0
     },
     "cost": 90,
     "requiredTech": "modular_architecture",
@@ -690,9 +708,9 @@
     "type": "life_support",
     "description": "Standard crew life support \u2014 improves morale recovery",
     "stats": {
-      "moraleRecovery": 2,
+      "powerDraw": 2,
       "crewCapacity": 50,
-      "powerDraw": 2
+      "moraleRecovery": 2
     },
     "cost": 30,
     "requiredTech": null,
@@ -704,10 +722,10 @@
     "type": "life_support",
     "description": "Enhanced crew quarters and medical bays",
     "stats": {
-      "moraleRecovery": 5,
+      "powerDraw": 3,
       "crewCapacity": 100,
-      "healthBonus": 10,
-      "powerDraw": 3
+      "moraleRecovery": 5,
+      "healthBonus": 10
     },
     "cost": 110,
     "requiredTech": "advanced_habitation",
@@ -719,9 +737,9 @@
     "type": "targeting_computer",
     "description": "Fire-control system \u2014 increases weapon accuracy",
     "stats": {
+      "powerDraw": 2,
       "accuracyBonus": 10,
-      "trackingSpeed": 5,
-      "powerDraw": 2
+      "trackingSpeed": 5
     },
     "cost": 75,
     "requiredTech": null,
@@ -733,9 +751,9 @@
     "type": "targeting_computer",
     "description": "Advanced fire-control with predictive tracking",
     "stats": {
+      "powerDraw": 3,
       "accuracyBonus": 20,
-      "trackingSpeed": 12,
-      "powerDraw": 3
+      "trackingSpeed": 12
     },
     "cost": 180,
     "requiredTech": "predictive_targeting",
@@ -747,10 +765,10 @@
     "type": "advanced_sensors",
     "description": "Long-range detection array with deep-scan capability",
     "stats": {
+      "powerDraw": 3,
       "sensorRange": 6,
       "detectionBonus": 15,
-      "stealthPenetration": 10,
-      "powerDraw": 3
+      "stealthPenetration": 10
     },
     "cost": 120,
     "requiredTech": null,
@@ -762,9 +780,9 @@
     "type": "damage_control",
     "description": "Automated repair drones and hull sealant",
     "stats": {
+      "powerDraw": 2,
       "repairRate": 3,
-      "systemDamageReduction": 15,
-      "powerDraw": 2
+      "systemDamageReduction": 15
     },
     "cost": 100,
     "requiredTech": null,
@@ -776,9 +794,9 @@
     "type": "ecm_suite",
     "description": "Electronic countermeasures \u2014 reduces enemy accuracy",
     "stats": {
+      "powerDraw": 3,
       "evasionBonus": 10,
-      "missileDeflection": 15,
-      "powerDraw": 3
+      "missileDeflection": 15
     },
     "cost": 95,
     "requiredTech": null,
@@ -790,10 +808,10 @@
     "type": "ecm_suite",
     "description": "Advanced electronic warfare suite",
     "stats": {
+      "powerDraw": 5,
       "evasionBonus": 20,
       "missileDeflection": 30,
-      "sensorJamming": 15,
-      "powerDraw": 5
+      "sensorJamming": 15
     },
     "cost": 250,
     "requiredTech": "electronic_warfare",
@@ -802,12 +820,10 @@
   {
     "id": "capacitor_bank",
     "name": "Capacitor Bank",
-    "type": "life_support",
+    "type": "battery",
     "description": "Energy storage cells \u2014 provides additional power buffer",
     "stats": {
-      "powerBuffer": 8,
-      "moraleRecovery": 0,
-      "crewCapacity": 0
+      "powerBuffer": 8
     },
     "cost": 50,
     "requiredTech": null,
@@ -816,12 +832,10 @@
   {
     "id": "fusion_battery",
     "name": "Fusion Battery",
-    "type": "life_support",
+    "type": "battery",
     "description": "Compact fusion cells \u2014 significant power reserves",
     "stats": {
-      "powerBuffer": 15,
-      "moraleRecovery": 0,
-      "crewCapacity": 0
+      "powerBuffer": 18
     },
     "cost": 120,
     "requiredTech": "fusion_energy_storage",
@@ -830,12 +844,10 @@
   {
     "id": "antimatter_battery",
     "name": "Antimatter Battery",
-    "type": "life_support",
+    "type": "battery",
     "description": "Antimatter containment cells \u2014 massive stored energy",
     "stats": {
-      "powerBuffer": 25,
-      "moraleRecovery": 0,
-      "crewCapacity": 0
+      "powerBuffer": 30
     },
     "cost": 280,
     "requiredTech": "antimatter_containment",
@@ -844,12 +856,10 @@
   {
     "id": "zero_point_cell",
     "name": "Zero-Point Cell",
-    "type": "life_support",
+    "type": "battery",
     "description": "Extracts energy from quantum vacuum \u2014 near-unlimited buffer",
     "stats": {
-      "powerBuffer": 40,
-      "moraleRecovery": 0,
-      "crewCapacity": 0
+      "powerBuffer": 45
     },
     "cost": 500,
     "requiredTech": "zero_point_energy",
@@ -859,12 +869,12 @@
     "id": "basic_scanner",
     "name": "Basic Scanner",
     "type": "scanner",
-    "description": "Rudimentary sensor sweep module \u2014 provides rough planetary data at a glance. Standard fit on all vessels.",
+    "description": "Rudimentary sensor sweep module.",
     "stats": {
-      "scanLevel": 1,
-      "scanAccuracy": 40,
+      "powerDraw": 1,
       "sensorRange": 1,
-      "powerDraw": 1
+      "scanLevel": 1,
+      "scanAccuracy": 40
     },
     "cost": 25,
     "requiredTech": null,
@@ -874,13 +884,13 @@
     "id": "geological_scanner",
     "name": "Geological Scanner",
     "type": "scanner",
-    "description": "Subsurface resonance imager \u2014 reveals exact mineral concentrations, tectonic activity and core composition.",
+    "description": "Subsurface resonance imager \u2014 reveals exact mineral concentrations.",
     "stats": {
+      "powerDraw": 3,
+      "sensorRange": 1,
       "scanLevel": 2,
       "scanAccuracy": 70,
-      "mineralDetailBonus": 30,
-      "sensorRange": 1,
-      "powerDraw": 3
+      "mineralDetailBonus": 30
     },
     "cost": 110,
     "requiredTech": "planetary_geology",
@@ -890,13 +900,13 @@
     "id": "biological_scanner",
     "name": "Biological Scanner",
     "type": "scanner",
-    "description": "Atmospheric spectrograph and bio-resonance array \u2014 identifies native life, habitability indices and pathogenic threats.",
+    "description": "Atmospheric spectrograph and bio-resonance array.",
     "stats": {
+      "powerDraw": 3,
+      "sensorRange": 1,
       "scanLevel": 2,
       "scanAccuracy": 70,
-      "bioDetailBonus": 30,
-      "sensorRange": 1,
-      "powerDraw": 3
+      "bioDetailBonus": 30
     },
     "cost": 110,
     "requiredTech": "xenobiology",
@@ -906,13 +916,13 @@
     "id": "anomaly_detector",
     "name": "Anomaly Detector",
     "type": "scanner",
-    "description": "Subspace frequency analyser tuned to precursor energy signatures \u2014 detects hidden anomalies and ancient artefacts that conventional sensors miss.",
+    "description": "Subspace frequency analyser tuned to precursor energy signatures.",
     "stats": {
+      "powerDraw": 5,
+      "sensorRange": 2,
       "scanLevel": 3,
       "scanAccuracy": 85,
-      "anomalyDetectionBonus": 40,
-      "sensorRange": 2,
-      "powerDraw": 5
+      "anomalyDetectionBonus": 40
     },
     "cost": 220,
     "requiredTech": "anomaly_detection",
@@ -922,12 +932,12 @@
     "id": "deep_space_telescope",
     "name": "Deep Space Telescope",
     "type": "scanner",
-    "description": "Long-baseline interferometric telescope \u2014 extends sensor range by two systems, enabling reconnaissance without entering hostile territory.",
+    "description": "Long-baseline interferometric telescope.",
     "stats": {
-      "sensorRangeBonus": 2,
+      "powerDraw": 4,
       "detectionBonus": 10,
       "scanAccuracy": 50,
-      "powerDraw": 4
+      "sensorRangeBonus": 2
     },
     "cost": 150,
     "requiredTech": "advanced_optics",
@@ -937,12 +947,12 @@
     "id": "medical_bay",
     "name": "Medical Bay",
     "type": "special",
-    "description": "Fully equipped sickbay with surgical suites and quarantine wards \u2014 tends wounded crew and reduces combat casualties.",
+    "description": "Fully equipped sickbay with surgical suites and quarantine wards.",
     "stats": {
-      "casualtyReduction": 25,
+      "powerDraw": 2,
       "moraleRecovery": 3,
-      "crewHealRate": 5,
-      "powerDraw": 2
+      "casualtyReduction": 25,
+      "crewHealRate": 5
     },
     "cost": 60,
     "requiredTech": null,
@@ -952,13 +962,13 @@
     "id": "electronic_warfare_suite",
     "name": "Electronic Warfare Suite",
     "type": "ecm_suite",
-    "description": "Broadband jammer and spoofing transmitter \u2014 disrupts enemy targeting solutions and falsifies sensor returns.",
+    "description": "Broadband jammer and spoofing transmitter.",
     "stats": {
+      "powerDraw": 5,
       "evasionBonus": 15,
       "missileDeflection": 20,
       "sensorJamming": 25,
-      "scanSpoofing": 20,
-      "powerDraw": 5
+      "scanSpoofing": 20
     },
     "cost": 180,
     "requiredTech": "electronic_warfare",
@@ -968,12 +978,12 @@
     "id": "repair_drone_bay",
     "name": "Repair Drone Bay",
     "type": "repair_drone",
-    "description": "Autonomous nano-fabricator drones \u2014 perform field repairs on allied vessels during and after combat.",
+    "description": "Autonomous nano-fabricator drones \u2014 perform field repairs on allied vessels.",
     "stats": {
-      "repairRate": 8,
+      "powerDraw": 4,
+      "repairRate": 10,
       "repairRange": 3,
-      "fleetRepairBonus": 15,
-      "powerDraw": 4
+      "fleetRepairBonus": 15
     },
     "cost": 200,
     "requiredTech": "autonomous_repair_systems",
@@ -985,11 +995,11 @@
     "type": "shield",
     "description": "Gravitational lens barrier that warps incoming fire around the hull",
     "stats": {
+      "powerDraw": 18,
       "shieldStrength": 200,
       "rechargeRate": 16,
       "graviticDeflection": 30,
-      "phaseShift": 50,
-      "powerDraw": 18
+      "phaseShift": 50
     },
     "cost": 750,
     "requiredTech": "singularity_shielding",
@@ -999,434 +1009,1717 @@
     "id": "antimatter_accelerator",
     "name": "Antimatter Accelerator",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "Fires antimatter-tipped slugs that annihilate on contact",
     "stats": {
-      "damage": 50,
-      "range": 7,
-      "accuracy": 86,
+      "damage": 28,
+      "range": 17,
+      "accuracy": 69,
+      "powerDraw": 4,
       "armorPenetration": 30,
-      "powerDraw": 8
+      "rateOfFire": 4.0
     },
     "cost": 380,
     "requiredTech": "antimatter_munitions",
-    "minAge": "anti_matter"
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "singularity_driver",
     "name": "Singularity Driver",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "Launches micro-singularity projectiles that distort space on impact",
     "stats": {
-      "damage": 65,
-      "range": 8,
-      "accuracy": 84,
+      "damage": 35,
+      "range": 18,
+      "accuracy": 67,
+      "powerDraw": 5,
       "armorPenetration": 40,
       "graviticPull": 15,
-      "powerDraw": 10
+      "rateOfFire": 2.0
     },
     "cost": 580,
     "requiredTech": "singularity_weapons",
-    "minAge": "singularity"
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "fusion_autocannon",
     "name": "Fusion Autocannon",
     "type": "weapon_projectile",
-    "category": "kinetic",
     "description": "Rapid-fire magnetically accelerated rounds powered by a compact fusion core",
     "stats": {
-      "damage": 20,
-      "range": 4,
-      "accuracy": 88,
+      "damage": 8,
+      "range": 14,
+      "accuracy": 70,
+      "powerDraw": 1,
       "armorPenetration": 10,
-      "powerDraw": 3
+      "rateOfFire": 8.0
     },
     "cost": 100,
     "requiredTech": "fusion_kinetics",
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
   },
   {
     "id": "computer_core_mk1",
-    "name": "Basic Computer Core",
+    "name": "Petaflop Core",
     "type": "computer_core",
-    "coreSystemRole": "computer_core",
     "description": "Baseline shipboard computer for navigation and system coordination.",
     "stats": {
+      "powerDraw": 1,
       "processingPower": 5,
       "accuracyBonus": 2
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "computer_core"
   },
   {
     "id": "computer_core_mk2",
     "name": "Tactical Computer Core",
     "type": "computer_core",
-    "coreSystemRole": "computer_core",
     "description": "Enhanced processing for target tracking and battle coordination.",
     "stats": {
-      "processingPower": 10,
-      "accuracyBonus": 5,
-      "powerDraw": 2
+      "powerDraw": 2,
+      "processingPower": 12,
+      "accuracyBonus": 5
     },
     "cost": 400,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "computer_core"
   },
   {
     "id": "computer_core_mk3",
     "name": "Neural Computer Core",
     "type": "computer_core",
-    "coreSystemRole": "computer_core",
     "description": "Predictive AI-assisted combat and navigation system.",
     "stats": {
+      "powerDraw": 3,
       "processingPower": 20,
-      "accuracyBonus": 8,
-      "powerDraw": 3
+      "accuracyBonus": 8
     },
     "cost": 1200,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "computer_core"
   },
   {
     "id": "life_support_core_mk1",
     "name": "Basic Life Support",
     "type": "life_support",
-    "coreSystemRole": "life_support",
-    "description": "Standard atmospheric recycling and temperature regulation for crew survival.",
+    "description": "Standard atmospheric recycling and temperature regulation.",
     "stats": {
+      "powerDraw": 1,
       "crewCapacity": 50,
       "moraleRecovery": 2
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "life_support"
   },
   {
     "id": "life_support_core_mk2",
     "name": "Advanced Life Support",
     "type": "life_support",
-    "coreSystemRole": "life_support",
-    "description": "Improved air quality, gravity compensation, and crew comfort systems.",
+    "description": "Improved air quality, gravity compensation, and crew comfort.",
     "stats": {
+      "powerDraw": 2,
       "crewCapacity": 100,
       "moraleRecovery": 5,
-      "healthBonus": 5,
-      "powerDraw": 2
+      "healthBonus": 5
     },
     "cost": 500,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "life_support"
   },
   {
     "id": "life_support_core_mk3",
     "name": "Biosphere Life Support",
     "type": "life_support",
-    "coreSystemRole": "life_support",
     "description": "Self-sustaining micro-ecosystem with full atmospheric regeneration.",
     "stats": {
+      "powerDraw": 3,
       "crewCapacity": 200,
       "moraleRecovery": 8,
-      "healthBonus": 10,
-      "powerDraw": 3
+      "healthBonus": 10
     },
     "cost": 1500,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "life_support"
   },
   {
     "id": "sensor_suite_mk1",
     "name": "Basic Sensor Suite",
     "type": "sensor",
-    "coreSystemRole": "sensor_suite",
     "description": "Standard electromagnetic and gravitational sensor array.",
     "stats": {
+      "powerDraw": 0.5,
       "sensorRange": 2,
       "detectionBonus": 3
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "sensor_suite"
   },
   {
     "id": "sensor_suite_mk2",
     "name": "Enhanced Sensor Suite",
     "type": "sensor",
-    "coreSystemRole": "sensor_suite",
     "description": "Multi-spectrum analysis with improved detection algorithms.",
     "stats": {
+      "powerDraw": 2,
       "sensorRange": 5,
-      "detectionBonus": 10,
-      "powerDraw": 2
+      "detectionBonus": 10
     },
     "cost": 600,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "sensor_suite"
   },
   {
     "id": "sensor_suite_mk3",
     "name": "Deep Scan Sensor Suite",
     "type": "sensor",
-    "coreSystemRole": "sensor_suite",
     "description": "Subspace resonance scanning with predictive threat analysis.",
     "stats": {
+      "powerDraw": 3,
       "sensorRange": 8,
       "detectionBonus": 20,
-      "stealthPenetration": 10,
-      "powerDraw": 3
+      "stealthPenetration": 10
     },
     "cost": 1800,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "sensor_suite"
   },
   {
     "id": "reactor_fission_mk1",
     "name": "Fission Reactor",
     "type": "power_reactor",
-    "coreSystemRole": "power_reactor",
     "description": "Baseline fission reactor providing power to all ship systems.",
     "stats": {
-      "powerOutput": 5
+      "powerOutput": 8
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "power_reactor"
   },
   {
     "id": "reactor_fusion",
     "name": "Fusion Reactor",
     "type": "power_reactor",
-    "coreSystemRole": "power_reactor",
     "description": "Compact fusion reactor with higher output and better efficiency.",
     "stats": {
-      "powerOutput": 12
+      "powerOutput": 16
     },
     "cost": 800,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "power_reactor"
   },
   {
     "id": "reactor_antimatter",
     "name": "Antimatter Reactor",
     "type": "power_reactor",
-    "coreSystemRole": "power_reactor",
     "description": "Antimatter annihilation reactor for exceptional power generation.",
     "stats": {
-      "powerOutput": 22
+      "powerOutput": 28
     },
     "cost": 2500,
     "requiredTech": null,
-    "minAge": "anti_matter"
+    "minAge": "anti_matter",
+    "coreSystemRole": "power_reactor"
   },
   {
     "id": "rcs_chemical_mk1",
     "name": "Chemical RCS",
     "type": "rcs_thrusters",
-    "coreSystemRole": "rcs_thrusters",
     "description": "Basic chemical reaction control thrusters for attitude adjustment.",
     "stats": {
+      "powerDraw": 0,
       "evasionBonus": 2,
       "turnRate": 1
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "rcs_thrusters"
   },
   {
     "id": "rcs_ion",
     "name": "Ion RCS",
     "type": "rcs_thrusters",
-    "coreSystemRole": "rcs_thrusters",
     "description": "Ion-propelled manoeuvring thrusters for improved agility.",
     "stats": {
+      "powerDraw": 1,
       "evasionBonus": 5,
-      "turnRate": 2,
-      "powerDraw": 1
+      "turnRate": 2
     },
     "cost": 300,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "rcs_thrusters"
   },
   {
     "id": "rcs_plasma",
     "name": "Plasma RCS",
     "type": "rcs_thrusters",
-    "coreSystemRole": "rcs_thrusters",
     "description": "High-thrust plasma vectoring for exceptional combat manoeuvrability.",
     "stats": {
+      "powerDraw": 2,
       "evasionBonus": 8,
-      "turnRate": 3,
-      "powerDraw": 2
+      "turnRate": 3
     },
     "cost": 900,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "rcs_thrusters"
   },
   {
     "id": "engine_core_mk1",
     "name": "Chemical Drive",
     "type": "engine",
-    "coreSystemRole": "main_engine",
     "description": "Baseline chemical propulsion for sublight travel.",
     "stats": {
-      "speed": 2,
-      "powerOutput": 3
+      "powerOutput": 3,
+      "speed": 2
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "main_engine"
   },
   {
     "id": "engine_core_mk2",
     "name": "Ion Drive",
     "type": "engine",
-    "coreSystemRole": "main_engine",
     "description": "Efficient ion propulsion for extended range operations.",
     "stats": {
-      "speed": 4,
+      "powerDraw": 1,
       "powerOutput": 6,
-      "powerDraw": 1
+      "speed": 4
     },
     "cost": 500,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "main_engine"
   },
   {
     "id": "engine_core_mk3",
     "name": "Fusion Drive",
     "type": "engine",
-    "coreSystemRole": "main_engine",
     "description": "High-thrust fusion propulsion for rapid system transit.",
     "stats": {
-      "speed": 6,
+      "powerDraw": 2,
       "powerOutput": 10,
-      "powerDraw": 2
+      "speed": 6
     },
     "cost": 1500,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "main_engine"
   },
   {
     "id": "thermal_radiator_mk1",
-    "name": "Basic Radiators",
+    "name": "Basic Environmental Control",
     "type": "temperature_control",
-    "coreSystemRole": "temperature_control",
     "description": "Standard heat radiator panels for thermal management.",
     "stats": {
+      "powerDraw": 1,
       "heatDissipation": 5
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "temperature_control"
   },
   {
     "id": "thermal_radiator_mk2",
     "name": "Advanced Radiators",
     "type": "temperature_control",
-    "coreSystemRole": "temperature_control",
     "description": "High-surface-area radiator arrays with active cooling.",
     "stats": {
-      "heatDissipation": 12,
-      "powerDraw": 1
+      "powerDraw": 1,
+      "heatDissipation": 12
     },
     "cost": 350,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "temperature_control"
   },
   {
     "id": "cryo_radiator",
     "name": "Cryo-Radiator System",
     "type": "temperature_control",
-    "coreSystemRole": "temperature_control",
     "description": "Cryogenic heat exchange system for maximum thermal dissipation.",
     "stats": {
-      "heatDissipation": 20,
-      "powerDraw": 2
+      "powerDraw": 2,
+      "heatDissipation": 20
     },
     "cost": 1000,
     "requiredTech": null,
-    "minAge": "nano_fusion"
+    "minAge": "nano_fusion",
+    "coreSystemRole": "temperature_control"
   },
   {
     "id": "comms_basic",
     "name": "Basic Comms Array",
     "type": "comms_array",
-    "coreSystemRole": "comms_array",
     "description": "Standard radio and laser communication systems.",
     "stats": {
+      "powerDraw": 0.5,
       "signalRange": 3,
       "commsBonus": 5
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "comms_array"
   },
   {
     "id": "comms_subspace",
     "name": "Subspace Comms Array",
     "type": "comms_array",
-    "coreSystemRole": "comms_array",
     "description": "Faster-than-light subspace communication for fleet coordination.",
     "stats": {
+      "powerDraw": 2,
       "signalRange": 8,
-      "commsBonus": 15,
-      "powerDraw": 2
+      "commsBonus": 15
     },
     "cost": 600,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "comms_array"
   },
   {
     "id": "comms_quantum",
     "name": "Quantum Entanglement Comms",
     "type": "comms_array",
-    "coreSystemRole": "comms_array",
     "description": "Instantaneous quantum-paired communication across any distance.",
     "stats": {
+      "powerDraw": 3,
       "signalRange": 20,
       "commsBonus": 30,
-      "powerDraw": 3
+      "encryptionLevel": 5
     },
     "cost": 2000,
     "requiredTech": null,
-    "minAge": "anti_matter"
+    "minAge": "anti_matter",
+    "coreSystemRole": "comms_array"
   },
   {
     "id": "bio_reclaim_basic",
-    "name": "Basic Bio Reclamation",
-    "type": "bio_reclamation",
-    "coreSystemRole": "bio_reclamation",
+    "name": "Basic Bio Reclaim",
+    "type": "bio_reclaim",
     "description": "Water recycling and waste processing for crew sustainment.",
     "stats": {
+      "powerDraw": 0.5,
       "supplyBonus": 0,
       "waterRecycling": 30
     },
     "cost": 0,
-    "requiredTech": null
+    "requiredTech": null,
+    "coreSystemRole": "bio_reclaim"
   },
   {
     "id": "bio_reclaim_advanced",
-    "name": "Advanced Bio Reclamation",
-    "type": "bio_reclamation",
-    "coreSystemRole": "bio_reclamation",
+    "name": "Advanced Bio Reclaim",
+    "type": "bio_reclaim",
     "description": "Improved recycling efficiency extending time between resupply.",
     "stats": {
+      "powerDraw": 2,
       "supplyBonus": 3,
-      "waterRecycling": 60,
-      "powerDraw": 2
+      "waterRecycling": 60
     },
     "cost": 400,
     "requiredTech": null,
-    "minAge": "fusion"
+    "minAge": "fusion",
+    "coreSystemRole": "bio_reclaim"
   },
   {
     "id": "bio_reclaim_closed_loop",
     "name": "Closed-Loop Bio System",
-    "type": "bio_reclamation",
-    "coreSystemRole": "bio_reclamation",
+    "type": "bio_reclaim",
     "description": "Near-perfect matter recycling for extended deep space operations.",
     "stats": {
+      "powerDraw": 3,
       "supplyBonus": 6,
-      "waterRecycling": 90,
-      "powerDraw": 3
+      "waterRecycling": 90
     },
     "cost": 1200,
     "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "bio_reclaim"
+  },
+  {
+    "id": "cutting_beam",
+    "name": "Cutting Beam",
+    "type": "weapon_beam",
+    "description": "Sustained-focus thermal beam that melts through hull plating",
+    "stats": {
+      "damage": 16,
+      "range": 7,
+      "accuracy": 80,
+      "powerDraw": 4,
+      "armorPenetration": 8,
+      "rateOfFire": 1.0
+    },
+    "cost": 60,
+    "requiredTech": "high_energy_weapons",
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "uv_blaster",
+    "name": "UV Blaster",
+    "type": "weapon_beam",
+    "description": "Ultraviolet pulse emitter \u2014 rapid cadence, effective against shields",
+    "stats": {
+      "damage": 7,
+      "range": 7,
+      "accuracy": 90,
+      "powerDraw": 2,
+      "shieldDamageBonus": 10,
+      "rateOfFire": 4.0
+    },
+    "cost": 45,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "thermal_lance",
+    "name": "Thermal Lance",
+    "type": "weapon_beam",
+    "description": "Sustained plasma-heated beam that ignites hull materials",
+    "stats": {
+      "damage": 24,
+      "range": 8,
+      "accuracy": 82,
+      "powerDraw": 6,
+      "armorPenetration": 12,
+      "hullFireChance": 10,
+      "rateOfFire": 1.0
+    },
+    "cost": 150,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "ion_beam",
+    "name": "Ion Beam",
+    "type": "weapon_beam",
+    "description": "Ionised particle stream that disrupts electronic systems",
+    "stats": {
+      "damage": 14,
+      "range": 9,
+      "accuracy": 88,
+      "powerDraw": 4,
+      "systemDisruptChance": 15,
+      "rateOfFire": 3.0
+    },
+    "cost": 100,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "neutron_beam",
+    "name": "Neutron Beam",
+    "type": "weapon_beam",
+    "description": "Focused neutron stream \u2014 passes through shields to irradiate crew",
+    "stats": {
+      "damage": 25,
+      "range": 10,
+      "accuracy": 85,
+      "powerDraw": 7,
+      "shieldPenetration": 10,
+      "crewDamage": 10,
+      "rateOfFire": 2.0
+    },
+    "cost": 220,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "antimatter_beam",
+    "name": "Antimatter Beam",
+    "type": "weapon_beam",
+    "description": "Focused antimatter annihilation stream \u2014 extreme raw damage",
+    "stats": {
+      "damage": 50,
+      "range": 9,
+      "accuracy": 80,
+      "powerDraw": 10,
+      "armorPenetration": 25,
+      "rateOfFire": 1.0
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "meson_projector",
+    "name": "Meson Projector",
+    "type": "weapon_beam",
+    "description": "Meson beam phases through shields and armour to damage internal systems",
+    "stats": {
+      "damage": 32,
+      "range": 11,
+      "accuracy": 86,
+      "powerDraw": 9,
+      "phaseThrough": 30,
+      "systemDamageBonus": 15,
+      "rateOfFire": 2.0
+    },
+    "cost": 300,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "singularity_beam",
+    "name": "Singularity Beam",
+    "type": "weapon_beam",
+    "description": "Gravitational lensing beam that warps space along its path",
+    "stats": {
+      "damage": 60,
+      "range": 12,
+      "accuracy": 78,
+      "powerDraw": 14,
+      "graviticPull": 20,
+      "armorPenetration": 35,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 2
+    },
+    "cost": 550,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "quantum_cascade",
+    "name": "Quantum Cascade",
+    "type": "weapon_beam",
+    "description": "Rapid quantum-tunnelling pulses that bypass all conventional defences",
+    "stats": {
+      "damage": 35,
+      "range": 10,
+      "accuracy": 90,
+      "powerDraw": 11,
+      "shieldPenetration": 25,
+      "systemDisruptChance": 20,
+      "rateOfFire": 3.0
+    },
+    "cost": 500,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "scatter_cannon",
+    "name": "Scatter Cannon",
+    "type": "weapon_projectile",
+    "description": "Fragmentation slug cannon \u2014 wide spread, effective against fighters and close targets",
+    "stats": {
+      "damage": 10,
+      "range": 13,
+      "accuracy": 60,
+      "powerDraw": 1,
+      "rateOfFire": 4.0,
+      "areaOfEffect": 2
+    },
+    "cost": 130,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "coilgun_array",
+    "name": "Coilgun Array",
+    "type": "weapon_projectile",
+    "description": "Multi-barrel electromagnetic accelerator \u2014 sustained suppressive fire",
+    "stats": {
+      "damage": 12,
+      "range": 15,
+      "accuracy": 68,
+      "powerDraw": 2,
+      "armorPenetration": 15,
+      "rateOfFire": 8.0
+    },
+    "cost": 250,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "siege_cannon",
+    "name": "Siege Cannon",
+    "type": "weapon_projectile",
+    "description": "Massive bore cannon firing explosive penetrator rounds \u2014 designed for station assault",
+    "stats": {
+      "damage": 40,
+      "range": 18,
+      "accuracy": 60,
+      "powerDraw": 3,
+      "armorPenetration": 30,
+      "structureDamage": 20,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 3
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "plasma_slugthrower",
+    "name": "Plasma Slugthrower",
+    "type": "weapon_projectile",
+    "description": "Fires superheated plasma slugs that splash on impact",
+    "stats": {
+      "damage": 22,
+      "range": 15,
+      "accuracy": 66,
+      "powerDraw": 3,
+      "armorPenetration": 20,
+      "hullFireChance": 15,
+      "rateOfFire": 6.0,
+      "areaOfEffect": 2
+    },
+    "cost": 320,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "hypermass_projector",
+    "name": "Hypermass Projector",
+    "type": "weapon_projectile",
+    "description": "Projects ultra-dense matter at relativistic speed \u2014 catastrophic on impact",
+    "stats": {
+      "damage": 55,
+      "range": 19,
+      "accuracy": 62,
+      "powerDraw": 7,
+      "armorPenetration": 45,
+      "graviticPull": 25,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 3
+    },
+    "cost": 650,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "icbm_torpedo",
+    "name": "Tactical Nuke",
+    "type": "weapon_missile",
+    "description": "Crude fission warhead on a ballistic delivery system \u2014 devastating but inaccurate and slow to reload",
+    "stats": {
+      "damage": 50,
+      "range": 25,
+      "accuracy": 65,
+      "powerDraw": 0.5,
+      "rateOfFire": 0.3,
+      "areaOfEffect": 5
+    },
+    "cost": 250,
+    "requiredTech": null,
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "hv_missile",
+    "name": "HV Missile Battery",
+    "type": "weapon_missile",
+    "description": "High-velocity missiles with improved terminal guidance",
+    "stats": {
+      "damage": 18,
+      "range": 22,
+      "accuracy": 70,
+      "powerDraw": 1,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 1
+    },
+    "cost": 80,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "torpedo_rack",
+    "name": "Torpedo Rack",
+    "type": "weapon_missile",
+    "description": "Heavy anti-ship torpedoes \u2014 slow rate of fire but punishing damage",
+    "stats": {
+      "damage": 25,
+      "range": 24,
+      "accuracy": 60,
+      "powerDraw": 1,
+      "rateOfFire": 0.5,
+      "areaOfEffect": 2
+    },
+    "cost": 100,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "cluster_missile",
+    "name": "Cluster Missile",
+    "type": "weapon_missile",
+    "description": "Splits into six submunitions on approach \u2014 wide area saturation",
+    "stats": {
+      "damage": 20,
+      "range": 22,
+      "accuracy": 75,
+      "powerDraw": 2,
+      "submunitionCount": 6,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 4
+    },
+    "cost": 130,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "emp_torpedo",
+    "name": "EMP Torpedo",
+    "type": "weapon_missile",
+    "description": "Electromagnetic pulse warhead \u2014 disables systems and drains shields",
+    "stats": {
+      "damage": 15,
+      "range": 24,
+      "accuracy": 78,
+      "powerDraw": 2,
+      "systemDisruptChance": 50,
+      "shieldDrain": 30,
+      "rateOfFire": 0.5,
+      "areaOfEffect": 3
+    },
+    "cost": 160,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "swarm_missiles",
+    "name": "Swarm Missiles",
+    "type": "weapon_missile",
+    "description": "Salvo of eight micro-missiles with cooperative guidance \u2014 overwhelms point defence",
+    "stats": {
+      "damage": 10,
+      "range": 24,
+      "accuracy": 85,
+      "powerDraw": 3,
+      "missileCount": 8,
+      "evasiveManoeuvre": true,
+      "rateOfFire": 3.0,
+      "areaOfEffect": 1
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "bunker_buster",
+    "name": "Bunker Buster",
+    "type": "weapon_missile",
+    "description": "Armour-piercing penetrator torpedo \u2014 designed to crack stations and capital ships",
+    "stats": {
+      "damage": 60,
+      "range": 26,
+      "accuracy": 70,
+      "powerDraw": 3,
+      "armorPenetration": 40,
+      "structureDamage": 30,
+      "rateOfFire": 0.3,
+      "areaOfEffect": 2
+    },
+    "cost": 300,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "void_seeker",
+    "name": "Void Seeker",
+    "type": "weapon_missile",
+    "description": "Low-observable torpedo with adaptive countermeasures \u2014 extremely hard to intercept",
+    "stats": {
+      "damage": 45,
+      "range": 30,
+      "accuracy": 88,
+      "powerDraw": 3,
+      "stealthProfile": true,
+      "interceptEvasion": 40,
+      "rateOfFire": 1.0,
+      "areaOfEffect": 1
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "phase_torpedo",
+    "name": "Phase Torpedo",
+    "type": "weapon_missile",
+    "description": "Phases through shields and armour before detonating inside the hull",
+    "stats": {
+      "damage": 70,
+      "range": 30,
+      "accuracy": 82,
+      "powerDraw": 4,
+      "phaseThrough": 60,
+      "shieldBypass": true,
+      "rateOfFire": 0.5,
+      "areaOfEffect": 2
+    },
+    "cost": 550,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "scatter_field",
+    "name": "Scatter Field",
+    "type": "shield",
+    "description": "Low-power dispersal field \u2014 less raw absorption but deflects incoming missiles",
+    "stats": {
+      "powerDraw": 3,
+      "shieldStrength": 20,
+      "rechargeRate": 4,
+      "missileDeflection": 20
+    },
+    "cost": 55,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "ablative_shield",
+    "name": "Ablative Shield",
+    "type": "shield",
+    "description": "Layered shield that sacrifices outer layers to absorb kinetic impacts",
+    "stats": {
+      "powerDraw": 5,
+      "shieldStrength": 45,
+      "rechargeRate": 4,
+      "kineticAbsorption": 15,
+      "regenerateOnCooldown": true
+    },
+    "cost": 140,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "adaptive_shield",
+    "name": "Adaptive Shield",
+    "type": "shield",
+    "description": "Analyses incoming fire and dynamically remodulates to resist the dominant damage type",
+    "stats": {
+      "powerDraw": 8,
+      "shieldStrength": 75,
+      "rechargeRate": 10,
+      "damageTypeAdaptation": 20
+    },
+    "cost": 280,
+    "requiredTech": null,
     "minAge": "nano_fusion"
+  },
+  {
+    "id": "flare_shield",
+    "name": "Flare Shield",
+    "type": "shield",
+    "description": "Disperses beam energy and deflects guided munitions with electromagnetic flares",
+    "stats": {
+      "powerDraw": 7,
+      "shieldStrength": 60,
+      "rechargeRate": 6,
+      "beamReflection": 25,
+      "missileDeflection": 30
+    },
+    "cost": 260,
+    "requiredTech": null,
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "hardlight_barrier",
+    "name": "Hardlight Barrier",
+    "type": "shield",
+    "description": "Solid-light projection that physically deflects objects \u2014 effective against rams and boarding",
+    "stats": {
+      "powerDraw": 12,
+      "shieldStrength": 120,
+      "rechargeRate": 10,
+      "physicalDeflection": 30,
+      "ramProtection": 50
+    },
+    "cost": 450,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "dimensional_ward",
+    "name": "Dimensional Ward",
+    "type": "shield",
+    "description": "Partially shifts the vessel between dimensions \u2014 projectiles pass through empty space",
+    "stats": {
+      "powerDraw": 16,
+      "shieldStrength": 180,
+      "rechargeRate": 14,
+      "phaseShift": 60,
+      "dimensionalDisplacement": 20
+    },
+    "cost": 700,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "advanced_warp_drive",
+    "name": "Advanced Warp Drive",
+    "type": "warp_drive",
+    "description": "Optimised warp field geometry for efficient deep-space transit",
+    "stats": {
+      "powerDraw": 8,
+      "warpSpeed": 6,
+      "warpRange": 7
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "dimensional_drive",
+    "name": "Dimensional Drive",
+    "type": "warp_drive",
+    "description": "Slips between dimensional folds \u2014 virtually instantaneous transit across any distance",
+    "stats": {
+      "powerDraw": 14,
+      "warpSpeed": 12,
+      "warpRange": 15
+    },
+    "cost": 750,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "reactor_fission_mk2",
+    "name": "Advanced Fission Reactor",
+    "type": "power_reactor",
+    "description": "Improved fission reactor with better fuel efficiency and output.",
+    "stats": {
+      "powerOutput": 10
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "power_reactor"
+  },
+  {
+    "id": "reactor_advanced_fusion",
+    "name": "Advanced Fusion Reactor",
+    "type": "power_reactor",
+    "description": "High-density fusion reactor with magnetic containment optimisation.",
+    "stats": {
+      "powerOutput": 20
+    },
+    "cost": 1500,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "power_reactor"
+  },
+  {
+    "id": "reactor_zero_point",
+    "name": "Zero-Point Reactor",
+    "type": "power_reactor",
+    "description": "Extracts energy from quantum vacuum fluctuations \u2014 near-limitless output.",
+    "stats": {
+      "powerOutput": 40
+    },
+    "cost": 4000,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "power_reactor"
+  },
+  {
+    "id": "high_density_capacitor",
+    "name": "High-Density Capacitor",
+    "type": "battery",
+    "description": "Improved capacitor array with denser energy storage",
+    "stats": {
+      "powerBuffer": 12
+    },
+    "cost": 80,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "nano_cell",
+    "name": "Nano-Cell Array",
+    "type": "battery",
+    "description": "Nano-structured energy cells with rapid charge/discharge cycles",
+    "stats": {
+      "powerBuffer": 22
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "rapid_pulse_beam",
+    "name": "Rapid Pulse Beam",
+    "type": "weapon_point_defense",
+    "description": "Rapid-cadence pulse beam turret \u2014 improved tracking and intercept rate",
+    "stats": {
+      "damage": 6,
+      "range": 3,
+      "accuracy": 70,
+      "powerDraw": 3,
+      "interceptRate": 55,
+      "rateOfFire": 6.0
+    },
+    "cost": 120,
+    "requiredTech": "advanced_point_defense",
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "laser_cwis",
+    "name": "Laser CWIS",
+    "type": "weapon_point_defense",
+    "description": "Close-in weapon system using continuous laser sweep \u2014 excellent against fighter swarms",
+    "stats": {
+      "damage": 4,
+      "range": 2,
+      "accuracy": 80,
+      "powerDraw": 3,
+      "interceptRate": 50,
+      "rateOfFire": 8.0
+    },
+    "cost": 140,
+    "requiredTech": null,
+    "minAge": "fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "pulse_gatling",
+    "name": "Pulse Gatling",
+    "type": "weapon_point_defense",
+    "description": "Multi-barrel pulse cannon with extreme rate of fire",
+    "stats": {
+      "damage": 8,
+      "range": 3,
+      "accuracy": 75,
+      "powerDraw": 4,
+      "interceptRate": 65,
+      "rateOfFire": 10.0
+    },
+    "cost": 180,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "multi_pulse_flare",
+    "name": "Multi-Pulse Flare",
+    "type": "weapon_point_defense",
+    "description": "Omnidirectional pulse emitter creating overlapping interception zones",
+    "stats": {
+      "damage": 10,
+      "range": 4,
+      "accuracy": 80,
+      "powerDraw": 5,
+      "interceptRate": 70,
+      "rateOfFire": 4.0
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "antimatter_mesh",
+    "name": "Antimatter Mesh",
+    "type": "weapon_point_defense",
+    "description": "Projects an antimatter particle mesh that annihilates incoming ordnance",
+    "stats": {
+      "damage": 18,
+      "range": 4,
+      "accuracy": 85,
+      "powerDraw": 6,
+      "interceptRate": 75,
+      "rateOfFire": 2.0
+    },
+    "cost": 250,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "micro_pbc_gatling",
+    "name": "Micro PBC Gatling",
+    "type": "weapon_point_defense",
+    "description": "Miniaturised particle beam array with predictive targeting \u2014 near-perfect intercept rate",
+    "stats": {
+      "damage": 12,
+      "range": 4,
+      "accuracy": 90,
+      "powerDraw": 9,
+      "interceptRate": 80,
+      "rateOfFire": 8.0
+    },
+    "cost": 300,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "triple_layer_mesh",
+    "name": "Triple Layer Mesh",
+    "type": "weapon_point_defense",
+    "description": "Three overlapping defensive meshes \u2014 extremely difficult to penetrate",
+    "stats": {
+      "damage": 15,
+      "range": 5,
+      "accuracy": 88,
+      "powerDraw": 7,
+      "interceptRate": 85,
+      "rateOfFire": 3.0
+    },
+    "cost": 280,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "micro_gravity_bender",
+    "name": "Micro Gravity Bender",
+    "type": "weapon_point_defense",
+    "description": "Gravitational lens that redirects incoming projectiles back at the attacker",
+    "stats": {
+      "damage": 20,
+      "range": 5,
+      "accuracy": 95,
+      "powerDraw": 8,
+      "interceptRate": 90,
+      "rateOfFire": 1.0
+    },
+    "cost": 400,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "phase_intercept_array",
+    "name": "Phase Intercept Array",
+    "type": "weapon_point_defense",
+    "description": "Phase-shifts incoming ordnance into another dimension \u2014 the ultimate point defence",
+    "stats": {
+      "damage": 15,
+      "range": 6,
+      "accuracy": 92,
+      "powerDraw": 10,
+      "interceptRate": 95,
+      "rateOfFire": 6.0
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
+    "id": "assault_fighter_bay",
+    "name": "Assault Fighter Bay",
+    "type": "fighter_bay",
+    "description": "Launches 6 armoured assault fighters with light armour plating",
+    "stats": {
+      "damage": 12,
+      "range": 7,
+      "powerDraw": 4,
+      "fighterCount": 6,
+      "armorRating": 3
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "bomber_bay",
+    "name": "Bomber Bay",
+    "type": "fighter_bay",
+    "description": "Launches 4 torpedo bombers \u2014 devastating against capital ships",
+    "stats": {
+      "damage": 25,
+      "range": 10,
+      "powerDraw": 6,
+      "fighterCount": 4,
+      "armorPenetration": 20,
+      "areaOfEffect": 3
+    },
+    "cost": 320,
+    "requiredTech": null,
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "elite_fighter_bay",
+    "name": "Elite Fighter Bay",
+    "type": "fighter_bay",
+    "description": "Launches 10 antimatter-powered elite fighters with advanced countermeasures",
+    "stats": {
+      "damage": 20,
+      "range": 10,
+      "powerDraw": 7,
+      "fighterCount": 10,
+      "armorRating": 8,
+      "evasionBonus": 15
+    },
+    "cost": 400,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "drone_swarm_bay",
+    "name": "Drone Swarm Bay",
+    "type": "fighter_bay",
+    "description": "Deploys 20 AI-controlled combat drones that coordinate autonomously",
+    "stats": {
+      "damage": 12,
+      "range": 12,
+      "powerDraw": 8,
+      "fighterCount": 20,
+      "autonomousAI": true,
+      "selfRepair": true
+    },
+    "cost": 500,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "jammer_pod",
+    "name": "Jammer Pod",
+    "type": "ecm_suite",
+    "description": "Dedicated missile jamming pod \u2014 effective against guided ordnance",
+    "stats": {
+      "powerDraw": 2,
+      "evasionBonus": 5,
+      "missileDeflection": 25,
+      "sensorJamming": 10
+    },
+    "cost": 80,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "decoy_launcher",
+    "name": "Decoy Launcher",
+    "type": "ecm_suite",
+    "description": "Launches sensor-spoofing decoys that draw enemy fire and missiles",
+    "stats": {
+      "powerDraw": 3,
+      "evasionBonus": 10,
+      "missileDeflection": 35,
+      "decoyCount": 4
+    },
+    "cost": 150,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "signal_distortion_array",
+    "name": "Signal Distortion Array",
+    "type": "ecm_suite",
+    "description": "Distorts all electromagnetic emissions in a wide radius \u2014 disrupts enemy fleet coordination",
+    "stats": {
+      "powerDraw": 6,
+      "evasionBonus": 15,
+      "sensorJamming": 35,
+      "commDisruption": 25
+    },
+    "cost": 220,
+    "requiredTech": null,
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "phase_cloak_ecm",
+    "name": "Phase-Cloak ECM",
+    "type": "ecm_suite",
+    "description": "Phase-modulated ECM that intermittently renders the vessel invisible to sensors",
+    "stats": {
+      "powerDraw": 8,
+      "evasionBonus": 25,
+      "missileDeflection": 40,
+      "sensorJamming": 30,
+      "phaseFlicker": 15
+    },
+    "cost": 350,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "ghost_projector",
+    "name": "Ghost Projector",
+    "type": "ecm_suite",
+    "description": "Projects convincing holographic duplicates that draw enemy fire",
+    "stats": {
+      "powerDraw": 7,
+      "evasionBonus": 20,
+      "ghostCount": 3,
+      "sensorJamming": 25
+    },
+    "cost": 300,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "dimensional_cloak_ecm",
+    "name": "Dimensional Cloak ECM",
+    "type": "ecm_suite",
+    "description": "Shifts the vessel partially between dimensions \u2014 nearly undetectable",
+    "stats": {
+      "powerDraw": 10,
+      "evasionBonus": 35,
+      "missileDeflection": 50,
+      "sensorJamming": 40,
+      "dimensionalShift": 20
+    },
+    "cost": 500,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "fire_director",
+    "name": "Fire Director",
+    "type": "targeting_computer",
+    "description": "Fleet fire coordination system \u2014 synchronises volleys across multiple ships",
+    "stats": {
+      "powerDraw": 3,
+      "accuracyBonus": 15,
+      "trackingSpeed": 8,
+      "coordinatedFire": 10
+    },
+    "cost": 130,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "neural_targeting",
+    "name": "Neural Targeting Array",
+    "type": "targeting_computer",
+    "description": "Neural-linked targeting system \u2014 reaction times approaching precognition",
+    "stats": {
+      "powerDraw": 4,
+      "accuracyBonus": 25,
+      "trackingSpeed": 18,
+      "criticalHitChance": 10
+    },
+    "cost": 280,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "quantum_targeting",
+    "name": "Quantum Targeting Matrix",
+    "type": "targeting_computer",
+    "description": "Quantum-entangled targeting \u2014 fires at where the target will be, not where it is",
+    "stats": {
+      "powerDraw": 5,
+      "accuracyBonus": 30,
+      "trackingSpeed": 25,
+      "criticalHitChance": 15,
+      "phaseTargeting": true
+    },
+    "cost": 400,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "hull_sealant_system",
+    "name": "Hull Sealant System",
+    "type": "repair_drone",
+    "description": "Rapid-deploying hull sealant system \u2014 seals breaches during combat",
+    "stats": {
+      "powerDraw": 3,
+      "repairRate": 7,
+      "repairRange": 1,
+      "hullBreachSeal": true
+    },
+    "cost": 140,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "nano_repair_swarm",
+    "name": "Nano-Repair Swarm",
+    "type": "repair_drone",
+    "description": "Clouds of nanobots that swarm over damaged sections and rebuild at the molecular level",
+    "stats": {
+      "powerDraw": 5,
+      "repairRate": 15,
+      "repairRange": 4,
+      "fleetRepairBonus": 25,
+      "systemRepair": true
+    },
+    "cost": 300,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "temporal_repair_field",
+    "name": "Temporal Repair Field",
+    "type": "repair_drone",
+    "description": "Localised temporal reversal field \u2014 literally undoes damage by rewinding time around the hull",
+    "stats": {
+      "powerDraw": 8,
+      "repairRate": 25,
+      "repairRange": 5,
+      "fleetRepairBonus": 40,
+      "reverseEntropy": true
+    },
+    "cost": 450,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "rcs_gravitic",
+    "name": "Gravitic RCS",
+    "type": "rcs_thrusters",
+    "description": "Gravitational thrust vectoring \u2014 instant directional changes.",
+    "stats": {
+      "powerDraw": 3,
+      "evasionBonus": 12,
+      "turnRate": 4
+    },
+    "cost": 1500,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "rcs_thrusters"
+  },
+  {
+    "id": "rcs_inertialess",
+    "name": "Inertialess RCS",
+    "type": "rcs_thrusters",
+    "description": "Negates inertia entirely \u2014 the vessel can change direction instantaneously.",
+    "stats": {
+      "powerDraw": 4,
+      "evasionBonus": 16,
+      "turnRate": 5,
+      "inertialDampening": true
+    },
+    "cost": 2500,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "rcs_thrusters"
+  },
+  {
+    "id": "heat_sink_array",
+    "name": "Heat Sink Array",
+    "type": "temperature_control",
+    "description": "Antimatter-powered heat sinks that absorb and radiate thermal energy at extreme rates.",
+    "stats": {
+      "powerDraw": 2,
+      "heatDissipation": 30
+    },
+    "cost": 1800,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "temperature_control"
+  },
+  {
+    "id": "entropy_radiator",
+    "name": "Entropy Radiator",
+    "type": "temperature_control",
+    "description": "Channels waste heat into dimensional folds \u2014 effectively limitless thermal capacity.",
+    "stats": {
+      "powerDraw": 3,
+      "heatDissipation": 45
+    },
+    "cost": 3000,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "temperature_control"
+  },
+  {
+    "id": "comms_tightbeam",
+    "name": "Tightbeam Array",
+    "type": "comms_array",
+    "description": "Focused laser tightbeam for secure point-to-point communication.",
+    "stats": {
+      "powerDraw": 1,
+      "signalRange": 5,
+      "commsBonus": 10,
+      "encryptionLevel": 1
+    },
+    "cost": 150,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "comms_array"
+  },
+  {
+    "id": "comms_encrypted_subspace",
+    "name": "Encrypted Subspace Array",
+    "type": "comms_array",
+    "description": "Hardened encrypted subspace communications resistant to interception.",
+    "stats": {
+      "powerDraw": 3,
+      "signalRange": 12,
+      "commsBonus": 20,
+      "encryptionLevel": 3
+    },
+    "cost": 1200,
+    "requiredTech": null,
+    "minAge": "nano_fusion",
+    "coreSystemRole": "comms_array"
+  },
+  {
+    "id": "comms_ansible",
+    "name": "Ansible Network",
+    "type": "comms_array",
+    "description": "Instantaneous, uninterceptable communication across the entire galaxy.",
+    "stats": {
+      "powerDraw": 4,
+      "signalRange": 50,
+      "commsBonus": 40,
+      "encryptionLevel": 7,
+      "fleetWideBroadcast": true
+    },
+    "cost": 3500,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "comms_array"
+  },
+  {
+    "id": "bio_reclaim_improved",
+    "name": "Improved Bio Reclaim",
+    "type": "bio_reclaim",
+    "description": "Improved water and air recycling with basic food reclamation.",
+    "stats": {
+      "powerDraw": 1,
+      "supplyBonus": 1,
+      "waterRecycling": 45
+    },
+    "cost": 100,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "bio_reclaim"
+  },
+  {
+    "id": "bio_reclaim_synthesis",
+    "name": "Molecular Synthesis System",
+    "type": "bio_reclaim",
+    "description": "Synthesises food and water from raw elements \u2014 virtually unlimited endurance.",
+    "stats": {
+      "powerDraw": 4,
+      "supplyBonus": 10,
+      "waterRecycling": 98,
+      "foodSynthesis": true
+    },
+    "cost": 2000,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "bio_reclaim"
+  },
+  {
+    "id": "bio_reclaim_perfect",
+    "name": "Perfect Reclamation",
+    "type": "bio_reclaim",
+    "description": "Complete matter-energy cycling \u2014 the vessel is entirely self-sustaining.",
+    "stats": {
+      "powerDraw": 4,
+      "supplyBonus": 15,
+      "waterRecycling": 100,
+      "selfSustaining": true
+    },
+    "cost": 3500,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "bio_reclaim"
+  },
+  {
+    "id": "computer_core_mk1b",
+    "name": "Exaflop Core",
+    "type": "computer_core",
+    "description": "High-throughput processing for complex sensor analysis and targeting.",
+    "stats": {
+      "powerDraw": 1,
+      "processingPower": 8,
+      "accuracyBonus": 3
+    },
+    "cost": 200,
+    "requiredTech": null,
+    "minAge": "nano_atomic",
+    "coreSystemRole": "computer_core"
+  },
+  {
+    "id": "computer_core_mk4",
+    "name": "Quantum Computer Core",
+    "type": "computer_core",
+    "description": "Quantum-state computing enabling simultaneous analysis of all threats.",
+    "stats": {
+      "powerDraw": 4,
+      "processingPower": 35,
+      "accuracyBonus": 12,
+      "parallelProcessing": true
+    },
+    "cost": 2500,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "computer_core"
+  },
+  {
+    "id": "computer_core_mk5",
+    "name": "Singularity Core",
+    "type": "computer_core",
+    "description": "Self-evolving AI core that anticipates enemy tactics before they execute them.",
+    "stats": {
+      "powerDraw": 5,
+      "processingPower": 50,
+      "accuracyBonus": 15,
+      "predictiveModelling": true,
+      "strategicAI": true
+    },
+    "cost": 4000,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "computer_core"
+  },
+  {
+    "id": "life_support_core_mk4",
+    "name": "Arcology Life Support",
+    "type": "life_support",
+    "description": "Full artificial gravity and arcology-grade habitability \u2014 crew never want to leave.",
+    "stats": {
+      "powerDraw": 4,
+      "crewCapacity": 400,
+      "moraleRecovery": 12,
+      "healthBonus": 15,
+      "gravityControl": true
+    },
+    "cost": 3000,
+    "requiredTech": null,
+    "minAge": "anti_matter",
+    "coreSystemRole": "life_support"
+  },
+  {
+    "id": "life_support_core_mk5",
+    "name": "Utopia Life Support",
+    "type": "life_support",
+    "description": "Creates a perfect living environment tailored to each crew member individually.",
+    "stats": {
+      "powerDraw": 5,
+      "crewCapacity": 800,
+      "moraleRecovery": 16,
+      "healthBonus": 20,
+      "perfectEnvironment": true
+    },
+    "cost": 5000,
+    "requiredTech": null,
+    "minAge": "singularity",
+    "coreSystemRole": "life_support"
   }
 ]
