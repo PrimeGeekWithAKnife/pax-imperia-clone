@@ -228,6 +228,26 @@ const WEAPON_TYPES: ComponentType[] = [
   'fighter_bay',
 ];
 
+// ── Ship lengths in metres (inspired by historical ocean-going vessels) ──────
+// Deep space probe ≈ fishing trawler, scout ≈ WW2 corvette (HMS Flower),
+// destroyer ≈ WW2 destroyer (Fletcher-class), transport ≈ cargo freighter,
+// cruiser ≈ WW2 light cruiser (Cleveland-class), carrier ≈ WW2 fleet carrier,
+// battleship ≈ WW2 battleship (Iowa-class), coloniser ≈ ocean liner,
+// dreadnought ≈ supercarrier (USS Nimitz), battle station ≈ orbital platform.
+
+const SHIP_LENGTH_METRES: Record<HullClass, number> = {
+  deep_space_probe: 15,
+  scout: 65,
+  destroyer: 120,
+  transport: 95,
+  cruiser: 185,
+  carrier: 260,
+  battleship: 270,
+  coloniser: 155,
+  dreadnought: 350,
+  battle_station: 520,
+};
+
 // ── Compass labels ───────────────────────────────────────────────────────────
 
 const COMPASS_LABELS = ['STBD', 'FWD', 'PORT', 'AFT'] as const;
@@ -764,6 +784,113 @@ function CoreSystemSpine({
   );
 }
 
+/** Internal structural frame: keel line, deck planes, and bulkhead ribs. */
+function InternalStructure({ sections }: { sections: HullSection[] }): React.ReactElement {
+  const { keelPoints, deckPoints, bulkheadRings } = useMemo(() => {
+    const minZ = sections[0]?.z ?? -2;
+    const maxZ = sections[sections.length - 1]?.z ?? 2;
+
+    // Keel line — runs along the bottom of the hull (centreline, y = -ry * 0.5)
+    const keel: THREE.Vector3[] = [];
+    for (const s of sections) {
+      keel.push(new THREE.Vector3(0, -s.ry * 0.5, s.z));
+    }
+
+    // Deck planes — two horizontal lines at ~30% and ~60% height through each section
+    const deck: THREE.Vector3[] = [];
+    for (const deckFraction of [0.3, 0.6]) {
+      for (let i = 0; i < sections.length; i++) {
+        const s = sections[i]!;
+        const yPos = -s.ry * 0.5 + s.ry * deckFraction;
+        // Half-width at this height
+        const hw = s.rx * Math.sqrt(1 - Math.pow((yPos / s.ry), 2));
+        if (isNaN(hw) || hw < 0.05) continue;
+        deck.push(new THREE.Vector3(-hw * 0.85, yPos, s.z));
+        deck.push(new THREE.Vector3(hw * 0.85, yPos, s.z));
+      }
+    }
+
+    // Bulkhead ribs — vertical cross-section rings at regular intervals
+    const bulkheads: THREE.Vector3[][] = [];
+    const span = maxZ - minZ;
+    const ribCount = Math.max(3, Math.round(span / 1.2));
+    for (let r = 0; r < ribCount; r++) {
+      const t = (r + 0.5) / ribCount;
+      const z = minZ + t * span;
+      // Interpolate hull radii at this z
+      let rx = 0.2, ry = 0.2;
+      for (let i = 0; i < sections.length - 1; i++) {
+        if (z >= sections[i]!.z && z <= sections[i + 1]!.z) {
+          const lt = (z - sections[i]!.z) / (sections[i + 1]!.z - sections[i]!.z);
+          rx = sections[i]!.rx + (sections[i + 1]!.rx - sections[i]!.rx) * lt;
+          ry = sections[i]!.ry + (sections[i + 1]!.ry - sections[i]!.ry) * lt;
+          break;
+        }
+      }
+      // Draw an elliptical ring (8 segments, scaled down to 70%)
+      const ring: THREE.Vector3[] = [];
+      const segs = 8;
+      const scale = 0.7;
+      for (let j = 0; j <= segs; j++) {
+        const a = (j / segs) * Math.PI * 2;
+        ring.push(new THREE.Vector3(
+          Math.cos(a) * rx * scale,
+          Math.sin(a) * ry * scale,
+          z,
+        ));
+      }
+      bulkheads.push(ring);
+    }
+
+    return { keelPoints: keel, deckPoints: deck, bulkheadRings: bulkheads };
+  }, [sections]);
+
+  return (
+    <group>
+      {/* Keel line */}
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={keelPoints.length}
+            array={new Float32Array(keelPoints.flatMap(p => [p.x, p.y, p.z]))}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial color={0x5dcaa5} transparent opacity={0.12} />
+      </line>
+
+      {/* Deck planes (drawn as line pairs per section) */}
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={deckPoints.length}
+            array={new Float32Array(deckPoints.flatMap(p => [p.x, p.y, p.z]))}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial color={0x5dcaa5} transparent opacity={0.08} />
+      </lineSegments>
+
+      {/* Bulkhead ribs */}
+      {bulkheadRings.map((ring, i) => (
+        <line key={`bh-${i}`}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={ring.length}
+              array={new Float32Array(ring.flatMap(p => [p.x, p.y, p.z]))}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color={0x5dcaa5} transparent opacity={0.10} />
+        </line>
+      ))}
+    </group>
+  );
+}
+
 // ── Scene rotation controller ────────────────────────────────────────────────
 
 interface RotationState {
@@ -774,6 +901,8 @@ interface RotationState {
   dragging: boolean;
   lastMouseX: number;
   lastMouseY: number;
+  zoom: number;
+  targetZoom: number;
 }
 
 /**
@@ -793,6 +922,8 @@ function useRotationControls(): {
     dragging: false,
     lastMouseX: 0,
     lastMouseY: 0,
+    zoom: 9,
+    targetZoom: 9,
   });
 
   const [compassLabel, setCompassLabel] = useState('FWD');
@@ -854,7 +985,15 @@ function useRotationControls(): {
     window.addEventListener('touchmove', onTouchMove, { passive: true });
     window.addEventListener('touchend', onTouchEnd);
 
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const s = state.current;
+      s.targetZoom += e.deltaY * 0.005;
+      s.targetZoom = Math.max(3, Math.min(20, s.targetZoom));
+    };
+
     canvas.style.cursor = 'grab';
+    canvas.addEventListener('wheel', onWheel, { passive: false });
 
     return () => {
       canvas.removeEventListener('mousedown', onMouseDown);
@@ -863,10 +1002,13 @@ function useRotationControls(): {
       canvas.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('wheel', onWheel);
     };
   }, [gl]);
 
-  // Update compass label each frame
+  const { camera } = useThree();
+
+  // Update compass label and zoom each frame
   useFrame(() => {
     const s = state.current;
 
@@ -878,6 +1020,11 @@ function useRotationControls(): {
     // Smooth interpolation
     s.rotX += (s.targetX - s.rotX) * 0.08;
     s.rotY += (s.targetY - s.rotY) * 0.08;
+    s.zoom += (s.targetZoom - s.zoom) * 0.08;
+
+    // Apply zoom to camera position
+    camera.position.set(0, s.zoom * 0.28, s.zoom);
+    camera.lookAt(0, 0, 0);
 
     // Update compass label
     const yNorm = ((s.rotY % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -1020,6 +1167,9 @@ function ShipGroup({
 
       {/* Core system spine (teal-grey boxes along centreline) */}
       <CoreSystemSpine sections={sections} overrides={coreSystemOverrides} />
+
+      {/* Internal structural frame (keel, decks, bulkheads) */}
+      <InternalStructure sections={sections} />
     </group>
   );
 }
@@ -1192,6 +1342,22 @@ export function ShipModel3D({
         {compassLabel}
       </div>
 
+      {/* Ship length dimension */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 6,
+          left: 10,
+          zIndex: 10,
+          fontSize: 10,
+          fontFamily: 'var(--font-mono)',
+          color: 'rgba(93, 202, 165, 0.7)',
+          pointerEvents: 'none',
+        }}
+      >
+        {SHIP_LENGTH_METRES[hullClass]}m
+      </div>
+
       {/* Drag hint */}
       <div
         className="ship-model-3d__hint"
@@ -1207,7 +1373,7 @@ export function ShipModel3D({
           whiteSpace: 'nowrap',
         }}
       >
-        Drag to rotate
+        Drag to rotate · Scroll to zoom
       </div>
 
       {/* R3F Canvas */}
