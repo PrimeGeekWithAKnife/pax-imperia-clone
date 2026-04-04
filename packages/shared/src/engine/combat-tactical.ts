@@ -669,16 +669,21 @@ function smallCraftFlank(
   spreadY: number,
 ): TacticalShip {
   const d = dist(ship.position, target.position);
-  const orbitRadius = engageDistance(ship) * 0.7;
 
-  // ── Step 1: Find the target's weapon-free zones ────────────────────
-  // Score each angle around the target by how many weapons can hit there
+  // Count same-side small craft to scale orbit for swarm density
+  const swarmSize = state.ships.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80,
+  ).length;
+  // Base orbit grows with swarm size — more drones need more room
+  const baseOrbit = engageDistance(ship) * 0.7;
+  const orbitRadius = baseOrbit * (1 + Math.max(0, swarmSize - 4) * 0.08);
+
+  // ── Step 1: Map the target's weapon danger zones ────────────────────
   const ANGLE_STEPS = 12;
   const arcDanger: number[] = new Array(ANGLE_STEPS).fill(0);
 
   for (const weapon of target.weapons) {
     if (weapon.type === 'point_defense') continue;
-    // Compute the weapon's world-space centre angle
     let weaponCentre = target.facing;
     switch (weapon.facing) {
       case 'aft': weaponCentre += Math.PI; break;
@@ -696,7 +701,7 @@ function smallCraftFlank(
     }
   }
 
-  // ── Step 2: Find the safest sector (lowest danger score) ──────────
+  // ── Step 2: Find the safest sector ──────────────────────────────────
   let safestIdx = 0;
   let safestDanger = Infinity;
   for (let i = 0; i < ANGLE_STEPS; i++) {
@@ -707,16 +712,23 @@ function smallCraftFlank(
   }
   const safestAngle = (safestIdx / ANGLE_STEPS) * Math.PI * 2;
 
-  // ── Step 3: Swarm slots — stable per-drone offsets, no reshuffling ──
-  // Hash the ship ID to get stable values that don't change when others die
+  // ── Step 3: Swarm slots — full 360° spread biased toward safe zone ──
+  // Each drone gets a stable angular position. Drones are expendable so
+  // they spread across the full circle, with a bias pulling them toward
+  // the safest sector. Large swarms NEED the full perimeter.
   const slotHash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
   const idHash2 = ship.id.charCodeAt(Math.floor(ship.id.length / 2)) ?? 0;
-  // Each drone gets a unique angular offset within a 240° arc (the safe hemisphere)
   const slotFraction = ((slotHash * 137 + idHash2 * 31) % 1000) / 1000; // 0-1 pseudo-random
-  const slotSpread = Math.PI * 1.33; // 240 degrees — wide swarm spread
-  const slotAngle = safestAngle + (slotFraction - 0.5) * slotSpread;
-  // Vary orbit radius per drone so they don't all stack on the same circle
-  const radiusJitter = 0.8 + (((slotHash * 53 + idHash2) % 100) / 100) * 0.4; // 0.8–1.2x
+  // Full 360° base position
+  const rawSlotAngle = slotFraction * Math.PI * 2;
+  // Small swarms (≤4) cluster toward the safe zone; large swarms use the full circle
+  const safeBias = swarmSize <= 4 ? 0.5 : Math.max(0.1, 0.5 - (swarmSize - 4) * 0.05);
+  const slotAngle = Math.atan2(
+    Math.sin(rawSlotAngle) * (1 - safeBias) + Math.sin(safestAngle) * safeBias,
+    Math.cos(rawSlotAngle) * (1 - safeBias) + Math.cos(safestAngle) * safeBias,
+  );
+  // Vary orbit radius per drone — wide annulus prevents ring-stacking
+  const radiusJitter = 0.6 + (((slotHash * 53 + idHash2) % 100) / 100) * 1.0; // 0.6–1.6x
   const myOrbitRadius = orbitRadius * radiusJitter;
 
   // ── Step 4: Continuous orbit — always thrusting to the NEXT point ──
@@ -754,50 +766,79 @@ function smallCraftFlank(
   let goalX = target.position.x + Math.cos(goalAngle) * goalRadius + spreadX;
   let goalY = target.position.y + Math.sin(goalAngle) * goalRadius + spreadY;
 
-  // ── Step 4b: Swarm coordination — trajectory-aware separation ──
-  // Drones predict each other's near-future positions and steer to avoid
-  // overlapping paths. Three layers: current position, projected position,
-  // and angular separation around the target.
-  const SWARM_MIN_DIST = 40;
-  const PREDICT_TICKS = 6;
+  // ── Step 4b: Boids flocking — separation, alignment, cohesion ──
+  // Drones behave as a coordinated flock: they maintain spacing, match
+  // each other's headings, and steer toward the flock centre. The orbit
+  // goal provides the "migration" direction; flocking keeps them flowing
+  // together as a network.
+  const SEPARATION_DIST = 45;
+  const FLOCK_RADIUS = 120; // neighbourhood for alignment/cohesion
   const squadMates = state.ships.filter(
     s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80 && s.id !== ship.id,
   );
-  const myPredicted = {
-    x: ship.position.x + (ship.velocity?.x ?? 0) * PREDICT_TICKS,
-    y: ship.position.y + (ship.velocity?.y ?? 0) * PREDICT_TICKS,
-  };
+
+  let sepX = 0, sepY = 0;   // separation: steer away from very close neighbours
+  let alignX = 0, alignY = 0; // alignment: match velocity direction of nearby flock
+  let cohX = 0, cohY = 0;   // cohesion: steer toward flock centre
+  let alignCount = 0;
+  let cohCount = 0;
+
   for (const mate of squadMates) {
-    // Layer 1: repel from current position
     const mateDist = dist(ship.position, mate.position);
-    if (mateDist < SWARM_MIN_DIST && mateDist > 1) {
-      const repelStrength = (SWARM_MIN_DIST - mateDist) / SWARM_MIN_DIST * 8;
-      goalX += (ship.position.x - mate.position.x) / mateDist * repelStrength;
-      goalY += (ship.position.y - mate.position.y) / mateDist * repelStrength;
+
+    // Separation — quadratic repulsion for very close neighbours
+    if (mateDist < SEPARATION_DIST && mateDist > 1) {
+      const t = (SEPARATION_DIST - mateDist) / SEPARATION_DIST;
+      const strength = t * t * 18;
+      sepX += (ship.position.x - mate.position.x) / mateDist * strength;
+      sepY += (ship.position.y - mate.position.y) / mateDist * strength;
     }
 
-    // Layer 2: repel from predicted future position (avoid converging paths)
-    const matePredicted = {
-      x: mate.position.x + (mate.velocity?.x ?? 0) * PREDICT_TICKS,
-      y: mate.position.y + (mate.velocity?.y ?? 0) * PREDICT_TICKS,
-    };
-    const futureDist = dist(myPredicted, matePredicted);
-    if (futureDist < SWARM_MIN_DIST && futureDist > 1) {
-      const futureRepel = (SWARM_MIN_DIST - futureDist) / SWARM_MIN_DIST * 5;
-      goalX += (myPredicted.x - matePredicted.x) / futureDist * futureRepel;
-      goalY += (myPredicted.y - matePredicted.y) / futureDist * futureRepel;
+    // Alignment + Cohesion — broader neighbourhood
+    if (mateDist < FLOCK_RADIUS && mateDist > 1) {
+      // Alignment: accumulate neighbour velocities
+      alignX += mate.velocity?.x ?? 0;
+      alignY += mate.velocity?.y ?? 0;
+      alignCount++;
+      // Cohesion: accumulate neighbour positions
+      cohX += mate.position.x;
+      cohY += mate.position.y;
+      cohCount++;
     }
+  }
 
-    // Layer 3: angular separation around the target — avoid same orbit slot
-    const myAngle = angleTo(target.position, ship.position);
-    const mateAngle = angleTo(target.position, mate.position);
-    const angularGap = Math.abs(normaliseAngle(myAngle - mateAngle));
-    const MIN_ANGULAR_GAP = 0.35; // ~20° minimum separation
-    if (angularGap < MIN_ANGULAR_GAP && mateDist < myOrbitRadius * 2) {
-      const pushDir = normaliseAngle(myAngle - mateAngle) > 0 ? 1 : -1;
-      const angularRepel = (MIN_ANGULAR_GAP - angularGap) / MIN_ANGULAR_GAP * 4;
-      goalX += Math.cos(myAngle + pushDir * Math.PI / 2) * angularRepel;
-      goalY += Math.sin(myAngle + pushDir * Math.PI / 2) * angularRepel;
+  // Blend flock forces into the orbit goal
+  // Separation: direct offset (strongest — avoid collision)
+  // Alignment: nudge goal toward average flock heading
+  // Cohesion: nudge goal toward flock centre (prevents scattering)
+
+  // Clamp separation to avoid overshooting through the target
+  const sepMag = Math.sqrt(sepX * sepX + sepY * sepY);
+  if (sepMag > 20) { sepX = sepX / sepMag * 20; sepY = sepY / sepMag * 20; }
+  goalX += sepX;
+  goalY += sepY;
+
+  if (alignCount > 0) {
+    // Average flock velocity direction — steer goal to match
+    const avgVx = alignX / alignCount;
+    const avgVy = alignY / alignCount;
+    const myVx = ship.velocity?.x ?? 0;
+    const myVy = ship.velocity?.y ?? 0;
+    // Difference between my velocity and flock average
+    goalX += (avgVx - myVx) * 0.4;
+    goalY += (avgVy - myVy) * 0.4;
+  }
+
+  if (cohCount > 0) {
+    // Steer toward flock centre only when actually scattered — prevents
+    // pulling already-close drones back into a clump
+    const flockCX = cohX / cohCount;
+    const flockCY = cohY / cohCount;
+    const distToFlock = dist(ship.position, { x: flockCX, y: flockCY });
+    if (distToFlock > FLOCK_RADIUS * 0.5) {
+      const cohStrength = Math.min(0.04, (distToFlock - FLOCK_RADIUS * 0.5) / FLOCK_RADIUS * 0.06);
+      goalX += (flockCX - ship.position.x) * cohStrength;
+      goalY += (flockCY - ship.position.y) * cohStrength;
     }
   }
 
@@ -1810,11 +1851,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     : engageDistance(ship);
 
   // ── Anti-bunching: compute a spacing offset blended into movement ──
-  // Ships steer slightly away from nearby allies to avoid splash/AOE.
+  // Ships steer away from nearby allies to avoid splash/AOE and overlap.
   // This is blended into the target position, NOT an early return,
   // so ships still advance while spreading.
-  // Small craft need wider spacing — splash damage is lethal at 10 HP
-  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 60 : 35;
+  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 60 : 50;
   let spreadX = 0;
   let spreadY = 0;
   const allies = state.ships.filter(
@@ -1823,9 +1863,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   for (const ally of allies) {
     const allyDist = dist(ship.position, ally.position);
     if (allyDist < MINIMUM_ALLY_SPACING && allyDist > 1) {
-      const pushStrength = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
-      spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 3;
-      spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 3;
+      const t = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
+      const pushStrength = t * t * 8;
+      spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength;
+      spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength;
     }
   }
 
