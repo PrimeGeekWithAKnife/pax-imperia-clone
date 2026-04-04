@@ -718,21 +718,62 @@ function smallCraftFlank(
   const slotSpread = Math.PI * 0.67; // 120 degrees
   const slotAngle = safestAngle + ((slotIdx / slotCount) - 0.5) * slotSpread;
 
-  // ── Step 4: Compute orbit point and add continuous orbit motion ────
-  // The orbit point drifts over time so craft don't hover — they circle
-  const orbitDrift = (state.tick * 0.02) * (slotHash % 2 === 0 ? 1 : -1);
-  const finalAngle = slotAngle + orbitDrift;
+  // ── Step 4: Continuous orbit — always thrusting to the NEXT point ──
+  // Orbit speed: faster craft orbit faster. The goal point is always
+  // AHEAD on the orbit circle so the craft never stops thrusting.
+  const orbitDirection = slotHash % 2 === 0 ? 1 : -1; // CW or CCW
+  const orbitSpeed = 0.06 + (ship.speed / 50); // faster ships orbit quicker
 
-  let goalX = target.position.x + Math.cos(finalAngle) * orbitRadius + spreadX;
-  let goalY = target.position.y + Math.sin(finalAngle) * orbitRadius + spreadY;
+  // Current angle from target to ship — use this as the base, then
+  // place the goal point AHEAD on the orbit so we're always chasing it
+  const currentAngle = angleTo(target.position, ship.position);
+  const leadAngle = currentAngle + orbitDirection * orbitSpeed * 8; // 8 ticks ahead
 
-  // ── Step 5: Avoid debris in the orbit path ────────────────────────
+  // Blend the lead angle with the safe-zone slot angle so we orbit
+  // within the safe zone but keep moving
+  const safeWeight = d < orbitRadius * 1.3 ? 0.4 : 0.7; // closer = more orbit, further = more approach
+  const blendedAngle = Math.atan2(
+    Math.sin(leadAngle) * (1 - safeWeight) + Math.sin(slotAngle + orbitDirection * state.tick * orbitSpeed) * safeWeight,
+    Math.cos(leadAngle) * (1 - safeWeight) + Math.cos(slotAngle + orbitDirection * state.tick * orbitSpeed) * safeWeight,
+  );
+
+  let goalX = target.position.x + Math.cos(blendedAngle) * orbitRadius + spreadX;
+  let goalY = target.position.y + Math.sin(blendedAngle) * orbitRadius + spreadY;
+
+  // ── Step 5: Dodge incoming missiles ───────────────────────────────
+  // Small craft with no PD must evade missiles by thrusting perpendicular
+  const hasPD = ship.weapons.some(w => w.type === 'point_defense');
+  if (!hasPD) {
+    const incomingMissiles = (state.missiles ?? []).filter(
+      m => m.targetShipId === ship.id &&
+        dist(ship.position, { x: m.x, y: m.y }) < 150,
+    );
+    if (incomingMissiles.length > 0) {
+      // Dodge perpendicular to the nearest incoming missile
+      const nearest = incomingMissiles.reduce((best, m) => {
+        const md = dist(ship.position, { x: m.x, y: m.y });
+        const bd = dist(ship.position, { x: best.x, y: best.y });
+        return md < bd ? m : best;
+      });
+      const missileAngle = angleTo({ x: nearest.x, y: nearest.y }, ship.position);
+      // Dodge perpendicular — pick whichever side is closer to our current velocity
+      const dodgeAngle1 = missileAngle + Math.PI / 2;
+      const dodgeAngle2 = missileAngle - Math.PI / 2;
+      const velAngle = Math.atan2(ship.velocity?.y ?? 0, ship.velocity?.x ?? 0);
+      const dodge = Math.abs(normaliseAngle(velAngle - dodgeAngle1)) <
+                    Math.abs(normaliseAngle(velAngle - dodgeAngle2))
+                    ? dodgeAngle1 : dodgeAngle2;
+      goalX = ship.position.x + Math.cos(dodge) * 80;
+      goalY = ship.position.y + Math.sin(dodge) * 80;
+    }
+  }
+
+  // ── Step 6: Avoid debris in the orbit path ────────────────────────
   if (state.environment) {
     for (const feature of state.environment) {
       if (feature.type !== 'debris' && feature.type !== 'asteroid') continue;
       const featureDist = dist({ x: goalX, y: goalY }, feature);
       if (featureDist < feature.radius * 1.5) {
-        // Push the goal point away from the debris
         const pushAngle = angleTo(feature, { x: goalX, y: goalY });
         goalX = feature.x + Math.cos(pushAngle) * feature.radius * 2;
         goalY = feature.y + Math.sin(pushAngle) * feature.radius * 2;
@@ -740,14 +781,8 @@ function smallCraftFlank(
     }
   }
 
-  // If still closing to orbit range, approach the orbit point directly
-  if (d > orbitRadius * 1.5) {
-    return moveToward(updated, { x: goalX, y: goalY }, 15, state.environment, state.ships);
-  }
-
-  // In orbit — move to the goal point but keep a minimum distance
-  // so the craft maintains circular motion rather than hovering
-  return moveToward(updated, { x: goalX, y: goalY }, 10, state.environment, state.ships);
+  // Always thrust toward the goal — minDist 0 means never stop
+  return moveToward(updated, { x: goalX, y: goalY }, 0, state.environment, state.ships);
 }
 
 // ---------------------------------------------------------------------------
