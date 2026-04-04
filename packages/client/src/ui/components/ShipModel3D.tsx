@@ -154,17 +154,19 @@ const HULL_PROFILES: Record<HullClass, HullSection[]> = {
     { z: 4.4,  rx: 0.50, ry: 0.40 },
   ],
 
-  // Battle station: massive, roughly symmetrical sphere-ish
+  // Battle station: massive orbital platform with wide central hub
+  // and docking ring — 1800m, dwarfs every ship class
   battle_station: [
-    { z: -3.0, rx: 0.20, ry: 0.20 },
-    { z: -2.2, rx: 0.80, ry: 0.80 },
-    { z: -1.2, rx: 1.30, ry: 1.20 },
-    { z: -0.2, rx: 1.50, ry: 1.40 },
-    { z: 0.6,  rx: 1.50, ry: 1.40 },
-    { z: 1.4,  rx: 1.30, ry: 1.20 },
-    { z: 2.2,  rx: 0.90, ry: 0.85 },
-    { z: 2.8,  rx: 0.50, ry: 0.50 },
-    { z: 3.2,  rx: 0.24, ry: 0.24 },
+    { z: -4.0, rx: 0.30, ry: 0.30 },
+    { z: -3.2, rx: 1.00, ry: 0.90 },
+    { z: -2.0, rx: 1.80, ry: 1.50 },
+    { z: -0.8, rx: 2.20, ry: 1.80 },
+    { z: 0.0,  rx: 2.40, ry: 2.00 },
+    { z: 0.8,  rx: 2.20, ry: 1.80 },
+    { z: 2.0,  rx: 1.80, ry: 1.50 },
+    { z: 3.0,  rx: 1.20, ry: 1.00 },
+    { z: 3.8,  rx: 0.60, ry: 0.50 },
+    { z: 4.2,  rx: 0.30, ry: 0.30 },
   ],
 
   // Deep space probe: tiny cylinder with antenna
@@ -245,7 +247,7 @@ const SHIP_LENGTH_METRES: Record<HullClass, number> = {
   battleship: 270,
   coloniser: 155,
   dreadnought: 350,
-  battle_station: 520,
+  battle_station: 1800,
 };
 
 // ── Compass labels ───────────────────────────────────────────────────────────
@@ -589,6 +591,107 @@ function EngineNozzles({ sections }: { sections: HullSection[] }): React.ReactEl
         </mesh>
       ))}
     </>
+  );
+}
+
+/**
+ * Hangar bay docking cradles — visible external structures on the hull
+ * where carried ships attach. Carriers show destroyer bays along the
+ * flight deck; battle stations show large carrier-sized docking arms.
+ */
+function HangarBays({
+  hullClass,
+  sections,
+}: {
+  hullClass: HullClass;
+  sections: HullSection[];
+}): React.ReactElement | null {
+  const bays = useMemo(() => {
+    const minZ = sections[0]?.z ?? -2;
+    const maxZ = sections[sections.length - 1]?.z ?? 2;
+    const midZ = (minZ + maxZ) / 2;
+    const maxRx = Math.max(...sections.map(s => s.rx));
+    const maxRy = Math.max(...sections.map(s => s.ry));
+
+    if (hullClass === 'carrier') {
+      // 3 destroyer bays — external cradles along the port side flight deck
+      const bayLength = 0.8; // relative to hull
+      const bayWidth = 0.12;
+      const bayHeight = 0.08;
+      return [0, 1, 2].map(i => {
+        const t = (i + 0.5) / 3;
+        const z = minZ + (maxZ - minZ) * 0.2 + t * (maxZ - minZ) * 0.6;
+        return {
+          position: [maxRx * 1.15, -maxRy * 0.2, z] as [number, number, number],
+          size: [bayWidth, bayHeight, bayLength] as [number, number, number],
+          armOffset: maxRx * 0.15,
+          label: `Bay ${i + 1}`,
+        };
+      });
+    }
+
+    if (hullClass === 'battle_station') {
+      // 3 carrier-sized docking arms — massive external cradles at 120° intervals
+      const armLength = 1.6;
+      const armWidth = 0.3;
+      const armHeight = 0.25;
+      return [0, 1, 2].map(i => {
+        const angle = (i / 3) * Math.PI * 2 + Math.PI / 6;
+        const radius = maxRx * 1.1;
+        return {
+          position: [
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius * (maxRy / maxRx),
+            midZ,
+          ] as [number, number, number],
+          size: [armWidth, armHeight, armLength] as [number, number, number],
+          armOffset: radius - maxRx * 0.9,
+          label: `Dock ${i + 1}`,
+        };
+      });
+    }
+
+    return null;
+  }, [hullClass, sections]);
+
+  if (!bays) return null;
+
+  const isBattleStation = hullClass === 'battle_station';
+  const bayColour = isBattleStation ? 0xef9f27 : 0x5dcaa5;
+  const strutColour = 0x5dcaa5;
+
+  return (
+    <group>
+      {bays.map((bay, i) => (
+        <group key={i}>
+          {/* Docking cradle — wireframe box */}
+          <mesh position={bay.position}>
+            <boxGeometry args={bay.size} />
+            <meshBasicMaterial color={bayColour} transparent opacity={0.08} />
+          </mesh>
+          <mesh position={bay.position}>
+            <boxGeometry args={bay.size} />
+            <meshBasicMaterial color={bayColour} wireframe transparent opacity={0.25} />
+          </mesh>
+
+          {/* Docking arm strut connecting cradle to hull */}
+          <mesh position={[
+            bay.position[0] * 0.5,
+            bay.position[1] * 0.5,
+            bay.position[2],
+          ]}>
+            <boxGeometry args={[bay.armOffset, 0.03, 0.03]} />
+            <meshBasicMaterial color={strutColour} wireframe transparent opacity={0.18} />
+          </mesh>
+
+          {/* Small indicator light at cradle centre */}
+          <mesh position={bay.position}>
+            <sphereGeometry args={[isBattleStation ? 0.06 : 0.03, 6, 4]} />
+            <meshBasicMaterial color={bayColour} transparent opacity={0.6} />
+          </mesh>
+        </group>
+      ))}
+    </group>
   );
 }
 
@@ -1117,6 +1220,9 @@ function ShipGroup({
 
       {/* Engine nozzles */}
       <EngineNozzles sections={sections} />
+
+      {/* Hangar bay docking cradles (carrier + battle station) */}
+      <HangarBays hullClass={hullClass} sections={sections} />
 
       {/* Weapon mount points — shown for ALL weapon slots, dim grey when empty */}
       {weaponSlots.map(({ slot, component, pos }) => {
