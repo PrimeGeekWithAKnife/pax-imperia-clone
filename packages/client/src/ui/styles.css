@@ -8598,6 +8598,14 @@
   color: var(--color-text);
 }
 
+.brs-stat-value--destroyed {
+  color: #ee4444;
+}
+
+.brs-stat-value--fled {
+  color: #ddaa33;
+}
+
 /* ── Consequences ── */
 
 .brs-consequences {

@@ -69,7 +69,7 @@ function statusLabel(status: BattleShipRecord['status']): string {
   switch (status) {
     case 'survived':  return 'Survived';
     case 'destroyed': return 'Destroyed';
-    case 'routed':    return 'Routed';
+    case 'routed':    return 'Fled';
   }
 }
 
@@ -155,12 +155,10 @@ export function BattleResultsScreen({
     onContinue();
   }, [onContinue]);
 
-  const attackerLost = attacker.ships.filter(
-    (s) => s.status === 'destroyed' || s.status === 'routed',
-  ).length;
-  const defenderLost = defender.ships.filter(
-    (s) => s.status === 'destroyed' || s.status === 'routed',
-  ).length;
+  const attackerDestroyed = attacker.ships.filter(s => s.status === 'destroyed').length;
+  const attackerFled = attacker.ships.filter(s => s.status === 'routed').length;
+  const defenderDestroyed = defender.ships.filter(s => s.status === 'destroyed').length;
+  const defenderFled = defender.ships.filter(s => s.status === 'routed').length;
 
   let victoryText: string;
   if (winner === 'draw') {
@@ -224,13 +222,25 @@ export function BattleResultsScreen({
           </p>
           <div className="brs-stats">
             <div className="brs-stat">
-              <span className="brs-stat-label">Attacker losses</span>
-              <span className="brs-stat-value">{attackerLost} / {attacker.ships.length}</span>
+              <span className="brs-stat-label">Attacker destroyed</span>
+              <span className="brs-stat-value brs-stat-value--destroyed">{attackerDestroyed} / {attacker.ships.length}</span>
             </div>
+            {attackerFled > 0 && (
+              <div className="brs-stat">
+                <span className="brs-stat-label">Attacker fled</span>
+                <span className="brs-stat-value brs-stat-value--fled">{attackerFled}</span>
+              </div>
+            )}
             <div className="brs-stat">
-              <span className="brs-stat-label">Defender losses</span>
-              <span className="brs-stat-value">{defenderLost} / {defender.ships.length}</span>
+              <span className="brs-stat-label">Defender destroyed</span>
+              <span className="brs-stat-value brs-stat-value--destroyed">{defenderDestroyed} / {defender.ships.length}</span>
             </div>
+            {defenderFled > 0 && (
+              <div className="brs-stat">
+                <span className="brs-stat-label">Defender fled</span>
+                <span className="brs-stat-value brs-stat-value--fled">{defenderFled}</span>
+              </div>
+            )}
             <div className="brs-stat">
               <span className="brs-stat-label">Combat duration</span>
               <span className="brs-stat-value">{ticksElapsed}</span>
