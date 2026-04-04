@@ -729,16 +729,37 @@ function smallCraftFlank(
   const currentAngle = angleTo(target.position, ship.position);
   const leadAngle = currentAngle + orbitDirection * orbitSpeed * 8; // 8 ticks ahead
 
-  // Blend the lead angle with the safe-zone slot angle so we orbit
-  // within the safe zone but keep moving
-  const safeWeight = d < orbitRadius * 1.3 ? 0.4 : 0.7; // closer = more orbit, further = more approach
-  const blendedAngle = Math.atan2(
-    Math.sin(leadAngle) * (1 - safeWeight) + Math.sin(slotAngle + orbitDirection * state.tick * orbitSpeed) * safeWeight,
-    Math.cos(leadAngle) * (1 - safeWeight) + Math.cos(slotAngle + orbitDirection * state.tick * orbitSpeed) * safeWeight,
-  );
+  // The desired orbit angle blends lead with safe-zone slot
+  const orbitingSlotAngle = slotAngle + orbitDirection * state.tick * orbitSpeed;
+  let goalAngle: number;
+  let goalRadius: number;
 
-  let goalX = target.position.x + Math.cos(blendedAngle) * orbitRadius + spreadX;
-  let goalY = target.position.y + Math.sin(blendedAngle) * orbitRadius + spreadY;
+  if (d > orbitRadius * 1.5) {
+    // ── Far approach: sweep around to the safe zone, never cut through ──
+    // Clamp the goal angle to at most 90° from the ship's current bearing
+    // so the craft arcs around the target instead of flying through it.
+    const desiredAngle = Math.atan2(
+      Math.sin(orbitingSlotAngle),
+      Math.cos(orbitingSlotAngle),
+    );
+    const angleDiff = normaliseAngle(desiredAngle - currentAngle);
+    const maxTurn = Math.PI / 2; // 90° — always approach from the near side
+    const clampedDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
+    goalAngle = currentAngle + clampedDiff;
+    // Spiral in gradually — goal distance shrinks toward orbit radius
+    goalRadius = Math.max(orbitRadius, d * 0.6);
+  } else {
+    // ── Near orbit: blend lead angle with safe-zone for continuous orbit ──
+    const safeWeight = d < orbitRadius * 1.3 ? 0.4 : 0.6;
+    goalAngle = Math.atan2(
+      Math.sin(leadAngle) * (1 - safeWeight) + Math.sin(orbitingSlotAngle) * safeWeight,
+      Math.cos(leadAngle) * (1 - safeWeight) + Math.cos(orbitingSlotAngle) * safeWeight,
+    );
+    goalRadius = orbitRadius;
+  }
+
+  let goalX = target.position.x + Math.cos(goalAngle) * goalRadius + spreadX;
+  let goalY = target.position.y + Math.sin(goalAngle) * goalRadius + spreadY;
 
   // ── Step 5: Dodge incoming missiles ───────────────────────────────
   // Small craft with no PD must evade missiles by thrusting perpendicular
