@@ -3091,16 +3091,17 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // (battles should be decided by combat, not by waiting)
     if (state.tick > 200) morale -= 0.1;
 
-    // Outnumbered penalty: -0.5 per tick if enemy has 2x more ships.
-    // Small unmanned craft (drones) count as fractional — a cruiser captain
-    // doesn't panic because gnats are buzzing around.
-    const allies = ships.filter(
+    // Outnumbered penalty: weighted by hull tonnage so the crew reacts
+    // proportionally to how outgunned they are. 9 drones vs a cruiser
+    // is pressure but not panic; 9 battleships vs a cruiser is terror.
+    const allyPower = ships.filter(
       (s) => s.side === ship.side && !s.destroyed && !s.routed,
-    ).reduce((n, s) => n + (s.unmanned ? 0.2 : 1), 0);
-    const enemies = ships.filter(
+    ).reduce((n, s) => n + s.maxHull, 0);
+    const enemyPower = ships.filter(
       (s) => s.side !== ship.side && !s.destroyed && !s.routed,
-    ).reduce((n, s) => n + (s.unmanned ? 0.2 : 1), 0);
-    if (enemies > allies * 2) morale -= 0.5;
+    ).reduce((n, s) => n + s.maxHull, 0);
+    if (enemyPower > allyPower * 2) morale -= 0.5;
+    else if (enemyPower > allyPower * 1.2) morale -= 0.15;
 
     // Low hull penalty
     if (ship.hull < ship.maxHull * 0.3) morale -= 0.3;
