@@ -1626,23 +1626,50 @@ const SPACE_DRAG = 0.97;
 const MAX_VELOCITY = 12;
 
 /**
+ * Crew imprecision — less experienced helmsmen introduce small random
+ * errors in thrust, rotation, and braking. Elite crews are precise but
+ * not robotic. This creates natural-looking variance in ship movement.
+ *
+ * Returns a multiplier in the range [1 - jitter, 1 + jitter].
+ */
+const CREW_JITTER: Record<CrewExperience, number> = {
+  recruit: 0.08,    // ±8% — noticeably wobbly
+  trained: 0.06,    // ±6%
+  regular: 0.04,    // ±4% — baseline competence
+  seasoned: 0.03,   // ±3%
+  veteran: 0.02,    // ±2%
+  hardened: 0.015,  // ±1.5%
+  elite: 0.01,      // ±1% — very precise
+  ace: 0.008,       // ±0.8%
+  legendary: 0.005, // ±0.5% — near-perfect but still human
+};
+
+function crewJitterMul(experience: CrewExperience): number {
+  const jitter = CREW_JITTER[experience] ?? 0.04;
+  return 1 + (Math.random() * 2 - 1) * jitter;
+}
+
+/**
  * Hold position: face a direction while applying drift + retrograde braking.
  * Ships don't stop instantly — they decelerate over several ticks.
  */
 function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
+  const exp = ship.crew.experience;
   const angleDiff = normaliseAngle(faceAngle - ship.facing);
-  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+  // Helmsman jitter on rotation — slight over/under-steer
+  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate) * crewJitterMul(exp);
   const newFacing = normaliseAngle(ship.facing + turnAmount);
 
   let vx = (ship.velocity?.x ?? 0) * SPACE_DRAG;
   let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
   const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
-  // Apply retrograde braking thrust if still moving
+  // Retrograde braking — helmsman jitter on brake force
   if (currentSpeed > 0.3) {
     const retroAngle = Math.atan2(-vy, -vx);
-    vx += Math.cos(retroAngle) * ship.speed * 0.15;
-    vy += Math.sin(retroAngle) * ship.speed * 0.15;
+    const brakeForce = ship.speed * 0.15 * crewJitterMul(exp);
+    vx += Math.cos(retroAngle) * brakeForce;
+    vy += Math.sin(retroAngle) * brakeForce;
   }
 
   return {
@@ -1693,26 +1720,32 @@ function moveToward(
     }
   }
 
-  // Turn toward desired angle
+  // Turn toward desired angle — helmsman jitter on rotation
+  const exp = ship.crew.experience;
   const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
+  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate) * crewJitterMul(exp);
   const newFacing = normaliseAngle(ship.facing + turnAmount);
 
   // ── Thrust calculation ─────────────────────────────────────────────
   // ship.speed is the thrust (acceleration) per tick.
-  const thrust = ship.speed;
+  // Crew jitter: slight over/under-thrust and minor angle deviation.
+  const thrustJitter = crewJitterMul(exp);
+  const thrust = ship.speed * thrustJitter;
   let newVx = vx;
   let newVy = vy;
 
   if (d > minDist) {
-    // Thrust toward target in facing direction
-    newVx += Math.cos(newFacing) * thrust * 0.3;
-    newVy += Math.sin(newFacing) * thrust * 0.3;
+    // Thrust toward target — small random angle deviation from helmsman
+    const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
+    const thrustAngle = newFacing + jitterAngle;
+    newVx += Math.cos(thrustAngle) * thrust * 0.3;
+    newVy += Math.sin(thrustAngle) * thrust * 0.3;
   } else if (currentSpeed > 0.5) {
-    // Within minDist — apply retrograde thrust to slow down
+    // Retrograde braking — jitter on brake timing/force
     const retroAngle = Math.atan2(-vy, -vx);
-    newVx += Math.cos(retroAngle) * thrust * 0.2;
-    newVy += Math.sin(retroAngle) * thrust * 0.2;
+    const brakeForce = thrust * 0.2 * crewJitterMul(exp);
+    newVx += Math.cos(retroAngle) * brakeForce;
+    newVy += Math.sin(retroAngle) * brakeForce;
   }
 
   // Apply drag (simulates micro-thruster corrections / space friction lite)
