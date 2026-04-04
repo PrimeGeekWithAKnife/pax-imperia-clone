@@ -39,7 +39,7 @@ const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
 const BEAM_EFFECT_DURATION = 3;
 /** Fraction of max shields recharged per tick. */
-const SHIELD_RECHARGE_FRACTION = 0.01;
+const SHIELD_RECHARGE_FRACTION = 0.005;
 /** Armour absorbs up to this fraction of remaining damage per hit. */
 const ARMOUR_ABSORPTION_FRACTION = 0.25;
 /** Armour degrades by this fraction of the absorbed amount per hit. */
@@ -1460,8 +1460,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     ? maxRange * 0.85  // stay near our max range — outside theirs
     : engageDistance(ship);
 
-  // ── Anti-bunching: compute a spacing offset applied to OUR position ──
-  // Ships steer away from nearby allies to avoid splash/AOE clustering.
+  // ── Anti-bunching: compute a spacing offset blended into movement ──
+  // Ships steer slightly away from nearby allies to avoid splash/AOE.
+  // This is blended into the target position, NOT an early return,
+  // so ships still advance while spreading.
   const MINIMUM_ALLY_SPACING = 35;
   let spreadX = 0;
   let spreadY = 0;
@@ -1472,22 +1474,18 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     const allyDist = dist(ship.position, ally.position);
     if (allyDist < MINIMUM_ALLY_SPACING && allyDist > 1) {
       const pushStrength = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
-      spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 4;
-      spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 4;
+      spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 3;
+      spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 3;
     }
-  }
-  // Apply spread: if we need to spread, move toward the spread offset point first
-  if (Math.abs(spreadX) > 2 || Math.abs(spreadY) > 2) {
-    return moveToward(updated, {
-      x: ship.position.x + spreadX,
-      y: ship.position.y + spreadY,
-    }, 0, state.environment);
   }
 
   switch (ship.stance) {
     case 'aggressive': {
-      // Close to where ALL weapons can fire — use shortest weapon range
-      return moveToward(updated, target.position, engageDistance(ship), state.environment);
+      // Close to where ALL weapons can fire, with slight spread from allies
+      return moveToward(updated, {
+        x: target.position.x + spreadX,
+        y: target.position.y + spreadY,
+      }, engageDistance(ship), state.environment);
     }
 
     case 'defensive': {
@@ -1601,7 +1599,10 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment);
       }
       // No attack order — cautiously advance to where most weapons can fire
-      return moveToward(updated, target.position, smartEngageDist, state.environment);
+      return moveToward(updated, {
+        x: target.position.x + spreadX,
+        y: target.position.y + spreadY,
+      }, smartEngageDist, state.environment);
     }
 
     case 'evasive': {
