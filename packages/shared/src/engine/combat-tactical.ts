@@ -1486,8 +1486,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
 
   switch (ship.stance) {
     case 'aggressive': {
-      // Close to smart engagement distance
-      return moveToward(updated, target.position, smartEngageDist, state.environment);
+      // Close to where ALL weapons can fire — use shortest weapon range
+      return moveToward(updated, target.position, engageDistance(ship), state.environment);
     }
 
     case 'defensive': {
