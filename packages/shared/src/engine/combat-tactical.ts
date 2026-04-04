@@ -309,6 +309,18 @@ export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
 
 export type CombatLayout = 'open_space' | 'planetary_assault';
 
+export type BattlefieldSize = 'small' | 'medium' | 'large';
+
+export const BATTLEFIELD_SIZE_CONFIG: Record<BattlefieldSize, {
+  width: number; height: number; maxShipsPerSide: number;
+  asteroidMin: number; asteroidMax: number;
+  nebulaMin: number; nebulaMax: number;
+}> = {
+  small:  { width: 1600,  height: 1000, maxShipsPerSide: 9,  asteroidMin: 3,  asteroidMax: 8,  nebulaMin: 0, nebulaMax: 2 },
+  medium: { width: 4800,  height: 3000, maxShipsPerSide: 18, asteroidMin: 8,  asteroidMax: 20, nebulaMin: 1, nebulaMax: 5 },
+  large:  { width: 14400, height: 9000, maxShipsPerSide: 36, asteroidMin: 20, asteroidMax: 50, nebulaMin: 3, nebulaMax: 10 },
+};
+
 export interface PlanetData {
   name: string;
   type: string;
@@ -1164,55 +1176,60 @@ export function setFormation(
  * Returns true if the point (x, y) is too close to either spawn area.
  * Used to keep environment features away from ship starting positions.
  */
-function isNearSpawn(x: number, y: number): boolean {
-  // Attacker spawn: around (100, 100)
+function isNearSpawn(x: number, y: number, bw: number, bh: number): boolean {
   const dAtk = Math.sqrt((x - 100) ** 2 + (y - 100) ** 2);
-  // Defender spawn: around (BW-100, BH-100)
   const dDef = Math.sqrt(
-    (x - (BATTLEFIELD_WIDTH - 100)) ** 2 + (y - (BATTLEFIELD_HEIGHT - 100)) ** 2,
+    (x - (bw - 100)) ** 2 + (y - (bh - 100)) ** 2,
   );
   return dAtk < ENVIRONMENT_SPAWN_MARGIN || dDef < ENVIRONMENT_SPAWN_MARGIN;
 }
 
 /**
- * Generate random environment features for the battlefield.
- * An optional `rng` function (returning 0..1) can be supplied for testing.
+ * Generate random environment features scaled to the battlefield size.
  */
 export function generateEnvironment(
   rng: () => number = Math.random,
+  bfSize: BattlefieldSize = 'small',
 ): EnvironmentFeature[] {
+  const cfg = BATTLEFIELD_SIZE_CONFIG[bfSize];
+  const bw = cfg.width;
+  const bh = cfg.height;
   const features: EnvironmentFeature[] = [];
 
-  const asteroidCount = ASTEROID_MIN + Math.floor(rng() * (ASTEROID_MAX - ASTEROID_MIN + 1));
+  // Scale feature radii with map size so they remain visually proportionate
+  const scale = bw / BATTLEFIELD_WIDTH; // 1x for small, 3x medium, 9x large
+  const astRadMin = ASTEROID_RADIUS_MIN * Math.sqrt(scale);
+  const astRadMax = ASTEROID_RADIUS_MAX * Math.sqrt(scale);
+  const nebRadMin = NEBULA_RADIUS_MIN * Math.sqrt(scale);
+  const nebRadMax = NEBULA_RADIUS_MAX * Math.sqrt(scale);
+
+  const asteroidCount = cfg.asteroidMin + Math.floor(rng() * (cfg.asteroidMax - cfg.asteroidMin + 1));
   for (let i = 0; i < asteroidCount; i++) {
-    // Try a few placements to avoid spawn areas
     for (let attempt = 0; attempt < 10; attempt++) {
-      const x = rng() * BATTLEFIELD_WIDTH;
-      const y = rng() * BATTLEFIELD_HEIGHT;
-      if (isNearSpawn(x, y)) continue;
+      const x = rng() * bw;
+      const y = rng() * bh;
+      if (isNearSpawn(x, y, bw, bh)) continue;
       features.push({
         id: `asteroid-${i}`,
         type: 'asteroid',
-        x,
-        y,
-        radius: ASTEROID_RADIUS_MIN + rng() * (ASTEROID_RADIUS_MAX - ASTEROID_RADIUS_MIN),
+        x, y,
+        radius: astRadMin + rng() * (astRadMax - astRadMin),
       });
       break;
     }
   }
 
-  const nebulaCount = NEBULA_MIN + Math.floor(rng() * (NEBULA_MAX - NEBULA_MIN + 1));
+  const nebulaCount = cfg.nebulaMin + Math.floor(rng() * (cfg.nebulaMax - cfg.nebulaMin + 1));
   for (let i = 0; i < nebulaCount; i++) {
     for (let attempt = 0; attempt < 10; attempt++) {
-      const x = rng() * BATTLEFIELD_WIDTH;
-      const y = rng() * BATTLEFIELD_HEIGHT;
-      if (isNearSpawn(x, y)) continue;
+      const x = rng() * bw;
+      const y = rng() * bh;
+      if (isNearSpawn(x, y, bw, bh)) continue;
       features.push({
         id: `nebula-${i}`,
         type: 'nebula',
-        x,
-        y,
-        radius: NEBULA_RADIUS_MIN + rng() * (NEBULA_RADIUS_MAX - NEBULA_RADIUS_MIN),
+        x, y,
+        radius: nebRadMin + rng() * (nebRadMax - nebRadMin),
       });
       break;
     }
@@ -1241,6 +1258,7 @@ export function initializeTacticalCombat(
   components: ShipComponent[],
   layout: CombatLayout = 'open_space',
   planetData?: PlanetData,
+  battlefieldSize: BattlefieldSize = 'small',
 ): TacticalState {
   const componentById = new Map(components.map((c) => [c.id, c]));
 
@@ -1265,14 +1283,19 @@ export function initializeTacticalCombat(
   const expandedAttackers = expandCarriedShips(topAttackers);
   const expandedDefenders = expandCarriedShips(topDefenders);
 
+  // Resolve battlefield dimensions from size config
+  const bfCfg = BATTLEFIELD_SIZE_CONFIG[battlefieldSize];
+  const BW = bfCfg.width;
+  const BH = bfCfg.height;
+
   // Fleets start within engagement range so combat begins quickly.
   // Attackers on the left third, defenders on the right third.
   const defenderBaseX = layout === 'planetary_assault'
-    ? BATTLEFIELD_WIDTH - 250
-    : BATTLEFIELD_WIDTH - 120;
+    ? BW - 250
+    : BW - 120;
   const defenderBaseY = layout === 'planetary_assault'
-    ? BATTLEFIELD_HEIGHT - 200
-    : BATTLEFIELD_HEIGHT * 0.5;
+    ? BH - 200
+    : BH * 0.5;
 
   function buildSide(
     ships: Ship[],
@@ -1280,7 +1303,7 @@ export function initializeTacticalCombat(
   ): TacticalShip[] {
     // Ships start at opposite edges of the battlefield
     const baseX = side === 'attacker' ? 120 : defenderBaseX;
-    const baseY = side === 'attacker' ? BATTLEFIELD_HEIGHT * 0.5 : defenderBaseY;
+    const baseY = side === 'attacker' ? BH * 0.5 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 
     return ships.map((ship, index) => {
@@ -1347,8 +1370,8 @@ export function initializeTacticalCombat(
 
   // Add orbital defence platforms for planetary assault
   if (layout === 'planetary_assault' && planetData) {
-    const planetCX = BATTLEFIELD_WIDTH - 200;
-    const planetCY = BATTLEFIELD_HEIGHT - 150;
+    const planetCX = BW - 200;
+    const planetCY = BH - 150;
     const gunCount = Math.max(1, planetData.orbitalGuns);
 
     for (let i = 0; i < gunCount; i++) {
@@ -1413,9 +1436,9 @@ export function initializeTacticalCombat(
     beamEffects: [],
     pointDefenceEffects: [],
     escapePods: [],
-    environment: generateEnvironment(),
-    battlefieldWidth: BATTLEFIELD_WIDTH,
-    battlefieldHeight: BATTLEFIELD_HEIGHT,
+    environment: generateEnvironment(Math.random, battlefieldSize),
+    battlefieldWidth: BW,
+    battlefieldHeight: BH,
     outcome: null,
     attackerFormation: 'line',
     defenderFormation: 'line',
@@ -1784,11 +1807,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     if (ship.order.type === 'flee' || ship.stance === 'flee') {
       const fleeTarget = ship.side === 'attacker'
         ? { x: -50, y: -50 }
-        : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+        : { x: state.battlefieldWidth + 50, y: state.battlefieldHeight + 50 };
       const result = moveToward(updated, fleeTarget, 2, state.environment, state.ships);
       if (
-        result.position.x < -20 || result.position.x > BATTLEFIELD_WIDTH + 20 ||
-        result.position.y < -20 || result.position.y > BATTLEFIELD_HEIGHT + 20
+        result.position.x < -20 || result.position.x > state.battlefieldWidth + 20 ||
+        result.position.y < -20 || result.position.y > state.battlefieldHeight + 20
       ) {
         result.routed = true;
       }
@@ -1808,7 +1831,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         updated.stance = 'flee';
         const fleeTarget = ship.side === 'attacker'
           ? { x: -50, y: -50 }
-          : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+          : { x: state.battlefieldWidth + 50, y: state.battlefieldHeight + 50 };
         return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
       }
       // Low morale AND actually taking hull damage → flee
@@ -1818,12 +1841,12 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         updated.stance = 'flee';
         const fleeTarget = ship.side === 'attacker'
           ? { x: -50, y: -50 }
-          : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+          : { x: state.battlefieldWidth + 50, y: state.battlefieldHeight + 50 };
         return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
       }
       // Shields gone + badly hurt → tactical retreat
       if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0 && ship.damageTakenThisTick > 0) {
-        const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
+        const retreatX = ship.side === 'attacker' ? 80 : state.battlefieldWidth - 80;
         return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment, state.ships);
       }
     }
@@ -2417,8 +2440,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   }).filter(f => {
     // Remove debris that drifted off the battlefield
     if (f.type !== 'debris') return true;
-    return f.x > -200 && f.x < BATTLEFIELD_WIDTH + 200 &&
-           f.y > -200 && f.y < BATTLEFIELD_HEIGHT + 200;
+    return f.x > -200 && f.x < state.battlefieldWidth + 200 &&
+           f.y > -200 && f.y < state.battlefieldHeight + 200;
   });
 
   // 0b. AI ships: switch to at_ease stance after tick 5
@@ -2513,7 +2536,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       }
 
       // If off the battlefield, discard
-      if (!hitSomeone && newX >= -50 && newX <= BATTLEFIELD_WIDTH + 50 && newY >= -50 && newY <= BATTLEFIELD_HEIGHT + 50) {
+      if (!hitSomeone && newX >= -50 && newX <= state.battlefieldWidth + 50 && newY >= -50 && newY <= state.battlefieldHeight + 50) {
         survivingProjectiles.push({ ...proj, position: { x: newX, y: newY } });
       }
       continue;
@@ -3197,8 +3220,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     activePods = [...(state.escapePods ?? []), ...newPods]
       .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, ttl: pod.ttl - 1 }))
       .filter(pod => pod.ttl > 0 &&
-        pod.x > -50 && pod.x < BATTLEFIELD_WIDTH + 50 &&
-        pod.y > -50 && pod.y < BATTLEFIELD_HEIGHT + 50);
+        pod.x > -50 && pod.x < state.battlefieldWidth + 50 &&
+        pod.y > -50 && pod.y < state.battlefieldHeight + 50);
   } catch {
     // Escape pods are cosmetic — never crash the simulation
     activePods = (state.escapePods ?? [])

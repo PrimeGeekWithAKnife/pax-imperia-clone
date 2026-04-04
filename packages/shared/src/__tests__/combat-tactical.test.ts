@@ -2496,17 +2496,18 @@ describe('Crew morale', () => {
 
     let state = makeMinimalState({ ships: [ship, enemy] });
 
-    // Run many ticks — with morale at 5 and 15% chance per tick, ship should rout
-    let routed = false;
+    // Run many ticks — with morale at 5 and 15% chance per tick, ship should flee
+    // (ships no longer instantly rout — they must fly to the map edge first)
+    let fled = false;
     for (let i = 0; i < 100; i++) {
       state = processTacticalTick(state);
       const s = state.ships.find(s => s.id === 'fearful');
-      if (s?.routed) {
-        routed = true;
+      if (s?.stance === 'flee' || s?.routed) {
+        fled = true;
         break;
       }
     }
-    expect(routed).toBe(true);
+    expect(fled).toBe(true);
   });
 });
 

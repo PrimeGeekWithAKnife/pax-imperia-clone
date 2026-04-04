@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Species, HullClass, TechAge } from '@nova-imperia/shared';
+import type { Species, HullClass, TechAge, BattlefieldSize } from '@nova-imperia/shared';
 import {
   PREBUILT_SPECIES,
   HULL_TEMPLATES,
@@ -17,6 +17,7 @@ import {
   generateId,
   HULL_TEMPLATE_BY_CLASS,
   TECH_AGES,
+  BATTLEFIELD_SIZE_CONFIG,
 } from '@nova-imperia/shared';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ export interface SkirmishConfig {
   playerShips: HullClass[];
   aiShips: HullClass[];
   techAge: TechAge;
+  battlefieldSize: BattlefieldSize;
 }
 
 export interface SkirmishSetupScreenProps {
@@ -41,7 +43,11 @@ const AGE_OPTIONS: Array<{ key: TechAge; label: string }> = TECH_AGES.map(a => (
   label: a.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
 }));
 
-const MAX_SHIPS = 9;
+const MAP_SIZE_OPTIONS: Array<{ key: BattlefieldSize; label: string }> = [
+  { key: 'small', label: 'Small (9 per side)' },
+  { key: 'medium', label: 'Medium (18 per side)' },
+  { key: 'large', label: 'Large (36 per side)' },
+];
 
 /** Hull classes available at or before the given tech age. */
 function getAvailableHulls(age: TechAge): Array<{ class: HullClass; name: string; hp: number }> {
@@ -72,8 +78,11 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
   const [playerSpeciesId, setPlayerSpeciesId] = useState(PREBUILT_SPECIES[0].id);
   const [aiSpeciesId, setAiSpeciesId] = useState(PREBUILT_SPECIES[1].id);
   const [techAge, setTechAge] = useState<TechAge>('nano_atomic');
+  const [battlefieldSize, setBattlefieldSize] = useState<BattlefieldSize>('small');
   const [playerShips, setPlayerShips] = useState<HullClass[]>(['patrol', 'destroyer']);
   const [aiShips, setAiShips] = useState<HullClass[]>(['patrol', 'destroyer']);
+
+  const maxShips = BATTLEFIELD_SIZE_CONFIG[battlefieldSize].maxShipsPerSide;
 
   const availableHulls = useMemo(() => getAvailableHulls(techAge), [techAge]);
   const playerSpecies = useMemo(() => PREBUILT_SPECIES.find(s => s.id === playerSpeciesId) ?? PREBUILT_SPECIES[0], [playerSpeciesId]);
@@ -81,8 +90,8 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
 
   const addShip = useCallback((side: 'player' | 'ai', hull: HullClass) => {
     const setter = side === 'player' ? setPlayerShips : setAiShips;
-    setter(prev => prev.length >= MAX_SHIPS ? prev : [...prev, hull]);
-  }, []);
+    setter(prev => prev.length >= maxShips ? prev : [...prev, hull]);
+  }, [maxShips]);
 
   const removeShip = useCallback((side: 'player' | 'ai', idx: number) => {
     const setter = side === 'player' ? setPlayerShips : setAiShips;
@@ -97,8 +106,9 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
       playerShips,
       aiShips,
       techAge,
+      battlefieldSize,
     });
-  }, [playerSpecies, aiSpecies, playerShips, aiShips, techAge, onStartBattle]);
+  }, [playerSpecies, aiSpecies, playerShips, aiShips, techAge, battlefieldSize, onStartBattle]);
 
   // Reset ships when tech age changes (some hulls may no longer be available)
   const handleAgeChange = useCallback((age: TechAge) => {
@@ -117,7 +127,7 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
         {/* Header */}
         <div className="game-setup__header">
           <div className="game-setup__title">SPACE BATTLE</div>
-          <div className="game-setup__subtitle">Configure a skirmish — pick species, tech age, and up to {MAX_SHIPS} ships per side</div>
+          <div className="game-setup__subtitle">Configure a skirmish — pick species, tech age, map size, and up to {maxShips} ships per side</div>
         </div>
 
         {/* Body — two columns */}
@@ -132,6 +142,7 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
             onAddShip={(h) => addShip('player', h)}
             onRemoveShip={(i) => removeShip('player', i)}
             color={speciesColor(playerSpeciesId)}
+            maxShips={maxShips}
           />
 
           {/* Centre divider with tech age */}
@@ -158,6 +169,24 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
               </button>
             ))}
 
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 24, marginBottom: 8 }}>MAP SIZE</div>
+            {MAP_SIZE_OPTIONS.map(m => (
+              <button
+                key={m.key}
+                onClick={() => setBattlefieldSize(m.key)}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px', marginBottom: 4,
+                  background: battlefieldSize === m.key ? 'rgba(0, 212, 255, 0.15)' : 'transparent',
+                  border: battlefieldSize === m.key ? '1px solid var(--color-accent)' : '1px solid transparent',
+                  color: battlefieldSize === m.key ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                  fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.05em',
+                  cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 24, marginBottom: 8 }}>VS</div>
             <div style={{ fontSize: 48, color: 'var(--color-accent)', opacity: 0.3, fontWeight: 'bold' }}>&#x2694;</div>
           </div>
@@ -172,6 +201,7 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
             onAddShip={(h) => addShip('ai', h)}
             onRemoveShip={(i) => removeShip('ai', i)}
             color={speciesColor(aiSpeciesId)}
+            maxShips={maxShips}
           />
         </div>
 
@@ -224,9 +254,10 @@ interface SidePanelProps {
   onAddShip: (hull: HullClass) => void;
   onRemoveShip: (idx: number) => void;
   color: string;
+  maxShips: number;
 }
 
-function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, onAddShip, onRemoveShip, color }: SidePanelProps): React.ReactElement {
+function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, onAddShip, onRemoveShip, color, maxShips }: SidePanelProps): React.ReactElement {
   return (
     <div style={{ padding: '20px 24px', overflow: 'auto' }}>
       {/* Side label */}
@@ -255,20 +286,20 @@ function SidePanel({ label, speciesId, onSpeciesChange, ships, availableHulls, o
       {/* Add ship buttons — immediately below species picker */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 10, color: 'var(--color-text-muted)', letterSpacing: '0.15em', marginBottom: 6 }}>
-          ADD SHIPS ({ships.length}/{MAX_SHIPS})
+          ADD SHIPS ({ships.length}/{maxShips})
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
           {availableHulls.map(h => (
             <button
               key={h.class}
               onClick={() => onAddShip(h.class)}
-              disabled={ships.length >= MAX_SHIPS}
+              disabled={ships.length >= maxShips}
               style={{
-                background: ships.length >= MAX_SHIPS ? 'rgba(20, 20, 30, 0.3)' : 'rgba(0, 40, 60, 0.5)',
+                background: ships.length >= maxShips ? 'rgba(20, 20, 30, 0.3)' : 'rgba(0, 40, 60, 0.5)',
                 border: '1px solid var(--color-border)',
-                color: ships.length >= MAX_SHIPS ? 'var(--color-text-muted)' : 'var(--color-text)',
+                color: ships.length >= maxShips ? 'var(--color-text-muted)' : 'var(--color-text)',
                 fontFamily: 'var(--font-mono)', fontSize: 10,
-                padding: '4px 8px', cursor: ships.length >= MAX_SHIPS ? 'not-allowed' : 'pointer',
+                padding: '4px 8px', cursor: ships.length >= maxShips ? 'not-allowed' : 'pointer',
                 letterSpacing: '0.05em',
               }}
               title={`${h.name} — ${h.hp} HP`}

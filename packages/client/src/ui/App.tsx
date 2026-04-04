@@ -833,6 +833,7 @@ export function App(): React.ReactElement {
       layout: 'open_space' as const,
       returnScene: 'MainMenuScene',
       isSkirmish: true,
+      battlefieldSize: config.battlefieldSize,
     };
 
     setCurrentScreen('game');

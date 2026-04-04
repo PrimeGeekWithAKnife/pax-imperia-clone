@@ -17,7 +17,7 @@ import {
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
-import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance, CrewExperience } from '@nova-imperia/shared';
+import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance, CrewExperience, BattlefieldSize } from '@nova-imperia/shared';
 import type { GroundCombatSceneData } from './GroundCombatScene';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,7 @@ export interface CombatSceneData {
   planetData?: PlanetData;
   attackerSpeciesId?: string;
   defenderSpeciesId?: string;
+  battlefieldSize?: BattlefieldSize;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +257,8 @@ export class CombatScene extends Phaser.Scene {
   // ── State ──────────────────────────────────────────────────────────────────
   private tacticalState!: TacticalState;
   private sceneData!: CombatSceneData;
+  private _bfWidth = this._bfWidth;
+  private _bfHeight = this._bfHeight;
   private battleEnded = false;
   private paused = false;
 
@@ -352,7 +355,12 @@ export class CombatScene extends Phaser.Scene {
       data.components,
       data.layout ?? 'open_space',
       data.planetData,
+      data.battlefieldSize ?? 'small',
     );
+
+    // Store battlefield dimensions for rendering (may differ from default constants)
+    this._bfWidth = this.tacticalState.battlefieldWidth;
+    this._bfHeight = this.tacticalState.battlefieldHeight;
 
     // Track initial hull and shield values for damage/hit detection
     for (const ship of this.tacticalState.ships) {
@@ -491,21 +499,21 @@ export class CombatScene extends Phaser.Scene {
     // the browser window is much larger than the battlefield
     const pad = 2000;
     gfx.fillStyle(0x06081a, 1);
-    gfx.fillRect(-pad, -pad, BATTLEFIELD_WIDTH + pad * 2, BATTLEFIELD_HEIGHT + pad * 2);
+    gfx.fillRect(-pad, -pad, this._bfWidth + pad * 2, this._bfHeight + pad * 2);
 
     // Subtle grid lines within the battlefield only
     gfx.lineStyle(1, 0x1a1a3a, 0.25);
-    for (let x = 0; x <= BATTLEFIELD_WIDTH; x += 200) {
-      gfx.lineBetween(x, 0, x, BATTLEFIELD_HEIGHT);
+    for (let x = 0; x <= this._bfWidth; x += 200) {
+      gfx.lineBetween(x, 0, x, this._bfHeight);
     }
-    for (let y = 0; y <= BATTLEFIELD_HEIGHT; y += 200) {
-      gfx.lineBetween(0, y, BATTLEFIELD_WIDTH, y);
+    for (let y = 0; y <= this._bfHeight; y += 200) {
+      gfx.lineBetween(0, y, this._bfWidth, y);
     }
 
     // Stars spread across the full extended area
     for (let i = 0; i < STAR_COUNT * 3; i++) {
-      const x = Phaser.Math.FloatBetween(-pad, BATTLEFIELD_WIDTH + pad);
-      const y = Phaser.Math.FloatBetween(-pad, BATTLEFIELD_HEIGHT + pad);
+      const x = Phaser.Math.FloatBetween(-pad, this._bfWidth + pad);
+      const y = Phaser.Math.FloatBetween(-pad, this._bfHeight + pad);
       const alpha = Phaser.Math.FloatBetween(0.15, 0.5);
       const radius = Phaser.Math.FloatBetween(0.4, 1.2);
       gfx.fillStyle(0xffffff, alpha);
@@ -516,31 +524,31 @@ export class CombatScene extends Phaser.Scene {
     // Outer amber warning zone: "you're approaching the edge"
     const wm = BOUNDARY_WARNING_MARGIN;
     gfx.lineStyle(2, 0xf59e0b, 0.35);
-    gfx.strokeRect(wm, wm, BATTLEFIELD_WIDTH - wm * 2, BATTLEFIELD_HEIGHT - wm * 2);
+    gfx.strokeRect(wm, wm, this._bfWidth - wm * 2, this._bfHeight - wm * 2);
     // Dashed amber fill on the warning strip
     gfx.fillStyle(0xf59e0b, 0.04);
-    gfx.fillRect(0, 0, BATTLEFIELD_WIDTH, wm); // top
-    gfx.fillRect(0, BATTLEFIELD_HEIGHT - wm, BATTLEFIELD_WIDTH, wm); // bottom
-    gfx.fillRect(0, wm, wm, BATTLEFIELD_HEIGHT - wm * 2); // left
-    gfx.fillRect(BATTLEFIELD_WIDTH - wm, wm, wm, BATTLEFIELD_HEIGHT - wm * 2); // right
+    gfx.fillRect(0, 0, this._bfWidth, wm); // top
+    gfx.fillRect(0, this._bfHeight - wm, this._bfWidth, wm); // bottom
+    gfx.fillRect(0, wm, wm, this._bfHeight - wm * 2); // left
+    gfx.fillRect(this._bfWidth - wm, wm, wm, this._bfHeight - wm * 2); // right
 
     // Inner red flee zone: "past here you are fleeing the battle"
     const fm = BOUNDARY_FLEE_MARGIN;
     gfx.lineStyle(2, 0xef4444, 0.5);
-    gfx.strokeRect(fm, fm, BATTLEFIELD_WIDTH - fm * 2, BATTLEFIELD_HEIGHT - fm * 2);
+    gfx.strokeRect(fm, fm, this._bfWidth - fm * 2, this._bfHeight - fm * 2);
     gfx.fillStyle(0xef4444, 0.06);
-    gfx.fillRect(0, 0, BATTLEFIELD_WIDTH, fm);
-    gfx.fillRect(0, BATTLEFIELD_HEIGHT - fm, BATTLEFIELD_WIDTH, fm);
-    gfx.fillRect(0, fm, fm, BATTLEFIELD_HEIGHT - fm * 2);
-    gfx.fillRect(BATTLEFIELD_WIDTH - fm, fm, fm, BATTLEFIELD_HEIGHT - fm * 2);
+    gfx.fillRect(0, 0, this._bfWidth, fm);
+    gfx.fillRect(0, this._bfHeight - fm, this._bfWidth, fm);
+    gfx.fillRect(0, fm, fm, this._bfHeight - fm * 2);
+    gfx.fillRect(this._bfWidth - fm, fm, fm, this._bfHeight - fm * 2);
 
     // Labels on the boundary zones
-    const warningLabel = this.add.text(BATTLEFIELD_WIDTH / 2, wm / 2, 'WARNING ZONE — Turn back or your fleet will flee', {
+    const warningLabel = this.add.text(this._bfWidth / 2, wm / 2, 'WARNING ZONE — Turn back or your fleet will flee', {
       fontFamily: 'monospace', fontSize: '10px', color: '#f59e0b', alpha: 0.5,
     });
     warningLabel.setOrigin(0.5, 0.5).setDepth(1);
 
-    const fleeLabel = this.add.text(BATTLEFIELD_WIDTH / 2, fm / 2, 'FLEE ZONE', {
+    const fleeLabel = this.add.text(this._bfWidth / 2, fm / 2, 'FLEE ZONE', {
       fontFamily: 'monospace', fontSize: '9px', color: '#ef4444', alpha: 0.6,
     });
     fleeLabel.setOrigin(0.5, 0.5).setDepth(1);
@@ -618,17 +626,17 @@ export class CombatScene extends Phaser.Scene {
     cam.setBounds(
       -camPad,
       -camPad,
-      BATTLEFIELD_WIDTH + camPad * 2,
-      BATTLEFIELD_HEIGHT + camPad * 2,
+      this._bfWidth + camPad * 2,
+      this._bfHeight + camPad * 2,
     );
 
     // Scale battlefield to FILL the screen (use max, not min, so no empty borders)
     const { width, height } = this.scale;
-    const scaleX = width / BATTLEFIELD_WIDTH;
-    const scaleY = height / BATTLEFIELD_HEIGHT;
+    const scaleX = width / this._bfWidth;
+    const scaleY = height / this._bfHeight;
     const fitZoom = Math.max(scaleX, scaleY);
     cam.setZoom(fitZoom);
-    cam.centerOn(BATTLEFIELD_WIDTH / 2, BATTLEFIELD_HEIGHT / 2);
+    cam.centerOn(this._bfWidth / 2, this._bfHeight / 2);
 
     // Zoom with scroll wheel — prevent browser zoom
     this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
