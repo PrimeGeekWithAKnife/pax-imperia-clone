@@ -198,7 +198,8 @@ export interface TacticalShip {
   position: { x: number; y: number };
   velocity: { x: number; y: number }; // current drift (Newtonian momentum)
   facing: number;        // radians (0 = +x direction)
-  speed: number;         // max thrust (acceleration per tick)
+  speed: number;         // max speed (pixels per tick)
+  acceleration: number;  // thrust per tick (speed / mass — lighter = faster accel)
   turnRate: number;      // radians per tick
   hull: number;
   maxHull: number;
@@ -1000,6 +1001,10 @@ export function initializeTacticalCombat(
         velocity: { x: 0, y: 0 },
         facing,
         speed: extracted.speed,
+        // Acceleration = engine thrust / mass. Mass scales with hull + armour.
+        // A 10 HP drone with speed 12 accelerates ~6x faster than a 750 HP
+        // battleship with the same engine. Armour adds mass too.
+        acceleration: extracted.speed / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
         turnRate: extracted.turnRate,
         hull: ship.hullPoints,
         maxHull: ship.maxHullPoints,
@@ -1051,6 +1056,7 @@ export function initializeTacticalCombat(
         velocity: { x: 0, y: 0 },
         facing: angle + Math.PI, // face outward
         speed: 0,
+        acceleration: 0,
         turnRate: Math.PI, // can rotate freely to aim
         hull: maxHullValue,
         maxHull: maxHullValue,
@@ -1764,10 +1770,10 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
   let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
   const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
-  // Retrograde braking — helmsman jitter on brake force
+  // Retrograde braking — uses acceleration (not max speed) for braking force
   if (currentSpeed > 0.3) {
     const retroAngle = Math.atan2(-vy, -vx);
-    const brakeForce = ship.speed * 0.15 * crewJitterMul(exp);
+    const brakeForce = (ship.acceleration ?? ship.speed) * 0.15 * crewJitterMul(exp);
     vx += Math.cos(retroAngle) * brakeForce;
     vy += Math.sin(retroAngle) * brakeForce;
   }
@@ -1834,10 +1840,10 @@ function moveToward(
   const newFacing = normaliseAngle(ship.facing + turnAmount);
 
   // ── Thrust calculation ─────────────────────────────────────────────
-  // ship.speed is the thrust (acceleration) per tick.
-  // Crew jitter: slight over/under-thrust and minor angle deviation.
+  // ship.acceleration = thrust per tick (lighter ships accelerate faster)
+  // ship.speed = max velocity cap
   const thrustJitter = crewJitterMul(exp);
-  const thrust = ship.speed * thrustJitter;
+  const accel = (ship.acceleration ?? ship.speed) * thrustJitter;
   let newVx = vx;
   let newVy = vy;
 
@@ -1845,12 +1851,12 @@ function moveToward(
     // Thrust toward target — small random angle deviation from helmsman
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
     const thrustAngle = newFacing + jitterAngle;
-    newVx += Math.cos(thrustAngle) * thrust * 0.3;
-    newVy += Math.sin(thrustAngle) * thrust * 0.3;
+    newVx += Math.cos(thrustAngle) * accel * 0.3;
+    newVy += Math.sin(thrustAngle) * accel * 0.3;
   } else if (currentSpeed > 0.5) {
     // Retrograde braking — jitter on brake timing/force
     const retroAngle = Math.atan2(-vy, -vx);
-    const brakeForce = thrust * 0.2 * crewJitterMul(exp);
+    const brakeForce = accel * 0.2 * crewJitterMul(exp);
     newVx += Math.cos(retroAngle) * brakeForce;
     newVy += Math.sin(retroAngle) * brakeForce;
   }
@@ -1859,10 +1865,11 @@ function moveToward(
   newVx *= SPACE_DRAG;
   newVy *= SPACE_DRAG;
 
-  // Clamp to max velocity
+  // Clamp to max velocity (ship.speed is the speed cap)
+  const maxV = ship.speed ?? MAX_VELOCITY;
   const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
-  if (newSpeed > MAX_VELOCITY) {
-    const scale = MAX_VELOCITY / newSpeed;
+  if (newSpeed > maxV) {
+    const scale = maxV / newSpeed;
     newVx *= scale;
     newVy *= scale;
   }
