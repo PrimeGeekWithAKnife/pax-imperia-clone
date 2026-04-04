@@ -523,6 +523,106 @@ export function isInWeaponArc(
 }
 
 // ---------------------------------------------------------------------------
+// Threat-aware facing — anti-flank manoeuvring
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the optimal facing angle considering all nearby threats.
+ *
+ * At lower ages engines only thrust forward, so facing = movement
+ * direction. This function makes ships naturally circle to deny flanks
+ * or punch through when surrounded.
+ *
+ * Algorithm:
+ *  1. Score each nearby enemy by threat (distance, damage, targeting us)
+ *  2. Compute a weighted threat centroid angle
+ *  3. If threats are clustered on one side → face toward them (circle)
+ *  4. If threats surround us → face the gap between them (punch through)
+ *  5. Blend with the desired movement target for smooth transitions
+ */
+function computeThreatAwareFacing(
+  ship: TacticalShip,
+  moveTarget: { x: number; y: number },
+  enemies: TacticalShip[],
+): number {
+  const moveAngle = angleTo(ship.position, moveTarget);
+
+  // No enemies nearby — just face the movement target
+  const nearbyEnemies = enemies.filter(e => {
+    const d = dist(ship.position, e.position);
+    const maxRange = ship.weapons.length > 0
+      ? Math.max(...ship.weapons.map(w => w.range))
+      : 200;
+    return d < maxRange * 2 && !e.destroyed && !e.routed;
+  });
+  if (nearbyEnemies.length === 0) return moveAngle;
+
+  // Compute threat-weighted angles
+  let threatSinSum = 0;
+  let threatCosSum = 0;
+  let totalWeight = 0;
+
+  for (const enemy of nearbyEnemies) {
+    const d = dist(ship.position, enemy.position);
+    const angleToEnemy = angleTo(ship.position, enemy.position);
+
+    // Weight by proximity and whether they're targeting us
+    let weight = 1 / Math.max(d, 1);
+    const isTargetingUs = enemy.order.type === 'attack' &&
+      (enemy.order.targetId === ship.id || enemy.order.targetId === ship.sourceShipId);
+    if (isTargetingUs) weight *= 3;
+
+    threatSinSum += Math.sin(angleToEnemy) * weight;
+    threatCosSum += Math.cos(angleToEnemy) * weight;
+    totalWeight += weight;
+  }
+
+  if (totalWeight < 0.001) return moveAngle;
+
+  const threatAngle = Math.atan2(threatSinSum / totalWeight, threatCosSum / totalWeight);
+
+  // Check angular spread of threats — are we flanked?
+  let minAngle = Infinity;
+  let maxAngle = -Infinity;
+  for (const enemy of nearbyEnemies) {
+    const a = normaliseAngle(angleTo(ship.position, enemy.position) - threatAngle);
+    if (a < minAngle) minAngle = a;
+    if (a > maxAngle) maxAngle = a;
+  }
+  const angularSpread = maxAngle - minAngle;
+
+  if (nearbyEnemies.length >= 2 && angularSpread > Math.PI * 1.2) {
+    // Surrounded — find the largest gap between enemies and punch through it
+    const enemyAngles = nearbyEnemies
+      .map(e => angleTo(ship.position, e.position))
+      .sort((a, b) => a - b);
+
+    let bestGap = 0;
+    let bestGapAngle = moveAngle;
+    for (let i = 0; i < enemyAngles.length; i++) {
+      const next = i + 1 < enemyAngles.length
+        ? enemyAngles[i + 1]!
+        : enemyAngles[0]! + Math.PI * 2;
+      const gap = next - enemyAngles[i]!;
+      if (gap > bestGap) {
+        bestGap = gap;
+        bestGapAngle = enemyAngles[i]! + gap / 2;
+      }
+    }
+    // Face the escape gap — full speed ahead through it
+    return bestGapAngle;
+  }
+
+  // Single-side threat — face toward the threat centroid to keep them
+  // in our forward weapon arcs. The Newtonian thrust will create a
+  // natural circling motion as we fly toward them while they orbit us.
+  // Blend 70% threat-facing + 30% move-target for smooth transitions.
+  const blendedSin = Math.sin(threatAngle) * 0.7 + Math.sin(moveAngle) * 0.3;
+  const blendedCos = Math.cos(threatAngle) * 0.7 + Math.cos(moveAngle) * 0.3;
+  return Math.atan2(blendedSin, blendedCos);
+}
+
+// ---------------------------------------------------------------------------
 // Formation system
 // ---------------------------------------------------------------------------
 
@@ -1358,7 +1458,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     const fleeTarget = ship.side === 'attacker'
       ? { x: -50, y: -50 }
       : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-    const result = moveToward(updated, fleeTarget, 2, state.environment);
+    const result = moveToward(updated, fleeTarget, 2, state.environment, state.ships);
     if (
       result.position.x < -20 || result.position.x > BATTLEFIELD_WIDTH + 20 ||
       result.position.y < -20 || result.position.y > BATTLEFIELD_HEIGHT + 20
@@ -1382,7 +1482,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       const fleeTarget = ship.side === 'attacker'
         ? { x: -50, y: -50 }
         : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-      return moveToward(updated, fleeTarget, 2, state.environment);
+      return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
     }
     // Low morale → flee
     if (morale < 15) {
@@ -1391,12 +1491,12 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       const fleeTarget = ship.side === 'attacker'
         ? { x: -50, y: -50 }
         : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-      return moveToward(updated, fleeTarget, 2, state.environment);
+      return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
     }
     // Shields gone + badly hurt → tactical retreat
     if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0 && ship.damageTakenThisTick > 0) {
       const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
-      return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment);
+      return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment, state.ships);
     }
   }
 
@@ -1415,11 +1515,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const eDist = dist(ship.position, enemy.position);
         const detectionRange = engageDistance(ship) * 2.5;
         if (eDist < detectionRange) {
-          return moveToward(updated, enemy.position, engageDistance(ship), state.environment);
+          return moveToward(updated, enemy.position, engageDistance(ship), state.environment, state.ships);
         }
       }
     }
-    return moveToward(updated, waypoint, 2, state.environment);
+    return moveToward(updated, waypoint, 2, state.environment, state.ships);
   }
 
   // --- Defend order: stay near ally, engage threats to that ally ---
@@ -1437,12 +1537,12 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       );
       if (threatToAlly != null) {
         // Intercept the threat
-        return moveToward(updated, threatToAlly.position, engageDistance(ship), state.environment);
+        return moveToward(updated, threatToAlly.position, engageDistance(ship), state.environment, state.ships);
       }
       // No threat — stay near ally
       const allyDist = dist(ship.position, ally.position);
       if (allyDist > 60) {
-        return moveToward(updated, ally.position, 40, state.environment);
+        return moveToward(updated, ally.position, 40, state.environment, state.ships);
       }
     }
     // Fall through to stance-based idle behaviour
@@ -1488,7 +1588,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
-      }, engageDistance(ship), state.environment);
+      }, engageDistance(ship), state.environment, state.ships);
     }
 
     case 'defensive': {
@@ -1499,7 +1599,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       }
       // Out of range with explicit attack order — slowly close
       if (ship.order.type === 'attack') {
-        return moveToward(updated, target.position, maxRange * 0.9, state.environment);
+        return moveToward(updated, target.position, maxRange * 0.9, state.environment, state.ships);
       }
       return updated;
     }
@@ -1526,7 +1626,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           return holdAndFace(updated, angleTo(ship.position, threatToUs.position));
         }
         // Threat beyond engagement range — close
-        return moveToward(updated, threatToUs.position, smartEngageDist, state.environment);
+        return moveToward(updated, threatToUs.position, smartEngageDist, state.environment, state.ships);
       }
 
       // Cover a retreating or weakened ally — interpose between them and the enemy
@@ -1554,7 +1654,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
             // Position ourselves between the ally and the enemy
             const midX = (wardAlly.position.x + enemyToAlly.position.x) / 2;
             const midY = (wardAlly.position.y + enemyToAlly.position.y) / 2;
-            return moveToward(updated, { x: midX, y: midY }, 20, state.environment);
+            return moveToward(updated, { x: midX, y: midY }, 20, state.environment, state.ships);
           }
         }
       }
@@ -1572,7 +1672,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           if (ad < closestAllyDist) { closestAlly = ally; closestAllyDist = ad; }
         }
         if (closestAllyDist < maxRange * 2) {
-          return moveToward(updated, closestAlly.position, engageDistance(ship), state.environment);
+          return moveToward(updated, closestAlly.position, engageDistance(ship), state.environment, state.ships);
         }
       }
 
@@ -1590,13 +1690,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const flankAngle = angleToTarget + flankOffset;
         const flankX = target.position.x - Math.cos(flankAngle) * smartEngageDist;
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
-        return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment);
+        return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment, state.ships);
       }
       // No attack order — cautiously advance to where most weapons can fire
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
-      }, smartEngageDist, state.environment);
+      }, smartEngageDist, state.environment, state.ships);
     }
 
     case 'evasive': {
@@ -1605,11 +1705,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         // Too close — retreat
         const awayX = ship.position.x + (ship.position.x - target.position.x);
         const awayY = ship.position.y + (ship.position.y - target.position.y);
-        return moveToward(updated, { x: awayX, y: awayY }, 0, state.environment);
+        return moveToward(updated, { x: awayX, y: awayY }, 0, state.environment, state.ships);
       }
       if (d > maxRange * 1.1) {
         // Too far — close to max range edge
-        return moveToward(updated, target.position, maxRange * 0.9, state.environment);
+        return moveToward(updated, target.position, maxRange * 0.9, state.environment, state.ships);
       }
       // In the sweet spot — face target
       return holdAndFace(updated, angleTo(ship.position, target.position));
@@ -1694,14 +1794,21 @@ function moveToward(
   target: { x: number; y: number },
   minDist: number,
   environment?: EnvironmentFeature[],
+  allShips?: TacticalShip[],
 ): TacticalShip {
   const d = dist(ship.position, target);
   const vx = ship.velocity?.x ?? 0;
   const vy = ship.velocity?.y ?? 0;
   const currentSpeed = Math.sqrt(vx * vx + vy * vy);
 
-  // Turn toward target
-  let desiredAngle = angleTo(ship.position, target);
+  // Threat-aware facing: if enemies are nearby, factor them into our
+  // facing decision so we naturally circle to deny flanks
+  const enemies = allShips
+    ? allShips.filter(s => s.side !== ship.side && !s.destroyed && !s.routed)
+    : [];
+  let desiredAngle = enemies.length > 0
+    ? computeThreatAwareFacing(ship, target, enemies)
+    : angleTo(ship.position, target);
 
   // ── Debris / asteroid avoidance ────────────────────────────────────
   if (environment && environment.length > 0) {
