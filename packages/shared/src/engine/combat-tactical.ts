@@ -147,9 +147,10 @@ export const NEBULA_BEAM_DAMAGE_FACTOR = 0.50;
 /** Factor by which sensor range is reduced inside a nebula. */
 export const NEBULA_SENSOR_FACTOR = 0.50;
 /** Damage per tick dealt to ships inside a debris field. */
-export const DEBRIS_TICK_DAMAGE = 2;
-/** Radius of debris left when a ship is destroyed. */
-export const DEBRIS_RADIUS = 30;
+/** Base chance per tick of taking a debris hit while inside a debris field. */
+const DEBRIS_HIT_CHANCE = 0.15;
+/** Damage multiplier applied to the debris field's damage rating. */
+const DEBRIS_DAMAGE_VARIANCE = 0.5; // ±50%
 /** Safe distance from spawn areas where environment features are not placed. */
 const ENVIRONMENT_SPAWN_MARGIN = 250;
 
@@ -285,8 +286,9 @@ export interface EnvironmentFeature {
   x: number;
   y: number;
   radius: number;
-  vx?: number; // velocity — debris drifts at the destroyed ship's velocity
+  vx?: number;      // velocity — debris drifts at the destroyed ship's velocity
   vy?: number;
+  damage?: number;   // debris damage rating — larger wreckage hits harder
 }
 
 export interface BeamEffect {
@@ -2274,8 +2276,21 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   // 1d. Debris damage — ships inside debris fields take tick damage
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
-    if (isInsideFeature(ship.position.x, ship.position.y, newEnvironment, 'debris')) {
-      return applyDamage(ship, DEBRIS_TICK_DAMAGE);
+    // Debris damage is probabilistic — you might dodge chunks each tick.
+    // Damage scales with the debris field's damage rating (from hull size).
+    for (const feature of newEnvironment) {
+      if (feature.type !== 'debris') continue;
+      const dx = ship.position.x - feature.x;
+      const dy = ship.position.y - feature.y;
+      if (dx * dx + dy * dy < feature.radius * feature.radius) {
+        if (Math.random() < DEBRIS_HIT_CHANCE) {
+          const baseDmg = feature.damage ?? 1;
+          const variance = 1 + (Math.random() * 2 - 1) * DEBRIS_DAMAGE_VARIANCE;
+          const dmg = Math.max(1, Math.round(baseDmg * variance));
+          return applyDamage(ship, dmg);
+        }
+        break; // only check one debris field per tick
+      }
     }
     return ship;
   });
@@ -2809,24 +2824,58 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   );
   for (const ship of ships) {
     if (ship.destroyed && !prevDestroyedIds.has(ship.id)) {
-      // Debris scales with ship size. Small craft (< 50 HP) leave no debris.
-      // Medium ships leave small debris, capital ships leave large fields.
-      const debrisRadius = ship.maxHull < 50 ? 0
-        : ship.maxHull < 150 ? 10
-        : ship.maxHull < 400 ? 20
-        : ship.maxHull < 800 ? 35
-        : 50;
-      if (debrisRadius > 0) {
-        // Debris inherits the ship's velocity — keeps drifting
-        const sv = ship.velocity ?? { x: 0, y: 0 };
+      // Debris: number of pieces and size scale with hull mass.
+      // Small craft leave 0-1 tiny pieces, capital ships leave 3-5 large chunks.
+      const sv = ship.velocity ?? { x: 0, y: 0 };
+      let pieceCount: number;
+      let baseRadius: number;
+      let baseDamage: number;
+
+      if (ship.maxHull < 30) {
+        // Drones, probes — maybe 1 tiny scrap
+        pieceCount = Math.random() < 0.3 ? 1 : 0;
+        baseRadius = 3 + Math.random() * 3;
+        baseDamage = 0.5;
+      } else if (ship.maxHull < 100) {
+        // Fighters, bombers, patrol
+        pieceCount = 1 + Math.floor(Math.random() * 2); // 1-2
+        baseRadius = 5 + Math.random() * 5;
+        baseDamage = 1;
+      } else if (ship.maxHull < 250) {
+        // Corvettes, frigates, destroyers
+        pieceCount = 2 + Math.floor(Math.random() * 2); // 2-3
+        baseRadius = 8 + Math.random() * 8;
+        baseDamage = 2;
+      } else if (ship.maxHull < 600) {
+        // Cruisers, light battleships
+        pieceCount = 3 + Math.floor(Math.random() * 2); // 3-4
+        baseRadius = 12 + Math.random() * 10;
+        baseDamage = 3;
+      } else {
+        // Battleships, carriers, stations
+        pieceCount = 4 + Math.floor(Math.random() * 3); // 4-6
+        baseRadius = 15 + Math.random() * 15;
+        baseDamage = 5;
+      }
+
+      for (let p = 0; p < pieceCount; p++) {
+        // Each piece gets random size variance (50-150% of base)
+        const sizeVar = 0.5 + Math.random();
+        const r = Math.max(3, baseRadius * sizeVar);
+        // Scatter outward from explosion centre
+        const scatterAngle = Math.random() * Math.PI * 2;
+        const scatterDist = Math.random() * 15;
+        // Inherit ship velocity + explosion scatter
+        const explodeSpeed = 0.3 + Math.random() * 0.8;
         newEnvironment.push({
-          id: `debris-${ship.id}`,
+          id: `debris-${ship.id}-${p}`,
           type: 'debris',
-          x: ship.position.x,
-          y: ship.position.y,
-          radius: debrisRadius,
-          vx: sv.x * 0.8 + (Math.random() - 0.5) * 0.5, // slight scatter
-          vy: sv.y * 0.8 + (Math.random() - 0.5) * 0.5,
+          x: ship.position.x + Math.cos(scatterAngle) * scatterDist,
+          y: ship.position.y + Math.sin(scatterAngle) * scatterDist,
+          radius: r,
+          vx: sv.x * 0.8 + Math.cos(scatterAngle) * explodeSpeed,
+          vy: sv.y * 0.8 + Math.sin(scatterAngle) * explodeSpeed,
+          damage: Math.max(0.5, baseDamage * sizeVar),
         });
       }
 
