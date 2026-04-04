@@ -288,6 +288,7 @@ export class CombatScene extends Phaser.Scene {
   private missileGraphics!: Phaser.GameObjects.Graphics;
   private pdGraphics!: Phaser.GameObjects.Graphics;
   private environmentGraphics!: Phaser.GameObjects.Graphics;
+  private debrisGraphics!: Phaser.GameObjects.Graphics;
   /** Track which debris IDs we have already drawn (static once spawned). */
   private drawnDebrisIds = new Set<string>();
   private fighterGraphics!: Phaser.GameObjects.Graphics;
@@ -438,11 +439,15 @@ export class CombatScene extends Phaser.Scene {
     this.escapePodGraphics = this.add.graphics();
     this.escapePodGraphics.setDepth(6);
 
-    // ── Environment graphics (asteroids, nebulae, debris) ──────────────────
+    // ── Environment graphics ──────────────────────────────────────────────
+    // Static layer (asteroids, nebulae) — drawn once, never cleared.
     this.environmentGraphics = this.add.graphics();
-    this.environmentGraphics.setDepth(1); // just above starfield
+    this.environmentGraphics.setDepth(1);
+    // Dynamic layer (debris) — cleared and redrawn each frame.
+    this.debrisGraphics = this.add.graphics();
+    this.debrisGraphics.setDepth(1);
     this.drawnDebrisIds.clear();
-    this._drawEnvironment();
+    this._drawStaticEnvironment();
 
     // ── HUD (fixed to camera) ──────────────────────────────────────────────
     this._createHUD();
@@ -1466,55 +1471,45 @@ export class CombatScene extends Phaser.Scene {
    * (large semi-transparent coloured circles), and debris (small dark orange
    * scattered dots that appear when ships explode).
    */
-  private _drawEnvironment(): void {
-    this.environmentGraphics.clear();
+  /** Draw static environment features (asteroids, nebulae) once on init. */
+  private _drawStaticEnvironment(): void {
     const features = this.tacticalState.environment ?? [];
-
     for (const f of features) {
-      switch (f.type) {
-        case 'asteroid': {
-          // Grey irregular circle — draw a jagged polygon
-          this.environmentGraphics.fillStyle(ASTEROID_COLOR, ASTEROID_ALPHA);
-          this.environmentGraphics.beginPath();
-          const segments = 10;
-          for (let i = 0; i < segments; i++) {
-            const angle = (i / segments) * Math.PI * 2;
-            // Vary radius by +/-30% for a jagged look (deterministic from position)
-            const variation = 0.7 + 0.6 * ((Math.sin(f.x * 7 + i * 13) + 1) / 2);
-            const r = f.radius * variation;
-            const px = f.x + Math.cos(angle) * r;
-            const py = f.y + Math.sin(angle) * r;
-            if (i === 0) {
-              this.environmentGraphics.moveTo(px, py);
-            } else {
-              this.environmentGraphics.lineTo(px, py);
-            }
-          }
-          this.environmentGraphics.closePath();
-          this.environmentGraphics.fillPath();
-          break;
+      if (f.type === 'asteroid') {
+        this.environmentGraphics.fillStyle(ASTEROID_COLOR, ASTEROID_ALPHA);
+        this.environmentGraphics.beginPath();
+        const segments = 10;
+        for (let i = 0; i < segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const variation = 0.7 + 0.6 * ((Math.sin(f.x * 7 + i * 13) + 1) / 2);
+          const r = f.radius * variation;
+          const px = f.x + Math.cos(angle) * r;
+          const py = f.y + Math.sin(angle) * r;
+          if (i === 0) this.environmentGraphics.moveTo(px, py);
+          else this.environmentGraphics.lineTo(px, py);
         }
+        this.environmentGraphics.closePath();
+        this.environmentGraphics.fillPath();
+      } else if (f.type === 'nebula') {
+        this.environmentGraphics.fillStyle(NEBULA_COLOR, NEBULA_ALPHA);
+        this.environmentGraphics.fillCircle(f.x, f.y, f.radius);
+      }
+    }
+  }
 
-        case 'nebula': {
-          // Large semi-transparent coloured circle
-          this.environmentGraphics.fillStyle(NEBULA_COLOR, NEBULA_ALPHA);
-          this.environmentGraphics.fillCircle(f.x, f.y, f.radius);
-          break;
-        }
-
-        case 'debris': {
-          // Small dark orange scattered dots
-          for (let i = 0; i < DEBRIS_DOT_COUNT; i++) {
-            // Deterministic scatter from the debris id hash
-            const angle = (i / DEBRIS_DOT_COUNT) * Math.PI * 2 + f.x * 0.01;
-            const r = f.radius * (0.3 + 0.7 * ((Math.sin(f.y * 3 + i * 7) + 1) / 2));
-            const dx = f.x + Math.cos(angle) * r;
-            const dy = f.y + Math.sin(angle) * r;
-            this.environmentGraphics.fillStyle(DEBRIS_COLOR, DEBRIS_DOT_ALPHA);
-            this.environmentGraphics.fillCircle(dx, dy, DEBRIS_DOT_RADIUS);
-          }
-          break;
-        }
+  /** Draw only dynamic debris — called per frame. Static features drawn once. */
+  private _drawEnvironment(): void {
+    this.debrisGraphics.clear();
+    const features = this.tacticalState.environment ?? [];
+    for (const f of features) {
+      if (f.type !== 'debris') continue;
+      for (let i = 0; i < DEBRIS_DOT_COUNT; i++) {
+        const angle = (i / DEBRIS_DOT_COUNT) * Math.PI * 2 + f.x * 0.01;
+        const r = f.radius * (0.3 + 0.7 * ((Math.sin(f.y * 3 + i * 7) + 1) / 2));
+        const dx = f.x + Math.cos(angle) * r;
+        const dy = f.y + Math.sin(angle) * r;
+        this.debrisGraphics.fillStyle(DEBRIS_COLOR, DEBRIS_DOT_ALPHA);
+        this.debrisGraphics.fillCircle(dx, dy, DEBRIS_DOT_RADIUS);
       }
     }
   }
