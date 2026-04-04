@@ -2831,16 +2831,30 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
-      // Check range
-      if (d > weapon.range) {
-        updatedWeapons.push(weapon);
-        continue;
-      }
-
-      // Check weapon arc
-      if (!isInWeaponArc(ship, target, weapon)) {
-        updatedWeapons.push(weapon);
-        continue;
+      // Check range and arc — if the primary target isn't viable for
+      // this weapon, look for the best alternative that IS in arc and range.
+      // A target that's available is better than one that isn't.
+      let weaponTarget = target;
+      let weaponD = d;
+      if (weaponD > weapon.range || !isInWeaponArc(ship, weaponTarget, weapon)) {
+        // Find the best in-arc, in-range enemy for this weapon
+        let bestAlt: TacticalShip | null = null;
+        let bestAltScore = -Infinity;
+        for (const enemy of ships) {
+          if (enemy.side === ship.side || enemy.destroyed || enemy.routed) continue;
+          const ed = dist(ship.position, enemy.position);
+          if (ed > weapon.range) continue;
+          if (!isInWeaponArc(ship, enemy, weapon)) continue;
+          // Score: prefer closer, lower-HP targets
+          const score = (weapon.range - ed) + (1 - enemy.hull / enemy.maxHull) * 20;
+          if (score > bestAltScore) { bestAlt = enemy; bestAltScore = score; }
+        }
+        if (bestAlt == null) {
+          updatedWeapons.push(weapon);
+          continue;
+        }
+        weaponTarget = bestAlt;
+        weaponD = dist(ship.position, bestAlt.position);
       }
 
       // Check ammo
@@ -2852,10 +2866,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Evasion check — moving ships are harder to hit, especially small fast ones
       // Stationary ships get no evasion bonus
       if (weapon.type !== 'fighter_bay') {
-        const isMoving = target.order.type !== 'idle' || target.stance === 'at_ease' || target.stance === 'evasive';
+        const isMoving = weaponTarget.order.type !== 'idle' || weaponTarget.stance === 'at_ease' || weaponTarget.stance === 'evasive';
         if (isMoving) {
-          const speedFactor = target.speed / 5; // normalise to baseline speed of 5
-          const sizeFactor = target.maxHull < 60 ? 0.3 : target.maxHull < 200 ? 0.15 : target.maxHull < 400 ? 0.05 : 0;
+          const speedFactor = weaponTarget.speed / 5; // normalise to baseline speed of 5
+          const sizeFactor = weaponTarget.maxHull < 60 ? 0.3 : weaponTarget.maxHull < 200 ? 0.15 : weaponTarget.maxHull < 400 ? 0.05 : 0;
           const evasionChance = Math.min(0.4, speedFactor * 0.1 + sizeFactor);
           if (Math.random() < evasionChance) {
             // Evaded — weapon missed
@@ -2903,7 +2917,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             damage: weapon.damage,
             health: FIGHTER_DEFAULT_HEALTH,
             maxHealth: FIGHTER_DEFAULT_HEALTH,
-            targetId: target.id,
+            targetId: weaponTarget.id,
             order: 'attack',
           });
         }
@@ -2921,7 +2935,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         let beamDamage = weapon.damage;
 
         // Range falloff: damage reduces linearly past 60% of max range (down to 30% at max range)
-        const rangeFraction = d / weapon.range;
+        const rangeFraction = weaponD / weapon.range;
         if (rangeFraction > 0.6) {
           const falloff = 1.0 - (rangeFraction - 0.6) / 0.4 * 0.7; // 1.0 at 60%, 0.3 at 100%
           beamDamage *= Math.max(0.3, falloff);
@@ -2930,7 +2944,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         // Nebula attenuation: reduce beam damage when firing through nebula
         const nebula = segmentPassesThroughFeature(
           ship.position.x, ship.position.y,
-          target.position.x, target.position.y,
+          weaponTarget.position.x, weaponTarget.position.y,
           newEnvironment, 'nebula',
         );
         if (nebula != null) {
@@ -2940,13 +2954,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         // Beams have NO splash/collateral damage — they hit their target precisely
 
         // Queue damage for the intended target (applied after .map() completes)
-        const idx = ships.indexOf(target);
+        const idx = ships.indexOf(weaponTarget);
         if (idx >= 0) {
           pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage });
         }
         newBeamEffects.push({
           sourceShipId: ship.id,
-          targetShipId: target.id,
+          targetShipId: weaponTarget.id,
           damage: beamDamage,
           ticksRemaining: BEAM_EFFECT_DURATION,
           componentId: weapon.componentId,
@@ -2967,7 +2981,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           newMissiles.push({
             id: `missile-${state.tick}-${ship.id}-${weapon.componentId}-${si}`,
             sourceShipId: ship.id,
-            targetShipId: target.id,
+            targetShipId: weaponTarget.id,
             componentId: weapon.componentId,
             x: ship.position.x + posOffset * Math.cos(angleOffset),
             y: ship.position.y + posOffset * Math.sin(angleOffset),
@@ -2987,7 +3001,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           speed: PROJECTILE_SPEED,
           damage: weapon.damage,
           sourceShipId: ship.id,
-          targetShipId: target.id,
+          targetShipId: weaponTarget.id,
           componentId: weapon.componentId,
         });
       }
@@ -3116,13 +3130,15 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
     morale = Math.max(0, Math.min(100, morale));
 
-    // Check morale thresholds — crew may flee or surrender
-    if (morale < 15 && !ship.routed) {
+    // Check morale thresholds — crew breaks and flees toward the map edge.
+    // They are NOT routed until they physically leave the battlefield —
+    // they can still be targeted and destroyed while fleeing.
+    if (morale < 15 && !ship.routed && ship.stance !== 'flee') {
       if (Math.random() < 0.15) {
         return {
           ...ship,
-          routed: true,
           order: { type: 'flee' as const },
+          stance: 'flee' as CombatStance,
           crew: { ...ship.crew, morale },
         };
       }
