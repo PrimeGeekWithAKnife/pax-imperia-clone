@@ -233,6 +233,8 @@ export interface TacticalShip {
   /** Damage received this tick — used by defensive stance to trigger return fire. */
   damageTakenThisTick: number;
   crew: Crew;
+  /** Unmanned craft (drones) — no morale, never flee, fight to destruction. */
+  unmanned?: boolean;
 }
 
 export interface Projectile {
@@ -705,61 +707,99 @@ function smallCraftFlank(
   }
   const safestAngle = (safestIdx / ANGLE_STEPS) * Math.PI * 2;
 
-  // ── Step 3: Assign orbit slots to spread the squadron ─────────────
-  // Count same-side small craft attacking the same target to distribute slots
-  const squadMates = state.ships.filter(
-    s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80 && s.id !== ship.id,
-  );
-  // Use ship ID hash to get a stable slot index
+  // ── Step 3: Swarm slots — stable per-drone offsets, no reshuffling ──
+  // Hash the ship ID to get stable values that don't change when others die
   const slotHash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
-  const slotCount = Math.max(1, squadMates.length + 1);
-  const slotIdx = slotHash % slotCount;
-  // Spread slots across a 120° arc centred on the safest angle
-  const slotSpread = Math.PI * 0.67; // 120 degrees
-  const slotAngle = safestAngle + ((slotIdx / slotCount) - 0.5) * slotSpread;
+  const idHash2 = ship.id.charCodeAt(Math.floor(ship.id.length / 2)) ?? 0;
+  // Each drone gets a unique angular offset within a 240° arc (the safe hemisphere)
+  const slotFraction = ((slotHash * 137 + idHash2 * 31) % 1000) / 1000; // 0-1 pseudo-random
+  const slotSpread = Math.PI * 1.33; // 240 degrees — wide swarm spread
+  const slotAngle = safestAngle + (slotFraction - 0.5) * slotSpread;
+  // Vary orbit radius per drone so they don't all stack on the same circle
+  const radiusJitter = 0.8 + (((slotHash * 53 + idHash2) % 100) / 100) * 0.4; // 0.8–1.2x
+  const myOrbitRadius = orbitRadius * radiusJitter;
 
   // ── Step 4: Continuous orbit — always thrusting to the NEXT point ──
-  // Orbit speed: faster craft orbit faster. The goal point is always
-  // AHEAD on the orbit circle so the craft never stops thrusting.
   const orbitDirection = slotHash % 2 === 0 ? 1 : -1; // CW or CCW
-  const orbitSpeed = 0.06 + (ship.speed / 50); // faster ships orbit quicker
+  const orbitSpeed = 0.06 + (ship.speed / 50);
 
-  // Current angle from target to ship — use this as the base, then
-  // place the goal point AHEAD on the orbit so we're always chasing it
   const currentAngle = angleTo(target.position, ship.position);
-  const leadAngle = currentAngle + orbitDirection * orbitSpeed * 8; // 8 ticks ahead
+  const leadAngle = currentAngle + orbitDirection * orbitSpeed * 8;
 
-  // The desired orbit angle blends lead with safe-zone slot
   const orbitingSlotAngle = slotAngle + orbitDirection * state.tick * orbitSpeed;
   let goalAngle: number;
   let goalRadius: number;
 
-  if (d > orbitRadius * 1.5) {
+  if (d > myOrbitRadius * 1.5) {
     // ── Far approach: sweep around to the safe zone, never cut through ──
-    // Clamp the goal angle to at most 90° from the ship's current bearing
-    // so the craft arcs around the target instead of flying through it.
     const desiredAngle = Math.atan2(
       Math.sin(orbitingSlotAngle),
       Math.cos(orbitingSlotAngle),
     );
     const angleDiff = normaliseAngle(desiredAngle - currentAngle);
-    const maxTurn = Math.PI / 2; // 90° — always approach from the near side
+    const maxTurn = Math.PI / 2;
     const clampedDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
     goalAngle = currentAngle + clampedDiff;
-    // Spiral in gradually — goal distance shrinks toward orbit radius
-    goalRadius = Math.max(orbitRadius, d * 0.6);
+    goalRadius = Math.max(myOrbitRadius, d * 0.6);
   } else {
     // ── Near orbit: blend lead angle with safe-zone for continuous orbit ──
-    const safeWeight = d < orbitRadius * 1.3 ? 0.4 : 0.6;
+    const safeWeight = d < myOrbitRadius * 1.3 ? 0.4 : 0.6;
     goalAngle = Math.atan2(
       Math.sin(leadAngle) * (1 - safeWeight) + Math.sin(orbitingSlotAngle) * safeWeight,
       Math.cos(leadAngle) * (1 - safeWeight) + Math.cos(orbitingSlotAngle) * safeWeight,
     );
-    goalRadius = orbitRadius;
+    goalRadius = myOrbitRadius;
   }
 
   let goalX = target.position.x + Math.cos(goalAngle) * goalRadius + spreadX;
   let goalY = target.position.y + Math.sin(goalAngle) * goalRadius + spreadY;
+
+  // ── Step 4b: Swarm coordination — trajectory-aware separation ──
+  // Drones predict each other's near-future positions and steer to avoid
+  // overlapping paths. Three layers: current position, projected position,
+  // and angular separation around the target.
+  const SWARM_MIN_DIST = 40;
+  const PREDICT_TICKS = 6;
+  const squadMates = state.ships.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80 && s.id !== ship.id,
+  );
+  const myPredicted = {
+    x: ship.position.x + (ship.velocity?.x ?? 0) * PREDICT_TICKS,
+    y: ship.position.y + (ship.velocity?.y ?? 0) * PREDICT_TICKS,
+  };
+  for (const mate of squadMates) {
+    // Layer 1: repel from current position
+    const mateDist = dist(ship.position, mate.position);
+    if (mateDist < SWARM_MIN_DIST && mateDist > 1) {
+      const repelStrength = (SWARM_MIN_DIST - mateDist) / SWARM_MIN_DIST * 8;
+      goalX += (ship.position.x - mate.position.x) / mateDist * repelStrength;
+      goalY += (ship.position.y - mate.position.y) / mateDist * repelStrength;
+    }
+
+    // Layer 2: repel from predicted future position (avoid converging paths)
+    const matePredicted = {
+      x: mate.position.x + (mate.velocity?.x ?? 0) * PREDICT_TICKS,
+      y: mate.position.y + (mate.velocity?.y ?? 0) * PREDICT_TICKS,
+    };
+    const futureDist = dist(myPredicted, matePredicted);
+    if (futureDist < SWARM_MIN_DIST && futureDist > 1) {
+      const futureRepel = (SWARM_MIN_DIST - futureDist) / SWARM_MIN_DIST * 5;
+      goalX += (myPredicted.x - matePredicted.x) / futureDist * futureRepel;
+      goalY += (myPredicted.y - matePredicted.y) / futureDist * futureRepel;
+    }
+
+    // Layer 3: angular separation around the target — avoid same orbit slot
+    const myAngle = angleTo(target.position, ship.position);
+    const mateAngle = angleTo(target.position, mate.position);
+    const angularGap = Math.abs(normaliseAngle(myAngle - mateAngle));
+    const MIN_ANGULAR_GAP = 0.35; // ~20° minimum separation
+    if (angularGap < MIN_ANGULAR_GAP && mateDist < myOrbitRadius * 2) {
+      const pushDir = normaliseAngle(myAngle - mateAngle) > 0 ? 1 : -1;
+      const angularRepel = (MIN_ANGULAR_GAP - angularGap) / MIN_ANGULAR_GAP * 4;
+      goalX += Math.cos(myAngle + pushDir * Math.PI / 2) * angularRepel;
+      goalY += Math.sin(myAngle + pushDir * Math.PI / 2) * angularRepel;
+    }
+  }
 
   // ── Step 5: Dodge incoming missiles ───────────────────────────────
   // Small craft with no PD must evade missiles by thrusting perpendicular
@@ -1212,6 +1252,7 @@ export function initializeTacticalCombat(
           health: 100,
           experience: (ship.crewExperience ?? 'regular') as CrewExperience,
         },
+        unmanned: hullTemplate?.manned === false,
       };
     });
   }
@@ -1654,51 +1695,54 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     position: { ...ship.position },
   };
 
-  // --- Flee always runs first — no self-assessment re-entry risk ---
-  if (ship.order.type === 'flee' || ship.stance === 'flee') {
-    const fleeTarget = ship.side === 'attacker'
-      ? { x: -50, y: -50 }
-      : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-    const result = moveToward(updated, fleeTarget, 2, state.environment, state.ships);
-    if (
-      result.position.x < -20 || result.position.x > BATTLEFIELD_WIDTH + 20 ||
-      result.position.y < -20 || result.position.y > BATTLEFIELD_HEIGHT + 20
-    ) {
-      result.routed = true;
-    }
-    return result;
-  }
-
-  // ── Captain self-assessment (runs AFTER flee handler to prevent recursion) ──
-  // Only triggers under extreme conditions with active incoming damage.
-  const hpFraction = ship.hull / ship.maxHull;
-  const shieldFraction = ship.maxShields > 0 ? ship.shields / ship.maxShields : 1;
-  const morale = ship.crew.morale;
-
-  if (ship.stance !== 'aggressive') {
-    // Critical hull damage while under fire and shields gone → flee
-    if (hpFraction < 0.15 && shieldFraction < 0.1 && ship.damageTakenThisTick > 0) {
-      updated.order = { type: 'flee' };
-      updated.stance = 'flee';
+  // --- Unmanned craft (drones) never flee — they fight to destruction ---
+  if (!ship.unmanned) {
+    // --- Flee always runs first — no self-assessment re-entry risk ---
+    if (ship.order.type === 'flee' || ship.stance === 'flee') {
       const fleeTarget = ship.side === 'attacker'
         ? { x: -50, y: -50 }
         : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-      return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
+      const result = moveToward(updated, fleeTarget, 2, state.environment, state.ships);
+      if (
+        result.position.x < -20 || result.position.x > BATTLEFIELD_WIDTH + 20 ||
+        result.position.y < -20 || result.position.y > BATTLEFIELD_HEIGHT + 20
+      ) {
+        result.routed = true;
+      }
+      return result;
     }
-    // Low morale AND actually taking hull damage → flee
-    // (shields still up = not in mortal danger, hold the line)
-    if (morale < 10 && hpFraction < 0.5) {
-      updated.order = { type: 'flee' };
-      updated.stance = 'flee';
-      const fleeTarget = ship.side === 'attacker'
-        ? { x: -50, y: -50 }
-        : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
-      return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
-    }
-    // Shields gone + badly hurt → tactical retreat
-    if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0 && ship.damageTakenThisTick > 0) {
-      const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
-      return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment, state.ships);
+
+    // ── Captain self-assessment (runs AFTER flee handler to prevent recursion) ──
+    // Only triggers under extreme conditions with active incoming damage.
+    const hpFraction = ship.hull / ship.maxHull;
+    const shieldFraction = ship.maxShields > 0 ? ship.shields / ship.maxShields : 1;
+    const morale = ship.crew.morale;
+
+    if (ship.stance !== 'aggressive') {
+      // Critical hull damage while under fire and shields gone → flee
+      if (hpFraction < 0.15 && shieldFraction < 0.1 && ship.damageTakenThisTick > 0) {
+        updated.order = { type: 'flee' };
+        updated.stance = 'flee';
+        const fleeTarget = ship.side === 'attacker'
+          ? { x: -50, y: -50 }
+          : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+        return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
+      }
+      // Low morale AND actually taking hull damage → flee
+      // (shields still up = not in mortal danger, hold the line)
+      if (morale < 10 && hpFraction < 0.5) {
+        updated.order = { type: 'flee' };
+        updated.stance = 'flee';
+        const fleeTarget = ship.side === 'attacker'
+          ? { x: -50, y: -50 }
+          : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+        return moveToward(updated, fleeTarget, 2, state.environment, state.ships);
+      }
+      // Shields gone + badly hurt → tactical retreat
+      if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0 && ship.damageTakenThisTick > 0) {
+        const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
+        return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment, state.ships);
+      }
     }
   }
 
@@ -2936,9 +2980,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         });
       }
 
-      // Allied ships suffer morale drop when a comrade is destroyed
+      // Allied ships suffer morale drop when a comrade is destroyed (not drones)
       ships = ships.map((s) => {
-        if (s.side === ship.side && s.id !== ship.id && !s.destroyed) {
+        if (s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.unmanned) {
           return {
             ...s,
             crew: { ...s.crew, morale: Math.max(0, s.crew.morale - 5) },
@@ -2952,6 +2996,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   // 5b. Crew morale tick — fatigue, outnumbered, low hull, experience resilience
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
+    // Unmanned craft have no crew — skip morale entirely
+    if (ship.unmanned) return ship;
     let morale = ship.crew.morale;
 
     // Prolonged combat fatigue: -0.1 per tick after tick 200
