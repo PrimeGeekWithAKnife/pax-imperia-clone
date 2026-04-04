@@ -1193,7 +1193,7 @@ function computeCooldown(comp: ShipComponent): number {
       const profile = MISSILE_PROFILES[comp.id];
       return profile?.cooldown ?? 25;
     }
-    case 'weapon_point_defense': return 8;
+    case 'weapon_point_defense': return 20;
     case 'fighter_bay': return 30;
     default: return 15;
   }
@@ -1453,38 +1453,41 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   const maxRange = ship.weapons.length > 0 ? Math.max(...ship.weapons.map(w => w.range)) : 200;
 
   // Assess the enemy's threat range — don't close to within their best damage zone
-  const enemyMaxRange = target.weapons.length > 0 ? Math.max(...target.weapons.map(w => w.range)) : 0;
-  const enemyMinRange = target.weapons.length > 0 ? Math.min(...target.weapons.filter(w => w.type !== 'point_defense').map(w => w.range)) : 0;
+  const enemyNonPD = target.weapons.filter(w => w.type !== 'point_defense');
+  const enemyMaxRange = enemyNonPD.length > 0 ? Math.max(...enemyNonPD.map(w => w.range)) : 0;
   // If our range exceeds theirs, prefer to stay at OUR max range (kite advantage)
   const smartEngageDist = maxRange > enemyMaxRange * 1.2
     ? maxRange * 0.85  // stay near our max range — outside theirs
     : engageDistance(ship);
 
-  // ── Anti-bunching: nudge away from nearby allies ──────────────────
-  // Ships should spread to avoid AOE/splash damage. Check nearest ally
-  // and steer slightly away if too close.
+  // ── Anti-bunching: compute a spacing offset applied to OUR position ──
+  // Ships steer away from nearby allies to avoid splash/AOE clustering.
   const MINIMUM_ALLY_SPACING = 35;
-  let spacingNudgeX = 0;
-  let spacingNudgeY = 0;
+  let spreadX = 0;
+  let spreadY = 0;
   const allies = state.ships.filter(
     (s) => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed,
   );
   for (const ally of allies) {
     const allyDist = dist(ship.position, ally.position);
     if (allyDist < MINIMUM_ALLY_SPACING && allyDist > 1) {
-      // Push away from this ally proportional to how close we are
       const pushStrength = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
-      spacingNudgeX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 3;
-      spacingNudgeY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 3;
+      spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 4;
+      spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 4;
     }
+  }
+  // Apply spread: if we need to spread, move toward the spread offset point first
+  if (Math.abs(spreadX) > 2 || Math.abs(spreadY) > 2) {
+    return moveToward(updated, {
+      x: ship.position.x + spreadX,
+      y: ship.position.y + spreadY,
+    }, 0, state.environment);
   }
 
   switch (ship.stance) {
     case 'aggressive': {
-      // Close to smart engagement distance, with spacing nudge
-      const goalX = target.position.x + spacingNudgeX;
-      const goalY = target.position.y + spacingNudgeY;
-      return moveToward(updated, { x: goalX, y: goalY }, smartEngageDist, state.environment);
+      // Close to smart engagement distance
+      return moveToward(updated, target.position, smartEngageDist, state.environment);
     }
 
     case 'defensive': {
@@ -1521,12 +1524,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       if (threatToUs) {
         const threatDist = dist(ship.position, threatToUs.position);
         if (threatDist <= maxRange) {
-          // Threat in range — hold position and face them, with spacing
-          const goalX = ship.position.x + spacingNudgeX;
-          const goalY = ship.position.y + spacingNudgeY;
-          if (Math.abs(spacingNudgeX) > 1 || Math.abs(spacingNudgeY) > 1) {
-            return moveToward(updated, { x: goalX, y: goalY }, 0, state.environment);
-          }
+          // Threat in range — face them
           const desiredAngle = angleTo(ship.position, threatToUs.position);
           const angleDiff = normaliseAngle(desiredAngle - ship.facing);
           const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
@@ -1583,33 +1581,27 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         }
       }
 
-      // No immediate threats — if enemy in range, hold and face them (with spacing)
+      // No immediate threats — if enemy in range, hold and face them
       if (d <= maxRange) {
-        if (Math.abs(spacingNudgeX) > 1 || Math.abs(spacingNudgeY) > 1) {
-          return moveToward(updated, { x: ship.position.x + spacingNudgeX, y: ship.position.y + spacingNudgeY }, 0, state.environment);
-        }
         const desiredAngle = angleTo(ship.position, target.position);
         const angleDiff = normaliseAngle(desiredAngle - ship.facing);
         const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
         return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
       }
 
-      // Nothing pressing and enemy out of range — hold position
+      // Enemy out of range — captain decides whether to close
+      // With an explicit attack order: flank approach
       if (ship.order.type === 'attack') {
-        // Explicit attack order — try to flank: approach from an angle
-        // rather than head-on, to get a firing angle the enemy can't return
         const angleToTarget = angleTo(ship.position, target.position);
-        const flankOffset = ship.id.charCodeAt(0) % 2 === 0 ? 0.4 : -0.4; // alternate sides
+        const flankOffset = ship.id.charCodeAt(0) % 2 === 0 ? 0.4 : -0.4;
         const flankAngle = angleToTarget + flankOffset;
         const flankX = target.position.x - Math.cos(flankAngle) * smartEngageDist;
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment);
       }
-      // No attack order — stay put, face the nearest enemy
-      const desiredAngle = angleTo(ship.position, target.position);
-      const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-      const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
-      return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
+      // No attack order — cautiously advance to weapon range
+      // (captain won't sit idle while enemies are on the field)
+      return moveToward(updated, target.position, smartEngageDist, state.environment);
     }
 
     case 'evasive': {
