@@ -635,6 +635,118 @@ function computeThreatAwareFacing(
 }
 
 // ---------------------------------------------------------------------------
+// Small craft flanking AI
+// ---------------------------------------------------------------------------
+
+/**
+ * Dynamic flanking for small craft (drones, fighters, bombers).
+ *
+ * Instead of charging head-on, small craft continuously orbit the target
+ * staying in its blind spots. The algorithm:
+ *
+ *  1. Map the target's weapon arcs to find dangerous zones
+ *  2. Compute the safest angle (biggest gap in weapon coverage)
+ *  3. Assign each craft a unique orbit slot around that safe zone
+ *  4. Continuously orbit — don't stop and hover
+ *  5. Avoid debris in the orbit path
+ *
+ * The result: a squadron of drones spirals around a battleship,
+ * staying behind it, firing into its aft while the battleship
+ * struggles to turn fast enough to bring weapons to bear.
+ */
+function smallCraftFlank(
+  updated: TacticalShip,
+  ship: TacticalShip,
+  target: TacticalShip,
+  state: TacticalState,
+  spreadX: number,
+  spreadY: number,
+): TacticalShip {
+  const d = dist(ship.position, target.position);
+  const orbitRadius = engageDistance(ship) * 0.7;
+
+  // ── Step 1: Find the target's weapon-free zones ────────────────────
+  // Score each angle around the target by how many weapons can hit there
+  const ANGLE_STEPS = 12;
+  const arcDanger: number[] = new Array(ANGLE_STEPS).fill(0);
+
+  for (const weapon of target.weapons) {
+    if (weapon.type === 'point_defense') continue;
+    // Compute the weapon's world-space centre angle
+    let weaponCentre = target.facing;
+    switch (weapon.facing) {
+      case 'aft': weaponCentre += Math.PI; break;
+      case 'port': weaponCentre -= Math.PI / 2; break;
+      case 'starboard': weaponCentre += Math.PI / 2; break;
+    }
+    const halfArc = (WEAPON_ARC[weapon.facing] ?? Math.PI) / 2;
+
+    for (let i = 0; i < ANGLE_STEPS; i++) {
+      const angle = (i / ANGLE_STEPS) * Math.PI * 2;
+      const diff = Math.abs(normaliseAngle(angle - weaponCentre));
+      if (diff <= halfArc) {
+        arcDanger[i] += weapon.damage;
+      }
+    }
+  }
+
+  // ── Step 2: Find the safest sector (lowest danger score) ──────────
+  let safestIdx = 0;
+  let safestDanger = Infinity;
+  for (let i = 0; i < ANGLE_STEPS; i++) {
+    if (arcDanger[i]! < safestDanger) {
+      safestDanger = arcDanger[i]!;
+      safestIdx = i;
+    }
+  }
+  const safestAngle = (safestIdx / ANGLE_STEPS) * Math.PI * 2;
+
+  // ── Step 3: Assign orbit slots to spread the squadron ─────────────
+  // Count same-side small craft attacking the same target to distribute slots
+  const squadMates = state.ships.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80 && s.id !== ship.id,
+  );
+  // Use ship ID hash to get a stable slot index
+  const slotHash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+  const slotCount = Math.max(1, squadMates.length + 1);
+  const slotIdx = slotHash % slotCount;
+  // Spread slots across a 120° arc centred on the safest angle
+  const slotSpread = Math.PI * 0.67; // 120 degrees
+  const slotAngle = safestAngle + ((slotIdx / slotCount) - 0.5) * slotSpread;
+
+  // ── Step 4: Compute orbit point and add continuous orbit motion ────
+  // The orbit point drifts over time so craft don't hover — they circle
+  const orbitDrift = (state.tick * 0.02) * (slotHash % 2 === 0 ? 1 : -1);
+  const finalAngle = slotAngle + orbitDrift;
+
+  let goalX = target.position.x + Math.cos(finalAngle) * orbitRadius + spreadX;
+  let goalY = target.position.y + Math.sin(finalAngle) * orbitRadius + spreadY;
+
+  // ── Step 5: Avoid debris in the orbit path ────────────────────────
+  if (state.environment) {
+    for (const feature of state.environment) {
+      if (feature.type !== 'debris' && feature.type !== 'asteroid') continue;
+      const featureDist = dist({ x: goalX, y: goalY }, feature);
+      if (featureDist < feature.radius * 1.5) {
+        // Push the goal point away from the debris
+        const pushAngle = angleTo(feature, { x: goalX, y: goalY });
+        goalX = feature.x + Math.cos(pushAngle) * feature.radius * 2;
+        goalY = feature.y + Math.sin(pushAngle) * feature.radius * 2;
+      }
+    }
+  }
+
+  // If still closing to orbit range, approach the orbit point directly
+  if (d > orbitRadius * 1.5) {
+    return moveToward(updated, { x: goalX, y: goalY }, 15, state.environment, state.ships);
+  }
+
+  // In orbit — move to the goal point but keep a minimum distance
+  // so the craft maintains circular motion rather than hovering
+  return moveToward(updated, { x: goalX, y: goalY }, 10, state.environment, state.ships);
+}
+
+// ---------------------------------------------------------------------------
 // Formation system
 // ---------------------------------------------------------------------------
 
@@ -1619,16 +1731,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   switch (ship.stance) {
     case 'aggressive': {
       if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
-        // Small craft vs larger target: flank to the enemy's aft/blind spot.
-        // Compute a point behind the target (opposite their facing) offset
-        // by this ship's unique angle to create a spread attack.
-        const behindAngle = target.facing + Math.PI; // directly behind target
-        // Offset each ship slightly so they don't all aim for the same point
-        const spreadAngle = behindAngle + (ship.id.charCodeAt(0) % 7 - 3) * 0.25;
-        const flankDist = engageDistance(ship) * 0.8;
-        const flankX = target.position.x + Math.cos(spreadAngle) * flankDist + spreadX;
-        const flankY = target.position.y + Math.sin(spreadAngle) * flankDist + spreadY;
-        return moveToward(updated, { x: flankX, y: flankY }, 15, state.environment, state.ships);
+        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
       }
       // Regular ships: close to engagement distance with spread
       return moveToward(updated, {
@@ -1740,13 +1843,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       }
       // No attack order — cautiously advance
       if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
-        // Small craft: flank to aft even on at_ease
-        const behindAngle = target.facing + Math.PI;
-        const spreadAngle = behindAngle + (ship.id.charCodeAt(0) % 7 - 3) * 0.25;
-        const flankDist = smartEngageDist * 0.8;
-        const flankX = target.position.x + Math.cos(spreadAngle) * flankDist + spreadX;
-        const flankY = target.position.y + Math.sin(spreadAngle) * flankDist + spreadY;
-        return moveToward(updated, { x: flankX, y: flankY }, 15, state.environment, state.ships);
+        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
       }
       return moveToward(updated, {
         x: target.position.x + spreadX,
