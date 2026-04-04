@@ -136,6 +136,15 @@ const MISSILE_STYLE_MAP: Record<string, MissileStyle> = {
   fusion_torpedo: 'fusion',
   antimatter_torpedo: 'antimatter',
   singularity_torpedo: 'singularity',
+  hv_missile: 'basic',
+  torpedo_rack: 'torpedo',
+  cluster_missile: 'guided',
+  emp_torpedo: 'guided',
+  swarm_missiles: 'basic',
+  bunker_buster: 'fusion',
+  void_seeker: 'antimatter',
+  phase_torpedo: 'singularity',
+  icbm_torpedo: 'fusion',
 };
 
 /** Per-missile-type visual properties */

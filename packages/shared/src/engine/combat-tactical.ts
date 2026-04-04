@@ -73,6 +73,14 @@ const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; ac
   singularity_torpedo: { initSpeed: 0.5, maxSpeed: 6, accel: 0.15, ammo: 1, cooldown: 25 }, // crawls then locks
 };
 
+/** Default salvo count per missile component (how many missiles per volley). */
+const MISSILE_SALVO_DEFAULTS: Record<string, number> = {
+  basic_missile:  3,  // missile battery fires a spread
+  hv_missile:     2,  // high-velocity pair
+  swarm_missiles: 8,  // swarm pod
+  // Torpedoes / heavy ordnance default to 1 (handled by fallback)
+};
+
 /** Duration in ticks that a point defence effect persists (visual only). */
 const PD_EFFECT_DURATION = 2;
 
@@ -153,6 +161,8 @@ export interface TacticalWeapon {
   facing: WeaponFacing; // weapon mount facing direction
   ammo?: number;        // remaining ammo (undefined = unlimited)
   maxAmmo?: number;     // starting ammo capacity
+  interceptRate?: number; // PD intercept chance 0-100 (from component stats)
+  salvoCount?: number;    // number of missiles fired per volley (missile weapons only)
 }
 
 export type ShipOrder =
@@ -1075,6 +1085,26 @@ function extractShipStats(
           const ammo = baseAmmo != null
             ? Math.max(1, Math.round(baseAmmo * magazineLevel))
             : undefined;
+
+          // PD weapons: carry interceptRate from component stats
+          const interceptRate = weaponType === 'point_defense'
+            ? (comp.stats['interceptRate'] as number | undefined)
+            : undefined;
+
+          // Missile weapons: determine salvo count per volley
+          let salvoCount: number | undefined;
+          if (weaponType === 'missile') {
+            if (comp.stats['missileCount'] != null) {
+              salvoCount = comp.stats['missileCount'] as number;
+            } else if (comp.stats['submunitionCount'] != null) {
+              // Submunition missiles fire 1 (splits handled on impact)
+              salvoCount = 1;
+            } else {
+              // Per-component salvo defaults
+              salvoCount = MISSILE_SALVO_DEFAULTS[comp.id] ?? 1;
+            }
+          }
+
           weapons.push({
             componentId: comp.id,
             type: weaponType,
@@ -1086,6 +1116,8 @@ function extractShipStats(
             facing,
             ammo,
             maxAmmo: baseAmmo,
+            interceptRate,
+            salvoCount,
           });
         }
       }
@@ -1926,7 +1958,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
           };
 
-          if (Math.random() * 100 < weapon.accuracy) {
+          // Use interceptRate from component stats; fall back to accuracy
+          if (Math.random() * 100 < (weapon.interceptRate ?? weapon.accuracy)) {
             survivingMissiles = survivingMissiles.filter((m) => m.id !== nearestMissile.id);
             newPdEffects.push({
               shipId: ship.id,
@@ -1952,7 +1985,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             ammo: weapon.ammo !== undefined ? weapon.ammo - 1 : undefined,
           };
 
-          if (Math.random() * 100 < weapon.accuracy * PD_VS_FIGHTER_ACCURACY_MULT) {
+          // Use interceptRate from component stats; fall back to accuracy
+          if (Math.random() * 100 < (weapon.interceptRate ?? weapon.accuracy) * PD_VS_FIGHTER_ACCURACY_MULT) {
             nearestFighter.health = 0; // destroyed
             newPdEffects.push({
               shipId: ship.id,
@@ -2214,19 +2248,30 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       } else if (weapon.type === 'missile') {
         // Use per-type physics from MISSILE_PROFILES; fall back to defaults
         const mProfile = MISSILE_PROFILES[weapon.componentId];
-        newMissiles.push({
-          id: `missile-${state.tick}-${ship.id}-${weapon.componentId}`,
-          sourceShipId: ship.id,
-          targetShipId: target.id,
-          componentId: weapon.componentId,
-          x: ship.position.x,
-          y: ship.position.y,
-          speed: mProfile?.initSpeed ?? MISSILE_INITIAL_SPEED,
-          maxSpeed: mProfile?.maxSpeed ?? MISSILE_MAX_SPEED,
-          acceleration: mProfile?.accel ?? MISSILE_ACCELERATION,
-          damage: weapon.damage,
-          damageType: 'explosive',
-        });
+        const salvo = weapon.salvoCount ?? 1;
+        const perMissileDamage = weapon.damage / salvo;
+        for (let si = 0; si < salvo; si++) {
+          // Spread salvo missiles slightly so they separate visually
+          const angleOffset = salvo > 1
+            ? ((si / (salvo - 1)) - 0.5) * 10 * (Math.PI / 180)  // ±5° spread
+            : 0;
+          const posOffset = salvo > 1
+            ? (Math.random() - 0.5) * 10  // ±5px random offset
+            : 0;
+          newMissiles.push({
+            id: `missile-${state.tick}-${ship.id}-${weapon.componentId}-${si}`,
+            sourceShipId: ship.id,
+            targetShipId: target.id,
+            componentId: weapon.componentId,
+            x: ship.position.x + posOffset * Math.cos(angleOffset),
+            y: ship.position.y + posOffset * Math.sin(angleOffset),
+            speed: mProfile?.initSpeed ?? MISSILE_INITIAL_SPEED,
+            maxSpeed: mProfile?.maxSpeed ?? MISSILE_MAX_SPEED,
+            acceleration: mProfile?.accel ?? MISSILE_ACCELERATION,
+            damage: perMissileDamage,
+            damageType: 'explosive',
+          });
+        }
       } else {
         // Projectile
         newProjectiles.push({
