@@ -474,14 +474,39 @@ export function autoEquipDesign(
 ): ShipDesign {
   const assignments: { slotId: string; componentId: string }[] = [];
 
-  // Track weapon slot index to vary weapon types for a diverse loadout
+  // ── Power budget tracking ────────────────────────────────────────
+  // Assign power-producing slots first (engines, reactors), then
+  // spend the budget on weapons, shields, and systems.
+  let powerBudget = 0;
+
+  // Slot priority for power budgeting:
+  // 1. Power producers (engines, reactors) — generate the budget
+  // 2. Weapons — spend the budget on firepower first
+  // 3. Everything else (shields, sensors, systems) — fill remaining budget
+  const SLOT_PRIORITY: Record<string, number> = {
+    engine: 0, power_reactor: 0,  // power producers first
+    weapon: 1,                     // weapons second
+    defence: 2,                    // shields/armour third
+    internal: 3,                   // systems last
+    warp_drive: 3, sensor: 3, scanner: 3,
+  };
+  const sortedSlots = [...hull.slotLayout].sort((a, b) => {
+    const aPri = Math.min(...a.allowedTypes.map(t =>
+      t === 'engine' || t === 'power_reactor' ? 0 : 99
+    ), SLOT_PRIORITY[a.category ?? 'internal'] ?? 3);
+    const bPri = Math.min(...b.allowedTypes.map(t =>
+      t === 'engine' || t === 'power_reactor' ? 0 : 99
+    ), SLOT_PRIORITY[b.category ?? 'internal'] ?? 3);
+    return aPri - bPri;
+  });
+
   let weaponSlotIdx = 0;
   const WEAPON_TYPE_ROTATION: ComponentType[] = [
     'weapon_beam', 'weapon_projectile', 'weapon_missile',
     'weapon_beam', 'weapon_projectile', 'weapon_missile',
   ];
 
-  for (const slot of hull.slotLayout) {
+  for (const slot of sortedSlots) {
     // Collect components that are allowed in this slot and physically fit
     const candidates = availableComponents.filter((c) => {
       if (!(slot.allowedTypes as ComponentType[]).includes(c.type)) return false;
@@ -494,17 +519,35 @@ export function autoEquipDesign(
     let priorityType = slot.allowedTypes[0] as ComponentType;
     if (slot.category === 'weapon') {
       const preferred = WEAPON_TYPE_ROTATION[weaponSlotIdx % WEAPON_TYPE_ROTATION.length]!;
-      // Only use preferred if the slot accepts it
       if ((slot.allowedTypes as ComponentType[]).includes(preferred)) {
         priorityType = preferred;
       }
       weaponSlotIdx++;
     }
 
-    // Pick best component by priority type, then fall back to any candidate
-    const best = pickBestComponent(candidates, priorityType);
+    // Filter candidates by power budget — prefer components we can power,
+    // but allow the best we can afford rather than falling back to zero-draw.
+    // Sort candidates by power draw (ascending) so cheaper options come first.
+    const sortedCandidates = [...candidates].sort((a, b) =>
+      (a.stats['powerDraw'] ?? 0) - (b.stats['powerDraw'] ?? 0),
+    );
+
+    // Find the best component we can afford: walk from cheapest to most
+    // expensive, keeping the highest-scoring one within budget.
+    const affordable = sortedCandidates.filter((c) => {
+      const draw = c.stats['powerDraw'] ?? 0;
+      const output = c.stats['powerOutput'] ?? 0;
+      return output > 0 || (powerBudget - draw) >= -2;
+    });
+
+    const pool = affordable.length > 0 ? affordable : sortedCandidates.slice(0, 3);
+
+    const best = pickBestComponent(pool, priorityType);
     if (best) {
       assignments.push({ slotId: slot.id, componentId: best.id });
+      const draw = best.stats['powerDraw'] ?? 0;
+      const output = best.stats['powerOutput'] ?? 0;
+      powerBudget += output - draw;
     }
   }
 
