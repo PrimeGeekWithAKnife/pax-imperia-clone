@@ -1350,40 +1350,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     position: { ...ship.position },
   };
 
-  // ── Captain self-assessment ──────────────────────────────────────
-  // Captains assess their own ship state and may override orders.
-  // Only triggers under extreme conditions — does NOT run on stance
-  // changes, only on genuine survival threats.
-
-  const hpFraction = ship.hull / ship.maxHull;
-  const shieldFraction = ship.maxShields > 0 ? ship.shields / ship.maxShields : 1;
-  const morale = ship.crew.morale;
-
-  // Critical damage: captain may disobey and flee
-  if (hpFraction < 0.15 && ship.stance !== 'aggressive' && ship.damageTakenThisTick > 0) {
-    return moveShip({ ...updated, order: { type: 'flee' }, stance: 'flee' }, state);
-  }
-
-  // Low morale: crew refuses to advance, retreats
-  if (morale < 15 && ship.stance !== 'aggressive') {
-    return moveShip({ ...updated, order: { type: 'flee' }, stance: 'flee' }, state);
-  }
-
-  // Tactical retreat: shields down and badly hurt — pull back to recharge
-  if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0
-      && ship.stance !== 'aggressive' && ship.damageTakenThisTick > 0) {
-    const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
-    const retreatY = ship.position.y;
-    const retreatDist = dist(ship.position, { x: retreatX, y: retreatY });
-    if (retreatDist > 30) {
-      return moveToward(updated, { x: retreatX, y: retreatY }, 20, state.environment);
-    }
-    return updated;
-  }
-
-  // ── Normal order/stance processing ───────────────────────────────
-
-  // --- Flee always overrides everything ---
+  // --- Flee always runs first — no self-assessment re-entry risk ---
   if (ship.order.type === 'flee' || ship.stance === 'flee') {
     const fleeTarget = ship.side === 'attacker'
       ? { x: -50, y: -50 }
@@ -1396,6 +1363,38 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       result.routed = true;
     }
     return result;
+  }
+
+  // ── Captain self-assessment (runs AFTER flee handler to prevent recursion) ──
+  // Only triggers under extreme conditions with active incoming damage.
+  const hpFraction = ship.hull / ship.maxHull;
+  const shieldFraction = ship.maxShields > 0 ? ship.shields / ship.maxShields : 1;
+  const morale = ship.crew.morale;
+
+  if (ship.stance !== 'aggressive') {
+    // Critical damage while under fire → flee
+    if (hpFraction < 0.15 && ship.damageTakenThisTick > 0) {
+      updated.order = { type: 'flee' };
+      updated.stance = 'flee';
+      const fleeTarget = ship.side === 'attacker'
+        ? { x: -50, y: -50 }
+        : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+      return moveToward(updated, fleeTarget, 2, state.environment);
+    }
+    // Low morale → flee
+    if (morale < 15) {
+      updated.order = { type: 'flee' };
+      updated.stance = 'flee';
+      const fleeTarget = ship.side === 'attacker'
+        ? { x: -50, y: -50 }
+        : { x: BATTLEFIELD_WIDTH + 50, y: BATTLEFIELD_HEIGHT + 50 };
+      return moveToward(updated, fleeTarget, 2, state.environment);
+    }
+    // Shields gone + badly hurt → tactical retreat
+    if (shieldFraction < 0.05 && hpFraction < 0.3 && ship.maxShields > 0 && ship.damageTakenThisTick > 0) {
+      const retreatX = ship.side === 'attacker' ? 80 : BATTLEFIELD_WIDTH - 80;
+      return moveToward(updated, { x: retreatX, y: ship.position.y }, 20, state.environment);
+    }
   }
 
   // --- Move order: navigate to waypoint regardless of stance ---
@@ -1453,10 +1452,39 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   const d = dist(ship.position, target.position);
   const maxRange = ship.weapons.length > 0 ? Math.max(...ship.weapons.map(w => w.range)) : 200;
 
+  // Assess the enemy's threat range — don't close to within their best damage zone
+  const enemyMaxRange = target.weapons.length > 0 ? Math.max(...target.weapons.map(w => w.range)) : 0;
+  const enemyMinRange = target.weapons.length > 0 ? Math.min(...target.weapons.filter(w => w.type !== 'point_defense').map(w => w.range)) : 0;
+  // If our range exceeds theirs, prefer to stay at OUR max range (kite advantage)
+  const smartEngageDist = maxRange > enemyMaxRange * 1.2
+    ? maxRange * 0.85  // stay near our max range — outside theirs
+    : engageDistance(ship);
+
+  // ── Anti-bunching: nudge away from nearby allies ──────────────────
+  // Ships should spread to avoid AOE/splash damage. Check nearest ally
+  // and steer slightly away if too close.
+  const MINIMUM_ALLY_SPACING = 35;
+  let spacingNudgeX = 0;
+  let spacingNudgeY = 0;
+  const allies = state.ships.filter(
+    (s) => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed,
+  );
+  for (const ally of allies) {
+    const allyDist = dist(ship.position, ally.position);
+    if (allyDist < MINIMUM_ALLY_SPACING && allyDist > 1) {
+      // Push away from this ally proportional to how close we are
+      const pushStrength = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
+      spacingNudgeX += (ship.position.x - ally.position.x) / allyDist * pushStrength * 3;
+      spacingNudgeY += (ship.position.y - ally.position.y) / allyDist * pushStrength * 3;
+    }
+  }
+
   switch (ship.stance) {
     case 'aggressive': {
-      // Close to engagement distance and stay there
-      return moveToward(updated, target.position, engageDistance(ship), state.environment);
+      // Close to smart engagement distance, with spacing nudge
+      const goalX = target.position.x + spacingNudgeX;
+      const goalY = target.position.y + spacingNudgeY;
+      return moveToward(updated, { x: goalX, y: goalY }, smartEngageDist, state.environment);
     }
 
     case 'defensive': {
@@ -1493,14 +1521,19 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       if (threatToUs) {
         const threatDist = dist(ship.position, threatToUs.position);
         if (threatDist <= maxRange) {
-          // Threat in range — hold position and face them
+          // Threat in range — hold position and face them, with spacing
+          const goalX = ship.position.x + spacingNudgeX;
+          const goalY = ship.position.y + spacingNudgeY;
+          if (Math.abs(spacingNudgeX) > 1 || Math.abs(spacingNudgeY) > 1) {
+            return moveToward(updated, { x: goalX, y: goalY }, 0, state.environment);
+          }
           const desiredAngle = angleTo(ship.position, threatToUs.position);
           const angleDiff = normaliseAngle(desiredAngle - ship.facing);
           const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
           return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
         }
-        // Threat out of range — close to engage
-        return moveToward(updated, threatToUs.position, engageDistance(ship), state.environment);
+        // Threat out of range — close to smart engagement distance
+        return moveToward(updated, threatToUs.position, smartEngageDist, state.environment);
       }
 
       // Cover a retreating or weakened ally — interpose between them and the enemy
@@ -1550,8 +1583,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         }
       }
 
-      // No immediate threats — if enemy in range, hold and face them
+      // No immediate threats — if enemy in range, hold and face them (with spacing)
       if (d <= maxRange) {
+        if (Math.abs(spacingNudgeX) > 1 || Math.abs(spacingNudgeY) > 1) {
+          return moveToward(updated, { x: ship.position.x + spacingNudgeX, y: ship.position.y + spacingNudgeY }, 0, state.environment);
+        }
         const desiredAngle = angleTo(ship.position, target.position);
         const angleDiff = normaliseAngle(desiredAngle - ship.facing);
         const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
@@ -1559,10 +1595,15 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       }
 
       // Nothing pressing and enemy out of range — hold position
-      // (don't charge across the map uninstructed)
       if (ship.order.type === 'attack') {
-        // Explicit attack order — close to engagement range
-        return moveToward(updated, target.position, engageDistance(ship), state.environment);
+        // Explicit attack order — try to flank: approach from an angle
+        // rather than head-on, to get a firing angle the enemy can't return
+        const angleToTarget = angleTo(ship.position, target.position);
+        const flankOffset = ship.id.charCodeAt(0) % 2 === 0 ? 0.4 : -0.4; // alternate sides
+        const flankAngle = angleToTarget + flankOffset;
+        const flankX = target.position.x - Math.cos(flankAngle) * smartEngageDist;
+        const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
+        return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment);
       }
       // No attack order — stay put, face the nearest enemy
       const desiredAngle = angleTo(ship.position, target.position);
