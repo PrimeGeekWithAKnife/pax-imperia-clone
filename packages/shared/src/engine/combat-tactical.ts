@@ -285,6 +285,8 @@ export interface EnvironmentFeature {
   x: number;
   y: number;
   radius: number;
+  vx?: number; // velocity — debris drifts at the destroyed ship's velocity
+  vy?: number;
 }
 
 export interface BeamEffect {
@@ -2220,7 +2222,18 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   if (state.outcome !== null) return state;
 
   const env = state.environment ?? [];
-  const newEnvironment = [...env];
+  // Move drifting debris — debris inherits the destroyed ship's velocity
+  const newEnvironment = env.map(f => {
+    if (f.type === 'debris' && (f.vx || f.vy)) {
+      return { ...f, x: f.x + (f.vx ?? 0), y: f.y + (f.vy ?? 0) };
+    }
+    return f;
+  }).filter(f => {
+    // Remove debris that drifted off the battlefield
+    if (f.type !== 'debris') return true;
+    return f.x > -200 && f.x < BATTLEFIELD_WIDTH + 200 &&
+           f.y > -200 && f.y < BATTLEFIELD_HEIGHT + 200;
+  });
 
   // 0b. AI ships: switch to at_ease stance after tick 5
   // (gives the player a few seconds to set up before AI engages autonomously)
@@ -2796,13 +2809,26 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   );
   for (const ship of ships) {
     if (ship.destroyed && !prevDestroyedIds.has(ship.id)) {
-      newEnvironment.push({
-        id: `debris-${ship.id}`,
-        type: 'debris',
-        x: ship.position.x,
-        y: ship.position.y,
-        radius: DEBRIS_RADIUS,
-      });
+      // Debris scales with ship size. Small craft (< 50 HP) leave no debris.
+      // Medium ships leave small debris, capital ships leave large fields.
+      const debrisRadius = ship.maxHull < 50 ? 0
+        : ship.maxHull < 150 ? 10
+        : ship.maxHull < 400 ? 20
+        : ship.maxHull < 800 ? 35
+        : 50;
+      if (debrisRadius > 0) {
+        // Debris inherits the ship's velocity — keeps drifting
+        const sv = ship.velocity ?? { x: 0, y: 0 };
+        newEnvironment.push({
+          id: `debris-${ship.id}`,
+          type: 'debris',
+          x: ship.position.x,
+          y: ship.position.y,
+          radius: debrisRadius,
+          vx: sv.x * 0.8 + (Math.random() - 0.5) * 0.5, // slight scatter
+          vy: sv.y * 0.8 + (Math.random() - 0.5) * 0.5,
+        });
+      }
 
       // Allied ships suffer morale drop when a comrade is destroyed
       ships = ships.map((s) => {
