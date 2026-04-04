@@ -547,27 +547,26 @@ function computeThreatAwareFacing(
   enemies: TacticalShip[],
 ): number {
   const moveAngle = angleTo(ship.position, moveTarget);
+  const maxRange = ship.weapons.length > 0
+    ? Math.max(...ship.weapons.map(w => w.range))
+    : 200;
 
-  // No enemies nearby — just face the movement target
-  const nearbyEnemies = enemies.filter(e => {
-    const d = dist(ship.position, e.position);
-    const maxRange = ship.weapons.length > 0
-      ? Math.max(...ship.weapons.map(w => w.range))
-      : 200;
-    return d < maxRange * 2 && !e.destroyed && !e.routed;
+  // Only consider enemies within weapon range — while closing, face the
+  // movement target so we thrust straight toward it, not sideways.
+  const inRangeEnemies = enemies.filter(e => {
+    return dist(ship.position, e.position) < maxRange && !e.destroyed && !e.routed;
   });
-  if (nearbyEnemies.length === 0) return moveAngle;
+  if (inRangeEnemies.length === 0) return moveAngle;
 
-  // Compute threat-weighted angles
+  // Compute threat-weighted centroid angle
   let threatSinSum = 0;
   let threatCosSum = 0;
   let totalWeight = 0;
 
-  for (const enemy of nearbyEnemies) {
+  for (const enemy of inRangeEnemies) {
     const d = dist(ship.position, enemy.position);
     const angleToEnemy = angleTo(ship.position, enemy.position);
 
-    // Weight by proximity and whether they're targeting us
     let weight = 1 / Math.max(d, 1);
     const isTargetingUs = enemy.order.type === 'attack' &&
       (enemy.order.targetId === ship.id || enemy.order.targetId === ship.sourceShipId);
@@ -579,47 +578,42 @@ function computeThreatAwareFacing(
   }
 
   if (totalWeight < 0.001) return moveAngle;
-
   const threatAngle = Math.atan2(threatSinSum / totalWeight, threatCosSum / totalWeight);
 
-  // Check angular spread of threats — are we flanked?
-  let minAngle = Infinity;
-  let maxAngle = -Infinity;
-  for (const enemy of nearbyEnemies) {
-    const a = normaliseAngle(angleTo(ship.position, enemy.position) - threatAngle);
-    if (a < minAngle) minAngle = a;
-    if (a > maxAngle) maxAngle = a;
-  }
-  const angularSpread = maxAngle - minAngle;
-
-  if (nearbyEnemies.length >= 2 && angularSpread > Math.PI * 1.2) {
-    // Surrounded — find the largest gap between enemies and punch through it
-    const enemyAngles = nearbyEnemies
+  // Check angular spread — are we flanked from multiple sides?
+  if (inRangeEnemies.length >= 2) {
+    const enemyAngles = inRangeEnemies
       .map(e => angleTo(ship.position, e.position))
       .sort((a, b) => a - b);
 
-    let bestGap = 0;
-    let bestGapAngle = moveAngle;
+    // Measure the largest gap between consecutive enemy angles
+    let maxGap = 0;
+    let maxGapAngle = moveAngle;
     for (let i = 0; i < enemyAngles.length; i++) {
       const next = i + 1 < enemyAngles.length
         ? enemyAngles[i + 1]!
         : enemyAngles[0]! + Math.PI * 2;
       const gap = next - enemyAngles[i]!;
-      if (gap > bestGap) {
-        bestGap = gap;
-        bestGapAngle = enemyAngles[i]! + gap / 2;
+      if (gap > maxGap) {
+        maxGap = gap;
+        maxGapAngle = enemyAngles[i]! + gap / 2;
       }
     }
-    // Face the escape gap — full speed ahead through it
-    return bestGapAngle;
+    // If the smallest coverage is > 216° (gap < 144°), we're surrounded
+    if (maxGap < Math.PI * 0.8) {
+      return maxGapAngle; // punch through the largest gap
+    }
   }
 
-  // Single-side threat — face toward the threat centroid to keep them
-  // in our forward weapon arcs. The Newtonian thrust will create a
-  // natural circling motion as we fly toward them while they orbit us.
-  // Blend 70% threat-facing + 30% move-target for smooth transitions.
-  const blendedSin = Math.sin(threatAngle) * 0.7 + Math.sin(moveAngle) * 0.3;
-  const blendedCos = Math.cos(threatAngle) * 0.7 + Math.cos(moveAngle) * 0.3;
+  // Enemies in range on one side — blend threat-facing with move-target.
+  // Closer enemies get more facing weight (proximity ratio to maxRange).
+  const closestDist = Math.min(...inRangeEnemies.map(e => dist(ship.position, e.position)));
+  const proximityRatio = 1 - (closestDist / maxRange); // 0 at max range, 1 at point blank
+  const threatWeight = proximityRatio * 0.6; // max 60% threat, scales with proximity
+  const moveWeight = 1 - threatWeight;
+
+  const blendedSin = Math.sin(threatAngle) * threatWeight + Math.sin(moveAngle) * moveWeight;
+  const blendedCos = Math.cos(threatAngle) * threatWeight + Math.cos(moveAngle) * moveWeight;
   return Math.atan2(blendedSin, blendedCos);
 }
 
