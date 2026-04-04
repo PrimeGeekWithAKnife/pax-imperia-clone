@@ -2333,6 +2333,7 @@ export class CombatScene extends Phaser.Scene {
   private _retreatAll(): void {
     for (const ship of this.tacticalState.ships) {
       if (this._isPlayerSide(ship) && !ship.destroyed && !ship.routed) {
+        this.tacticalState = setShipStance(this.tacticalState, ship.id, 'flee');
         this.tacticalState = setShipOrder(this.tacticalState, ship.id, { type: 'flee' });
       }
     }

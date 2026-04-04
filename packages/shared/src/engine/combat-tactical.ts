@@ -1581,15 +1581,16 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         }
       }
 
-      // No immediate threats — if enemy in range, hold and face them
-      if (d <= maxRange) {
+      // No immediate threats — if enemy well within range, hold and face them
+      // Use 90% of max range as threshold so we don't stop at the absolute edge
+      if (d <= maxRange * 0.9) {
         const desiredAngle = angleTo(ship.position, target.position);
         const angleDiff = normaliseAngle(desiredAngle - ship.facing);
         const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate);
         return { ...updated, facing: normaliseAngle(ship.facing + turnAmount) };
       }
 
-      // Enemy out of range — captain decides whether to close
+      // Enemy at range edge or beyond — captain closes to comfortable distance
       // With an explicit attack order: flank approach
       if (ship.order.type === 'attack') {
         const angleToTarget = angleTo(ship.position, target.position);
@@ -2499,7 +2500,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   let outcome: TacticalOutcome = null;
   if (attackersAlive.length === 0 && defendersAlive.length === 0) {
-    outcome = 'attacker_wins'; // draw goes to attacker
+    // Both sides eliminated — check who has more surviving (routed) ships
+    const attackerRouted = ships.filter(s => s.side === 'attacker' && s.routed && !s.destroyed).length;
+    const defenderRouted = ships.filter(s => s.side === 'defender' && s.routed && !s.destroyed).length;
+    // Side with more surviving routed ships "won" by having more retreat
+    outcome = attackerRouted >= defenderRouted ? 'attacker_wins' : 'defender_wins';
   } else if (attackersAlive.length === 0) {
     outcome = 'defender_wins';
   } else if (defendersAlive.length === 0) {
