@@ -55,6 +55,8 @@ const MISSILE_MAX_SPEED = 16;
 const MISSILE_ACCELERATION = 1.5;
 /** Hit radius for missile collision detection. */
 const MISSILE_HIT_RADIUS = 12;
+/** Fuel ticks for missiles — go inert after this many ticks in flight. */
+const MISSILE_FUEL_TICKS = 60;
 
 /** Default ammo for missile weapons. */
 const MISSILE_DEFAULT_AMMO = 6;
@@ -259,6 +261,8 @@ export interface Missile {
   acceleration: number;
   damage: number;
   damageType: string;
+  /** Remaining fuel ticks — missile goes inert when exhausted. */
+  fuel: number;
 }
 
 export interface PointDefenceEffect {
@@ -731,30 +735,45 @@ function smallCraftFlank(
   const radiusJitter = 0.6 + (((slotHash * 53 + idHash2) % 100) / 100) * 1.0; // 0.6–1.6x
   const myOrbitRadius = orbitRadius * radiusJitter;
 
-  // ── Step 4: Continuous orbit — always thrusting to the NEXT point ──
+  // ── Step 4: Three-phase approach + orbit ──
   const orbitDirection = slotHash % 2 === 0 ? 1 : -1; // CW or CCW
   const orbitSpeed = 0.06 + (ship.speed / 50);
 
   const currentAngle = angleTo(target.position, ship.position);
   const leadAngle = currentAngle + orbitDirection * orbitSpeed * 8;
-
   const orbitingSlotAngle = slotAngle + orbitDirection * state.tick * orbitSpeed;
+
   let goalAngle: number;
   let goalRadius: number;
 
-  if (d > myOrbitRadius * 1.5) {
-    // ── Far approach: sweep around to the safe zone, never cut through ──
-    const desiredAngle = Math.atan2(
-      Math.sin(orbitingSlotAngle),
-      Math.cos(orbitingSlotAngle),
+  const angleToSlot = normaliseAngle(slotAngle - currentAngle);
+
+  if (d > myOrbitRadius * 3) {
+    // ── Phase 1: Fan out — spread to assigned approach vectors ──
+    // Each drone steers laterally to its slot angle before closing in.
+    // This fans the swarm into a wide arc during the approach.
+    if (Math.abs(angleToSlot) > 0.4) {
+      // Not at assigned vector yet — move laterally (same distance, different angle)
+      const turnRate = Math.min(Math.abs(angleToSlot), Math.PI / 4);
+      goalAngle = currentAngle + Math.sign(angleToSlot) * turnRate;
+      goalRadius = Math.max(d * 0.85, myOrbitRadius * 2); // close slowly while fanning
+    } else {
+      // At assigned vector — close in along this bearing
+      goalAngle = slotAngle;
+      goalRadius = Math.max(myOrbitRadius, d * 0.65);
+    }
+  } else if (d > myOrbitRadius * 1.5) {
+    // ── Phase 2: Close spiral — approach orbit from assigned angle ──
+    // Already roughly at our slot angle, spiral in toward orbit radius
+    const spiralAngle = currentAngle + orbitDirection * 0.3; // gentle spiral
+    const blendToSlot = 0.4;
+    goalAngle = Math.atan2(
+      Math.sin(spiralAngle) * (1 - blendToSlot) + Math.sin(orbitingSlotAngle) * blendToSlot,
+      Math.cos(spiralAngle) * (1 - blendToSlot) + Math.cos(orbitingSlotAngle) * blendToSlot,
     );
-    const angleDiff = normaliseAngle(desiredAngle - currentAngle);
-    const maxTurn = Math.PI / 2;
-    const clampedDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
-    goalAngle = currentAngle + clampedDiff;
-    goalRadius = Math.max(myOrbitRadius, d * 0.6);
+    goalRadius = Math.max(myOrbitRadius, d * 0.7);
   } else {
-    // ── Near orbit: blend lead angle with safe-zone for continuous orbit ──
+    // ── Phase 3: Orbit — continuous orbit within safe zone ──
     const safeWeight = d < myOrbitRadius * 1.3 ? 0.4 : 0.6;
     goalAngle = Math.atan2(
       Math.sin(leadAngle) * (1 - safeWeight) + Math.sin(orbitingSlotAngle) * safeWeight,
@@ -762,6 +781,11 @@ function smallCraftFlank(
     );
     goalRadius = myOrbitRadius;
   }
+
+  // Enforce keep-out zone — goal must never be closer than 60% of orbit radius
+  // to the target centre. Prevents drones from thrusting through the target.
+  const keepOut = myOrbitRadius * 0.6;
+  if (goalRadius < keepOut) goalRadius = keepOut;
 
   let goalX = target.position.x + Math.cos(goalAngle) * goalRadius + spreadX;
   let goalY = target.position.y + Math.sin(goalAngle) * goalRadius + spreadY;
@@ -839,6 +863,24 @@ function smallCraftFlank(
       const cohStrength = Math.min(0.04, (distToFlock - FLOCK_RADIUS * 0.5) / FLOCK_RADIUS * 0.06);
       goalX += (flockCX - ship.position.x) * cohStrength;
       goalY += (flockCY - ship.position.y) * cohStrength;
+    }
+  }
+
+  // ── Step 4c: Target collision avoidance ──────────────────────────
+  // If the drone is close to the target AND heading toward it, override
+  // the goal to a tangent escape — prevents momentum from carrying it through.
+  if (d < myOrbitRadius * 1.5) {
+    const vx = ship.velocity?.x ?? 0;
+    const vy = ship.velocity?.y ?? 0;
+    const toTargetX = target.position.x - ship.position.x;
+    const toTargetY = target.position.y - ship.position.y;
+    // Dot product: positive = heading toward target
+    const dot = vx * toTargetX + vy * toTargetY;
+    if (dot > 0 && d < myOrbitRadius) {
+      // Emergency tangent escape — steer perpendicular to the target
+      const tangentAngle = currentAngle + orbitDirection * Math.PI / 2;
+      goalX = ship.position.x + Math.cos(tangentAngle) * myOrbitRadius;
+      goalY = ship.position.y + Math.sin(tangentAngle) * myOrbitRadius;
     }
   }
 
@@ -2520,6 +2562,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   const newPdEffects: PointDefenceEffect[] = [];
 
   for (const missile of (state.missiles ?? [])) {
+    // Burn fuel — inert missiles drift harmlessly and disappear
+    const remainingFuel = (missile.fuel ?? MISSILE_FUEL_TICKS) - 1;
+    if (remainingFuel <= 0) continue; // fuel exhausted, missile goes inert
+
     const target = ships.find((s) => s.id === missile.targetShipId && !s.destroyed);
 
     // If target destroyed mid-flight, retarget nearest enemy
@@ -2529,11 +2575,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         .filter(s => s.side !== sourceSide && !s.destroyed && !s.routed)
         .sort((a, b) => dist({ x: missile.x, y: missile.y }, a.position) - dist({ x: missile.x, y: missile.y }, b.position))[0];
       if (newTarget) {
-        // Retarget — missile continues flying toward new target
         const retargetSpeed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
-        survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed: retargetSpeed });
+        survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed: retargetSpeed, fuel: remainingFuel });
       }
-      // If no enemies left, missile dissipates
       continue;
     }
 
@@ -2591,6 +2635,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       speed,
       x: newMX,
       y: newMY,
+      fuel: remainingFuel,
     });
   }
 
@@ -2931,6 +2976,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             acceleration: mProfile?.accel ?? MISSILE_ACCELERATION,
             damage: perMissileDamage,
             damageType: 'explosive',
+            fuel: MISSILE_FUEL_TICKS,
           });
         }
       } else {
