@@ -3791,6 +3791,21 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         }
         return s;
       });
+
+      // Enemy ships get a morale BOOST from killing an opponent.
+      // Smaller boost than the death impact — killing is encouraging but
+      // not as dramatic as losing a comrade.
+      const enemySide = ship.side === 'attacker' ? 'defender' : 'attacker';
+      const killBoost = 1 + fractionLost * 6; // 1-4 morale gain
+      ships = ships.map((s) => {
+        if (s.side === enemySide && !s.destroyed && !s.routed && !s.unmanned) {
+          return {
+            ...s,
+            crew: { ...s.crew, morale: Math.min(100, s.crew.morale + killBoost) },
+          };
+        }
+        return s;
+      });
     }
   }
 
@@ -3835,13 +3850,31 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // Defending home planet — crews fight harder when their world is at stake.
     if (state.layout === 'planetary_assault' && ship.side === 'defender') morale += 0.2;
 
+    // Winning momentum: when we outnumber the enemy, morale recovers slightly.
+    // Crews fight harder when they sense victory.
+    if (allyPower > enemyPower * 1.5) morale += 0.2;
+    else if (allyPower > enemyPower * 1.1) morale += 0.08;
+
+    // Undamaged ships in a large fleet slowly recover morale (safety in numbers).
+    if (ship.hull > ship.maxHull * 0.8 && allyPower > enemyPower * 0.8) morale += 0.05;
+
     morale = Math.max(0, Math.min(100, morale));
 
     // Check morale thresholds — crew breaks and flees toward the map edge.
-    // They are NOT routed until they physically leave the battlefield —
-    // they can still be targeted and destroyed while fleeing.
-    if (morale < 15 && !ship.routed && ship.stance !== 'flee') {
-      if (Math.random() < 0.15) {
+    // Aggressive stance raises the bar: crews fight harder.
+    // Hull health guard: undamaged ships NEVER flee from morale alone.
+    // A ship must be both demoralised AND wounded to break.
+    const hpFrac = ship.hull / ship.maxHull;
+    const fleeThreshold = ship.stance === 'aggressive' ? 5 : 15;
+    const fleeChance = ship.stance === 'aggressive' ? 0.05 : 0.15;
+    // Hull health multiplier: intact ships NEVER flee from morale alone.
+    // The ship is still fighting — scared crew can't abandon a working vessel.
+    // Only when the ship is significantly damaged does morale-based flee activate.
+    const hullGuard = hpFrac >= 0.7 ? 0 : hpFrac >= 0.5 ? 0.3 : hpFrac >= 0.3 ? 1.0 : 1.5;
+    const effectiveThreshold = fleeThreshold * hullGuard;
+
+    if (morale < effectiveThreshold && !ship.routed && ship.stance !== 'flee') {
+      if (Math.random() < fleeChance) {
         return {
           ...ship,
           order: { type: 'flee' as const },
