@@ -254,29 +254,30 @@ describe('Fighter dogfight — 9v9', () => {
       });
     });
 
-    it(`battle ${i + 1}: fighters use multiple AI phases (not stuck in one)`, () => {
+    it(`battle ${i + 1}: fighters are actively orbiting (not stationary)`, () => {
       const initial = setup9v9();
 
-      // Run 100 ticks — should see approach, engage, break phases
+      // Run 150 ticks — fighters should be orbiting at weapon range
       let state = initial;
-      const phaseCounts = new Map<string, number>();
+      let totalMovement = 0;
       for (let t = 0; t < 150; t++) {
+        const prevPositions = new Map(
+          state.ships.filter(s => s.hullClass === 'fighter' && !s.destroyed)
+            .map(s => [s.id, { x: s.position.x, y: s.position.y }]),
+        );
         state = processTacticalTick(state);
-        if (t >= 30) { // skip early ticks
-          for (const ship of state.ships) {
-            if (ship.hullClass === 'fighter' && ship.fighterPhase && !ship.destroyed) {
-              phaseCounts.set(ship.fighterPhase, (phaseCounts.get(ship.fighterPhase) ?? 0) + 1);
-            }
-          }
+        for (const ship of state.ships) {
+          if (ship.hullClass !== 'fighter' || ship.destroyed) continue;
+          const prev = prevPositions.get(ship.id);
+          if (!prev) continue;
+          const dx = ship.position.x - prev.x;
+          const dy = ship.position.y - prev.y;
+          totalMovement += Math.sqrt(dx * dx + dy * dy);
         }
       }
 
-      // Should see at least 2 different phases (not just 'approach' forever)
-      expect(phaseCounts.size).toBeGreaterThanOrEqual(2);
-
-      // Update mid-battle check if it exists
-      const check = midBattleChecks.find(c => c.battleIdx === i);
-      if (check) check.tick100PhaseDiversity = phaseCounts.size;
+      // Fighters should have significant total movement (orbiting, not holding)
+      expect(totalMovement).toBeGreaterThan(1000);
     });
 
     it(`battle ${i + 1}: wings share targets (wing cohesion)`, () => {
@@ -288,11 +289,10 @@ describe('Fighter dogfight — 9v9', () => {
         state = processTacticalTick(state);
       }
 
-      // Check wing cohesion: fighters in the same wing should have attack
-      // orders targeting the same enemy (or at least be in the same phase)
+      // Check wing cohesion: fighters in the same wing should share targets
       const wingGroups = new Map<string, TacticalShip[]>();
       for (const ship of state.ships) {
-        if (ship.wingId && !ship.destroyed && !ship.routed) {
+        if (ship.wingId && !ship.destroyed && !ship.routed && ship.hullClass === 'fighter') {
           const existing = wingGroups.get(ship.wingId) ?? [];
           existing.push(ship);
           wingGroups.set(ship.wingId, existing);
@@ -301,21 +301,25 @@ describe('Fighter dogfight — 9v9', () => {
 
       // At least one wing should have >1 surviving member
       const multiMemberWings = [...wingGroups.values()].filter(w => w.length > 1);
-      // In a 9v9, at tick 80 we should still have multi-member wings
-      // (it's OK if some wings lost members — just need at least one)
       if (multiMemberWings.length > 0) {
-        // Check that wingmates are in the same phase
-        let samePhaseCount = 0;
+        // Check that wingmates share attack targets or are close together
+        let cohesiveCount = 0;
         for (const wing of multiMemberWings) {
-          const phases = wing.map(s => s.fighterPhase).filter(Boolean);
-          if (phases.length > 1) {
-            // At least 2 members with phases
-            const uniquePhases = new Set(phases);
-            if (uniquePhases.size <= 2) samePhaseCount++; // close enough
+          // Check proximity — wingmates should be relatively close
+          let totalPairDist = 0;
+          let pairs = 0;
+          for (let a = 0; a < wing.length; a++) {
+            for (let b = a + 1; b < wing.length; b++) {
+              const dx = wing[a]!.position.x - wing[b]!.position.x;
+              const dy = wing[a]!.position.y - wing[b]!.position.y;
+              totalPairDist += Math.sqrt(dx * dx + dy * dy);
+              pairs++;
+            }
           }
+          const avgDist = pairs > 0 ? totalPairDist / pairs : 0;
+          if (avgDist < 400) cohesiveCount++; // within reasonable range
         }
-        // Most wings should be roughly synchronised
-        expect(samePhaseCount).toBeGreaterThanOrEqual(1);
+        expect(cohesiveCount).toBeGreaterThanOrEqual(1);
       }
     });
 

@@ -1107,13 +1107,18 @@ function getWingOffset(ship: TacticalShip, leader: TacticalShip, allShips: Tacti
 }
 
 /**
- * Fighter combat AI — attack-pass dogfighting.
+ * Fighter combat AI — stance-dependent dogfighting.
  *
- * Unlike capital ships that close to engagement distance and hold, fighters
- * make strafing passes: approach → fire → break away → regroup → repeat.
+ * Aggressive (default): orbit at weapon range — never fly through enemies.
+ *   Uses the same orbit/flocking system as small craft vs large targets,
+ *   adapted to work fighter-vs-fighter. Fires during orbit passes.
  *
- * Against larger ships, falls back to the orbit-based smallCraftFlank.
- * Against other fighters/small craft, uses attack-pass logic.
+ * At ease ("0 range"): pursuit-curve fly-through — captain's reckless call.
+ *   Aims behind the target, flies through, sweeps laterally, repeats.
+ *   Maximum damage but high risk. Good when outnumbering the enemy.
+ *
+ * Desperation (relative — outnumbered 2:1+): pure interception pursuit,
+ *   no breaks, close and kill as fast as possible.
  */
 function fighterCombatAI(
   updated: TacticalShip,
@@ -1123,15 +1128,100 @@ function fighterCombatAI(
   spreadX: number,
   spreadY: number,
 ): TacticalShip {
-  // Against significantly larger targets, use the existing orbit behaviour
-  if (target.maxHull > ship.maxHull * 3) {
-    return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
-  }
-
   // Set explicit attack order so wing target diversity in findTarget works
   if (updated.order.type !== 'attack' || updated.order.targetId !== target.id) {
     updated = { ...updated, order: { type: 'attack', targetId: target.id } };
   }
+
+  // ── Desperation check — relative, not absolute ──
+  // Desperate when outnumbered 2:1 or more, OR when ≤2 allies remain total.
+  const alliesAlive = state.ships.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed,
+  ).length;
+  const enemiesAlive = state.ships.filter(
+    s => s.side !== ship.side && !s.destroyed && !s.routed,
+  ).length;
+  const desperate = alliesAlive <= 2 || (enemiesAlive > 0 && alliesAlive / enemiesAlive < 0.5);
+
+  if (desperate) {
+    // Pure interception pursuit — close and kill, no manoeuvring
+    const tvx = target.velocity?.x ?? 0;
+    const tvy = target.velocity?.y ?? 0;
+    const intercept = computeInterceptPoint(
+      ship.position, target.position, { x: tvx, y: tvy }, ship.speed,
+    );
+    updated = { ...updated, fighterPhase: 'engage' as const, fighterPhaseTick: state.tick };
+    return moveToward(updated, intercept, 0, state.environment, state.ships);
+  }
+
+  // ── AGGRESSIVE stance: pursue at weapon range, never fly through ──
+  // Fighters curve to get behind the target at weapon range distance.
+  // When too close, they break perpendicular. Never ram through.
+  if (ship.stance === 'aggressive') {
+    const d = dist(ship.position, target.position);
+    const maxWeaponRange = ship.weapons.length > 0
+      ? Math.max(...ship.weapons.filter(w => w.type !== 'point_defense').map(w => w.range))
+      : 100;
+    const hash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+    const turnSign = hash % 2 === 0 ? 1 : -1;
+
+    const tvx = target.velocity?.x ?? 0;
+    const tvy = target.velocity?.y ?? 0;
+    const tSpeed = Math.sqrt(tvx * tvx + tvy * tvy);
+
+    // Target orbit distance — stay at weapon range, never closer
+    const orbitDist = maxWeaponRange * 0.65;
+    let goalX: number;
+    let goalY: number;
+
+    if (d > maxWeaponRange * 1.3) {
+      // FAR: interception to close the gap fast
+      const intercept = computeInterceptPoint(
+        ship.position, target.position, { x: tvx, y: tvy }, ship.speed,
+      );
+      goalX = intercept.x;
+      goalY = intercept.y;
+    } else if (d < orbitDist * 0.6) {
+      // TOO CLOSE: break hard perpendicular — never fly through
+      const awayAngle = angleTo(target.position, ship.position);
+      const breakAngle = awayAngle + turnSign * Math.PI * 0.4;
+      goalX = ship.position.x + Math.cos(breakAngle) * maxWeaponRange;
+      goalY = ship.position.y + Math.sin(breakAngle) * maxWeaponRange;
+    } else {
+      // AT RANGE: orbit behind the target — pursuit curve at distance
+      if (tSpeed > 1) {
+        // Aim at a point BEHIND the target at orbit distance
+        const behindAngle = Math.atan2(-tvy, -tvx);
+        goalX = target.position.x + Math.cos(behindAngle) * orbitDist;
+        goalY = target.position.y + Math.sin(behindAngle) * orbitDist;
+        goalX += tvx * 2;
+        goalY += tvy * 2;
+      } else {
+        // Target stationary — circle it at orbit distance
+        const currentAngle = angleTo(target.position, ship.position);
+        const orbitAngle = currentAngle + turnSign * 0.3;
+        goalX = target.position.x + Math.cos(orbitAngle) * orbitDist;
+        goalY = target.position.y + Math.sin(orbitAngle) * orbitDist;
+      }
+    }
+
+    // Per-fighter offset to prevent stacking
+    const idOffset = ((hash % 7) - 3) * 10;
+    goalX += Math.cos(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
+    goalY += Math.sin(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
+
+    goalX = clamp(goalX, 40, state.battlefieldWidth - 40);
+    goalY = clamp(goalY, 40, state.battlefieldHeight - 40);
+
+    updated = { ...updated, fighterPhase: 'engage' as const, fighterPhaseTick: state.tick };
+    const result = moveToward(updated, { x: goalX, y: goalY }, orbitDist * 0.3, state.environment, state.ships);
+    result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
+    result.position.y = clamp(result.position.y, -20, state.battlefieldHeight + 20);
+    return result;
+  }
+
+  // ── AT EASE stance ("0 range"): pursuit-curve fly-through pattern ──
+  // Captain makes the reckless call — high risk, high reward.
 
   const d = dist(ship.position, target.position);
   const tick = state.tick;
@@ -1139,102 +1229,48 @@ function fighterCombatAI(
     ? Math.max(...ship.weapons.filter(w => w.type !== 'point_defense').map(w => w.range))
     : 100;
 
-  // ── Wing cohesion: wingmen follow their leader's target and phase ──
   const leader = getWingLeader(ship, state.ships);
   const isLeader = ship.id === leader.id;
   const wingOffset = getWingOffset(ship, leader, state.ships);
 
-  // Determine current phase (stateful — persists across ticks)
   let phase = ship.fighterPhase ?? 'approach';
   let phaseTick = ship.fighterPhaseTick ?? tick;
-
-  // ── Phase transitions ──
-  // Three-phase dogfighting: approach → engage → break (wide arc) → engage
-  //
-  // Fighters NEVER fly head-on. During engage they aim BEHIND the target
-  // (pursuit curve). During break they sweep laterally across the battlefield,
-  // naturally setting up the next pass from a different angle. This creates
-  // the swirling "fur ball" pattern of real fighter combat.
   const ticksInPhase = tick - phaseTick;
-
-  // Stable per-fighter hash for consistent turn preferences
   const hash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
-  // Each fighter has a preferred turn direction (CW or CCW)
   const turnSign = hash % 2 === 0 ? 1 : -1;
-
-  // Desperation: when few allies remain, skip breaks — pure pursuit.
-  const alliesAlive = state.ships.filter(
-    s => s.side === ship.side && !s.destroyed && !s.routed,
-  ).length;
-  const desperate = alliesAlive <= 4;
 
   switch (phase) {
     case 'approach':
-      // Commit to engage when within 1.2x weapon range
-      if (d <= maxWeaponRange * 1.2) {
-        phase = 'engage';
-        phaseTick = tick;
-      }
+      if (d <= maxWeaponRange * 1.2) { phase = 'engage'; phaseTick = tick; }
       break;
-
     case 'regroup':
-      // Legacy → approach
-      phase = 'approach';
-      phaseTick = tick;
+      phase = 'approach'; phaseTick = tick;
       break;
-
     case 'engage': {
-      if (desperate) break; // No breaks in desperation mode — keep chasing
-
-      // Break after time limit OR after overshooting the target
       const vx = ship.velocity?.x ?? 0;
       const vy = ship.velocity?.y ?? 0;
-      const toTargetX = target.position.x - ship.position.x;
-      const toTargetY = target.position.y - ship.position.y;
-      const dot = vx * toTargetX + vy * toTargetY;
-      // Overshot and close — break to avoid ram
-      if (dot < 0 && d < maxWeaponRange * 0.4 && ticksInPhase > 5) {
-        phase = 'break';
-        phaseTick = tick;
-      }
-      // Time limit — forces periodic repositioning
-      if (ticksInPhase >= FIGHTER_ENGAGE_TICKS) {
-        phase = 'break';
-        phaseTick = tick;
-      }
+      const dot = vx * (target.position.x - ship.position.x) + vy * (target.position.y - ship.position.y);
+      if (dot < 0 && d < maxWeaponRange * 0.4 && ticksInPhase > 5) { phase = 'break'; phaseTick = tick; }
+      if (ticksInPhase >= FIGHTER_ENGAGE_TICKS) { phase = 'break'; phaseTick = tick; }
       break;
     }
-
     case 'break':
-      // Sweeping lateral arc — then re-engage from a new angle
-      if (ticksInPhase >= FIGHTER_BREAK_TICKS) {
-        phase = 'engage';
-        phaseTick = tick;
-      }
+      if (ticksInPhase >= FIGHTER_BREAK_TICKS) { phase = 'engage'; phaseTick = tick; }
       break;
   }
 
-  // ── Wingman sync: follow leader's break timing ──
   if (!isLeader && leader.fighterPhase === 'break' && phase === 'engage') {
-    phase = 'break';
-    phaseTick = tick;
+    phase = 'break'; phaseTick = tick;
   }
 
-  // Store phase on the ship
   updated = { ...updated, fighterPhase: phase, fighterPhaseTick: phaseTick };
 
-  // ── Movement per phase ──
   let goalX: number;
   let goalY: number;
-
-  // Wing approach sector — each wing comes from a different direction
   const wingIdx = ship.wingId ? parseInt(ship.wingId.split('-').pop() ?? '0', 10) : 0;
-  const wingSectorAngle = (wingIdx * Math.PI * 2 / 3) + turnSign * 0.3; // 120° separation between wings
 
   switch (phase) {
     case 'approach': {
-      // Interception approach — compute where to meet the target, with
-      // a wing-based sector offset so wings come from different angles.
       const tvx = target.velocity?.x ?? 0;
       const tvy = target.velocity?.y ?? 0;
       const intercept = computeInterceptPoint(
@@ -1242,86 +1278,48 @@ function fighterCombatAI(
       );
       const sectorOffset = ((wingIdx % 3) - 1) * 0.35;
       const interceptAngle = angleTo(ship.position, intercept);
-      // Offset the intercept point laterally per wing
       goalX = intercept.x + Math.cos(interceptAngle + Math.PI / 2) * sectorOffset * 40;
       goalY = intercept.y + Math.sin(interceptAngle + Math.PI / 2) * sectorOffset * 40;
-
-      // Wingmen: fly in formation with leader during approach
       if (!isLeader && leader.fighterPhase === 'approach') {
         goalX = leader.position.x + wingOffset.x;
         goalY = leader.position.y + wingOffset.y;
       }
       break;
     }
-
     case 'engage': {
-      // RANGE-DEPENDENT PURSUIT — at long range, curve toward the target's
-      // tail (pursuit curve). At close range, go direct for the kill.
-      // This creates the "zoom and boom" pattern: wide approach, tight pass.
       const tvx = target.velocity?.x ?? 0;
       const tvy = target.velocity?.y ?? 0;
       const tSpeed = Math.sqrt(tvx * tvx + tvy * tvy);
-
-      if (desperate) {
-        // DESPERATION: interception trajectory — compute where to meet the target
-        const intercept = computeInterceptPoint(
-          ship.position, target.position,
-          { x: tvx, y: tvy }, ship.speed,
-        );
-        goalX = intercept.x;
-        goalY = intercept.y;
-      } else if (d > maxWeaponRange * 0.8 && tSpeed > 1) {
-        // FAR: pursuit curve — aim behind target to get on its tail
+      if (d > maxWeaponRange * 0.8 && tSpeed > 1) {
         const behindAngle = Math.atan2(-tvy, -tvx);
         goalX = target.position.x + Math.cos(behindAngle) * FIGHTER_PURSUIT_OFFSET;
         goalY = target.position.y + Math.sin(behindAngle) * FIGHTER_PURSUIT_OFFSET;
-        goalX += tvx * 3;
-        goalY += tvy * 3;
+        goalX += tvx * 3; goalY += tvy * 3;
       } else if (d > maxWeaponRange * 0.8) {
-        // FAR + slow target: flank approach
         const flankerAngle = angleTo(ship.position, target.position) + turnSign * 0.5;
         goalX = target.position.x - Math.cos(flankerAngle) * FIGHTER_PURSUIT_OFFSET * 0.4;
         goalY = target.position.y - Math.sin(flankerAngle) * FIGHTER_PURSUIT_OFFSET * 0.4;
       } else {
-        // CLOSE: direct attack — lead the target for weapon convergence
         goalX = target.position.x + tvx * 4;
         goalY = target.position.y + tvy * 4;
       }
-
-      // Per-fighter offset so wingmates don't stack on the same pursuit point
       const idOffset = ((hash % 7) - 3) * 8;
       goalX += Math.cos(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
       goalY += Math.sin(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
-
-      // Wingmen: tighter grouping during engage
-      if (!isLeader) {
-        goalX += wingOffset.x * 0.3;
-        goalY += wingOffset.y * 0.3;
-      }
+      if (!isLeader) { goalX += wingOffset.x * 0.3; goalY += wingOffset.y * 0.3; }
       break;
     }
-
     case 'break': {
-      // SWEEPING ARC — fly perpendicular to the engagement axis.
-      // Creates wide lateral movement so fighters use the whole battlefield
-      // and re-engage from different angles each pass.
       const awayAngle = angleTo(target.position, ship.position);
-      const breakProgress = ticksInPhase / FIGHTER_BREAK_TICKS; // 0→1
-      // Sweep perpendicular, curving slightly back in the second half
+      const breakProgress = ticksInPhase / FIGHTER_BREAK_TICKS;
       const sweepAngle = awayAngle + turnSign * (Math.PI * 0.5 - breakProgress * 0.4);
       goalX = ship.position.x + Math.cos(sweepAngle) * FIGHTER_BREAK_SWEEP;
       goalY = ship.position.y + Math.sin(sweepAngle) * FIGHTER_BREAK_SWEEP;
-
       goalX = clamp(goalX, 80, state.battlefieldWidth - 80);
       goalY = clamp(goalY, 80, state.battlefieldHeight - 80);
       break;
     }
-
-    default: {
-      goalX = target.position.x;
-      goalY = target.position.y;
-      break;
-    }
+    default: { goalX = target.position.x; goalY = target.position.y; break; }
   }
 
   // ── Separation from nearby allies (prevent stacking) ──
