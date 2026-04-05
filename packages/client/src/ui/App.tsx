@@ -40,6 +40,8 @@ import type { KnownEmpire } from './screens/DiplomacyScreen';
 import { FleetScreen } from './screens/FleetScreen';
 import { BattleResultsScreen } from './screens/BattleResultsScreen';
 import type { BattleResultsData } from './screens/BattleResultsScreen';
+import { CombatInstructionsOverlay } from './screens/CombatInstructionsOverlay';
+import type { CombatInstructionsData } from './screens/CombatInstructionsOverlay';
 import { CombatTriggerDialog } from './screens/CombatTriggerDialog';
 import { OccupationDialog, getAllowedPolicies } from './screens/OccupationDialog';
 import type { OccupationPolicy } from './screens/OccupationDialog';
@@ -228,6 +230,9 @@ export function App(): React.ReactElement {
 
   // ── Battle results overlay (shown when a CombatResolved event fires) ──
   const [battleResults, setBattleResults] = useState<BattleResultsData | null>(null);
+
+  // ── Combat instructions overlay (shown before battle begins) ──
+  const [combatInstructions, setCombatInstructions] = useState<CombatInstructionsData | null>(null);
 
   // ── Tactical combat trigger dialogue ──
   const [pendingCombat, setPendingCombat] = useState<{
@@ -1792,6 +1797,9 @@ export function App(): React.ReactElement {
   }, []));
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
+  useGameEvent<CombatInstructionsData>('combat:show_instructions', useCallback((data: CombatInstructionsData) => {
+    setCombatInstructions(data);
+  }, []));
   useGameEvent<unknown>('engine:combat_pending', handleCombatPending);
   useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
   useGameEvent<unknown>('ground_combat:complete', handleGroundCombatComplete);
@@ -2665,6 +2673,18 @@ export function App(): React.ReactElement {
               engine.start();
             }
             setPendingCombat(null);
+          }}
+        />
+      )}
+
+      {/* Combat instructions overlay — shown before battle begins */}
+      {combatInstructions !== null && (
+        <CombatInstructionsOverlay
+          data={combatInstructions}
+          onBeginBattle={() => {
+            setCombatInstructions(null);
+            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
+            game?.events?.emit('combat:begin_battle');
           }}
         />
       )}

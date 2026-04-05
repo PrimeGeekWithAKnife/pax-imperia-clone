@@ -1880,12 +1880,33 @@ export class CombatScene extends Phaser.Scene {
   }
 
   /**
-   * Show a semi-transparent instructions panel at the start of combat.
-   * Pauses the battle until the player clicks "Begin Battle".
+   * Show pre-battle instructions as a React HTML overlay (crisp, zoom-independent).
+   * Emits an event for App.tsx to render; listens for the begin signal.
    */
   private _showInstructions(): void {
     this.paused = true;
-    // Divide screen coords by zoom so overlay renders at screen-pixel size
+
+    // Emit data for the React overlay
+    this.game.events.emit('combat:show_instructions', {
+      attackerName: this.sceneData.attackerName,
+      defenderName: this.sceneData.defenderName,
+      attackerColor: this.sceneData.attackerColor,
+      defenderColor: this.sceneData.defenderColor,
+      attackerShipCount: this.tacticalState.ships.filter(s => s.side === 'attacker').length,
+      defenderShipCount: this.tacticalState.ships.filter(s => s.side === 'defender').length,
+      battlefieldSize: (this.sceneData as Record<string, unknown>).battlefieldSize ?? 'small',
+    });
+
+    // Listen for React to signal "begin battle"
+    const beginHandler = () => {
+      this.game.events.off('combat:begin_battle', beginHandler);
+      this.paused = false;
+      if (this.tickTimer) this.tickTimer.paused = false;
+    };
+    this.game.events.on('combat:begin_battle', beginHandler);
+    return;
+
+    // ── Legacy Phaser overlay below (kept for reference, not executed) ──
     const z = this.cameras.main.zoom;
     const width = this.scale.width / z;
     const height = this.scale.height / z;

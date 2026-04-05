@@ -8392,6 +8392,132 @@
 }
 
 /* ================================================================
+   COMBAT INSTRUCTIONS OVERLAY
+================================================================ */
+
+.combat-instructions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.combat-instructions-panel {
+  background: rgba(10, 22, 40, 0.97);
+  border: 2px solid rgba(51, 136, 204, 0.7);
+  border-radius: 10px;
+  padding: 32px 40px;
+  max-width: min(900px, 92vw);
+  max-height: min(700px, 90vh);
+  overflow: auto;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(0, 150, 255, 0.15);
+}
+
+.combat-instructions-title {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  color: #ff8844;
+  letter-spacing: 0.15em;
+  margin: 0 0 24px;
+  text-shadow: 0 0 12px rgba(255, 136, 68, 0.4);
+}
+
+.combat-instructions-fleets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.combat-instructions-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.combat-instructions-empire {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+}
+
+.combat-instructions-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.combat-instructions-vs {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.combat-instructions-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  text-align: left;
+  margin-bottom: 28px;
+}
+
+.combat-instructions-heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  letter-spacing: 0.2em;
+  margin: 0 0 12px;
+}
+
+.combat-instructions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+.combat-instructions-list strong {
+  color: var(--color-text);
+}
+
+.combat-instructions-begin {
+  display: inline-block;
+  padding: 12px 48px;
+  background: transparent;
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-bottom: 8px;
+}
+
+.combat-instructions-begin:hover {
+  background: rgba(0, 212, 255, 0.12);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.combat-instructions-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  margin: 4px 0 0;
+}
+
+/* ================================================================
    BATTLE RESULTS SCREEN
 ================================================================ */
 
