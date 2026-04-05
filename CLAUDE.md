@@ -8,7 +8,7 @@ Monorepo with npm workspaces: `packages/client`, `packages/server`, `packages/sh
 
 Every fix and feature follows this promotion path:
 
-1. **DEV** → `192.168.1.172:5173` (ex-nihilo-dev, CT 108 on host2)
+1. **DEV** → `192.168.1.172:5173` (ex-nihilo-dev, CT 108 on host2/pve2 HA pair)
    - Deploy here FIRST after every commit
    - Developer tests here before anything else
 2. **UAT** → `192.168.1.12:5173` (ex-nihilo-uat, CT 109 on pve2)
@@ -18,11 +18,11 @@ Every fix and feature follows this promotion path:
 
 ### How to deploy
 
-**DEV (.172)** — CT 108 on host2 (192.168.1.3), repo at `/opt/nova-imperia`:
+**DEV (.172)** — CT 108 on host2/pve2 HA pair (try 192.168.1.6 first, fallback 192.168.1.3), repo at `/opt/nova-imperia`:
 ```
 # Credentials in .deploy-credentials (gitignored)
-ssh.connect('192.168.1.3', username='root', password=<see .deploy-credentials>)
-pct exec 108 -- bash -c 'cd /opt/nova-imperia && git fetch origin && git reset --hard origin/<branch> && npm run build && systemctl restart nova-imperia-client nova-imperia-server'
+# CT 108 migrates between host2 (192.168.1.3) and pve2 (192.168.1.6) — try both
+ssh -i ~/.ssh/pve2_key root@192.168.1.6 "pct exec 108 -- bash -c 'cd /opt/nova-imperia && git fetch origin && git reset --hard origin/<branch> && npm run build && systemctl restart nova-imperia-client nova-imperia-server'"
 ```
 
 **UAT (.12)** — CT 109 on pve2 (192.168.1.6), repo at `/opt/ex-nihilo`:
@@ -33,6 +33,7 @@ ssh -i ~/.ssh/pve2_key root@192.168.1.6 "pct exec 109 -- bash -c 'cd /opt/ex-nih
 **PROD (.9)** — CT 110 on pve2, same pattern as UAT with CT 110.
 
 Credentials for both Proxmox hosts are in `.deploy-credentials` (gitignored).
+CT 108 (DEV) is on an HA pair and may live on either host2 or pve2.
 Always `git push` the branch before deploying — containers pull from GitHub.
 
 ## Tech Stack
