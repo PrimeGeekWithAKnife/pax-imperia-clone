@@ -99,21 +99,40 @@ export function render3DShipSprite(
 
   ensureRenderer(size);
 
-  // Remove previous ship mesh
+  // Remove previous ship group — traverse to dispose child mesh resources
   const existing = _scene!.getObjectByName('__ship');
   if (existing) {
     _scene!.remove(existing);
-    if ((existing as THREE.Mesh).geometry) (existing as THREE.Mesh).geometry.dispose();
-    if ((existing as THREE.Mesh).material) {
-      const mat = (existing as THREE.Mesh).material;
-      if (Array.isArray(mat)) mat.forEach(m => m.dispose());
-      else (mat as THREE.Material).dispose();
-    }
+    existing.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry?.dispose();
+        const mat = child.material;
+        if (Array.isArray(mat)) mat.forEach(m => m.dispose());
+        else if (mat) (mat as THREE.Material).dispose();
+      }
+    });
   }
 
   // Generate ship mesh
   const geometry = generateShipGeometry(speciesId, hullClass);
   const material = getShipMaterial(speciesId);
+
+  // Centre the geometry at origin BEFORE any mesh transforms, so that
+  // the subsequent Y rotation pivots around the ship's visual centre.
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  const centreX = (box.max.x + box.min.x) / 2;
+  const centreY = (box.max.y + box.min.y) / 2;
+  const centreZ = (box.max.z + box.min.z) / 2;
+  geometry.translate(-centreX, -centreY, -centreZ);
+
+  // Recompute bounding box after centring (now symmetric around origin)
+  geometry.computeBoundingBox();
+  const centredBox = geometry.boundingBox!;
+  const sizeX = centredBox.max.x - centredBox.min.x;
+  const sizeY = centredBox.max.y - centredBox.min.y;
+  const sizeZ = centredBox.max.z - centredBox.min.z;
+
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = '__ship';
 
@@ -121,29 +140,12 @@ export function render3DShipSprite(
   // Camera looks down from above, so we rotate around Y axis.
   mesh.rotation.y = -Math.PI / 2;
 
-  // Auto-fit: scale the ship to fill the camera frustum.
-  geometry.computeBoundingBox();
-  const box = geometry.boundingBox!;
-  const sizeX = box.max.x - box.min.x;
-  const sizeY = box.max.y - box.min.y;
-  const sizeZ = box.max.z - box.min.z;
   // After Y rotation, Z becomes X and X becomes Z in screen space.
   const screenW = sizeZ; // length becomes horizontal
   const screenH = Math.max(sizeX, sizeY); // width/height become vertical
   const maxSpan = Math.max(screenW, screenH) * 1.3; // padding
 
-  // Centre the mesh
-  const centreX = (box.max.x + box.min.x) / 2;
-  const centreY = (box.max.y + box.min.y) / 2;
-  const centreZ = (box.max.z + box.min.z) / 2;
-  mesh.position.set(-centreX, -centreY, -centreZ);
-
-  // Wrap in a group so rotation applies after centring
-  const group = new THREE.Group();
-  group.name = '__ship';
-  group.add(mesh);
-
-  _scene!.add(group);
+  _scene!.add(mesh);
 
   // Set orthographic frustum to fit the ship
   const half = maxSpan / 2;
@@ -159,8 +161,8 @@ export function render3DShipSprite(
   const dataUrl = _renderer!.domElement.toDataURL('image/png');
   _cache.set(key, dataUrl);
 
-  // Clean up geometry (material is reusable)
-  _scene!.remove(group);
+  // Clean up geometry and material
+  _scene!.remove(mesh);
   geometry.dispose();
   (material as THREE.Material).dispose();
 

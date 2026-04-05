@@ -81,10 +81,7 @@ const PROJECTILE_MIN_RADIUS = 2;
 const PROJECTILE_MAX_RADIUS = 6;
 const PROJECTILE_TRAIL_LENGTH = 3; // number of trail segments for high-damage projectiles
 
-/** Missile visual constants */
-const MISSILE_SIZE = 6;
-const MISSILE_TRAIL_LENGTH = 12;
-const MISSILE_EXHAUST_SEGMENTS = 3; // fading trail dots behind the missile
+/** Missile visual constants (per-type sizes now in MISSILE_VISUALS) */
 
 /** Fighter visual constants */
 const FIGHTER_SIZE = 5;
@@ -149,22 +146,19 @@ const MISSILE_STYLE_MAP: Record<string, MissileStyle> = {
   icbm_torpedo: 'fusion',
 };
 
-/** Per-missile-type visual properties */
+/** Per-missile-type visual properties (colours come from species palette) */
 const MISSILE_VISUALS: Record<MissileStyle, {
   size: number;
   trailLen: number;
-  bodyColor: number;
-  exhaustColor: number;
-  glowColor: number;
   glowAlpha: number;
   exhaustSegments: number;
 }> = {
-  basic:       { size: 4, trailLen: 8,  bodyColor: 0xcccccc, exhaustColor: 0x999999, glowColor: 0xdddddd, glowAlpha: 0,    exhaustSegments: 2 },
-  torpedo:     { size: 6, trailLen: 12, bodyColor: 0xcc5533, exhaustColor: 0x993322, glowColor: 0xdd6644, glowAlpha: 0,    exhaustSegments: 3 },
-  guided:      { size: 6, trailLen: 14, bodyColor: 0xffcc33, exhaustColor: 0xddaa11, glowColor: 0xffee66, glowAlpha: 0.12, exhaustSegments: 4 },
-  fusion:      { size: 8, trailLen: 18, bodyColor: 0xffaa33, exhaustColor: 0xff7711, glowColor: 0xffcc44, glowAlpha: 0.18, exhaustSegments: 4 },
-  antimatter:  { size: 8, trailLen: 16, bodyColor: 0xffccee, exhaustColor: 0xff66aa, glowColor: 0xff88cc, glowAlpha: 0.22, exhaustSegments: 4 },
-  singularity: { size: 10, trailLen: 22, bodyColor: 0xbb88ff, exhaustColor: 0x8844cc, glowColor: 0x9955ff, glowAlpha: 0.28, exhaustSegments: 5 },
+  basic:       { size: 4, trailLen: 8,  glowAlpha: 0,    exhaustSegments: 2 },
+  torpedo:     { size: 6, trailLen: 12, glowAlpha: 0,    exhaustSegments: 3 },
+  guided:      { size: 6, trailLen: 14, glowAlpha: 0.12, exhaustSegments: 4 },
+  fusion:      { size: 8, trailLen: 18, glowAlpha: 0.18, exhaustSegments: 4 },
+  antimatter:  { size: 8, trailLen: 16, glowAlpha: 0.22, exhaustSegments: 4 },
+  singularity: { size: 10, trailLen: 22, glowAlpha: 0.28, exhaustSegments: 5 },
 };
 
 /** Health bar dimensions (drawn above each ship) */
