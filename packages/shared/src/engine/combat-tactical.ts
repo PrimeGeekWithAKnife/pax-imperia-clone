@@ -1166,9 +1166,13 @@ function fighterCombatAI(
     return moveToward(updated, intercept, 0, state.environment, state.ships);
   }
 
-  // ── AGGRESSIVE stance: pursue at weapon range, never fly through ──
-  // Fighters curve to get behind the target at weapon range distance.
-  // When too close, they break perpendicular. Never ram through.
+  // ── AGGRESSIVE stance: tangent approach + orbit, never fly straight at ──
+  // Fighters ALWAYS approach on a tangent (offset to one side). They never
+  // aim directly at the target. Momentum from the tangent approach naturally
+  // curves them into an orbit at weapon range. When too close, hard break.
+  //
+  // The goal point is ALWAYS perpendicular to the target — the fighter
+  // flies PAST the target at weapon range, not TOWARD it.
   if (ship.stance === 'aggressive') {
     const d = dist(ship.position, target.position);
     const maxWeaponRange = ship.weapons.length > 0
@@ -1179,54 +1183,120 @@ function fighterCombatAI(
 
     const tvx = target.velocity?.x ?? 0;
     const tvy = target.velocity?.y ?? 0;
-    const tSpeed = Math.sqrt(tvx * tvx + tvy * tvy);
 
-    // Target orbit distance — stay at weapon range, never closer
-    const orbitDist = maxWeaponRange * 0.65;
+    // Orbit radius — sweet spot for weapon range
+    const orbitDist = maxWeaponRange * 0.7;
     let goalX: number;
     let goalY: number;
 
-    if (d > maxWeaponRange * 1.3) {
-      // FAR: interception to close the gap fast
+    // Current angle from target to fighter
+    const currentAngle = angleTo(target.position, ship.position);
+
+    // ── Separation impulse: hard velocity override when too close to ANY enemy ──
+    // This is a Reynolds separation force applied directly to velocity, not
+    // goal position. Guarantees minimum distance even with Newtonian momentum.
+    const HARD_AVOID_RADIUS = orbitDist * 1.2; // start pushing when inside this
+    const MIN_SAFE_DIST = 25; // emergency hard push at this range
+    const vx = ship.velocity?.x ?? 0;
+    const vy = ship.velocity?.y ?? 0;
+
+    let sepForceX = 0;
+    let sepForceY = 0;
+    let closestEnemyDist = Infinity;
+    let closestEnemyAngle = 0;
+    let closingOnEnemy = false;
+
+    const enemies = state.ships.filter(
+      s => s.side !== ship.side && !s.destroyed && !s.routed,
+    );
+    for (const enemy of enemies) {
+      const eDist = dist(ship.position, enemy.position);
+      if (eDist >= HARD_AVOID_RADIUS || eDist < 0.1) continue;
+
+      if (eDist < closestEnemyDist) {
+        closestEnemyDist = eDist;
+        closestEnemyAngle = angleTo(enemy.position, ship.position);
+      }
+
+      // Separation force — inverse-square, stronger when closer
+      const pushAngle = angleTo(enemy.position, ship.position);
+      const strength = ((HARD_AVOID_RADIUS - eDist) / HARD_AVOID_RADIUS) ** 2;
+      sepForceX += Math.cos(pushAngle) * strength * 8;
+      sepForceY += Math.sin(pushAngle) * strength * 8;
+
+      // Check closing rate for break turn trigger
+      const toEx = enemy.position.x - ship.position.x;
+      const toEy = enemy.position.y - ship.position.y;
+      const closingRate = eDist > 1 ? (vx * toEx + vy * toEy) / eDist : 0;
+      if (closingRate > 3) closingOnEnemy = true;
+    }
+
+    // Apply separation directly to velocity (hard override, not goal-based)
+    if (sepForceX !== 0 || sepForceY !== 0) {
+      updated = {
+        ...updated,
+        velocity: {
+          x: vx + sepForceX,
+          y: vy + sepForceY,
+        },
+      };
+    }
+
+    // Emergency: inside minimum safe distance — teleport velocity away
+    if (closestEnemyDist < MIN_SAFE_DIST && closestEnemyDist > 0.1) {
+      const escapeAngle = closestEnemyAngle;
+      updated = {
+        ...updated,
+        velocity: {
+          x: Math.cos(escapeAngle) * ship.speed * 0.8,
+          y: Math.sin(escapeAngle) * ship.speed * 0.8,
+        },
+      };
+    }
+
+    // ── Goal selection: orbit, close, or break turn ──
+    if (closingOnEnemy && closestEnemyDist < HARD_AVOID_RADIUS) {
+      // BREAK TURN: closing fast on an enemy — 90° beam turn away
+      const breakAngle = closestEnemyAngle + turnSign * Math.PI * 0.5;
+      goalX = ship.position.x + Math.cos(breakAngle) * maxWeaponRange;
+      goalY = ship.position.y + Math.sin(breakAngle) * maxWeaponRange;
+    } else if (d > maxWeaponRange * 2.0) {
+      // VERY FAR: tangent approach — aim at a point ON THE ORBIT CIRCLE,
+      // not at the target itself. This means the fighter curves in from the
+      // side rather than charging head-on.
       const intercept = computeInterceptPoint(
         ship.position, target.position, { x: tvx, y: tvy }, ship.speed,
       );
-      goalX = intercept.x;
-      goalY = intercept.y;
-    } else if (d < orbitDist * 0.6) {
-      // TOO CLOSE: break hard perpendicular — never fly through
-      const awayAngle = angleTo(target.position, ship.position);
-      const breakAngle = awayAngle + turnSign * Math.PI * 0.4;
-      goalX = ship.position.x + Math.cos(breakAngle) * maxWeaponRange;
-      goalY = ship.position.y + Math.sin(breakAngle) * maxWeaponRange;
+      const angleToIntercept = angleTo(ship.position, intercept);
+      // Offset 60° to the side — creates the tangent approach
+      const tangentAngle = angleToIntercept + turnSign * Math.PI / 3;
+      // Aim at a point on the orbit circle on the approach side
+      goalX = target.position.x + Math.cos(currentAngle + turnSign * 0.8) * orbitDist;
+      goalY = target.position.y + Math.sin(currentAngle + turnSign * 0.8) * orbitDist;
+      // Blend with the tangent direction for the actual movement
+      goalX = (goalX + ship.position.x + Math.cos(tangentAngle) * d * 0.3) / 2;
+      goalY = (goalY + ship.position.y + Math.sin(tangentAngle) * d * 0.3) / 2;
     } else {
-      // AT RANGE: orbit behind the target — pursuit curve at distance
-      if (tSpeed > 1) {
-        // Aim at a point BEHIND the target at orbit distance
-        const behindAngle = Math.atan2(-tvy, -tvx);
-        goalX = target.position.x + Math.cos(behindAngle) * orbitDist;
-        goalY = target.position.y + Math.sin(behindAngle) * orbitDist;
-        goalX += tvx * 2;
-        goalY += tvy * 2;
-      } else {
-        // Target stationary — circle it at orbit distance
-        const currentAngle = angleTo(target.position, ship.position);
-        const orbitAngle = currentAngle + turnSign * 0.3;
-        goalX = target.position.x + Math.cos(orbitAngle) * orbitDist;
-        goalY = target.position.y + Math.sin(orbitAngle) * orbitDist;
-      }
+      // IN RANGE or CLOSING: orbit — fly to a point on the circle AHEAD of
+      // current position. This creates continuous circular motion around the
+      // target. Lead the target's movement so we don't fall behind.
+      const orbitAdvance = turnSign * 0.35; // advance ~20° ahead on the circle
+      const orbitGoalAngle = currentAngle + orbitAdvance;
+      goalX = target.position.x + Math.cos(orbitGoalAngle) * orbitDist + tvx * 3;
+      goalY = target.position.y + Math.sin(orbitGoalAngle) * orbitDist + tvy * 3;
     }
 
     // Per-fighter offset to prevent stacking
     const idOffset = ((hash % 7) - 3) * 10;
-    goalX += Math.cos(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
-    goalY += Math.sin(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
+    goalX += Math.cos(currentAngle + Math.PI / 2) * idOffset;
+    goalY += Math.sin(currentAngle + Math.PI / 2) * idOffset;
 
     goalX = clamp(goalX, 40, state.battlefieldWidth - 40);
     goalY = clamp(goalY, 40, state.battlefieldHeight - 40);
 
     updated = { ...updated, fighterPhase: 'engage' as const, fighterPhaseTick: state.tick };
-    const result = moveToward(updated, { x: goalX, y: goalY }, orbitDist * 0.3, state.environment, state.ships);
+    // minDist prevents the fighter from overshooting into the target
+    const result = moveToward(updated, { x: goalX, y: goalY }, 0, state.environment, state.ships);
     result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
     result.position.y = clamp(result.position.y, -20, state.battlefieldHeight + 20);
     return result;
