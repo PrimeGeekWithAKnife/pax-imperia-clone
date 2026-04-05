@@ -3109,8 +3109,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       }
 
       // Allied ships suffer morale drop when a comrade is destroyed (not drones).
-      // Losing a capital ship is devastating; losing a fighter is sad but expected.
-      const deathImpact = ship.maxHull >= 200 ? 8 : ship.maxHull >= 80 ? 5 : 2;
+      // Impact is proportional — losing 1 of 12 battleships is routine,
+      // losing 1 of 2 is terrifying. Based on % of remaining fleet tonnage lost.
+      const alliedShips = ships.filter(s => s.side === ship.side && !s.destroyed && !s.unmanned);
+      const allyTotalHull = alliedShips.reduce((sum, s) => sum + s.maxHull, 0);
+      // What fraction of the fleet just died? Scale to a 2-10 morale hit.
+      const fractionLost = allyTotalHull > 0 ? ship.maxHull / (allyTotalHull + ship.maxHull) : 0.5;
+      const deathImpact = 2 + fractionLost * 16; // 1 of 2 = ~10, 1 of 12 = ~3
       ships = ships.map((s) => {
         if (s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.unmanned) {
           return {
