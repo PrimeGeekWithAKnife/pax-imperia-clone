@@ -62,6 +62,8 @@ import type { LobbyGalaxyConfig } from '../network/GameClient';
 import { Tooltip } from './components/Tooltip';
 import { EventLog, createLogEntry } from './components/EventLog';
 import { GalaxyMap3D } from './screens/GalaxyMap3D';
+import { Combat3D } from './screens/Combat3D';
+import type { CombatSceneData } from '../game/scenes/CombatScene';
 import { NotificationPopup } from './components/NotificationPopup';
 import type { GameLogEntry } from './components/EventLog';
 import { VictoryTracker } from './components/VictoryTracker';
@@ -237,6 +239,10 @@ export function App(): React.ReactElement {
   const [combatInstructions, setCombatInstructions] = useState<CombatInstructionsData | null>(null);
   // ── Combat summary overlay (shown after skirmish battle ends) ──
   const [combatSummary, setCombatSummary] = useState<CombatSummaryData | null>(null);
+
+  // ── Combat3D (R3F replacement for Phaser CombatScene) ──
+  const [combat3DData, setCombat3DData] = useState<CombatSceneData | null>(null);
+  const combat3DStartRef = useRef<((formation?: string, stance?: string) => void) | null>(null);
 
   // ── Tactical combat trigger dialogue ──
   const [pendingCombat, setPendingCombat] = useState<{
@@ -734,10 +740,9 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleStartSkirmish = useCallback((config: SkirmishConfig) => {
+    // Re-enable Phaser input (still needed for other scenes)
     const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as Phaser.Game | undefined;
-    if (!phaserGame) return;
-    // Re-enable Phaser input for the CombatScene
-    phaserGame.input.enabled = true;
+    if (phaserGame) phaserGame.input.enabled = true;
 
     const playerEmpireId = generateId();
     const aiEmpireId = generateId();
@@ -857,11 +862,8 @@ export function App(): React.ReactElement {
     });
 
     setCurrentScreen('game');
-    // Launch combat scene directly
-    const activeScene = phaserGame.scene.getScenes(true)[0];
-    if (activeScene) {
-      activeScene.scene.start('CombatScene', combatData);
-    }
+    // Launch Combat3D directly instead of Phaser CombatScene
+    setCombat3DData(combatData as CombatSceneData);
   }, []);
 
   // Phaser emits this to open the research screen
@@ -1378,10 +1380,7 @@ export function App(): React.ReactElement {
 
   const handleCombatEngage = useCallback(() => {
     if (!pendingCombat) return;
-    const phaserGame = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as
-      | { events: { emit: (e: string, d: unknown) => void } }
-      | undefined;
-    phaserGame?.events.emit('combat:start_tactical', pendingCombat.combatData);
+    setCombat3DData(pendingCombat.combatData as CombatSceneData);
     setPendingCombat(null);
   }, [pendingCombat]);
 
@@ -2486,8 +2485,13 @@ export function App(): React.ReactElement {
             data={combatInstructions}
             onBeginBattle={(result: CombatInstructionsResult) => {
               setCombatInstructions(null);
-              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
-              game?.events?.emit('combat:begin_battle', result);
+              if (combat3DStartRef.current) {
+                combat3DStartRef.current(result.formation, result.stance);
+              } else {
+                // Fallback for Phaser
+                const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
+                game?.events?.emit('combat:begin_battle', result);
+              }
             }}
           />
         )}
@@ -2498,6 +2502,20 @@ export function App(): React.ReactElement {
               setCombatSummary(null);
               const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
               game?.events?.emit('combat:summary_continue');
+            }}
+          />
+        )}
+        {combat3DData && (
+          <Combat3D
+            combatData={combat3DData}
+            startBattleRef={combat3DStartRef}
+            onBattleEnded={(rawState) => {
+              const engine = getGameEngine();
+              if (engine && rawState) {
+                engine.applyTacticalCombatResult(rawState as TacticalState);
+                engine.start();
+              }
+              setCombat3DData(null);
             }}
           />
         )}
@@ -2718,8 +2736,13 @@ export function App(): React.ReactElement {
           data={combatInstructions}
           onBeginBattle={(result: CombatInstructionsResult) => {
             setCombatInstructions(null);
-            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
-            game?.events?.emit('combat:begin_battle', result);
+            if (combat3DStartRef.current) {
+              combat3DStartRef.current(result.formation, result.stance);
+            } else {
+              // Fallback for Phaser
+              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
+              game?.events?.emit('combat:begin_battle', result);
+            }
           }}
         />
       )}
@@ -2745,6 +2768,22 @@ export function App(): React.ReactElement {
       )}
 
       {/* 2D/3D toggle moved to Options > Graphics — no floating button */}
+
+      {/* Combat3D — R3F tactical combat view */}
+      {combat3DData && (
+        <Combat3D
+          combatData={combat3DData}
+          startBattleRef={combat3DStartRef}
+          onBattleEnded={(rawState) => {
+            const engine = getGameEngine();
+            if (engine && rawState) {
+              engine.applyTacticalCombatResult(rawState as TacticalState);
+              engine.start();
+            }
+            setCombat3DData(null);
+          }}
+        />
+      )}
 
       {/* 3D Galaxy Map — rendered inside the ui-overlay so it layers correctly */}
       {show3DMap && (galaxy || getGameEngine()?.getState().gameState.galaxy) && (
