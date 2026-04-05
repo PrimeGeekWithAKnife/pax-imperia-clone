@@ -1137,20 +1137,37 @@ export class CombatScene extends Phaser.Scene {
       }
 
       switch (style) {
-        // ── Kinetic cannon: small white/grey fast dot, no trail ─────────────
+        // ── Kinetic cannon: bright stream of rounds toward target ────────────
         case 'kinetic': {
-          this.projectileGraphics.fillStyle(0xcccccc, 0.95);
-          this.projectileGraphics.fillCircle(px, py, Math.max(2, radius * 0.7));
+          // Trail of bright pixels behind the projectile
+          const kTrailLen = 18;
+          const kTailX = px - Math.cos(hdg) * kTrailLen;
+          const kTailY = py - Math.sin(hdg) * kTrailLen;
+          // Outer tracer glow
+          this.projectileGraphics.lineStyle(3, 0xffffcc, 0.2);
+          this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
+          // Inner bright stream
+          this.projectileGraphics.lineStyle(1.5, 0xffffff, 0.8);
+          this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
+          // Bright tip
+          this.projectileGraphics.fillStyle(0xffffff, 0.95);
+          this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
           break;
         }
 
-        // ── Fusion autocannon: rapid orange-white rounds ────────────────────
+        // ── Fusion autocannon: rapid orange-white stream ────────────────────
         case 'fusion': {
-          this.projectileGraphics.fillStyle(0xffaa44, 0.9);
-          this.projectileGraphics.fillCircle(px, py, Math.max(2, radius * 0.6));
-          // Tiny bright core
-          this.projectileGraphics.fillStyle(0xffeedd, 0.7);
-          this.projectileGraphics.fillCircle(px, py, 1);
+          const fTrailLen = 14;
+          const fTailX = px - Math.cos(hdg) * fTrailLen;
+          const fTailY = py - Math.sin(hdg) * fTrailLen;
+          // Orange tracer stream
+          this.projectileGraphics.lineStyle(2.5, 0xff8833, 0.25);
+          this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
+          this.projectileGraphics.lineStyle(1.5, 0xffcc66, 0.7);
+          this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
+          // Bright tip
+          this.projectileGraphics.fillStyle(0xffeedd, 0.9);
+          this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
           break;
         }
 

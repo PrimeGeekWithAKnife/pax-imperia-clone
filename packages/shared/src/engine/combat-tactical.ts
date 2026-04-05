@@ -24,7 +24,7 @@ import { HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 
 export const BATTLEFIELD_WIDTH = 1600;
 export const BATTLEFIELD_HEIGHT = 1000;
-export const PROJECTILE_SPEED = 8;
+export const PROJECTILE_SPEED = 16;
 
 /** Default speed for ships without an engine component. */
 const DEFAULT_SPEED = 3.0;
@@ -2567,6 +2567,29 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         y: proj.position.y + Math.sin(angle) * proj.speed,
       };
 
+      // Collateral damage — any non-target ship in the projectile's path
+      // gets hit. A stream of bullets doesn't care who walks into it.
+      for (const s of ships) {
+        if (s.id === proj.sourceShipId || s.id === target.id || s.destroyed || s.routed) continue;
+        // Check if the ship is close to the projectile's flight path
+        const toShipX = s.position.x - proj.position.x;
+        const toShipY = s.position.y - proj.position.y;
+        const projDx = newPos.x - proj.position.x;
+        const projDy = newPos.y - proj.position.y;
+        const projLen = Math.sqrt(projDx * projDx + projDy * projDy);
+        if (projLen < 1) continue;
+        // Project ship position onto the flight path
+        const t = (toShipX * projDx + toShipY * projDy) / (projLen * projLen);
+        if (t < 0 || t > 1) continue; // behind or beyond the segment
+        const closestX = proj.position.x + projDx * t;
+        const closestY = proj.position.y + projDy * t;
+        const perpDist = dist({ x: closestX, y: closestY }, s.position);
+        if (perpDist < hitRadius) {
+          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage) : sh));
+          break; // projectile consumed by collateral hit
+        }
+      }
+
       // Asteroid intercept: projectile passes through asteroid field
       const asteroidHit = segmentPassesThroughFeature(
         proj.position.x, proj.position.y,
@@ -2858,30 +2881,25 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
-      // Check range and arc — if the primary target isn't viable for
-      // this weapon, look for the best alternative that IS in arc and range.
-      // A target that's available is better than one that isn't.
-      let weaponTarget = target;
-      let weaponD = d;
-      if (weaponD > weapon.range || !isInWeaponArc(ship, weaponTarget, weapon)) {
-        // Find the best in-arc, in-range enemy for this weapon
-        let bestAlt: TacticalShip | null = null;
-        let bestAltScore = -Infinity;
-        for (const enemy of ships) {
-          if (enemy.side === ship.side || enemy.destroyed || enemy.routed) continue;
-          const ed = dist(ship.position, enemy.position);
-          if (ed > weapon.range) continue;
-          if (!isInWeaponArc(ship, enemy, weapon)) continue;
-          // Score: prefer closer, lower-HP targets
-          const score = (weapon.range - ed) + (1 - enemy.hull / enemy.maxHull) * 20;
-          if (score > bestAltScore) { bestAlt = enemy; bestAltScore = score; }
-        }
-        if (bestAlt == null) {
-          updatedWeapons.push(weapon);
-          continue;
-        }
-        weaponTarget = bestAlt;
-        weaponD = dist(ship.position, bestAlt.position);
+      // Each weapon independently picks the best available target in its
+      // arc and range. The primary target gets a bonus but a closer target
+      // passing through the arc is always preferred over waiting.
+      let weaponTarget: TacticalShip | null = null;
+      let weaponD = Infinity;
+      let bestScore = -Infinity;
+      for (const enemy of ships) {
+        if (enemy.side === ship.side || enemy.destroyed || enemy.routed) continue;
+        const ed = dist(ship.position, enemy.position);
+        if (ed > weapon.range) continue;
+        if (!isInWeaponArc(ship, enemy, weapon)) continue;
+        // Score: proximity + damage opportunity + primary target bonus
+        let score = (weapon.range - ed) + (1 - enemy.hull / enemy.maxHull) * 20;
+        if (enemy.id === target.id) score += 15; // prefer the ship's primary target
+        if (score > bestScore) { bestScore = score; weaponTarget = enemy; weaponD = ed; }
+      }
+      if (weaponTarget == null) {
+        updatedWeapons.push(weapon);
+        continue;
       }
 
       // Check ammo
