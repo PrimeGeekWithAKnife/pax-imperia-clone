@@ -1886,7 +1886,9 @@ export class CombatScene extends Phaser.Scene {
   private _showInstructions(): void {
     this.paused = true;
 
-    // Emit data for the React overlay
+    // Emit after a short delay — React needs time to mount the event listener
+    // after the scene transition. Without this, the event fires before anyone listens.
+    this.time.delayedCall(100, () => {
     this.game.events.emit('combat:show_instructions', {
       attackerName: this.sceneData.attackerName,
       defenderName: this.sceneData.defenderName,
@@ -1896,6 +1898,7 @@ export class CombatScene extends Phaser.Scene {
       defenderShipCount: this.tacticalState.ships.filter(s => s.side === 'defender').length,
       battlefieldSize: (this.sceneData as Record<string, unknown>).battlefieldSize ?? 'small',
     });
+    }); // end delayedCall
 
     // Listen for React to signal "begin battle"
     const beginHandler = () => {
