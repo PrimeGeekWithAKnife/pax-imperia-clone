@@ -14,7 +14,8 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
+import { render3DShipSprite } from '../../assets/graphics/render3DShipSprite';
+import { getSpeciesWeaponPalette } from '../../assets/graphics/speciesWeaponVisuals';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance, CrewExperience, BattlefieldSize } from '@nova-imperia/shared';
@@ -802,50 +803,33 @@ export class CombatScene extends Phaser.Scene {
       glow.fillCircle(-height / 2, 0, base * 0.6);
       container.add(glow);
 
-      // ── Ship icon from ShipGraphics (hull-class silhouette) ──────────
+      // ── Ship icon — 3D model rendered to sprite ──────────────────────
       const hullClass = this._getHullClass(ship);
-      const colorHex = ship.side === 'attacker'
-        ? this.sceneData.attackerColor
-        : this.sceneData.defenderColor;
-      const speciesId = ship.side === 'attacker'
+      const speciesId = (ship.side === 'attacker'
         ? this.sceneData.attackerSpeciesId
-        : this.sceneData.defenderSpeciesId;
-      const texKey = `ship_${hullClass}_${ship.side}_${iconPx}_${speciesId ?? 'default'}`;
+        : this.sceneData.defenderSpeciesId) ?? 'teranos';
+      const texKey = `ship3d_${hullClass}_${iconPx}_${speciesId}`;
 
-      // Render ship silhouette directly as a Phaser Graphics object
-      // (avoids async texture loading issues with addBase64/Image)
-      const shipGfx = this.add.graphics();
-      const dataUrl = renderShipIcon(hullClass, iconPx, colorHex, speciesId);
-      if (dataUrl && dataUrl.startsWith('data:')) {
-        // Use a canvas texture created from the data URL
-        const canvasKey = `canvas_${texKey}`;
-        if (!this.textures.exists(canvasKey)) {
-          const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
-          if (canvasTex) {
-            const img = new Image();
-            img.src = dataUrl;
-            img.onload = () => {
-              const ctx = canvasTex.getContext();
-              ctx.drawImage(img, 0, 0, iconPx, iconPx);
-              canvasTex.refresh();
-            };
-          }
+      // Always render 3D — every ship gets its species' procedural model
+      const dataUrl = render3DShipSprite(speciesId, hullClass, iconPx);
+      const canvasKey = `canvas_${texKey}`;
+      if (!this.textures.exists(canvasKey)) {
+        const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
+        if (canvasTex) {
+          const img = new Image();
+          img.src = dataUrl;
+          img.onload = () => {
+            const ctx = canvasTex.getContext();
+            ctx.drawImage(img, 0, 0, iconPx, iconPx);
+            canvasTex.refresh();
+          };
         }
-        const sprite = this.add.sprite(0, 0, `canvas_${texKey}`);
-        sprite.setName('shipSprite');
-        // ShipGraphics renders nose-up; combat scene faces right (+x)
-        sprite.setAngle(-90);
-        sprite.setDisplaySize(iconPx, iconPx);
-        container.add(sprite);
-      } else {
-        // Fallback: draw a simple coloured shape
-        const color = this._shipColor(ship);
-        shipGfx.fillStyle(color, 0.8);
-        shipGfx.fillRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
-        shipGfx.lineStyle(1, 0xffffff, 0.4);
-        shipGfx.strokeRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
-        container.add(shipGfx);
       }
+      const sprite = this.add.sprite(0, 0, canvasKey);
+      sprite.setName('shipSprite');
+      // 3D renders nose-right — no rotation needed
+      sprite.setDisplaySize(iconPx, iconPx);
+      container.add(sprite);
 
       // Counter-rotate text labels so they stay upright regardless of ship facing
       const textAngle = -Phaser.Math.RadToDeg(ship.facing);
@@ -896,6 +880,14 @@ export class CombatScene extends Phaser.Scene {
     const playerIsAttacker = this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
     return (playerIsAttacker && ship.side === 'attacker') ||
            (!playerIsAttacker && ship.side === 'defender');
+  }
+
+  private _getSpeciesForShip(shipId: string): string {
+    const ship = this.tacticalState.ships.find(s => s.id === shipId);
+    if (!ship) return 'teranos';
+    return (ship.side === 'attacker'
+      ? this.sceneData.attackerSpeciesId
+      : this.sceneData.defenderSpeciesId) ?? 'teranos';
   }
 
   // =========================================================================
@@ -1021,8 +1013,15 @@ export class CombatScene extends Phaser.Scene {
       const tx = target.position.x;
       const ty = target.position.y;
       const fadeAlpha = Math.max(0.3, beam.ticksRemaining / 3);
-      const friendly = this._isPlayerSide(source);
-      const tint = friendly ? BEAM_TINT_FRIENDLY : BEAM_TINT_ENEMY;
+      const speciesId = this._getSpeciesForShip(beam.sourceShipId);
+      const palette = getSpeciesWeaponPalette(speciesId);
+      const coreColor = palette.beamCore;
+      const glowColor = palette.beamGlow;
+      const tint = {
+        r: (coreColor >> 16) & 0xff,
+        g: (coreColor >> 8) & 0xff,
+        b: coreColor & 0xff,
+      };
       const style: BeamStyle = BEAM_STYLE_MAP[beam.componentId ?? ''] ?? 'pulse';
 
       // Damage-based intensity scaling: low (10) to high (55+)
@@ -1036,7 +1035,7 @@ export class CombatScene extends Phaser.Scene {
           if (!pulseOn) break;
           const width = 1.5 + intensity * 1.5; // 1.5 - 3
           const color = Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b);
-          this.beamGraphics.lineStyle(width, color, fadeAlpha * 0.9);
+          this.beamGraphics.lineStyle(width, color, fadeAlpha * 0.9 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           break;
         }
@@ -1044,27 +1043,19 @@ export class CombatScene extends Phaser.Scene {
         // ── Particle beam / Radiation ray: thick glow + thin bright core ───
         case 'particle':
         case 'radiation': {
-          const isRad = style === 'radiation';
-          const outerTint = isRad
-            ? { r: 0x88, g: 0xff, b: 0x44 } // sickly green for radiation
-            : tint;
-          const outerColor = Phaser.Display.Color.GetColor(outerTint.r, outerTint.g, outerTint.b);
-          const innerColor = isRad ? 0xccffaa : 0xffffff;
           // Fat translucent outer glow
           const outerWidth = 6 + intensity * 4; // 6 - 10
-          this.beamGraphics.lineStyle(outerWidth, outerColor, fadeAlpha * 0.25);
+          this.beamGraphics.lineStyle(outerWidth, glowColor, fadeAlpha * 0.25 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           // Thin bright inner core
           const innerWidth = 1.5 + intensity * 1;
-          this.beamGraphics.lineStyle(innerWidth, innerColor, fadeAlpha * 0.9);
+          this.beamGraphics.lineStyle(innerWidth, coreColor, fadeAlpha * 0.9 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           break;
         }
 
-        // ── Disruptor beam: jagged lightning bolt, purple tint ──────────────
+        // ── Disruptor beam: jagged lightning bolt ───────────────────────────
         case 'disruptor': {
-          const purpleOuter = 0x9944ff;
-          const purpleInner = 0xddaaff;
           // Generate zigzag segments between source and target
           const dx = tx - sx;
           const dy = ty - sy;
@@ -1073,7 +1064,7 @@ export class CombatScene extends Phaser.Scene {
           const perpX = -dy / length;
           const perpY = dx / length;
           // Outer glow path
-          this.beamGraphics.lineStyle(4 + intensity * 3, purpleOuter, fadeAlpha * 0.3);
+          this.beamGraphics.lineStyle(4 + intensity * 3, glowColor, fadeAlpha * 0.3 * palette.beamIntensity);
           this.beamGraphics.beginPath();
           this.beamGraphics.moveTo(sx, sy);
           for (let i = 1; i < segments; i++) {
@@ -1087,7 +1078,7 @@ export class CombatScene extends Phaser.Scene {
           this.beamGraphics.lineTo(tx, ty);
           this.beamGraphics.strokePath();
           // Inner bright path (same zigzag)
-          this.beamGraphics.lineStyle(1.5, purpleInner, fadeAlpha * 0.85);
+          this.beamGraphics.lineStyle(1.5, coreColor, fadeAlpha * 0.85 * palette.beamIntensity);
           this.beamGraphics.beginPath();
           this.beamGraphics.moveTo(sx, sy);
           for (let i = 1; i < segments; i++) {
@@ -1102,16 +1093,21 @@ export class CombatScene extends Phaser.Scene {
           break;
         }
 
-        // ── Plasma lance: very thick beam with orange-white fade gradient ───
+        // ── Plasma lance: very thick beam with species-coloured fade gradient
         case 'plasma': {
-          // Outermost orange glow
-          this.beamGraphics.lineStyle(12 + intensity * 6, 0xff6600, fadeAlpha * 0.15);
+          // Blend midColour between glow and core
+          const midR = (((glowColor >> 16) & 0xff) + ((coreColor >> 16) & 0xff)) >> 1;
+          const midG = (((glowColor >> 8) & 0xff) + ((coreColor >> 8) & 0xff)) >> 1;
+          const midB = ((glowColor & 0xff) + (coreColor & 0xff)) >> 1;
+          const midColor = (midR << 16) | (midG << 8) | midB;
+          // Outermost glow
+          this.beamGraphics.lineStyle(12 + intensity * 6, glowColor, fadeAlpha * 0.15 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
-          // Middle orange-yellow
-          this.beamGraphics.lineStyle(6 + intensity * 3, 0xff9933, fadeAlpha * 0.35);
+          // Middle blend
+          this.beamGraphics.lineStyle(6 + intensity * 3, midColor, fadeAlpha * 0.35 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
-          // Inner white-hot core
-          this.beamGraphics.lineStyle(2 + intensity * 1.5, 0xffffdd, fadeAlpha * 0.9);
+          // Inner hot core
+          this.beamGraphics.lineStyle(2 + intensity * 1.5, coreColor, fadeAlpha * 0.9 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           break;
         }
@@ -1129,6 +1125,10 @@ export class CombatScene extends Phaser.Scene {
       const dmgFrac = Math.min(1, proj.damage / 65);
       const radius = PROJECTILE_MIN_RADIUS + dmgFrac * (PROJECTILE_MAX_RADIUS - PROJECTILE_MIN_RADIUS);
 
+      // Species palette lookup
+      const speciesId = this._getSpeciesForShip(proj.sourceShipId);
+      const palette = getSpeciesWeaponPalette(speciesId);
+
       // Compute heading from source to target for trail direction
       const target = this.tacticalState.ships.find(s => s.id === proj.targetShipId);
       let hdg = 0;
@@ -1144,91 +1144,94 @@ export class CombatScene extends Phaser.Scene {
           const kTailX = px - Math.cos(hdg) * kTrailLen;
           const kTailY = py - Math.sin(hdg) * kTrailLen;
           // Outer tracer glow
-          this.projectileGraphics.lineStyle(3, 0xffffcc, 0.2);
+          this.projectileGraphics.lineStyle(3, palette.projectileTrail, 0.2);
           this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
           // Inner bright stream
-          this.projectileGraphics.lineStyle(1.5, 0xffffff, 0.8);
+          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.8);
           this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
           // Bright tip
-          this.projectileGraphics.fillStyle(0xffffff, 0.95);
+          this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
           this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
           break;
         }
 
-        // ── Fusion autocannon: rapid orange-white stream ────────────────────
+        // ── Fusion autocannon: rapid species-tinted stream ──────────────────
         case 'fusion': {
           const fTrailLen = 14;
           const fTailX = px - Math.cos(hdg) * fTrailLen;
           const fTailY = py - Math.sin(hdg) * fTrailLen;
-          // Orange tracer stream
-          this.projectileGraphics.lineStyle(2.5, 0xff8833, 0.25);
+          // Tracer stream
+          this.projectileGraphics.lineStyle(2.5, palette.projectileTrail, 0.25);
           this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
-          this.projectileGraphics.lineStyle(1.5, 0xffcc66, 0.7);
+          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.7);
           this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
           // Bright tip
-          this.projectileGraphics.fillStyle(0xffeedd, 0.9);
+          this.projectileGraphics.fillStyle(palette.projectileCore, 0.9);
           this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
           break;
         }
 
-        // ── Mass driver: blue-white dot with short trail ────────────────────
+        // ── Mass driver: dot with short trail ───────────────────────────────
         case 'mass_driver': {
           // Short trail behind
           const trailLen = 10;
           const tailX = px - Math.cos(hdg) * trailLen;
           const tailY = py - Math.sin(hdg) * trailLen;
-          this.projectileGraphics.lineStyle(2, 0x88bbff, 0.3);
+          this.projectileGraphics.lineStyle(2, palette.projectileTrail, 0.3);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Bright dot
-          this.projectileGraphics.fillStyle(0xaaccff, 0.95);
+          this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
           this.projectileGraphics.fillCircle(px, py, radius);
-          // White core
+          // Core highlight
           this.projectileGraphics.fillStyle(0xffffff, 0.6);
           this.projectileGraphics.fillCircle(px, py, radius * 0.4);
           break;
         }
 
-        // ── Gauss cannon: bright blue elongated streak ──────────────────────
+        // ── Gauss cannon: elongated streak ──────────────────────────────────
         case 'gauss': {
           const streakLen = 14;
           const tailX = px - Math.cos(hdg) * streakLen;
           const tailY = py - Math.sin(hdg) * streakLen;
           // Outer glow streak
-          this.projectileGraphics.lineStyle(4, 0x4488ff, 0.3);
+          this.projectileGraphics.lineStyle(4, palette.projectileTrail, 0.3);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Inner bright streak
-          this.projectileGraphics.lineStyle(2, 0x88ccff, 0.9);
+          this.projectileGraphics.lineStyle(2, palette.projectileCore, 0.9);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Bright tip
-          this.projectileGraphics.fillStyle(0xccddff, 0.95);
+          this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
           this.projectileGraphics.fillCircle(px, py, 2.5);
           break;
         }
 
-        // ── Battering ram: big solid grey chunk ─────────────────────────────
+        // ── Battering ram: big solid chunk ──────────────────────────────────
         case 'battering_ram': {
-          this.projectileGraphics.fillStyle(0x999999, 0.95);
+          this.projectileGraphics.fillStyle(palette.projectileTrail, 0.95);
           this.projectileGraphics.fillCircle(px, py, radius * 1.3);
-          this.projectileGraphics.fillStyle(0xbbbbbb, 0.5);
+          this.projectileGraphics.fillStyle(palette.projectileCore, 0.5);
           this.projectileGraphics.fillCircle(px, py, radius * 0.6);
           break;
         }
 
-        // ── Antimatter accelerator: glowing purple-white with particle trail
+        // ── Antimatter accelerator: glowing with particle trail, tinted toward species
         case 'antimatter': {
+          // Blend species trail with purple undertone for antimatter character
+          const amTrail = palette.projectileTrail;
+          const amCore = palette.projectileCore;
           // Trailing glow particles
           for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH; i++) {
             const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 1);
             const trailX = px - Math.cos(hdg) * (i * 6);
             const trailY = py - Math.sin(hdg) * (i * 6);
-            this.projectileGraphics.fillStyle(0xaa66ff, 0.4 * (1 - tFrac));
+            this.projectileGraphics.fillStyle(amTrail, 0.4 * (1 - tFrac));
             this.projectileGraphics.fillCircle(trailX, trailY, radius * (1 - tFrac * 0.5));
           }
           // Outer glow
-          this.projectileGraphics.fillStyle(0x8844cc, 0.3);
+          this.projectileGraphics.fillStyle(amTrail, 0.3);
           this.projectileGraphics.fillCircle(px, py, radius * 1.8);
           // Bright core
-          this.projectileGraphics.fillStyle(0xddaaff, 0.95);
+          this.projectileGraphics.fillStyle(amCore, 0.95);
           this.projectileGraphics.fillCircle(px, py, radius);
           // White-hot centre
           this.projectileGraphics.fillStyle(0xffffff, 0.7);
@@ -1236,27 +1239,29 @@ export class CombatScene extends Phaser.Scene {
           break;
         }
 
-        // ── Singularity driver: distortion ring + dark core ─────────────────
+        // ── Singularity driver: distortion ring + dark core, species-tinted rings
         case 'singularity': {
+          const sgTrail = palette.projectileTrail;
+          const sgCore = palette.projectileCore;
           // Trailing distortion particles
           for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH; i++) {
             const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 1);
             const trailX = px - Math.cos(hdg) * (i * 7);
             const trailY = py - Math.sin(hdg) * (i * 7);
-            this.projectileGraphics.fillStyle(0x6622aa, 0.3 * (1 - tFrac));
+            this.projectileGraphics.fillStyle(sgTrail, 0.3 * (1 - tFrac));
             this.projectileGraphics.fillCircle(trailX, trailY, radius * 0.8 * (1 - tFrac * 0.4));
           }
           // Outer gravitational distortion ring
-          this.projectileGraphics.lineStyle(2, 0x9955ff, 0.4);
+          this.projectileGraphics.lineStyle(2, sgTrail, 0.4);
           this.projectileGraphics.strokeCircle(px, py, radius * 2.2);
           // Inner ring
-          this.projectileGraphics.lineStyle(1.5, 0xbb88ff, 0.5);
+          this.projectileGraphics.lineStyle(1.5, sgCore, 0.5);
           this.projectileGraphics.strokeCircle(px, py, radius * 1.4);
           // Dark core (the singularity itself)
           this.projectileGraphics.fillStyle(0x110022, 0.95);
           this.projectileGraphics.fillCircle(px, py, radius * 0.8);
           // Bright accretion ring highlight
-          this.projectileGraphics.fillStyle(0xddaaff, 0.6);
+          this.projectileGraphics.fillStyle(sgCore, 0.6);
           this.projectileGraphics.fillCircle(px, py, radius * 0.3);
           break;
         }
@@ -1284,7 +1289,14 @@ export class CombatScene extends Phaser.Scene {
       // Look up per-type visual style via componentId
       const mStyle: MissileStyle = MISSILE_STYLE_MAP[missile.componentId ?? ''] ?? 'torpedo';
       const vis = MISSILE_VISUALS[mStyle];
-      const { size, trailLen, bodyColor, exhaustColor, glowColor, glowAlpha, exhaustSegments } = vis;
+      const { size, trailLen, glowAlpha, exhaustSegments } = vis;
+
+      // Species palette overrides for colours
+      const speciesId = this._getSpeciesForShip(missile.sourceShipId);
+      const palette = getSpeciesWeaponPalette(speciesId);
+      const bodyColor = palette.missileBody;
+      const exhaustColor = palette.missileExhaust;
+      const glowColor = palette.missileGlow;
 
       const cos = Math.cos(heading);
       const sin = Math.sin(heading);
@@ -1315,7 +1327,7 @@ export class CombatScene extends Phaser.Scene {
       if (mStyle === 'singularity') {
         const warpPhase = (Date.now() % 400) / 400;
         const warpR = size * (1.0 + warpPhase * 0.8);
-        this.missileGraphics.lineStyle(1, 0xaa66ff, 0.3 * (1 - warpPhase));
+        this.missileGraphics.lineStyle(1, glowColor, 0.3 * (1 - warpPhase));
         this.missileGraphics.strokeCircle(missile.x, missile.y, warpR);
       }
 
@@ -1359,6 +1371,11 @@ export class CombatScene extends Phaser.Scene {
       const nx = dx / lineLen;
       const ny = dy / lineLen;
 
+      // Species palette lookup for tracer colour
+      const speciesId = this._getSpeciesForShip(pd.shipId);
+      const palette = getSpeciesWeaponPalette(speciesId);
+      const tracerColor = palette.pdTracer;
+
       // ── Tracer rounds along the line ─────────────────────────────────────
       // Animated dots that stream from ship to intercept point
       const tick = this.tacticalState.tick;
@@ -1367,7 +1384,7 @@ export class CombatScene extends Phaser.Scene {
         const tx = ship.position.x + dx * t;
         const ty = ship.position.y + dy * t;
         const tracerAlpha = alpha * (0.5 + t * 0.5); // brighter near target
-        this.pdGraphics.fillStyle(PD_TRACER_COLOR, tracerAlpha);
+        this.pdGraphics.fillStyle(tracerColor, tracerAlpha);
         this.pdGraphics.fillCircle(tx, ty, 1.5);
       }
 
@@ -1390,17 +1407,17 @@ export class CombatScene extends Phaser.Scene {
         const angle = (i / spokes) * Math.PI * 2 + tick * 0.3;
         const tipX = pd.missileX + Math.cos(angle) * r;
         const tipY = pd.missileY + Math.sin(angle) * r;
-        this.pdGraphics.lineStyle(1, PD_TRACER_COLOR, burstAlpha * 0.8);
+        this.pdGraphics.lineStyle(1, tracerColor, burstAlpha * 0.8);
         this.pdGraphics.lineBetween(pd.missileX, pd.missileY, tipX, tipY);
       }
       // Outer ring flash
-      this.pdGraphics.lineStyle(1, 0xffee66, burstAlpha * 0.5);
+      this.pdGraphics.lineStyle(1, tracerColor, burstAlpha * 0.5);
       this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r * 1.2);
       // Debris scatter dots
       for (let i = 0; i < 4; i++) {
         const debrisAngle = Math.random() * Math.PI * 2;
         const debrisDist = r * (0.5 + Math.random());
-        this.pdGraphics.fillStyle(0xff8844, burstAlpha * 0.6);
+        this.pdGraphics.fillStyle(tracerColor, burstAlpha * 0.6);
         this.pdGraphics.fillCircle(
           pd.missileX + Math.cos(debrisAngle) * debrisDist,
           pd.missileY + Math.sin(debrisAngle) * debrisDist,
@@ -1495,8 +1512,12 @@ export class CombatScene extends Phaser.Scene {
       this.fighterGraphics.closePath();
       this.fighterGraphics.fillPath();
 
-      // Tiny engine glow at the rear
-      this.fighterGraphics.fillStyle(0xffaa44, 0.5);
+      // Tiny engine glow at the rear — species-coloured
+      const fighterSpeciesId = (fighter.side === 'attacker'
+        ? this.sceneData.attackerSpeciesId
+        : this.sceneData.defenderSpeciesId) ?? 'teranos';
+      const fighterPalette = getSpeciesWeaponPalette(fighterSpeciesId);
+      this.fighterGraphics.fillStyle(fighterPalette.engineGlow, 0.5);
       this.fighterGraphics.fillCircle(rearX, rearY, 1.5);
     }
   }
