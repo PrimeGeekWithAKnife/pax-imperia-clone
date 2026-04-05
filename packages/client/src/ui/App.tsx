@@ -41,7 +41,9 @@ import { FleetScreen } from './screens/FleetScreen';
 import { BattleResultsScreen } from './screens/BattleResultsScreen';
 import type { BattleResultsData } from './screens/BattleResultsScreen';
 import { CombatInstructionsOverlay } from './screens/CombatInstructionsOverlay';
-import type { CombatInstructionsData } from './screens/CombatInstructionsOverlay';
+import type { CombatInstructionsData, CombatInstructionsResult } from './screens/CombatInstructionsOverlay';
+import { CombatSummaryOverlay } from './screens/CombatSummaryOverlay';
+import type { CombatSummaryData } from './screens/CombatSummaryOverlay';
 import { CombatTriggerDialog } from './screens/CombatTriggerDialog';
 import { OccupationDialog, getAllowedPolicies } from './screens/OccupationDialog';
 import type { OccupationPolicy } from './screens/OccupationDialog';
@@ -233,6 +235,8 @@ export function App(): React.ReactElement {
 
   // ── Combat instructions overlay (shown before battle begins) ──
   const [combatInstructions, setCombatInstructions] = useState<CombatInstructionsData | null>(null);
+  // ── Combat summary overlay (shown after skirmish battle ends) ──
+  const [combatSummary, setCombatSummary] = useState<CombatSummaryData | null>(null);
 
   // ── Tactical combat trigger dialogue ──
   const [pendingCombat, setPendingCombat] = useState<{
@@ -1808,6 +1812,9 @@ export function App(): React.ReactElement {
   }, []));
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
+  useGameEvent<CombatSummaryData>('combat:show_summary', useCallback((data: CombatSummaryData) => {
+    setCombatSummary(data);
+  }, []));
   useGameEvent<unknown>('engine:combat_pending', handleCombatPending);
   useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
   useGameEvent<unknown>('ground_combat:complete', handleGroundCombatComplete);
@@ -2477,10 +2484,20 @@ export function App(): React.ReactElement {
         {combatInstructions !== null && (
           <CombatInstructionsOverlay
             data={combatInstructions}
-            onBeginBattle={() => {
+            onBeginBattle={(result: CombatInstructionsResult) => {
               setCombatInstructions(null);
+              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
+              game?.events?.emit('combat:begin_battle', result);
+            }}
+          />
+        )}
+        {combatSummary !== null && (
+          <CombatSummaryOverlay
+            data={combatSummary}
+            onContinue={() => {
+              setCombatSummary(null);
               const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
-              game?.events?.emit('combat:begin_battle');
+              game?.events?.emit('combat:summary_continue');
             }}
           />
         )}
@@ -2699,10 +2716,10 @@ export function App(): React.ReactElement {
       {combatInstructions !== null && (
         <CombatInstructionsOverlay
           data={combatInstructions}
-          onBeginBattle={() => {
+          onBeginBattle={(result: CombatInstructionsResult) => {
             setCombatInstructions(null);
-            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
-            game?.events?.emit('combat:begin_battle');
+            const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string, d?: unknown) => void } } | undefined;
+            game?.events?.emit('combat:begin_battle', result);
           }}
         />
       )}

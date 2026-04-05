@@ -1887,9 +1887,17 @@ export class CombatScene extends Phaser.Scene {
     this.paused = true;
 
     // React shows the instructions overlay directly (set in handleStartSkirmish).
-    // Wait for React to signal "begin battle" before unpausing.
-    const beginHandler = () => {
+    // Wait for React to signal "begin battle" with formation/stance choices.
+    const beginHandler = (_data: unknown) => {
       this.game.events.off('combat:begin_battle', beginHandler);
+      // Apply formation and stance from the overlay
+      const result = _data as { formation?: string; stance?: string } | undefined;
+      if (result?.formation) {
+        this.tacticalState = setFormation(this.tacticalState, 'attacker', result.formation as 'line' | 'spearhead' | 'diamond' | 'wings');
+      }
+      if (result?.stance) {
+        this.tacticalState = setShipStance(this.tacticalState, 'attacker', result.stance as 'aggressive' | 'defensive' | 'at_ease' | 'evasive');
+      }
       this.paused = false;
       if (this.tickTimer) this.tickTimer.paused = false;
     };
@@ -2616,21 +2624,58 @@ export class CombatScene extends Phaser.Scene {
   // =========================================================================
 
   private _showBattleSummary(): void {
-    // Divide screen coords by zoom so overlay renders at screen-pixel size
-    const z = this.cameras.main.zoom;
-    const width = this.scale.width / z;
-    const height = this.scale.height / z;
-    const allElements: Phaser.GameObjects.GameObject[] = [];
-
     const playerIsAttacker =
       this.sceneData.attackerFleet.empireId === this.sceneData.playerEmpireId;
     const playerWon = playerIsAttacker
       ? this.tacticalState.outcome === 'attacker_wins'
       : this.tacticalState.outcome === 'defender_wins';
 
-    // --- Classify ships by side ---
     const playerShips = this.tacticalState.ships.filter(s => this._isPlayerSide(s));
     const enemyShips = this.tacticalState.ships.filter(s => !this._isPlayerSide(s));
+
+    const mapShip = (s: TacticalShip) => ({
+      name: s.name,
+      hull: '',
+      status: s.destroyed ? 'destroyed' as const : (s.routed || s.stance === 'flee') ? 'fled' as const : 'survived' as const,
+      hullPercent: Math.round((s.hull / s.maxHull) * 100),
+    });
+
+    const outcome = playerWon ? 'victory' as const
+      : this.tacticalState.outcome === null ? 'draw' as const : 'defeat' as const;
+
+    // Emit for React overlay — same pattern as instructions
+    const summaryData = {
+      outcome,
+      attackerName: this.sceneData.attackerName,
+      defenderName: this.sceneData.defenderName,
+      attackerColor: this.sceneData.attackerColor,
+      defenderColor: this.sceneData.defenderColor,
+      playerShips: playerShips.map(mapShip),
+      enemyShips: enemyShips.map(mapShip),
+      ticksElapsed: this.tacticalState.tick,
+    };
+
+    // Retry emit like instructions — React may need time to register
+    const retryTimer = this.time.addEvent({
+      delay: 150, repeat: 10,
+      callback: () => this.game.events.emit('combat:show_summary', summaryData),
+    });
+
+    // Listen for React to signal "continue"
+    const continueHandler = () => {
+      this.game.events.off('combat:summary_continue', continueHandler);
+      retryTimer.remove();
+      // Return to main menu for skirmish, or emit tactical_complete for campaign
+      if ((this.sceneData as Record<string, unknown>).isSkirmish) {
+        this.scene.start((this.sceneData as Record<string, unknown>).returnScene as string ?? 'MainMenuScene');
+      } else {
+        this.game.events.emit('combat:tactical_complete', this.tacticalState);
+      }
+    };
+    this.game.events.on('combat:summary_continue', continueHandler);
+    return;
+
+    // ── Legacy Phaser summary below (not executed) ──
     const playerSurvived = playerShips.filter(s => !s.destroyed && !s.routed);
     const playerDestroyed = playerShips.filter(s => s.destroyed);
     const enemySurvived = enemyShips.filter(s => !s.destroyed && !s.routed);

@@ -8522,6 +8522,112 @@
   margin: 4px 0 0;
 }
 
+.combat-instructions-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.combat-instructions-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.combat-instructions-option:hover {
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.combat-instructions-option--active {
+  background: rgba(0, 212, 255, 0.12);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.combat-instructions-option strong {
+  color: inherit;
+  min-width: 90px;
+}
+
+.combat-instructions-option span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.combat-instructions-controls {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.combat-instructions-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.combat-instructions-controls-grid strong {
+  color: var(--color-text);
+}
+
+/* ── Combat Summary (post-battle) ── */
+
+.combat-summary-subtitle {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 20px;
+}
+
+.combat-summary-victory { color: #55dd88 !important; text-shadow: 0 0 12px rgba(85, 221, 136, 0.4); }
+.combat-summary-defeat { color: #ee4444 !important; text-shadow: 0 0 12px rgba(238, 68, 68, 0.4); }
+.combat-summary-draw { color: #ddaa33 !important; text-shadow: none; }
+
+.combat-summary-ships {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.combat-summary-ship {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.combat-summary-ship--survived { color: #55dd88; }
+.combat-summary-ship--destroyed { color: #ee4444; opacity: 0.7; }
+.combat-summary-ship--fled { color: #ddaa33; }
+
+.combat-summary-ship-name { flex: 1; }
+.combat-summary-ship-hull { color: #55dd88; }
+.combat-summary-ship-status { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.combat-summary-ship-fled { color: #ddaa33; }
+
+.combat-summary-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 /* ================================================================
    BATTLE RESULTS SCREEN
 ================================================================ */

@@ -1,8 +1,7 @@
 /**
  * CombatInstructionsOverlay — full-screen HTML overlay shown before combat begins.
- * Replaces the in-engine Phaser text panel with a crisp, zoom-independent overlay.
  */
-import React, { useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export interface CombatInstructionsData {
   attackerName: string;
@@ -14,26 +13,47 @@ export interface CombatInstructionsData {
   battlefieldSize: string;
 }
 
+export interface CombatInstructionsResult {
+  formation: string;
+  stance: string;
+}
+
 export interface CombatInstructionsProps {
   data: CombatInstructionsData;
-  onBeginBattle: () => void;
+  onBeginBattle: (result: CombatInstructionsResult) => void;
 }
+
+const FORMATIONS = [
+  { key: 'line', label: 'Line', desc: 'Ships in a row — all guns forward' },
+  { key: 'spearhead', label: 'Spearhead', desc: 'Arrow formation — fast ships lead' },
+  { key: 'diamond', label: 'Diamond', desc: 'Balanced — centre protected' },
+  { key: 'wings', label: 'Wings', desc: 'Flanking — envelop the enemy' },
+];
+
+const STANCES = [
+  { key: 'aggressive', label: 'Aggressive', desc: 'Close and engage' },
+  { key: 'defensive', label: 'Defensive', desc: 'Hold position, return fire' },
+  { key: 'at_ease', label: 'At Ease', desc: 'Captain\'s judgement' },
+  { key: 'evasive', label: 'Evasive', desc: 'Maintain distance, kite' },
+];
 
 export function CombatInstructionsOverlay({
   data,
   onBeginBattle,
 }: CombatInstructionsProps): React.ReactElement {
+  const [formation, setFormation] = useState('line');
+  const [stance, setStance] = useState('aggressive');
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        onBeginBattle();
+        onBeginBattle({ formation, stance });
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onBeginBattle]);
+  }, [onBeginBattle, formation, stance]);
 
   return (
     <div className="combat-instructions-overlay">
@@ -58,32 +78,52 @@ export function CombatInstructionsOverlay({
 
         <div className="combat-instructions-columns">
           <div className="combat-instructions-col">
-            <h2 className="combat-instructions-heading">CONTROLS</h2>
-            <ul className="combat-instructions-list">
-              <li><strong>Left-click</strong> — select ship</li>
-              <li><strong>Ctrl+A</strong> — select all</li>
-              <li><strong>Right-click</strong> — attack/move</li>
-              <li><strong>Shift+Right</strong> — attack-move</li>
-              <li><strong>Scroll</strong> — zoom in/out</li>
-              <li><strong>Middle drag / Shift+drag</strong> — pan camera</li>
-              <li><strong>Space</strong> — pause/resume</li>
-            </ul>
+            <h2 className="combat-instructions-heading">FORMATION</h2>
+            <div className="combat-instructions-options">
+              {FORMATIONS.map(f => (
+                <button
+                  key={f.key}
+                  className={`combat-instructions-option ${formation === f.key ? 'combat-instructions-option--active' : ''}`}
+                  onClick={() => setFormation(f.key)}
+                >
+                  <strong>{f.label}</strong>
+                  <span>{f.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="combat-instructions-col">
-            <h2 className="combat-instructions-heading">TIPS</h2>
-            <ul className="combat-instructions-list">
-              <li>Ships obey their <strong>stance</strong> — aggressive, defensive, at ease, evasive</li>
-              <li>Use <strong>formations</strong> to position your fleet</li>
-              <li>Ships that enter the <strong>flee zone</strong> will leave the battle</li>
-              <li>Unmanned craft (drones) fight to destruction</li>
-              <li>Map size: <strong>{data.battlefieldSize}</strong></li>
-            </ul>
+            <h2 className="combat-instructions-heading">STANCE</h2>
+            <div className="combat-instructions-options">
+              {STANCES.map(s => (
+                <button
+                  key={s.key}
+                  className={`combat-instructions-option ${stance === s.key ? 'combat-instructions-option--active' : ''}`}
+                  onClick={() => setStance(s.key)}
+                >
+                  <strong>{s.label}</strong>
+                  <span>{s.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="combat-instructions-controls">
+          <h2 className="combat-instructions-heading">CONTROLS</h2>
+          <div className="combat-instructions-controls-grid">
+            <span><strong>Left-click</strong> select</span>
+            <span><strong>Ctrl+A</strong> select all</span>
+            <span><strong>Right-click</strong> attack/move</span>
+            <span><strong>Scroll</strong> zoom</span>
+            <span><strong>Middle-drag</strong> pan</span>
+            <span><strong>Space</strong> pause</span>
           </div>
         </div>
 
         <button
           className="combat-instructions-begin"
-          onClick={onBeginBattle}
+          onClick={() => onBeginBattle({ formation, stance })}
           autoFocus
         >
           BEGIN BATTLE
