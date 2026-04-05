@@ -64,12 +64,12 @@ function shipSizeFromHull(maxHull: number): { base: number; height: number } {
   return SHIP_SIZE_LARGE;
 }
 
-/** Icon render size per hull category (pixels). */
+/** Icon render size per hull category (pixels). Larger = more visible 3D detail. */
 function iconSizeFromHull(maxHull: number): number {
-  if (maxHull < 60) return 28;
-  if (maxHull < 200) return 40;
-  if (maxHull < 400) return 56;
-  return 72;
+  if (maxHull < 60) return 48;
+  if (maxHull < 200) return 64;
+  if (maxHull < 400) return 80;
+  return 96;
 }
 
 const SELECTION_RING_RADIUS = 24;
@@ -1520,7 +1520,9 @@ export class CombatScene extends Phaser.Scene {
     const features = this.tacticalState.environment ?? [];
     for (const f of features) {
       if (f.type === 'asteroid') {
-        this._drawAsteroid(f.x, f.y, f.radius);
+        // Cap visual radius so asteroids don't dominate the battlefield
+        const asteroidR = Math.min(f.radius, 35);
+        this._drawAsteroid(f.x, f.y, asteroidR);
       } else if (f.type === 'nebula') {
         this.environmentGraphics.fillStyle(NEBULA_COLOR, NEBULA_ALPHA);
         this.environmentGraphics.fillCircle(f.x, f.y, f.radius);

@@ -27,11 +27,15 @@ function cacheKey(speciesId: string, hullClass: HullClass, size: number): string
   return `${speciesId}:${hullClass}:${size}`;
 }
 
+/** Internal render resolution multiplier — render at higher res for crisp detail. */
+const SUPERSAMPLE = 2;
+
 function ensureRenderer(size: number): void {
+  const renderSize = size * SUPERSAMPLE;
   if (!_renderer) {
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = renderSize;
+    canvas.height = renderSize;
     _renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: true,
@@ -40,40 +44,43 @@ function ensureRenderer(size: number): void {
     });
     _renderer.setClearColor(0x000000, 0);
     _renderer.setPixelRatio(1);
+    // Better colour output for ship materials
+    _renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    _renderer.toneMappingExposure = 1.4;
 
     _scene = new THREE.Scene();
 
-    // Orthographic camera for consistent scale across hull classes.
-    // Frustum is set per-render based on the ship's bounding box.
+    // Orthographic camera — frustum set per-render based on bounding box.
     _camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 200);
-    // 3/4 top-down view — slightly from above and behind
-    _camera.position.set(0, 12, 6);
+    // Shallow 3/4 view (30° from horizontal) to show hull profile, not just the top.
+    // Camera positioned to the upper-right so detail (turrets, engines, nacelles) is visible.
+    _camera.position.set(4, 6, 10);
     _camera.lookAt(0, 0, 0);
 
-    // ── Lighting ───────────────────────────────────────────────────────
-    // Key light — warm white from upper-right
-    const key = new THREE.DirectionalLight(0xfff8f0, 1.4);
-    key.position.set(8, 12, 6);
+    // ── Lighting — strong contrast to reveal 3D detail ────────────────
+    // Key light — bright from upper-right-front, casting strong shadows
+    const key = new THREE.DirectionalLight(0xffffff, 2.0);
+    key.position.set(6, 8, 10);
     _scene.add(key);
 
-    // Fill light — cool blue from left (simulates ambient space light)
-    const fill = new THREE.DirectionalLight(0x6688cc, 0.5);
-    fill.position.set(-6, 4, -2);
+    // Fill light — cool blue from lower-left (space ambient)
+    const fill = new THREE.DirectionalLight(0x4466aa, 0.8);
+    fill.position.set(-8, -2, -4);
     _scene.add(fill);
 
-    // Rim light — highlights the silhouette edge
-    const rim = new THREE.DirectionalLight(0x88aaff, 0.3);
-    rim.position.set(0, -4, -8);
+    // Rim/back light — highlights silhouette edges against dark space
+    const rim = new THREE.DirectionalLight(0x6688cc, 0.6);
+    rim.position.set(-2, 4, -10);
     _scene.add(rim);
 
-    // Ambient — keeps shadow areas from going fully black
-    const ambient = new THREE.AmbientLight(0x303050, 0.6);
+    // Ambient — low so shadows have contrast
+    const ambient = new THREE.AmbientLight(0x202040, 0.4);
     _scene.add(ambient);
   }
 
-  if (_lastSize !== size) {
-    _renderer.setSize(size, size);
-    _lastSize = size;
+  if (_lastSize !== renderSize) {
+    _renderer.setSize(renderSize, renderSize);
+    _lastSize = renderSize;
   }
 }
 
@@ -155,10 +162,27 @@ export function render3DShipSprite(
   _camera!.bottom = -half;
   _camera!.updateProjectionMatrix();
 
-  // Render
+  // Render at supersample resolution
   _renderer!.render(_scene!, _camera!);
 
-  const dataUrl = _renderer!.domElement.toDataURL('image/png');
+  // Downsample to requested size for crisp anti-aliased result
+  let dataUrl: string;
+  if (SUPERSAMPLE > 1) {
+    const downCanvas = document.createElement('canvas');
+    downCanvas.width = size;
+    downCanvas.height = size;
+    const ctx = downCanvas.getContext('2d');
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(_renderer!.domElement, 0, 0, size, size);
+      dataUrl = downCanvas.toDataURL('image/png');
+    } else {
+      dataUrl = _renderer!.domElement.toDataURL('image/png');
+    }
+  } else {
+    dataUrl = _renderer!.domElement.toDataURL('image/png');
+  }
   _cache.set(key, dataUrl);
 
   // Clean up geometry and material
