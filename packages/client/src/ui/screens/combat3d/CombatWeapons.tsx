@@ -740,7 +740,7 @@ function MissileEffects({
         args={[undefined, undefined, MAX_MISSILES]}
         frustumCulled={false}
       >
-        <capsuleGeometry args={[0.15, 0.8, 4, 8]} />
+        <capsuleGeometry args={[0.08, 0.35, 3, 6]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
       <group ref={trailGroupRef} />

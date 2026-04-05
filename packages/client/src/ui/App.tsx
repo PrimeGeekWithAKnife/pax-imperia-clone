@@ -2519,9 +2519,48 @@ export function App(): React.ReactElement {
             combatData={combat3DData}
             startBattleRef={combat3DStartRef}
             onBattleEnded={(rawState) => {
+              const state = rawState as TacticalState;
+              const cd = combat3DData;
+              const playerIsAttacker = cd.attackerFleet.empireId === cd.playerEmpireId;
+              const playerSide = playerIsAttacker ? 'attacker' : 'defender';
+
+              // Build summary for the overlay
+              const playerShips = state.ships
+                .filter(s => s.side === playerSide)
+                .map(s => ({
+                  name: s.name,
+                  hull: s.hullClass?.replace(/_/g, ' ') ?? 'ship',
+                  status: (s.destroyed ? 'destroyed' : s.routed ? 'fled' : 'survived') as 'survived' | 'destroyed' | 'fled',
+                  hullPercent: s.maxHull > 0 ? Math.round((s.hull / s.maxHull) * 100) : 0,
+                }));
+              const enemyShips = state.ships
+                .filter(s => s.side !== playerSide)
+                .map(s => ({
+                  name: s.name,
+                  hull: s.hullClass?.replace(/_/g, ' ') ?? 'ship',
+                  status: (s.destroyed ? 'destroyed' : s.routed ? 'fled' : 'survived') as 'survived' | 'destroyed' | 'fled',
+                  hullPercent: s.maxHull > 0 ? Math.round((s.hull / s.maxHull) * 100) : 0,
+                }));
+
+              const outcome: 'victory' | 'defeat' | 'draw' =
+                state.outcome === playerSide ? 'victory'
+                : state.outcome === 'draw' ? 'draw'
+                : 'defeat';
+
+              setCombatSummary({
+                outcome,
+                attackerName: cd.attackerName,
+                defenderName: cd.defenderName,
+                attackerColor: cd.attackerColor,
+                defenderColor: cd.defenderColor,
+                playerShips,
+                enemyShips,
+                ticksElapsed: state.tick,
+              });
+
               const engine = getGameEngine();
               if (engine && rawState) {
-                engine.applyTacticalCombatResult(rawState as TacticalState);
+                engine.applyTacticalCombatResult(state);
                 engine.start();
               }
               setCombat3DData(null);
@@ -2784,9 +2823,47 @@ export function App(): React.ReactElement {
           combatData={combat3DData}
           startBattleRef={combat3DStartRef}
           onBattleEnded={(rawState) => {
+            const state = rawState as TacticalState;
+            const cd = combat3DData;
+            const playerIsAttacker = cd.attackerFleet.empireId === cd.playerEmpireId;
+            const playerSide = playerIsAttacker ? 'attacker' : 'defender';
+
+            const playerShips = state.ships
+              .filter(s => s.side === playerSide)
+              .map(s => ({
+                name: s.name,
+                hull: s.hullClass?.replace(/_/g, ' ') ?? 'ship',
+                status: (s.destroyed ? 'destroyed' : s.routed ? 'fled' : 'survived') as 'survived' | 'destroyed' | 'fled',
+                hullPercent: s.maxHull > 0 ? Math.round((s.hull / s.maxHull) * 100) : 0,
+              }));
+            const enemyShips = state.ships
+              .filter(s => s.side !== playerSide)
+              .map(s => ({
+                name: s.name,
+                hull: s.hullClass?.replace(/_/g, ' ') ?? 'ship',
+                status: (s.destroyed ? 'destroyed' : s.routed ? 'fled' : 'survived') as 'survived' | 'destroyed' | 'fled',
+                hullPercent: s.maxHull > 0 ? Math.round((s.hull / s.maxHull) * 100) : 0,
+              }));
+
+            const outcome: 'victory' | 'defeat' | 'draw' =
+              state.outcome === playerSide ? 'victory'
+              : state.outcome === 'draw' ? 'draw'
+              : 'defeat';
+
+            setCombatSummary({
+              outcome,
+              attackerName: cd.attackerName,
+              defenderName: cd.defenderName,
+              attackerColor: cd.attackerColor,
+              defenderColor: cd.defenderColor,
+              playerShips,
+              enemyShips,
+              ticksElapsed: state.tick,
+            });
+
             const engine = getGameEngine();
             if (engine && rawState) {
-              engine.applyTacticalCombatResult(rawState as TacticalState);
+              engine.applyTacticalCombatResult(state);
               engine.start();
             }
             setCombat3DData(null);
