@@ -283,8 +283,13 @@ export class CombatScene extends Phaser.Scene {
   private fighterGraphics!: Phaser.GameObjects.Graphics;
   private escapePodGraphics!: Phaser.GameObjects.Graphics;
   private healthBarGraphics!: Phaser.GameObjects.Graphics;
+  private engineGlowGraphics!: Phaser.GameObjects.Graphics;
   /** Cached ship size per ship id (computed once at creation). */
   private shipSizes = new Map<string, { base: number; height: number }>();
+  /** Previous facing per ship — used to detect turning for RCS puffs. */
+  private prevFacing = new Map<string, number>();
+  /** Frame counter for running light blink timing. */
+  private frameCounter = 0;
 
   // ── Audio ─────────────────────────────────────────────────────────────────
   private sfx: SfxGenerator | null = null;
@@ -414,6 +419,12 @@ export class CombatScene extends Phaser.Scene {
     this.selectionBoxGfx = this.add.graphics();
     this.selectionBoxGfx.setDepth(11);
 
+    // ── Engine glow / RCS / running lights (behind weapons, above background) ─
+    this.engineGlowGraphics = this.add.graphics();
+    this.engineGlowGraphics.setDepth(4);
+    this.prevFacing.clear();
+    this.frameCounter = 0;
+
     // ── Beam / projectile graphics layers ──────────────────────────────────
     this.beamGraphics = this.add.graphics();
     this.beamGraphics.setDepth(5);
@@ -478,6 +489,7 @@ export class CombatScene extends Phaser.Scene {
   shutdown(): void {
     this.shipContainers.clear();
     this.shipSizes.clear();
+    this.prevFacing.clear();
     if (this.tickTimer) this.tickTimer.remove();
   }
 
@@ -884,6 +896,8 @@ export class CombatScene extends Phaser.Scene {
 
   private _updateShipVisuals(): void {
     this.healthBarGraphics.clear();
+    this.engineGlowGraphics.clear();
+    this.frameCounter++;
 
     for (const ship of this.tacticalState.ships) {
       const container = this.shipContainers.get(ship.id);
@@ -916,8 +930,22 @@ export class CombatScene extends Phaser.Scene {
       }
       this.prevHull.set(ship.id, ship.hull);
 
-      // ── Health bar above the ship ──────────────────────────────────────
+      // ── Ship size (used by multiple effects below) ────────────────────
       const size = this.shipSizes.get(ship.id) ?? SHIP_SIZE_SMALL;
+
+      // ── Engine thrust glow ────────────────────────────────────────────
+      this._drawEngineThrust(ship, size);
+
+      // ── RCS thruster puffs (when turning) ─────────────────────────────
+      this._drawRcsPuffs(ship, size);
+
+      // ── Running lights (blinking nav lights) ──────────────────────────
+      this._drawRunningLights(ship, size);
+
+      // Update previous facing for next frame
+      this.prevFacing.set(ship.id, ship.facing);
+
+      // ── Health bar above the ship ──────────────────────────────────────
       const barW = Math.max(HEALTH_BAR_WIDTH, size.base * 1.2);
       const barX = ship.position.x - barW / 2;
       const barY = ship.position.y + HEALTH_BAR_OFFSET_Y - size.base / 2;
@@ -940,6 +968,147 @@ export class CombatScene extends Phaser.Scene {
       const hullColor = hullFraction > 0.6 ? 0x44cc44 : hullFraction > 0.3 ? 0xcccc44 : 0xcc4444;
       this.healthBarGraphics.fillStyle(hullColor, 0.9);
       this.healthBarGraphics.fillRect(barX, hullBarY, barW * hullFraction, HEALTH_BAR_HEIGHT);
+    }
+  }
+
+  // =========================================================================
+  // Engine / RCS / Running Light effects
+  // =========================================================================
+
+  /** Draw a tapered engine thrust streak behind the ship, coloured by species. */
+  private _drawEngineThrust(
+    ship: TacticalShip,
+    size: { base: number; height: number },
+  ): void {
+    const gfx = this.engineGlowGraphics;
+    const speciesId = (ship.side === 'attacker'
+      ? this.sceneData.attackerSpeciesId
+      : this.sceneData.defenderSpeciesId) ?? 'teranos';
+    const palette = getSpeciesWeaponPalette(speciesId);
+    const color = palette.engineGlow;
+
+    // Speed magnitude from velocity vector
+    const vx = ship.velocity.x;
+    const vy = ship.velocity.y;
+    const speed = Math.sqrt(vx * vx + vy * vy);
+
+    // Normalise intensity: 0 at rest, 1 at max speed
+    const maxSpeed = ship.speed > 0 ? ship.speed : 1;
+    const intensity = Math.min(speed / maxSpeed, 1);
+
+    // Skip if barely moving — no visible thrust
+    if (intensity < 0.05) return;
+
+    // Thrust plume extends behind the ship (opposite to facing)
+    const thrustLength = size.height * (0.4 + intensity * 0.8);
+    const thrustWidth = size.base * (0.15 + intensity * 0.25);
+
+    const sx = ship.position.x;
+    const sy = ship.position.y;
+    const cosF = Math.cos(ship.facing);
+    const sinF = Math.sin(ship.facing);
+
+    // End point of the plume (behind the ship)
+    const tx = sx - cosF * thrustLength;
+    const ty = sy - sinF * thrustLength;
+
+    // Outer glow streak
+    const outerAlpha = 0.25 + intensity * 0.35;
+    gfx.lineStyle(thrustWidth, color, outerAlpha);
+    gfx.lineBetween(sx, sy, tx, ty);
+
+    // Inner bright core (shorter, whiter)
+    const innerLen = thrustLength * 0.5;
+    const ix = sx - cosF * innerLen;
+    const iy = sy - sinF * innerLen;
+    gfx.lineStyle(thrustWidth * 0.35, 0xffffff, outerAlpha * 0.5);
+    gfx.lineBetween(sx, sy, ix, iy);
+
+    // Hot spot at the nozzle
+    gfx.fillStyle(0xffffff, outerAlpha * 0.4);
+    gfx.fillCircle(sx, sy, thrustWidth * 0.3);
+  }
+
+  /** Draw small RCS thruster puffs when a ship is actively turning. */
+  private _drawRcsPuffs(
+    ship: TacticalShip,
+    size: { base: number; height: number },
+  ): void {
+    const prevAngle = this.prevFacing.get(ship.id);
+    if (prevAngle === undefined) return;
+
+    const delta = ship.facing - prevAngle;
+    if (Math.abs(delta) < 0.01) return;
+
+    const gfx = this.engineGlowGraphics;
+    const cosF = Math.cos(ship.facing);
+    const sinF = Math.sin(ship.facing);
+    // Perpendicular direction (port = +90deg from facing)
+    const perpX = -sinF;
+    const perpY = cosF;
+
+    const puffOffset = size.base * 0.5;
+    const rearOffset = size.height * 0.3;
+
+    // Turning clockwise (delta > 0): puffs fire port-side at rear, starboard-side at front
+    // Turning counter-clockwise: opposite
+    const sign = delta > 0 ? 1 : -1;
+    const puffAlpha = Math.min(Math.abs(delta) * 8, 0.8);
+
+    // Rear puff (port/starboard depending on turn direction)
+    const rearX = ship.position.x - cosF * rearOffset + perpX * puffOffset * sign;
+    const rearY = ship.position.y - sinF * rearOffset + perpY * puffOffset * sign;
+    gfx.fillStyle(0xccffff, puffAlpha);
+    gfx.fillCircle(rearX, rearY, 1.5);
+
+    // Front puff (opposite side)
+    const frontX = ship.position.x + cosF * rearOffset - perpX * puffOffset * sign;
+    const frontY = ship.position.y + sinF * rearOffset - perpY * puffOffset * sign;
+    gfx.fillStyle(0xccffff, puffAlpha * 0.7);
+    gfx.fillCircle(frontX, frontY, 1.2);
+
+    // Extra puffs for larger ships
+    if (size.base > 20) {
+      const midX = ship.position.x + perpX * puffOffset * sign;
+      const midY = ship.position.y + perpY * puffOffset * sign;
+      gfx.fillStyle(0xeeffff, puffAlpha * 0.5);
+      gfx.fillCircle(midX, midY, 1.0);
+
+      const midX2 = ship.position.x - perpX * puffOffset * sign;
+      const midY2 = ship.position.y - perpY * puffOffset * sign;
+      gfx.fillStyle(0xeeffff, puffAlpha * 0.4);
+      gfx.fillCircle(midX2, midY2, 1.0);
+    }
+  }
+
+  /** Draw blinking port/starboard navigation lights on the ship. */
+  private _drawRunningLights(
+    ship: TacticalShip,
+    size: { base: number; height: number },
+  ): void {
+    const gfx = this.engineGlowGraphics;
+    const cosF = Math.cos(ship.facing);
+    const sinF = Math.sin(ship.facing);
+    const perpX = -sinF;
+    const perpY = cosF;
+
+    const lightOffset = size.base * 0.45;
+
+    // Blink every 18 frames — alternating on/off
+    const blinkOn = (this.frameCounter % 36) < 18;
+
+    if (blinkOn) {
+      // Port light (red) — left side of ship (perpendicular positive)
+      const portX = ship.position.x + perpX * lightOffset;
+      const portY = ship.position.y + perpY * lightOffset;
+      gfx.fillStyle(0xff2222, 0.7);
+      gfx.fillCircle(portX, portY, 1.0);
+
+      // Starboard light (green) — right side of ship
+      const stbdX = ship.position.x - perpX * lightOffset;
+      const stbdY = ship.position.y - perpY * lightOffset;
+      gfx.fillStyle(0x22ff22, 0.7);
+      gfx.fillCircle(stbdX, stbdY, 1.0);
     }
   }
 
@@ -1016,14 +1185,23 @@ export class CombatScene extends Phaser.Scene {
       const intensity = Math.min(1, beam.damage / 55);
 
       switch (style) {
-        // ── Pulse laser / Phased array: thin pulsing line ──────────────────
+        // ── Pulse laser / Phased array: flickering width pulsing line ───────
         case 'pulse': {
-          // Pulse effect: rapid on/off flicker
-          const pulseOn = (tick % 3) < 2;
-          if (!pulseOn) break;
-          const width = 1.5 + intensity * 1.5; // 1.5 - 3
+          // Varying width flicker instead of simple on/off
+          const flickerPhase = Math.sin(tick * 2.7) * 0.4 + Math.sin(tick * 5.3) * 0.3;
+          const flickerAlpha = 0.5 + flickerPhase * 0.35;
+          if (flickerAlpha < 0.15) break;
+          const baseWidth = 1.5 + intensity * 1.5;
+          const width = baseWidth * (0.6 + flickerPhase * 0.6);
           const color = Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b);
-          this.beamGraphics.lineStyle(width, color, fadeAlpha * 0.9 * palette.beamIntensity);
+          // Outer bloom — very wide, very faint
+          this.beamGraphics.lineStyle(width * 4, glowColor, fadeAlpha * 0.06 * palette.beamIntensity * flickerAlpha);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Mid glow
+          this.beamGraphics.lineStyle(width * 2, glowColor, fadeAlpha * 0.18 * palette.beamIntensity * flickerAlpha);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Core
+          this.beamGraphics.lineStyle(width, color, fadeAlpha * 0.9 * palette.beamIntensity * flickerAlpha);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           break;
         }
@@ -1031,8 +1209,12 @@ export class CombatScene extends Phaser.Scene {
         // ── Particle beam / Radiation ray: thick glow + thin bright core ───
         case 'particle':
         case 'radiation': {
+          // Outermost bloom — very wide, very faint
+          const bloomWidth = 14 + intensity * 8;
+          this.beamGraphics.lineStyle(bloomWidth, glowColor, fadeAlpha * 0.06 * palette.beamIntensity);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
           // Fat translucent outer glow
-          const outerWidth = 6 + intensity * 4; // 6 - 10
+          const outerWidth = 6 + intensity * 4;
           this.beamGraphics.lineStyle(outerWidth, glowColor, fadeAlpha * 0.25 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           // Thin bright inner core
@@ -1042,69 +1224,116 @@ export class CombatScene extends Phaser.Scene {
           break;
         }
 
-        // ── Disruptor beam: jagged lightning bolt ───────────────────────────
+        // ── Disruptor beam: jagged lightning bolt with afterimage ────────────
         case 'disruptor': {
-          // Generate zigzag segments between source and target
           const dx = tx - sx;
           const dy = ty - sy;
           const length = Math.sqrt(dx * dx + dy * dy);
-          const segments = Math.max(4, Math.floor(length / 20));
+          if (length < 1) break;
+          // Finer segments — more jagged, more electric
+          const segments = Math.max(8, Math.floor(length / 10));
           const perpX = -dy / length;
           const perpY = dx / length;
+
+          // Helper to build zigzag points for a given time offset
+          const buildZigzag = (timeOffset: number, jitterScale: number): { x: number; y: number }[] => {
+            const pts: { x: number; y: number }[] = [{ x: sx, y: sy }];
+            for (let i = 1; i < segments; i++) {
+              const t = i / segments;
+              const jitter = (
+                (Math.sin((tick + timeOffset) * 7 + i * 13) +
+                 Math.sin((tick + timeOffset) * 11 + i * 7) +
+                 Math.sin((tick + timeOffset) * 3.7 + i * 19) * 0.5) * 0.4
+              ) * jitterScale;
+              pts.push({
+                x: sx + dx * t + perpX * jitter,
+                y: sy + dy * t + perpY * jitter,
+              });
+            }
+            pts.push({ x: tx, y: ty });
+            return pts;
+          };
+
+          const drawPath = (pts: { x: number; y: number }[]): void => {
+            this.beamGraphics.beginPath();
+            this.beamGraphics.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+              this.beamGraphics.lineTo(pts[i].x, pts[i].y);
+            }
+            this.beamGraphics.strokePath();
+          };
+
+          const mainJitter = 8 + intensity * 10;
+          const mainPts = buildZigzag(0, mainJitter);
+
+          // Faint afterimage trail (previous-tick ghost)
+          const ghostPts = buildZigzag(-1, mainJitter * 0.8);
+          this.beamGraphics.lineStyle(3 + intensity * 2, glowColor, fadeAlpha * 0.08 * palette.beamIntensity);
+          drawPath(ghostPts);
+
+          // Outer bloom
+          this.beamGraphics.lineStyle(10 + intensity * 5, glowColor, fadeAlpha * 0.05 * palette.beamIntensity);
+          drawPath(mainPts);
           // Outer glow path
           this.beamGraphics.lineStyle(4 + intensity * 3, glowColor, fadeAlpha * 0.3 * palette.beamIntensity);
-          this.beamGraphics.beginPath();
-          this.beamGraphics.moveTo(sx, sy);
-          for (let i = 1; i < segments; i++) {
-            const t = i / segments;
-            // Deterministic-ish jitter based on tick+segment for animation
-            const jitter = ((Math.sin(tick * 7 + i * 13) + Math.sin(tick * 11 + i * 7)) * 0.5) * (8 + intensity * 8);
-            const px = sx + dx * t + perpX * jitter;
-            const py = sy + dy * t + perpY * jitter;
-            this.beamGraphics.lineTo(px, py);
-          }
-          this.beamGraphics.lineTo(tx, ty);
-          this.beamGraphics.strokePath();
-          // Inner bright path (same zigzag)
+          drawPath(mainPts);
+          // Inner bright path
           this.beamGraphics.lineStyle(1.5, coreColor, fadeAlpha * 0.85 * palette.beamIntensity);
-          this.beamGraphics.beginPath();
-          this.beamGraphics.moveTo(sx, sy);
-          for (let i = 1; i < segments; i++) {
-            const t = i / segments;
-            const jitter = ((Math.sin(tick * 7 + i * 13) + Math.sin(tick * 11 + i * 7)) * 0.5) * (8 + intensity * 8);
-            const px = sx + dx * t + perpX * jitter;
-            const py = sy + dy * t + perpY * jitter;
-            this.beamGraphics.lineTo(px, py);
-          }
-          this.beamGraphics.lineTo(tx, ty);
-          this.beamGraphics.strokePath();
+          drawPath(mainPts);
           break;
         }
 
-        // ── Plasma lance: very thick beam with species-coloured fade gradient
+        // ── Plasma lance: animated width pulsing with deep glow ─────────────
         case 'plasma': {
-          // Blend midColour between glow and core
           const midR = (((glowColor >> 16) & 0xff) + ((coreColor >> 16) & 0xff)) >> 1;
           const midG = (((glowColor >> 8) & 0xff) + ((coreColor >> 8) & 0xff)) >> 1;
           const midB = ((glowColor & 0xff) + (coreColor & 0xff)) >> 1;
           const midColor = (midR << 16) | (midG << 8) | midB;
-          // Outermost glow
-          this.beamGraphics.lineStyle(12 + intensity * 6, glowColor, fadeAlpha * 0.15 * palette.beamIntensity);
+          // Animated width pulsing
+          const pulseWidth = 1.0 + Math.sin(tick * 0.8) * 0.15 + Math.sin(tick * 1.9) * 0.1;
+          // Outermost bloom — very wide, very faint
+          this.beamGraphics.lineStyle((18 + intensity * 10) * pulseWidth, glowColor, fadeAlpha * 0.04 * palette.beamIntensity);
+          this.beamGraphics.lineBetween(sx, sy, tx, ty);
+          // Outer glow
+          this.beamGraphics.lineStyle((12 + intensity * 6) * pulseWidth, glowColor, fadeAlpha * 0.15 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           // Middle blend
-          this.beamGraphics.lineStyle(6 + intensity * 3, midColor, fadeAlpha * 0.35 * palette.beamIntensity);
+          this.beamGraphics.lineStyle((6 + intensity * 3) * pulseWidth, midColor, fadeAlpha * 0.35 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           // Inner hot core
-          this.beamGraphics.lineStyle(2 + intensity * 1.5, coreColor, fadeAlpha * 0.9 * palette.beamIntensity);
+          this.beamGraphics.lineStyle((2 + intensity * 1.5) * pulseWidth, coreColor, fadeAlpha * 0.9 * palette.beamIntensity);
           this.beamGraphics.lineBetween(sx, sy, tx, ty);
           break;
         }
+      }
+
+      // ── Impact flash at target point — small starburst ────────────────────
+      const impactAlpha = fadeAlpha * 0.7 * palette.beamIntensity;
+      const impactR = 3 + intensity * 4;
+      // Bright centre
+      this.beamGraphics.fillStyle(0xffffff, impactAlpha * 0.8);
+      this.beamGraphics.fillCircle(tx, ty, impactR * 0.4);
+      // Coloured glow
+      this.beamGraphics.fillStyle(coreColor, impactAlpha * 0.5);
+      this.beamGraphics.fillCircle(tx, ty, impactR);
+      // Radiating spokes
+      const impactSpokes = 5;
+      for (let i = 0; i < impactSpokes; i++) {
+        const angle = (i / impactSpokes) * Math.PI * 2 + tick * 0.5;
+        const spokeLen = impactR * (1.2 + Math.sin(tick * 3 + i * 2) * 0.3);
+        this.beamGraphics.lineStyle(1, coreColor, impactAlpha * 0.6);
+        this.beamGraphics.lineBetween(
+          tx, ty,
+          tx + Math.cos(angle) * spokeLen,
+          ty + Math.sin(angle) * spokeLen,
+        );
       }
     }
   }
 
   private _drawProjectiles(): void {
     this.projectileGraphics.clear();
+    const tick = this.tacticalState.tick;
     for (const proj of this.tacticalState.projectiles) {
       const px = proj.position.x;
       const py = proj.position.y;
@@ -1124,48 +1353,62 @@ export class CombatScene extends Phaser.Scene {
         hdg = Math.atan2(target.position.y - py, target.position.x - px);
       }
 
+      // Subtle glow halo around all projectiles
+      this.projectileGraphics.fillStyle(palette.projectileTrail, 0.08);
+      this.projectileGraphics.fillCircle(px, py, radius * 2.5);
+
       switch (style) {
-        // ── Kinetic cannon: bright stream of rounds toward target ────────────
+        // ── Kinetic cannon: elongated streak toward target ──────────────────
         case 'kinetic': {
-          // Trail of bright pixels behind the projectile
-          const kTrailLen = 18;
+          const kTrailLen = 22;
           const kTailX = px - Math.cos(hdg) * kTrailLen;
           const kTailY = py - Math.sin(hdg) * kTrailLen;
-          // Outer tracer glow
-          this.projectileGraphics.lineStyle(3, palette.projectileTrail, 0.2);
+          // Bloom halo
+          this.projectileGraphics.lineStyle(6, palette.projectileTrail, 0.08);
           this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
-          // Inner bright stream
-          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.8);
+          // Outer tracer glow — elongated
+          this.projectileGraphics.lineStyle(3.5, palette.projectileTrail, 0.25);
           this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
-          // Bright tip
-          this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
-          this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
+          // Inner bright streak
+          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.85);
+          this.projectileGraphics.lineBetween(kTailX, kTailY, px, py);
+          // Hot tip
+          this.projectileGraphics.fillStyle(0xffffff, 0.7);
+          this.projectileGraphics.fillCircle(px, py, 1.5);
           break;
         }
 
         // ── Fusion autocannon: rapid species-tinted stream ──────────────────
         case 'fusion': {
-          const fTrailLen = 14;
+          const fTrailLen = 18;
           const fTailX = px - Math.cos(hdg) * fTrailLen;
           const fTailY = py - Math.sin(hdg) * fTrailLen;
+          // Bloom
+          this.projectileGraphics.lineStyle(5, palette.projectileTrail, 0.08);
+          this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
           // Tracer stream
-          this.projectileGraphics.lineStyle(2.5, palette.projectileTrail, 0.25);
+          this.projectileGraphics.lineStyle(2.5, palette.projectileTrail, 0.3);
           this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
-          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.7);
+          this.projectileGraphics.lineStyle(1.5, palette.projectileCore, 0.75);
           this.projectileGraphics.lineBetween(fTailX, fTailY, px, py);
-          // Bright tip
-          this.projectileGraphics.fillStyle(palette.projectileCore, 0.9);
-          this.projectileGraphics.fillCircle(px, py, Math.max(1.5, radius * 0.5));
+          // Hot tip
+          this.projectileGraphics.fillStyle(0xffffff, 0.6);
+          this.projectileGraphics.fillCircle(px, py, 1.5);
           break;
         }
 
-        // ── Mass driver: dot with short trail ───────────────────────────────
+        // ── Mass driver: elongated streak with glow ─────────────────────────
         case 'mass_driver': {
-          // Short trail behind
-          const trailLen = 10;
+          const trailLen = 14;
           const tailX = px - Math.cos(hdg) * trailLen;
           const tailY = py - Math.sin(hdg) * trailLen;
-          this.projectileGraphics.lineStyle(2, palette.projectileTrail, 0.3);
+          // Glow streak
+          this.projectileGraphics.lineStyle(4, palette.projectileTrail, 0.15);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
+          this.projectileGraphics.lineStyle(2, palette.projectileTrail, 0.35);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
+          // Bright core streak
+          this.projectileGraphics.lineStyle(1, palette.projectileCore, 0.9);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Bright dot
           this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
@@ -1178,23 +1421,29 @@ export class CombatScene extends Phaser.Scene {
 
         // ── Gauss cannon: elongated streak ──────────────────────────────────
         case 'gauss': {
-          const streakLen = 14;
+          const streakLen = 20;
           const tailX = px - Math.cos(hdg) * streakLen;
           const tailY = py - Math.sin(hdg) * streakLen;
+          // Bloom
+          this.projectileGraphics.lineStyle(8, palette.projectileTrail, 0.06);
+          this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Outer glow streak
           this.projectileGraphics.lineStyle(4, palette.projectileTrail, 0.3);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
           // Inner bright streak
           this.projectileGraphics.lineStyle(2, palette.projectileCore, 0.9);
           this.projectileGraphics.lineBetween(tailX, tailY, px, py);
-          // Bright tip
-          this.projectileGraphics.fillStyle(palette.projectileCore, 0.95);
-          this.projectileGraphics.fillCircle(px, py, 2.5);
+          // Hot tip
+          this.projectileGraphics.fillStyle(0xffffff, 0.7);
+          this.projectileGraphics.fillCircle(px, py, 2);
           break;
         }
 
-        // ── Battering ram: big solid chunk ──────────────────────────────────
+        // ── Battering ram: big solid chunk with glow ────────────────────────
         case 'battering_ram': {
+          // Outer bloom
+          this.projectileGraphics.fillStyle(palette.projectileTrail, 0.12);
+          this.projectileGraphics.fillCircle(px, py, radius * 2);
           this.projectileGraphics.fillStyle(palette.projectileTrail, 0.95);
           this.projectileGraphics.fillCircle(px, py, radius * 1.3);
           this.projectileGraphics.fillStyle(palette.projectileCore, 0.5);
@@ -1202,20 +1451,32 @@ export class CombatScene extends Phaser.Scene {
           break;
         }
 
-        // ── Antimatter accelerator: glowing with particle trail, tinted toward species
+        // ── Antimatter accelerator: swirling trail around the path ──────────
         case 'antimatter': {
-          // Blend species trail with purple undertone for antimatter character
           const amTrail = palette.projectileTrail;
           const amCore = palette.projectileCore;
-          // Trailing glow particles
-          for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH; i++) {
-            const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 1);
-            const trailX = px - Math.cos(hdg) * (i * 6);
-            const trailY = py - Math.sin(hdg) * (i * 6);
-            this.projectileGraphics.fillStyle(amTrail, 0.4 * (1 - tFrac));
-            this.projectileGraphics.fillCircle(trailX, trailY, radius * (1 - tFrac * 0.5));
+          // Swirling trail — multiple offset dots rotating around the path
+          for (let i = 1; i <= PROJECTILE_TRAIL_LENGTH + 2; i++) {
+            const tFrac = i / (PROJECTILE_TRAIL_LENGTH + 3);
+            const trailDist = i * 6;
+            const baseX = px - Math.cos(hdg) * trailDist;
+            const baseY = py - Math.sin(hdg) * trailDist;
+            // Central trail particle
+            this.projectileGraphics.fillStyle(amTrail, 0.35 * (1 - tFrac));
+            this.projectileGraphics.fillCircle(baseX, baseY, radius * (1 - tFrac * 0.5));
+            // Swirling offset dots — two orbiting particles per segment
+            for (let j = 0; j < 2; j++) {
+              const swirlAngle = tick * 0.6 + i * 1.8 + j * Math.PI;
+              const swirlR = radius * 0.8 * (1 - tFrac * 0.3);
+              const swirlX = baseX + Math.cos(swirlAngle) * swirlR;
+              const swirlY = baseY + Math.sin(swirlAngle) * swirlR;
+              this.projectileGraphics.fillStyle(amTrail, 0.25 * (1 - tFrac));
+              this.projectileGraphics.fillCircle(swirlX, swirlY, radius * 0.4 * (1 - tFrac * 0.5));
+            }
           }
           // Outer glow
+          this.projectileGraphics.fillStyle(amTrail, 0.15);
+          this.projectileGraphics.fillCircle(px, py, radius * 2.2);
           this.projectileGraphics.fillStyle(amTrail, 0.3);
           this.projectileGraphics.fillCircle(px, py, radius * 1.8);
           // Bright core
@@ -1227,7 +1488,7 @@ export class CombatScene extends Phaser.Scene {
           break;
         }
 
-        // ── Singularity driver: distortion ring + dark core, species-tinted rings
+        // ── Singularity driver: pulsing gravitational lensing ring ──────────
         case 'singularity': {
           const sgTrail = palette.projectileTrail;
           const sgCore = palette.projectileCore;
@@ -1239,9 +1500,16 @@ export class CombatScene extends Phaser.Scene {
             this.projectileGraphics.fillStyle(sgTrail, 0.3 * (1 - tFrac));
             this.projectileGraphics.fillCircle(trailX, trailY, radius * 0.8 * (1 - tFrac * 0.4));
           }
-          // Outer gravitational distortion ring
-          this.projectileGraphics.lineStyle(2, sgTrail, 0.4);
-          this.projectileGraphics.strokeCircle(px, py, radius * 2.2);
+          // Pulsing outer gravitational lensing ring
+          const lensPhase = Math.sin(tick * 0.5) * 0.3 + 0.7;
+          const lensR = radius * 2.6 * lensPhase;
+          this.projectileGraphics.lineStyle(2.5, sgTrail, 0.2 + lensPhase * 0.15);
+          this.projectileGraphics.strokeCircle(px, py, lensR);
+          // Secondary pulsing ring (offset phase)
+          const lens2Phase = Math.sin(tick * 0.5 + 1.5) * 0.3 + 0.7;
+          const lens2R = radius * 2.0 * lens2Phase;
+          this.projectileGraphics.lineStyle(1.5, sgCore, 0.15 + lens2Phase * 0.15);
+          this.projectileGraphics.strokeCircle(px, py, lens2R);
           // Inner ring
           this.projectileGraphics.lineStyle(1.5, sgCore, 0.5);
           this.projectileGraphics.strokeCircle(px, py, radius * 1.4);
@@ -1258,11 +1526,12 @@ export class CombatScene extends Phaser.Scene {
   }
 
   /**
-   * Draw missiles as coloured triangles with visible exhaust trail.
-   * Higher-tier missiles glow brighter and are larger.
+   * Draw missiles as elongated bodies with continuous exhaust trails,
+   * warhead glow, and curved trail for guided types.
    */
   private _drawMissiles(): void {
     this.missileGraphics.clear();
+    const tick = this.tacticalState.tick;
     for (const missile of (this.tacticalState.missiles ?? [])) {
       // Find the target to compute heading
       const target = this.tacticalState.ships.find(s => s.id === missile.targetShipId);
@@ -1289,7 +1558,53 @@ export class CombatScene extends Phaser.Scene {
       const cos = Math.cos(heading);
       const sin = Math.sin(heading);
 
-      // ── Exhaust trail: fading dots behind the missile ────────────────────
+      // ── Continuous fading exhaust trail line ──────────────────────────────
+      // For guided missiles, fake a curve using a slight sinusoidal offset
+      const isGuided = mStyle === 'guided' || mStyle === 'fusion';
+      if (isGuided) {
+        // Curved trail — draw as segmented line with lateral wobble
+        const curveSegs = exhaustSegments + 4;
+        this.missileGraphics.beginPath();
+        this.missileGraphics.moveTo(missile.x, missile.y);
+        const perpCos = -sin;
+        const perpSin = cos;
+        for (let i = 1; i <= curveSegs; i++) {
+          const t = i / curveSegs;
+          const curveDist = trailLen * t;
+          const wobble = Math.sin(t * Math.PI * 1.5 + tick * 0.3) * size * 0.6;
+          const cx = missile.x - cos * curveDist + perpCos * wobble;
+          const cy = missile.y - sin * curveDist + perpSin * wobble;
+          this.missileGraphics.lineTo(cx, cy);
+        }
+        // Outer glow of curved trail
+        this.missileGraphics.lineStyle(3, exhaustColor, 0.12);
+        this.missileGraphics.strokePath();
+        // Draw again with inner core
+        this.missileGraphics.beginPath();
+        this.missileGraphics.moveTo(missile.x, missile.y);
+        for (let i = 1; i <= curveSegs; i++) {
+          const t = i / curveSegs;
+          const curveDist = trailLen * t;
+          const wobble = Math.sin(t * Math.PI * 1.5 + tick * 0.3) * size * 0.6;
+          const cx = missile.x - cos * curveDist + perpCos * wobble;
+          const cy = missile.y - sin * curveDist + perpSin * wobble;
+          this.missileGraphics.lineTo(cx, cy);
+        }
+        this.missileGraphics.lineStyle(1.2, exhaustColor, 0.3);
+        this.missileGraphics.strokePath();
+      } else {
+        // Straight continuous fading trail
+        const tailX = missile.x - cos * trailLen;
+        const tailY = missile.y - sin * trailLen;
+        // Outer glow trail
+        this.missileGraphics.lineStyle(3, exhaustColor, 0.12);
+        this.missileGraphics.lineBetween(tailX, tailY, missile.x, missile.y);
+        // Inner trail
+        this.missileGraphics.lineStyle(1.5, exhaustColor, 0.35);
+        this.missileGraphics.lineBetween(tailX, tailY, missile.x, missile.y);
+      }
+
+      // ── Exhaust particles: fading dots behind the missile ────────────────
       for (let i = 1; i <= exhaustSegments; i++) {
         const t = i / (exhaustSegments + 1);
         const ex = missile.x - cos * (trailLen * t);
@@ -1299,55 +1614,69 @@ export class CombatScene extends Phaser.Scene {
         this.missileGraphics.fillCircle(ex, ey, dotR);
       }
 
-      // ── Exhaust trail line ───────────────────────────────────────────────
-      const tailX = missile.x - cos * trailLen;
-      const tailY = missile.y - sin * trailLen;
-      this.missileGraphics.lineStyle(1.5, exhaustColor, 0.35);
-      this.missileGraphics.lineBetween(tailX, tailY, missile.x, missile.y);
-
       // ── Outer glow (only for styles that warrant it) ─────────────────────
       if (glowAlpha > 0) {
+        this.missileGraphics.fillStyle(glowColor, glowAlpha * 0.4);
+        this.missileGraphics.fillCircle(missile.x, missile.y, size * 1.8);
         this.missileGraphics.fillStyle(glowColor, glowAlpha);
         this.missileGraphics.fillCircle(missile.x, missile.y, size * 1.2);
       }
 
       // ── Singularity warp ring ────────────────────────────────────────────
       if (mStyle === 'singularity') {
-        const warpPhase = (Date.now() % 400) / 400;
+        const warpPhase = (tick * 0.15) % 1.0;
         const warpR = size * (1.0 + warpPhase * 0.8);
         this.missileGraphics.lineStyle(1, glowColor, 0.3 * (1 - warpPhase));
         this.missileGraphics.strokeCircle(missile.x, missile.y, warpR);
       }
 
-      // ── Missile body triangle ────────────────────────────────────────────
-      const noseX = missile.x + cos * size;
-      const noseY = missile.y + sin * size;
-      const leftX = missile.x + (-cos * size * 0.5 - sin * size * 0.4);
-      const leftY = missile.y + (-sin * size * 0.5 + cos * size * 0.4);
-      const rightX = missile.x + (-cos * size * 0.5 + sin * size * 0.4);
-      const rightY = missile.y + (-sin * size * 0.5 - cos * size * 0.4);
+      // ── Missile body — elongated shape (pentagon: nose + 4 body points) ──
+      const noseX = missile.x + cos * size * 1.3;
+      const noseY = missile.y + sin * size * 1.3;
+      // Shoulders (widest part, forward of centre)
+      const shoulderFwd = 0.2;
+      const shoulderWidth = 0.45;
+      const shLeftX = missile.x + cos * size * shoulderFwd - sin * size * shoulderWidth;
+      const shLeftY = missile.y + sin * size * shoulderFwd + cos * size * shoulderWidth;
+      const shRightX = missile.x + cos * size * shoulderFwd + sin * size * shoulderWidth;
+      const shRightY = missile.y + sin * size * shoulderFwd - cos * size * shoulderWidth;
+      // Tail (narrower rear)
+      const tailWidth = 0.3;
+      const tailFwd = -0.7;
+      const tLeftX = missile.x + cos * size * tailFwd - sin * size * tailWidth;
+      const tLeftY = missile.y + sin * size * tailFwd + cos * size * tailWidth;
+      const tRightX = missile.x + cos * size * tailFwd + sin * size * tailWidth;
+      const tRightY = missile.y + sin * size * tailFwd - cos * size * tailWidth;
 
       this.missileGraphics.fillStyle(bodyColor, 0.95);
       this.missileGraphics.beginPath();
       this.missileGraphics.moveTo(noseX, noseY);
-      this.missileGraphics.lineTo(leftX, leftY);
-      this.missileGraphics.lineTo(rightX, rightY);
+      this.missileGraphics.lineTo(shLeftX, shLeftY);
+      this.missileGraphics.lineTo(tLeftX, tLeftY);
+      this.missileGraphics.lineTo(tRightX, tRightY);
+      this.missileGraphics.lineTo(shRightX, shRightY);
       this.missileGraphics.closePath();
       this.missileGraphics.fillPath();
 
-      // ── Bright nose tip (brighter for heavier ordnance) ──────────────────
-      const noseBrightness = mStyle === 'basic' ? 0.5 : mStyle === 'singularity' ? 0.9 : 0.7;
-      this.missileGraphics.fillStyle(0xffffff, noseBrightness);
-      this.missileGraphics.fillCircle(noseX, noseY, mStyle === 'basic' ? 1 : 1.5);
+      // ── Warhead glow at the nose ─────────────────────────────────────────
+      const whGlow = mStyle === 'basic' ? 0.4 : mStyle === 'singularity' ? 0.9 : 0.65;
+      const whRadius = mStyle === 'basic' ? 1.5 : 2.5;
+      // Outer warhead bloom
+      this.missileGraphics.fillStyle(glowColor, whGlow * 0.3);
+      this.missileGraphics.fillCircle(noseX, noseY, whRadius * 2);
+      // Bright warhead tip
+      this.missileGraphics.fillStyle(0xffffff, whGlow);
+      this.missileGraphics.fillCircle(noseX, noseY, whRadius);
     }
   }
 
   /**
-   * Draw point defence: tracer rounds streaming from ship to intercept point,
-   * with a starburst flash at the intercept.
+   * Draw point defence: animated tracer streaks moving from ship to intercept,
+   * with spoke-line starburst and scattering spark particles at impact.
    */
   private _drawPointDefence(): void {
     this.pdGraphics.clear();
+    const tick = this.tacticalState.tick;
     for (const pd of (this.tacticalState.pointDefenceEffects ?? [])) {
       const ship = this.tacticalState.ships.find(s => s.id === pd.shipId);
       if (!ship) continue;
@@ -1364,53 +1693,95 @@ export class CombatScene extends Phaser.Scene {
       const palette = getSpeciesWeaponPalette(speciesId);
       const tracerColor = palette.pdTracer;
 
-      // ── Tracer rounds along the line ─────────────────────────────────────
-      // Animated dots that stream from ship to intercept point
-      const tick = this.tacticalState.tick;
-      for (let i = 0; i < PD_TRACER_COUNT; i++) {
-        const t = ((i / PD_TRACER_COUNT) + (tick * 0.15)) % 1.0;
-        const tx = ship.position.x + dx * t;
-        const ty = ship.position.y + dy * t;
-        const tracerAlpha = alpha * (0.5 + t * 0.5); // brighter near target
-        this.pdGraphics.fillStyle(tracerColor, tracerAlpha);
-        this.pdGraphics.fillCircle(tx, ty, 1.5);
-      }
-
-      // ── Thin intercept line (faint) ──────────────────────────────────────
-      this.pdGraphics.lineStyle(0.8, PD_COLOR, alpha * 0.3);
+      // ── Thin intercept line (faint background) ───────────────────────────
+      this.pdGraphics.lineStyle(0.8, PD_COLOR, alpha * 0.2);
       this.pdGraphics.lineBetween(
         ship.position.x, ship.position.y,
         pd.missileX, pd.missileY,
       );
 
-      // ── Starburst flash at intercept point ───────────────────────────────
+      // ── Animated tracer streaks moving along the line ────────────────────
+      const tracerStreakLen = Math.min(lineLen * 0.15, 12);
+      for (let i = 0; i < PD_TRACER_COUNT + 1; i++) {
+        // Each tracer has a position that moves from ship to target over time
+        const tHead = ((i / (PD_TRACER_COUNT + 1)) + (tick * 0.18)) % 1.0;
+        const tTail = Math.max(0, tHead - tracerStreakLen / lineLen);
+        const headX = ship.position.x + dx * tHead;
+        const headY = ship.position.y + dy * tHead;
+        const tailX = ship.position.x + dx * tTail;
+        const tailY = ship.position.y + dy * tTail;
+        const tracerAlpha = alpha * (0.4 + tHead * 0.6);
+        // Glow around streak
+        this.pdGraphics.lineStyle(3.5, tracerColor, tracerAlpha * 0.15);
+        this.pdGraphics.lineBetween(tailX, tailY, headX, headY);
+        // Bright core streak
+        this.pdGraphics.lineStyle(1.5, tracerColor, tracerAlpha);
+        this.pdGraphics.lineBetween(tailX, tailY, headX, headY);
+        // Hot tip dot
+        this.pdGraphics.fillStyle(0xffffff, tracerAlpha * 0.7);
+        this.pdGraphics.fillCircle(headX, headY, 1);
+      }
+
+      // ── Impact starburst with visible spoke lines ────────────────────────
       const burstAlpha = alpha * 0.9;
       const r = PD_STARBURST_RADIUS * (1 + (1 - pd.ticksRemaining / 2) * 0.5);
-      // Centre bright dot
+
+      // Outer glow bloom
+      this.pdGraphics.fillStyle(tracerColor, burstAlpha * 0.12);
+      this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 2);
+      // Centre bright core
+      this.pdGraphics.fillStyle(0xffffff, burstAlpha * 0.9);
+      this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 0.35);
       this.pdGraphics.fillStyle(0xffff88, burstAlpha);
       this.pdGraphics.fillCircle(pd.missileX, pd.missileY, r * 0.5);
-      // 6 spokes radiating from the intercept point
-      const spokes = 6;
+
+      // 8 radiating spokes — visible lines extending outward
+      const spokes = 8;
       for (let i = 0; i < spokes; i++) {
         const angle = (i / spokes) * Math.PI * 2 + tick * 0.3;
-        const tipX = pd.missileX + Math.cos(angle) * r;
-        const tipY = pd.missileY + Math.sin(angle) * r;
-        this.pdGraphics.lineStyle(1, tracerColor, burstAlpha * 0.8);
+        // Varying spoke lengths for visual interest
+        const spokeLen = r * (1.0 + Math.sin(tick * 2.5 + i * 1.7) * 0.3);
+        const tipX = pd.missileX + Math.cos(angle) * spokeLen;
+        const tipY = pd.missileY + Math.sin(angle) * spokeLen;
+        // Spoke glow
+        this.pdGraphics.lineStyle(2.5, tracerColor, burstAlpha * 0.2);
         this.pdGraphics.lineBetween(pd.missileX, pd.missileY, tipX, tipY);
+        // Bright spoke core
+        this.pdGraphics.lineStyle(1, tracerColor, burstAlpha * 0.85);
+        this.pdGraphics.lineBetween(pd.missileX, pd.missileY, tipX, tipY);
+        // Spoke tip dot
+        this.pdGraphics.fillStyle(0xffffff, burstAlpha * 0.5);
+        this.pdGraphics.fillCircle(tipX, tipY, 0.8);
       }
-      // Outer ring flash
+
+      // Expanding ring flash
       this.pdGraphics.lineStyle(1, tracerColor, burstAlpha * 0.5);
-      this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r * 1.2);
-      // Debris scatter dots
-      for (let i = 0; i < 4; i++) {
-        const debrisAngle = Math.random() * Math.PI * 2;
-        const debrisDist = r * (0.5 + Math.random());
-        this.pdGraphics.fillStyle(tracerColor, burstAlpha * 0.6);
-        this.pdGraphics.fillCircle(
-          pd.missileX + Math.cos(debrisAngle) * debrisDist,
-          pd.missileY + Math.sin(debrisAngle) * debrisDist,
-          1,
-        );
+      this.pdGraphics.strokeCircle(pd.missileX, pd.missileY, r * 1.3);
+
+      // ── Spark particles scattering from impact ───────────────────────────
+      // Use deterministic pseudo-random based on tick + pd position for consistency
+      const sparkCount = 6;
+      for (let i = 0; i < sparkCount; i++) {
+        // Deterministic scatter using sin — avoids per-frame flicker from Math.random
+        const sparkSeed = pd.missileX * 7.3 + pd.missileY * 11.7 + i * 13.1;
+        const sparkAngle = Math.sin(sparkSeed) * Math.PI * 2;
+        const sparkSpeed = 0.5 + (Math.sin(sparkSeed * 2.3) * 0.5 + 0.5) * 1.5;
+        // Sparks travel outward over time (based on remaining ticks)
+        const sparkLife = (2 - pd.ticksRemaining) / 2;
+        const sparkDist = r * sparkSpeed * (0.5 + sparkLife * 1.5);
+        const sparkX = pd.missileX + Math.cos(sparkAngle) * sparkDist;
+        const sparkY = pd.missileY + Math.sin(sparkAngle) * sparkDist;
+        const sparkAlpha = burstAlpha * 0.7 * Math.max(0, 1 - sparkLife * 0.8);
+
+        // Tiny spark streak (short line in direction of travel)
+        const sparkStreakLen = 2;
+        const sparkTailX = sparkX - Math.cos(sparkAngle) * sparkStreakLen;
+        const sparkTailY = sparkY - Math.sin(sparkAngle) * sparkStreakLen;
+        this.pdGraphics.lineStyle(1, tracerColor, sparkAlpha);
+        this.pdGraphics.lineBetween(sparkTailX, sparkTailY, sparkX, sparkY);
+        // Bright spark dot
+        this.pdGraphics.fillStyle(0xffffff, sparkAlpha * 0.8);
+        this.pdGraphics.fillCircle(sparkX, sparkY, 0.7);
       }
     }
   }
@@ -1521,7 +1892,7 @@ export class CombatScene extends Phaser.Scene {
     for (const f of features) {
       if (f.type === 'asteroid') {
         // Cap visual radius so asteroids don't dominate the battlefield
-        const asteroidR = Math.min(f.radius, 35);
+        const asteroidR = Math.min(f.radius, 30);
         this._drawAsteroid(f.x, f.y, asteroidR);
       } else if (f.type === 'nebula') {
         this.environmentGraphics.fillStyle(NEBULA_COLOR, NEBULA_ALPHA);
@@ -1533,73 +1904,104 @@ export class CombatScene extends Phaser.Scene {
   /** Draw a single asteroid with layered craggy detail. */
   private _drawAsteroid(cx: number, cy: number, radius: number): void {
     const gfx = this.environmentGraphics;
+    const cappedR = Math.min(radius, 30);
     const seed = cx * 7.13 + cy * 3.91;
 
-    // Shadow layer — dark, slightly larger, offset
-    gfx.fillStyle(0x1a1a22, 0.7);
-    gfx.beginPath();
-    const shadowSegs = 14;
-    for (let i = 0; i < shadowSegs; i++) {
-      const a = (i / shadowSegs) * Math.PI * 2;
-      const v = 0.8 + 0.35 * Math.sin(seed + i * 5.7);
-      const r = radius * 1.05 * v;
-      const px = cx + 1.5 + Math.cos(a) * r;
-      const py = cy + 1.5 + Math.sin(a) * r;
-      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
-    }
-    gfx.closePath();
-    gfx.fillPath();
+    // Deterministic pseudo-random helper seeded from position
+    const hash = (n: number) => ((Math.sin(seed * 0.731 + n * 12.9898) * 43758.5453) % 1 + 1) % 1;
 
-    // Main body — dark grey rock
-    gfx.fillStyle(0x444450, 0.85);
-    gfx.beginPath();
-    const segs = 14;
+    const segs = 20;
+
+    // Pre-compute the main body outline vertices (used for body, shadow, and outline)
+    const bodyVerts: { x: number; y: number }[] = [];
     for (let i = 0; i < segs; i++) {
       const a = (i / segs) * Math.PI * 2;
-      const v = 0.7 + 0.5 * ((Math.sin(seed + i * 11.3) + 1) / 2);
-      const r = radius * v;
-      const px = cx + Math.cos(a) * r;
-      const py = cy + Math.sin(a) * r;
+      // High variation: 0.5–1.3x radius for craggy, natural look
+      const v = 0.5 + 0.8 * hash(i * 11.3 + 0.5);
+      const r = cappedR * v;
+      bodyVerts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+
+    // Shadow layer — dark, slightly larger, offset bottom-right
+    gfx.fillStyle(0x111118, 0.6);
+    gfx.beginPath();
+    for (let i = 0; i < segs; i++) {
+      const px = bodyVerts[i].x + 2.5;
+      const py = bodyVerts[i].y + 2.5;
       if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
     }
     gfx.closePath();
     gfx.fillPath();
 
-    // Highlight crust — lighter grey, smaller, offset toward light source
-    gfx.fillStyle(0x667078, 0.5);
+    // Main body — dark grey-brown rock
+    gfx.fillStyle(0x333340, 0.9);
     gfx.beginPath();
-    const hiSegs = 10;
+    for (let i = 0; i < segs; i++) {
+      if (i === 0) gfx.moveTo(bodyVerts[i].x, bodyVerts[i].y);
+      else gfx.lineTo(bodyVerts[i].x, bodyVerts[i].y);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Surface variation — 2-3 overlapping lumpy patches to break up the uniform fill
+    const patchCount = 2 + Math.floor(hash(99) * 2);
+    for (let p = 0; p < patchCount; p++) {
+      const pAngle = hash(p * 17.3 + 40) * Math.PI * 2;
+      const pDist = cappedR * 0.15 * hash(p * 23.1 + 50);
+      const pCx = cx + Math.cos(pAngle) * pDist;
+      const pCy = cy + Math.sin(pAngle) * pDist;
+      const patchSegs = 12;
+      // Alternate between slightly lighter and slightly darker patches
+      const patchColour = p % 2 === 0 ? 0x3d3d4a : 0x2a2a35;
+      gfx.fillStyle(patchColour, 0.5);
+      gfx.beginPath();
+      for (let i = 0; i < patchSegs; i++) {
+        const a = (i / patchSegs) * Math.PI * 2;
+        const v = 0.4 + 0.6 * hash(p * 7 + i * 5.3);
+        const r = cappedR * 0.55 * v;
+        const px = pCx + Math.cos(a) * r;
+        const py = pCy + Math.sin(a) * r;
+        if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+      }
+      gfx.closePath();
+      gfx.fillPath();
+    }
+
+    // Highlight crust — lighter grey, offset toward top-left light source
+    gfx.fillStyle(0x556068, 0.4);
+    gfx.beginPath();
+    const hiSegs = 14;
     for (let i = 0; i < hiSegs; i++) {
       const a = (i / hiSegs) * Math.PI * 2;
-      const v = 0.5 + 0.4 * ((Math.sin(seed * 1.7 + i * 9.1) + 1) / 2);
-      const r = radius * 0.65 * v;
-      const px = cx - 1 + Math.cos(a) * r;
-      const py = cy - 1 + Math.sin(a) * r;
+      const v = 0.35 + 0.55 * hash(i * 9.1 + seed * 1.7);
+      const r = cappedR * 0.55 * v;
+      const px = cx - 1.5 + Math.cos(a) * r;
+      const py = cy - 1.5 + Math.sin(a) * r;
       if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
     }
     gfx.closePath();
     gfx.fillPath();
 
-    // Crater pockmarks — 2-4 small dark circles
-    const craterCount = 2 + Math.floor(((Math.sin(seed * 2.3) + 1) / 2) * 3);
+    // Crater pockmarks — dark depressions with faint bright rims
+    const craterCount = 2 + Math.floor(hash(seed * 2.3) * 3);
     for (let i = 0; i < craterCount; i++) {
-      const a = seed * 0.7 + i * 2.1;
-      const d = radius * (0.2 + 0.4 * ((Math.sin(a * 3.7) + 1) / 2));
-      const cr = radius * (0.06 + 0.08 * ((Math.sin(a * 5.3) + 1) / 2));
-      gfx.fillStyle(0x222230, 0.6);
+      const a = hash(i * 7.7 + 13) * Math.PI * 2;
+      const d = cappedR * (0.15 + 0.45 * hash(i * 3.7 + 20));
+      const cr = cappedR * (0.05 + 0.09 * hash(i * 5.3 + 30));
+      // Bright rim on the light side of the crater
+      gfx.fillStyle(0x556068, 0.25);
+      gfx.fillCircle(cx + Math.cos(a) * d - 0.5, cy + Math.sin(a) * d - 0.5, cr * 1.25);
+      // Dark crater interior
+      gfx.fillStyle(0x1a1a25, 0.65);
       gfx.fillCircle(cx + Math.cos(a) * d, cy + Math.sin(a) * d, cr);
     }
 
-    // Subtle outline
-    gfx.lineStyle(0.5, 0x556068, 0.3);
+    // Subtle craggy outline
+    gfx.lineStyle(0.5, 0x556068, 0.25);
     gfx.beginPath();
     for (let i = 0; i < segs; i++) {
-      const a = (i / segs) * Math.PI * 2;
-      const v = 0.7 + 0.5 * ((Math.sin(seed + i * 11.3) + 1) / 2);
-      const r = radius * v;
-      const px = cx + Math.cos(a) * r;
-      const py = cy + Math.sin(a) * r;
-      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+      if (i === 0) gfx.moveTo(bodyVerts[i].x, bodyVerts[i].y);
+      else gfx.lineTo(bodyVerts[i].x, bodyVerts[i].y);
     }
     gfx.closePath();
     gfx.strokePath();
@@ -1608,57 +2010,122 @@ export class CombatScene extends Phaser.Scene {
   /** Draw only dynamic debris — called per frame. Static features drawn once. */
   private _drawEnvironment(): void {
     this.debrisGraphics.clear();
+    const gfx = this.debrisGraphics;
     const features = this.tacticalState.environment ?? [];
+
+    // Metallic colour palette for hull fragments
+    const metalShades = [0x556677, 0x667788, 0x445566, 0x778899, 0x4a5a6a];
+    // Orange-hot edge glow for recently-torn metal
+    const hotEdge = 0xcc6633;
+
     for (const f of features) {
       if (f.type !== 'debris') continue;
 
-      // Scale fragment count and size to the debris radius (set by ship class).
-      // Small debris (radius <6) = tiny scraps from fighters.
-      // Large debris (radius 15+) = capital ship wreckage.
-      const r = f.radius;
-      const fragmentCount = Math.max(2, Math.min(6, Math.floor(r * 0.4)));
+      // Deterministic pseudo-random seeded from debris position
       const seed = f.x * 3.17 + f.y * 7.23;
+      const hash = (n: number) => ((Math.sin(seed * 0.731 + n * 12.9898) * 43758.5453) % 1 + 1) % 1;
 
-      for (let i = 0; i < fragmentCount; i++) {
-        // Deterministic scatter — consistent position per frame
-        const angle = (i / fragmentCount) * Math.PI * 2 + seed * 0.01;
-        const dist = r * (0.15 + 0.6 * ((Math.sin(seed + i * 11.3) + 1) / 2));
+      const r = f.radius;
+      const isCapitalWreck = r >= 12;
+
+      // Tiny scraps — the bulk of the debris field
+      // More fragments for larger wrecks, scattered irregularly
+      const tinyCount = Math.max(4, Math.min(18, Math.floor(r * 0.8)));
+      for (let i = 0; i < tinyCount; i++) {
+        // Irregular scatter — NOT evenly spaced
+        const angle = hash(i * 13.7 + 1) * Math.PI * 2;
+        const dist = r * (0.05 + 0.9 * hash(i * 7.3 + 2));
         const dx = f.x + Math.cos(angle) * dist;
         const dy = f.y + Math.sin(angle) * dist;
 
-        // Fragment size: 0.4–1.2 px — tiny metallic scraps
-        const fragSize = 0.4 + (r * 0.04) * ((Math.sin(seed + i * 5.7) + 1) / 2);
+        // Fragment size: 0.5–2px for most, up to 3px for capital wreckage
+        const baseSize = 0.5 + 1.5 * hash(i * 5.7 + 3);
+        const fragSize = isCapitalWreck ? baseSize * 1.3 : baseSize;
 
-        // Vary between dark metallic grey and dull silver
-        const shade = (i % 3 === 0) ? 0x667788 : (i % 3 === 1) ? 0x445566 : 0x556070;
-        this.debrisGraphics.fillStyle(shade, 0.5 + 0.2 * ((Math.sin(seed + i * 3.1) + 1) / 2));
+        // Pick a metallic shade
+        const shade = metalShades[Math.floor(hash(i * 3.1 + 4) * metalShades.length)];
+        const alpha = 0.45 + 0.35 * hash(i * 2.9 + 5);
+        gfx.fillStyle(shade, alpha);
 
-        // Draw as tiny irregular polygon (3-4 sides), not circles
-        const sides = 3 + (i % 2);
-        this.debrisGraphics.beginPath();
+        // Irregular triangles and quadrilaterals — jagged torn shapes
+        const sides = hash(i * 9.1 + 6) < 0.6 ? 3 : 4;
+        const rot = hash(i * 4.3 + 7) * Math.PI * 2; // random rotation per fragment
+        gfx.beginPath();
         for (let s = 0; s < sides; s++) {
-          const sa = (s / sides) * Math.PI * 2 + seed * 0.3;
-          const sv = 0.6 + 0.8 * ((Math.sin(seed + s * 7 + i * 3) + 1) / 2);
+          const sa = rot + (s / sides) * Math.PI * 2;
+          // High irregularity — 0.3 to 1.4x to make jagged shards, not regular polygons
+          const sv = 0.3 + 1.1 * hash(i * 11 + s * 7.7 + 8);
           const sx = dx + Math.cos(sa) * fragSize * sv;
           const sy = dy + Math.sin(sa) * fragSize * sv;
-          if (s === 0) this.debrisGraphics.moveTo(sx, sy);
-          else this.debrisGraphics.lineTo(sx, sy);
+          if (s === 0) gfx.moveTo(sx, sy); else gfx.lineTo(sx, sy);
         }
-        this.debrisGraphics.closePath();
-        this.debrisGraphics.fillPath();
+        gfx.closePath();
+        gfx.fillPath();
+
+        // ~20% of fragments get a faint orange-hot edge glow
+        if (hash(i * 6.1 + 9) < 0.2) {
+          gfx.lineStyle(0.4, hotEdge, 0.3 + 0.2 * hash(i * 8.3 + 10));
+          gfx.beginPath();
+          // Draw one edge of the fragment as a glowing line
+          const ea1 = rot;
+          const ea2 = rot + (1 / sides) * Math.PI * 2;
+          const ev1 = 0.3 + 1.1 * hash(i * 11 + 0 * 7.7 + 8);
+          const ev2 = 0.3 + 1.1 * hash(i * 11 + 1 * 7.7 + 8);
+          gfx.moveTo(dx + Math.cos(ea1) * fragSize * ev1, dy + Math.sin(ea1) * fragSize * ev1);
+          gfx.lineTo(dx + Math.cos(ea2) * fragSize * ev2, dy + Math.sin(ea2) * fragSize * ev2);
+          gfx.strokePath();
+        }
       }
 
-      // Faint scatter dust around larger debris fields
-      if (r > 8) {
-        const dustCount = Math.floor(r * 0.3);
+      // Capital ship wreckage: a few larger twisted hull plates
+      if (isCapitalWreck) {
+        const bigCount = 2 + Math.floor(hash(77) * 2);
+        for (let b = 0; b < bigCount; b++) {
+          const bAngle = hash(b * 19.3 + 20) * Math.PI * 2;
+          const bDist = r * (0.1 + 0.5 * hash(b * 14.7 + 21));
+          const bx = f.x + Math.cos(bAngle) * bDist;
+          const by = f.y + Math.sin(bAngle) * bDist;
+          const bSize = 2.5 + 1.5 * hash(b * 8.1 + 22); // 2.5–4px
+          const bRot = hash(b * 5.9 + 23) * Math.PI * 2;
+
+          // Irregular 4-5 sided twisted plate
+          const bSides = 4 + (hash(b * 3.3 + 24) < 0.4 ? 1 : 0);
+          gfx.fillStyle(metalShades[b % metalShades.length], 0.55);
+          gfx.beginPath();
+          for (let s = 0; s < bSides; s++) {
+            const sa = bRot + (s / bSides) * Math.PI * 2;
+            const sv = 0.4 + 0.9 * hash(b * 13 + s * 6.1 + 25);
+            const sx = bx + Math.cos(sa) * bSize * sv;
+            const sy = by + Math.sin(sa) * bSize * sv;
+            if (s === 0) gfx.moveTo(sx, sy); else gfx.lineTo(sx, sy);
+          }
+          gfx.closePath();
+          gfx.fillPath();
+
+          // Hot edge glow on one side of the large plate
+          gfx.lineStyle(0.5, hotEdge, 0.35);
+          gfx.beginPath();
+          const e1 = bRot + (0 / bSides) * Math.PI * 2;
+          const e2 = bRot + (1 / bSides) * Math.PI * 2;
+          const v1 = 0.4 + 0.9 * hash(b * 13 + 0 * 6.1 + 25);
+          const v2 = 0.4 + 0.9 * hash(b * 13 + 1 * 6.1 + 25);
+          gfx.moveTo(bx + Math.cos(e1) * bSize * v1, by + Math.sin(e1) * bSize * v1);
+          gfx.lineTo(bx + Math.cos(e2) * bSize * v2, by + Math.sin(e2) * bSize * v2);
+          gfx.strokePath();
+        }
+      }
+
+      // Faint scatter dust — micro-particles around the wreck
+      if (r > 6) {
+        const dustCount = Math.floor(r * 0.5);
         for (let d = 0; d < dustCount; d++) {
-          const da = seed * 0.5 + d * 2.39;
-          const dd = r * (0.3 + 0.7 * ((Math.sin(seed + d * 4.1) + 1) / 2));
-          this.debrisGraphics.fillStyle(0x556068, 0.15);
-          this.debrisGraphics.fillCircle(
+          const da = hash(d * 4.1 + 30) * Math.PI * 2;
+          const dd = r * (0.2 + 0.8 * hash(d * 6.7 + 31));
+          gfx.fillStyle(0x556068, 0.12);
+          gfx.fillCircle(
             f.x + Math.cos(da) * dd,
             f.y + Math.sin(da) * dd,
-            0.3 + Math.random() * 0.3,
+            0.2 + 0.3 * hash(d * 2.3 + 32),
           );
         }
       }
