@@ -176,14 +176,8 @@ const EXPLOSION_RADIUS = 36;
 const EXPLOSION_COLOR = 0xff8800;
 
 /** Environment visual constants */
-const ASTEROID_COLOR = 0x888888;
-const ASTEROID_ALPHA = 0.6;
 const NEBULA_COLOR = 0x6644aa;
 const NEBULA_ALPHA = 0.25;
-const DEBRIS_COLOR = 0xcc6622;
-const DEBRIS_DOT_RADIUS = 3;
-const DEBRIS_DOT_COUNT = 10;
-const DEBRIS_DOT_ALPHA = 0.65;
 
 /** Speed multiplier presets (ms per tick) */
 const SPEED_PRESETS: { label: string; msPerTick: number }[] = [
@@ -1526,25 +1520,87 @@ export class CombatScene extends Phaser.Scene {
     const features = this.tacticalState.environment ?? [];
     for (const f of features) {
       if (f.type === 'asteroid') {
-        this.environmentGraphics.fillStyle(ASTEROID_COLOR, ASTEROID_ALPHA);
-        this.environmentGraphics.beginPath();
-        const segments = 10;
-        for (let i = 0; i < segments; i++) {
-          const angle = (i / segments) * Math.PI * 2;
-          const variation = 0.7 + 0.6 * ((Math.sin(f.x * 7 + i * 13) + 1) / 2);
-          const r = f.radius * variation;
-          const px = f.x + Math.cos(angle) * r;
-          const py = f.y + Math.sin(angle) * r;
-          if (i === 0) this.environmentGraphics.moveTo(px, py);
-          else this.environmentGraphics.lineTo(px, py);
-        }
-        this.environmentGraphics.closePath();
-        this.environmentGraphics.fillPath();
+        this._drawAsteroid(f.x, f.y, f.radius);
       } else if (f.type === 'nebula') {
         this.environmentGraphics.fillStyle(NEBULA_COLOR, NEBULA_ALPHA);
         this.environmentGraphics.fillCircle(f.x, f.y, f.radius);
       }
     }
+  }
+
+  /** Draw a single asteroid with layered craggy detail. */
+  private _drawAsteroid(cx: number, cy: number, radius: number): void {
+    const gfx = this.environmentGraphics;
+    const seed = cx * 7.13 + cy * 3.91;
+
+    // Shadow layer — dark, slightly larger, offset
+    gfx.fillStyle(0x1a1a22, 0.7);
+    gfx.beginPath();
+    const shadowSegs = 14;
+    for (let i = 0; i < shadowSegs; i++) {
+      const a = (i / shadowSegs) * Math.PI * 2;
+      const v = 0.8 + 0.35 * Math.sin(seed + i * 5.7);
+      const r = radius * 1.05 * v;
+      const px = cx + 1.5 + Math.cos(a) * r;
+      const py = cy + 1.5 + Math.sin(a) * r;
+      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Main body — dark grey rock
+    gfx.fillStyle(0x444450, 0.85);
+    gfx.beginPath();
+    const segs = 14;
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const v = 0.7 + 0.5 * ((Math.sin(seed + i * 11.3) + 1) / 2);
+      const r = radius * v;
+      const px = cx + Math.cos(a) * r;
+      const py = cy + Math.sin(a) * r;
+      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Highlight crust — lighter grey, smaller, offset toward light source
+    gfx.fillStyle(0x667078, 0.5);
+    gfx.beginPath();
+    const hiSegs = 10;
+    for (let i = 0; i < hiSegs; i++) {
+      const a = (i / hiSegs) * Math.PI * 2;
+      const v = 0.5 + 0.4 * ((Math.sin(seed * 1.7 + i * 9.1) + 1) / 2);
+      const r = radius * 0.65 * v;
+      const px = cx - 1 + Math.cos(a) * r;
+      const py = cy - 1 + Math.sin(a) * r;
+      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Crater pockmarks — 2-4 small dark circles
+    const craterCount = 2 + Math.floor(((Math.sin(seed * 2.3) + 1) / 2) * 3);
+    for (let i = 0; i < craterCount; i++) {
+      const a = seed * 0.7 + i * 2.1;
+      const d = radius * (0.2 + 0.4 * ((Math.sin(a * 3.7) + 1) / 2));
+      const cr = radius * (0.06 + 0.08 * ((Math.sin(a * 5.3) + 1) / 2));
+      gfx.fillStyle(0x222230, 0.6);
+      gfx.fillCircle(cx + Math.cos(a) * d, cy + Math.sin(a) * d, cr);
+    }
+
+    // Subtle outline
+    gfx.lineStyle(0.5, 0x556068, 0.3);
+    gfx.beginPath();
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const v = 0.7 + 0.5 * ((Math.sin(seed + i * 11.3) + 1) / 2);
+      const r = radius * v;
+      const px = cx + Math.cos(a) * r;
+      const py = cy + Math.sin(a) * r;
+      if (i === 0) gfx.moveTo(px, py); else gfx.lineTo(px, py);
+    }
+    gfx.closePath();
+    gfx.strokePath();
   }
 
   /** Draw only dynamic debris — called per frame. Static features drawn once. */
@@ -1553,13 +1609,56 @@ export class CombatScene extends Phaser.Scene {
     const features = this.tacticalState.environment ?? [];
     for (const f of features) {
       if (f.type !== 'debris') continue;
-      for (let i = 0; i < DEBRIS_DOT_COUNT; i++) {
-        const angle = (i / DEBRIS_DOT_COUNT) * Math.PI * 2 + f.x * 0.01;
-        const r = f.radius * (0.3 + 0.7 * ((Math.sin(f.y * 3 + i * 7) + 1) / 2));
-        const dx = f.x + Math.cos(angle) * r;
-        const dy = f.y + Math.sin(angle) * r;
-        this.debrisGraphics.fillStyle(DEBRIS_COLOR, DEBRIS_DOT_ALPHA);
-        this.debrisGraphics.fillCircle(dx, dy, DEBRIS_DOT_RADIUS);
+
+      // Scale fragment count and size to the debris radius (set by ship class).
+      // Small debris (radius <6) = tiny scraps from fighters.
+      // Large debris (radius 15+) = capital ship wreckage.
+      const r = f.radius;
+      const fragmentCount = Math.max(2, Math.min(6, Math.floor(r * 0.4)));
+      const seed = f.x * 3.17 + f.y * 7.23;
+
+      for (let i = 0; i < fragmentCount; i++) {
+        // Deterministic scatter — consistent position per frame
+        const angle = (i / fragmentCount) * Math.PI * 2 + seed * 0.01;
+        const dist = r * (0.15 + 0.6 * ((Math.sin(seed + i * 11.3) + 1) / 2));
+        const dx = f.x + Math.cos(angle) * dist;
+        const dy = f.y + Math.sin(angle) * dist;
+
+        // Fragment size: 0.4–1.2 px — tiny metallic scraps
+        const fragSize = 0.4 + (r * 0.04) * ((Math.sin(seed + i * 5.7) + 1) / 2);
+
+        // Vary between dark metallic grey and dull silver
+        const shade = (i % 3 === 0) ? 0x667788 : (i % 3 === 1) ? 0x445566 : 0x556070;
+        this.debrisGraphics.fillStyle(shade, 0.5 + 0.2 * ((Math.sin(seed + i * 3.1) + 1) / 2));
+
+        // Draw as tiny irregular polygon (3-4 sides), not circles
+        const sides = 3 + (i % 2);
+        this.debrisGraphics.beginPath();
+        for (let s = 0; s < sides; s++) {
+          const sa = (s / sides) * Math.PI * 2 + seed * 0.3;
+          const sv = 0.6 + 0.8 * ((Math.sin(seed + s * 7 + i * 3) + 1) / 2);
+          const sx = dx + Math.cos(sa) * fragSize * sv;
+          const sy = dy + Math.sin(sa) * fragSize * sv;
+          if (s === 0) this.debrisGraphics.moveTo(sx, sy);
+          else this.debrisGraphics.lineTo(sx, sy);
+        }
+        this.debrisGraphics.closePath();
+        this.debrisGraphics.fillPath();
+      }
+
+      // Faint scatter dust around larger debris fields
+      if (r > 8) {
+        const dustCount = Math.floor(r * 0.3);
+        for (let d = 0; d < dustCount; d++) {
+          const da = seed * 0.5 + d * 2.39;
+          const dd = r * (0.3 + 0.7 * ((Math.sin(seed + d * 4.1) + 1) / 2));
+          this.debrisGraphics.fillStyle(0x556068, 0.15);
+          this.debrisGraphics.fillCircle(
+            f.x + Math.cos(da) * dd,
+            f.y + Math.sin(da) * dd,
+            0.3 + Math.random() * 0.3,
+          );
+        }
       }
     }
   }
