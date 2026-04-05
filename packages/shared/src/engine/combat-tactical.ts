@@ -50,7 +50,7 @@ const CATASTROPHIC_FAILURE_MAX = 0.1;
 /** Missile initial speed (pixels per tick). */
 const MISSILE_INITIAL_SPEED = 4;
 /** Missile maximum speed (pixels per tick). */
-const MISSILE_MAX_SPEED = 16;
+const MISSILE_MAX_SPEED = 17;
 /** Missile acceleration (pixels per tick^2). */
 const MISSILE_ACCELERATION = 1.5;
 /** Hit radius for missile collision detection. */
@@ -67,26 +67,26 @@ const POINT_DEFENSE_DEFAULT_AMMO = 300;
 
 /** Per-missile-type physics and ammo profiles. */
 const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number }> = {
-  // All missiles outrun ships (fastest ship = 14). Slowest missile maxSpeed 12,
+  // All missiles outrun ships (fastest ship = 14). Slowest missile maxSpeed 15,
   // fastest 30. Higher tech = faster, harder to intercept.
-  // nano_atomic age
-  basic_missile:       { initSpeed: 4,  maxSpeed: 12, accel: 1.5, ammo: 12, cooldown: 8 },   // cheap salvo
-  hv_missile:          { initSpeed: 6,  maxSpeed: 14, accel: 2.0, ammo: 8,  cooldown: 10 },  // high-velocity
-  basic_torpedo:       { initSpeed: 3,  maxSpeed: 12, accel: 1.0, ammo: 6,  cooldown: 20 },  // standard torpedo
-  torpedo_rack:        { initSpeed: 3,  maxSpeed: 12, accel: 1.0, ammo: 6,  cooldown: 20 },  // multi-tube
-  icbm_torpedo:        { initSpeed: 2,  maxSpeed: 10, accel: 0.5, ammo: 1,  cooldown: 40 },  // crude nuke — slowest
-  // fusion age
-  guided_torpedo:      { initSpeed: 5,  maxSpeed: 16, accel: 2.0, ammo: 4,  cooldown: 20 },  // smart tracking
-  cluster_missile:     { initSpeed: 5,  maxSpeed: 15, accel: 1.8, ammo: 4,  cooldown: 15 },  // splits near target
-  emp_torpedo:         { initSpeed: 5,  maxSpeed: 16, accel: 1.5, ammo: 3,  cooldown: 20 },  // EMP warhead
-  // nano_fusion age
-  fusion_torpedo:      { initSpeed: 6,  maxSpeed: 20, accel: 2.5, ammo: 3,  cooldown: 18 },  // fast heavy
-  swarm_missiles:      { initSpeed: 8,  maxSpeed: 22, accel: 3.0, ammo: 16, cooldown: 15 },  // overwhelming swarm
-  bunker_buster:       { initSpeed: 4,  maxSpeed: 18, accel: 1.5, ammo: 2,  cooldown: 25 },  // heavy penetrator
-  // anti_matter age
-  antimatter_torpedo:  { initSpeed: 8,  maxSpeed: 25, accel: 3.5, ammo: 2,  cooldown: 18 },  // fast and devastating
+  // nano_atomic age (15–18)
+  basic_missile:       { initSpeed: 5,  maxSpeed: 17, accel: 1.8, ammo: 12, cooldown: 8 },   // cheap salvo
+  hv_missile:          { initSpeed: 7,  maxSpeed: 18, accel: 2.2, ammo: 8,  cooldown: 10 },  // high-velocity
+  basic_torpedo:       { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20 },  // standard torpedo
+  torpedo_rack:        { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20 },  // multi-tube
+  icbm_torpedo:        { initSpeed: 3,  maxSpeed: 15, accel: 0.8, ammo: 1,  cooldown: 40 },  // crude nuke — slowest
+  // fusion age (19–21)
+  guided_torpedo:      { initSpeed: 6,  maxSpeed: 20, accel: 2.2, ammo: 4,  cooldown: 20 },  // smart tracking
+  cluster_missile:     { initSpeed: 6,  maxSpeed: 19, accel: 2.0, ammo: 4,  cooldown: 15 },  // splits near target
+  emp_torpedo:         { initSpeed: 6,  maxSpeed: 21, accel: 1.8, ammo: 3,  cooldown: 20 },  // EMP warhead
+  // nano_fusion age (23–26)
+  fusion_torpedo:      { initSpeed: 8,  maxSpeed: 25, accel: 2.8, ammo: 3,  cooldown: 18 },  // fast heavy
+  swarm_missiles:      { initSpeed: 10, maxSpeed: 26, accel: 3.0, ammo: 16, cooldown: 15 },  // overwhelming swarm
+  bunker_buster:       { initSpeed: 5,  maxSpeed: 23, accel: 1.8, ammo: 2,  cooldown: 25 },  // heavy penetrator
+  // anti_matter age (27–28)
+  antimatter_torpedo:  { initSpeed: 9,  maxSpeed: 27, accel: 3.5, ammo: 2,  cooldown: 18 },  // fast and devastating
   void_seeker:         { initSpeed: 10, maxSpeed: 28, accel: 4.0, ammo: 2,  cooldown: 18 },  // stealthy and fast
-  // singularity age
+  // singularity age (30)
   singularity_torpedo: { initSpeed: 12, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // near-impossible to intercept
   phase_torpedo:       { initSpeed: 14, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // phases through shields
 };
@@ -237,6 +237,14 @@ export interface TacticalShip {
   crew: Crew;
   /** Unmanned craft (drones) — no morale, never flee, fight to destruction. */
   unmanned?: boolean;
+  /** Hull class from template (e.g. 'fighter', 'corvette', 'battleship'). */
+  hullClass?: string;
+  /** Fighter AI phase — tracks attack-run state machine. */
+  fighterPhase?: 'approach' | 'engage' | 'break' | 'regroup';
+  /** Tick when fighter entered the current phase. */
+  fighterPhaseTick?: number;
+  /** Wing group ID — fighters in the same wing act as a unit. */
+  wingId?: string;
 }
 
 export interface Projectile {
@@ -960,6 +968,263 @@ function smallCraftFlank(
 }
 
 // ---------------------------------------------------------------------------
+// Fighter combat AI — attack-pass dogfighting
+// ---------------------------------------------------------------------------
+
+// Fighters make attack passes, not orbits. The cycle:
+//   approach → engage (fire during pass) → break (away) → regroup → repeat
+// Wings (groups of 3) attack together: leader picks target, wingmen follow.
+
+/** Ticks of evasion after a close pass before re-engaging. */
+const FIGHTER_EVADE_TICKS = 6;
+/** Perpendicular dodge distance during evasion. */
+const FIGHTER_EVADE_OFFSET = 60;
+/** Wingman offset distance from leader. */
+const WINGMAN_OFFSET = 35;
+
+/**
+ * Assign wing IDs to all fighters on the battlefield (called once at battle
+ * start and when fighters are destroyed). Wings of 3, labelled by side.
+ */
+function assignWings(ships: TacticalShip[]): TacticalShip[] {
+  const sides: Array<'attacker' | 'defender'> = ['attacker', 'defender'];
+  const result = [...ships];
+  for (const side of sides) {
+    const fighters = result
+      .filter(s => s.hullClass === 'fighter' && s.side === side && !s.destroyed && !s.routed)
+      .sort((a, b) => a.id.localeCompare(b.id));
+    let wingIdx = 0;
+    for (let i = 0; i < fighters.length; i++) {
+      const wingId = `${side}-wing-${Math.floor(wingIdx / 3)}`;
+      const idx = result.findIndex(s => s.id === fighters[i]!.id);
+      if (idx >= 0) {
+        result[idx] = { ...result[idx]!, wingId };
+      }
+      wingIdx++;
+    }
+  }
+  return result;
+}
+
+/**
+ * Get the wing leader (first alive fighter in the wing).
+ */
+function getWingLeader(ship: TacticalShip, allShips: TacticalShip[]): TacticalShip {
+  if (!ship.wingId) return ship;
+  const wingMates = allShips
+    .filter(s => s.wingId === ship.wingId && !s.destroyed && !s.routed)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return wingMates[0] ?? ship;
+}
+
+/**
+ * Get wing position offset for a wingman (relative to leader facing).
+ * Leader = centre, second = left, third = right (V formation).
+ */
+function getWingOffset(ship: TacticalShip, leader: TacticalShip, allShips: TacticalShip[]): { x: number; y: number } {
+  if (ship.id === leader.id) return { x: 0, y: 0 };
+  const wingMates = allShips
+    .filter(s => s.wingId === ship.wingId && !s.destroyed && !s.routed)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const myIdx = wingMates.findIndex(s => s.id === ship.id);
+  // V-formation: wingmen trail behind and to the sides
+  const side = myIdx % 2 === 0 ? -1 : 1;
+  const perpAngle = leader.facing + (Math.PI / 2) * side;
+  const trailAngle = leader.facing + Math.PI; // behind leader
+  return {
+    x: Math.cos(perpAngle) * WINGMAN_OFFSET + Math.cos(trailAngle) * WINGMAN_OFFSET * 0.6,
+    y: Math.sin(perpAngle) * WINGMAN_OFFSET + Math.sin(trailAngle) * WINGMAN_OFFSET * 0.6,
+  };
+}
+
+/**
+ * Fighter combat AI — attack-pass dogfighting.
+ *
+ * Unlike capital ships that close to engagement distance and hold, fighters
+ * make strafing passes: approach → fire → break away → regroup → repeat.
+ *
+ * Against larger ships, falls back to the orbit-based smallCraftFlank.
+ * Against other fighters/small craft, uses attack-pass logic.
+ */
+function fighterCombatAI(
+  updated: TacticalShip,
+  ship: TacticalShip,
+  target: TacticalShip,
+  state: TacticalState,
+  spreadX: number,
+  spreadY: number,
+): TacticalShip {
+  // Against significantly larger targets, use the existing orbit behaviour
+  if (target.maxHull > ship.maxHull * 3) {
+    return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
+  }
+
+  // Set explicit attack order so wing target diversity in findTarget works
+  if (updated.order.type !== 'attack' || updated.order.targetId !== target.id) {
+    updated = { ...updated, order: { type: 'attack', targetId: target.id } };
+  }
+
+  const d = dist(ship.position, target.position);
+  const tick = state.tick;
+  const maxWeaponRange = ship.weapons.length > 0
+    ? Math.max(...ship.weapons.filter(w => w.type !== 'point_defense').map(w => w.range))
+    : 100;
+
+  // ── Wing cohesion: wingmen follow their leader's target and phase ──
+  const leader = getWingLeader(ship, state.ships);
+  const isLeader = ship.id === leader.id;
+  const wingOffset = getWingOffset(ship, leader, state.ships);
+
+  // Determine current phase (stateful — persists across ticks)
+  let phase = ship.fighterPhase ?? 'approach';
+  let phaseTick = ship.fighterPhaseTick ?? tick;
+
+  // ── Phase transitions ──
+  // Two-phase dogfighting: engage (pursue + fire) and evade (brief sidestep).
+  // Fighters spend most of their time in engage, only briefly evading after
+  // a close pass to avoid head-on collisions. This maximises time-on-target.
+  const ticksInPhase = tick - phaseTick;
+
+  switch (phase) {
+    case 'approach':
+    case 'regroup':
+      // Legacy phases → treat as engage
+      phase = 'engage';
+      phaseTick = tick;
+      break;
+
+    case 'engage': {
+      // Evade after a very close pass — prevents fighters ramming through each other
+      const vx = ship.velocity?.x ?? 0;
+      const vy = ship.velocity?.y ?? 0;
+      const toTargetX = target.position.x - ship.position.x;
+      const toTargetY = target.position.y - ship.position.y;
+      const dot = vx * toTargetX + vy * toTargetY;
+      // Passed the target at close range — brief evasion
+      if (dot < 0 && d < maxWeaponRange * 0.3 && ticksInPhase > 4) {
+        phase = 'break';
+        phaseTick = tick;
+      }
+      break;
+    }
+
+    case 'break':
+      // Short evasion — sidestep then re-engage
+      if (ticksInPhase >= FIGHTER_EVADE_TICKS) {
+        phase = 'engage';
+        phaseTick = tick;
+      }
+      break;
+  }
+
+  // ── Wingman sync: follow leader's break timing ──
+  if (!isLeader && leader.fighterPhase === 'break' && phase === 'engage') {
+    phase = 'break';
+    phaseTick = tick;
+  }
+
+  // Store phase on the ship
+  updated = { ...updated, fighterPhase: phase, fighterPhaseTick: phaseTick };
+
+  // ── Movement per phase ──
+  let goalX: number;
+  let goalY: number;
+
+  // Stable per-fighter hash for consistent angle offsets
+  const hash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+
+  switch (phase) {
+    case 'engage': {
+      // Pursue target — lead it based on velocity for weapon convergence.
+      const tvx = target.velocity?.x ?? 0;
+      const tvy = target.velocity?.y ?? 0;
+      const leadTicks = d > maxWeaponRange ? 2 : 4;
+      goalX = target.position.x + tvx * leadTicks;
+      goalY = target.position.y + tvy * leadTicks;
+
+      // Slight offset angle so fighters don't all fly the exact same path
+      const approachOffset = ((hash % 5) - 2) * 0.15;
+      const offsetAngle = angleTo(ship.position, target.position) + approachOffset;
+      // Only apply offset when closing from distance — at close range, head straight in
+      if (d > maxWeaponRange * 0.5) {
+        goalX += Math.cos(offsetAngle + Math.PI / 2) * 15;
+        goalY += Math.sin(offsetAngle + Math.PI / 2) * 15;
+      }
+
+      // Wingmen: slight offset from leader's path
+      if (!isLeader) {
+        goalX += wingOffset.x * 0.4;
+        goalY += wingOffset.y * 0.4;
+      }
+      break;
+    }
+
+    case 'break': {
+      // Brief sidestep — pull perpendicular, then we'll re-engage.
+      const perpSign = hash % 2 === 0 ? 1 : -1;
+      const awayAngle = angleTo(target.position, ship.position);
+      const dodgeAngle = awayAngle + perpSign * Math.PI * 0.45;
+      goalX = ship.position.x + Math.cos(dodgeAngle) * FIGHTER_EVADE_OFFSET;
+      goalY = ship.position.y + Math.sin(dodgeAngle) * FIGHTER_EVADE_OFFSET;
+
+      goalX = clamp(goalX, 50, state.battlefieldWidth - 50);
+      goalY = clamp(goalY, 50, state.battlefieldHeight - 50);
+      break;
+    }
+
+    default: {
+      // Fallback: pursue target
+      goalX = target.position.x;
+      goalY = target.position.y;
+      break;
+    }
+  }
+
+  // ── Separation from nearby allies (prevent stacking) ──
+  const FIGHTER_SEP_DIST = 30;
+  const allies = state.ships.filter(
+    s => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed && s.hullClass === 'fighter',
+  );
+  for (const ally of allies) {
+    const ad = dist(ship.position, ally.position);
+    if (ad < FIGHTER_SEP_DIST && ad > 1) {
+      const t = (FIGHTER_SEP_DIST - ad) / FIGHTER_SEP_DIST;
+      goalX += (ship.position.x - ally.position.x) / ad * t * 10;
+      goalY += (ship.position.y - ally.position.y) / ad * t * 10;
+    }
+  }
+
+  // ── Dodge incoming missiles (same as smallCraftFlank) ──
+  const hasPD = ship.weapons.some(w => w.type === 'point_defense');
+  if (!hasPD) {
+    const incomingMissiles = (state.missiles ?? []).filter(
+      m => m.targetShipId === ship.id &&
+        dist(ship.position, { x: m.x, y: m.y }) < 150,
+    );
+    if (incomingMissiles.length > 0) {
+      const nearest = incomingMissiles.reduce((best, m) => {
+        const md = dist(ship.position, { x: m.x, y: m.y });
+        const bd = dist(ship.position, { x: best.x, y: best.y });
+        return md < bd ? m : best;
+      });
+      const missileAngle = angleTo({ x: nearest.x, y: nearest.y }, ship.position);
+      const dodgeAngle1 = missileAngle + Math.PI / 2;
+      const dodgeAngle2 = missileAngle - Math.PI / 2;
+      const velAngle = Math.atan2(ship.velocity?.y ?? 0, ship.velocity?.x ?? 0);
+      const dodge = Math.abs(normaliseAngle(velAngle - dodgeAngle1)) <
+                    Math.abs(normaliseAngle(velAngle - dodgeAngle2))
+                    ? dodgeAngle1 : dodgeAngle2;
+      goalX = ship.position.x + Math.cos(dodge) * 80;
+      goalY = ship.position.y + Math.sin(dodge) * 80;
+    }
+  }
+
+  // During engage phase, don't use minDist — fly through. Otherwise, stop near goal.
+  const minDist = phase === 'engage' ? 0 : 5;
+  return moveToward(updated, { x: goalX, y: goalY }, minDist, state.environment, state.ships);
+}
+
+// ---------------------------------------------------------------------------
 // Formation system
 // ---------------------------------------------------------------------------
 
@@ -1377,6 +1642,7 @@ export function initializeTacticalCombat(
           experience: (ship.crewExperience ?? 'regular') as CrewExperience,
         },
         unmanned: hullTemplate?.manned === false,
+        hullClass: hullTemplate?.class as string | undefined,
       };
     });
   }
@@ -1733,6 +1999,18 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
     }
   }
 
+  // Wing cohesion: wingmen attack the same target as their wing leader
+  if (ship.wingId && ship.hullClass === 'fighter') {
+    const leader = getWingLeader(ship, allShips);
+    if (leader.id !== ship.id && leader.order.type === 'attack') {
+      const leaderTargetId = leader.order.targetId;
+      const leaderTarget = enemies.find(
+        e => e.id === leaderTargetId || e.sourceShipId === leaderTargetId,
+      );
+      if (leaderTarget) return leaderTarget;
+    }
+  }
+
   // Score each enemy
   const maxRange = ship.weapons.length > 0 ? Math.max(...ship.weapons.map(w => w.range)) : 200;
   let bestEnemy: TacticalShip | null = null;
@@ -1785,6 +2063,20 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
         // Prefer targets already in range (don't chase)
         if (d > maxRange) score -= 50;
         break;
+    }
+
+    // --- Wing target diversity: fighters in different wings prefer different targets ---
+    if (ship.wingId && ship.hullClass === 'fighter') {
+      // Count how many OTHER wings are already attacking this enemy
+      const otherWingsOnTarget = allShips.filter(
+        s => s.side === ship.side && s.wingId && s.wingId !== ship.wingId &&
+             !s.destroyed && !s.routed && s.hullClass === 'fighter' &&
+             s.order.type === 'attack' &&
+             (s.order.targetId === enemy.id || s.order.targetId === enemy.sourceShipId),
+      ).length;
+      // Penalise targets that already have a full wing on them
+      if (otherWingsOnTarget >= 3) score -= 25;
+      else if (otherWingsOnTarget >= 1) score -= 10;
     }
 
     if (score > bestScore) {
@@ -1953,7 +2245,15 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     }
   }
 
-  // Small craft threshold — fighters, drones, bombers flank instead of charging
+  // ── Fighter-class ships use attack-pass dogfighting AI ──
+  // This overrides ALL stances for fighters — they always make attack runs.
+  // (Except flee, which is handled above.)
+  const isFighter = ship.hullClass === 'fighter';
+  if (isFighter) {
+    return fighterCombatAI(updated, ship, target, state, spreadX, spreadY);
+  }
+
+  // Small craft threshold — drones, bombers flank instead of charging
   const isSmallCraft = ship.maxHull < 80;
 
   switch (ship.stance) {
@@ -2471,13 +2771,20 @@ export function processTacticalTick(state: TacticalState): TacticalState {
            f.y > -200 && f.y < state.battlefieldHeight + 200;
   });
 
-  // 0b. AI ships: switch to at_ease stance after tick 5
+  // 0b. Assign fighter wings at battle start (tick 0) and when a fighter dies
+  if (state.tick === 0 || state.ships.some(s => s.hullClass === 'fighter' && !s.wingId && !s.destroyed && !s.routed)) {
+    state = { ...state, ships: assignWings(state.ships) };
+  }
+
+  // 0c. AI ships: switch to at_ease stance after tick 5
   // (gives the player a few seconds to set up before AI engages autonomously)
+  // Fighters stay aggressive — they use their own AI, not stance-based movement.
   if (state.tick === 5) {
     state = {
       ...state,
       ships: state.ships.map(s => {
-        if (s.side === 'defender' && s.order.type === 'idle' && !s.destroyed && !s.routed) {
+        if (s.side === 'defender' && s.order.type === 'idle' && !s.destroyed && !s.routed
+            && s.hullClass !== 'fighter') {
           return { ...s, stance: 'at_ease' as CombatStance };
         }
         return s;
