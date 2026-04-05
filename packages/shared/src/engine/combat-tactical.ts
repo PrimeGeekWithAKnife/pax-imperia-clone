@@ -1295,10 +1295,19 @@ function fighterCombatAI(
     goalY = clamp(goalY, 40, state.battlefieldHeight - 40);
 
     updated = { ...updated, fighterPhase: 'engage' as const, fighterPhaseTick: state.tick };
-    // minDist prevents the fighter from overshooting into the target
     const result = moveToward(updated, { x: goalX, y: goalY }, 0, state.environment, state.ships);
     result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
     result.position.y = clamp(result.position.y, -20, state.battlefieldHeight + 20);
+
+    // ── RCS facing override: face the TARGET, not the movement direction ──
+    // In space, velocity and facing are independent. RCS thrusters rotate the
+    // ship without changing trajectory. Fighters orbit while facing inward,
+    // keeping fore weapons on target. Turn rate limits how fast they can track.
+    const desiredFacing = angleTo(result.position, target.position);
+    const facingDiff = normaliseAngle(desiredFacing - result.facing);
+    const maxTurn = result.turnRate ?? 0.15;
+    result.facing = normaliseAngle(result.facing + clamp(facingDiff, -maxTurn, maxTurn));
+
     return result;
   }
 

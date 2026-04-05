@@ -237,10 +237,7 @@
         "facing": "fore",
         "size": "small",
         "allowedTypes": [
-          "weapon_beam",
-          "weapon_projectile",
-          "weapon_missile",
-          "fighter_bay"
+          "weapon_projectile"
         ],
         "category": "weapon"
       }
@@ -328,10 +325,7 @@
         "facing": "fore",
         "size": "small",
         "allowedTypes": [
-          "weapon_beam",
-          "weapon_projectile",
-          "weapon_missile",
-          "fighter_bay"
+          "weapon_missile"
         ],
         "category": "weapon"
       }
