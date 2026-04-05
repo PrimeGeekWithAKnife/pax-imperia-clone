@@ -14,7 +14,6 @@ import {
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
-import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
 import { render3DShipSprite } from '../../assets/graphics/render3DShipSprite';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
@@ -805,54 +804,31 @@ export class CombatScene extends Phaser.Scene {
 
       // ── Ship icon — 3D model rendered to sprite ──────────────────────
       const hullClass = this._getHullClass(ship);
-      const colorHex = ship.side === 'attacker'
-        ? this.sceneData.attackerColor
-        : this.sceneData.defenderColor;
-      const speciesId = ship.side === 'attacker'
+      const speciesId = (ship.side === 'attacker'
         ? this.sceneData.attackerSpeciesId
-        : this.sceneData.defenderSpeciesId;
-      const texKey = `ship_${hullClass}_${ship.side}_${iconPx}_${speciesId ?? 'default'}`;
+        : this.sceneData.defenderSpeciesId) ?? 'teranos';
+      const texKey = `ship3d_${hullClass}_${iconPx}_${speciesId}`;
 
-      // Try 3D render first (species-specific procedural models), fall back to 2D
-      const shipGfx = this.add.graphics();
-      let dataUrl: string;
-      try {
-        dataUrl = speciesId
-          ? render3DShipSprite(speciesId, hullClass, iconPx)
-          : renderShipIcon(hullClass, iconPx, colorHex, speciesId);
-      } catch {
-        // WebGL unavailable or geometry error — fall back to 2D
-        dataUrl = renderShipIcon(hullClass, iconPx, colorHex, speciesId);
-      }
-      if (dataUrl && dataUrl.startsWith('data:')) {
-        const canvasKey = `canvas_${texKey}`;
-        if (!this.textures.exists(canvasKey)) {
-          const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
-          if (canvasTex) {
-            const img = new Image();
-            img.src = dataUrl;
-            img.onload = () => {
-              const ctx = canvasTex.getContext();
-              ctx.drawImage(img, 0, 0, iconPx, iconPx);
-              canvasTex.refresh();
-            };
-          }
+      // Always render 3D — every ship gets its species' procedural model
+      const dataUrl = render3DShipSprite(speciesId, hullClass, iconPx);
+      const canvasKey = `canvas_${texKey}`;
+      if (!this.textures.exists(canvasKey)) {
+        const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
+        if (canvasTex) {
+          const img = new Image();
+          img.src = dataUrl;
+          img.onload = () => {
+            const ctx = canvasTex.getContext();
+            ctx.drawImage(img, 0, 0, iconPx, iconPx);
+            canvasTex.refresh();
+          };
         }
-        const sprite = this.add.sprite(0, 0, `canvas_${texKey}`);
-        sprite.setName('shipSprite');
-        // 3D renders nose-right already; 2D renders nose-up (needs -90)
-        if (!speciesId) sprite.setAngle(-90);
-        sprite.setDisplaySize(iconPx, iconPx);
-        container.add(sprite);
-      } else {
-        // Fallback: draw a simple coloured shape
-        const color = this._shipColor(ship);
-        shipGfx.fillStyle(color, 0.8);
-        shipGfx.fillRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
-        shipGfx.lineStyle(1, 0xffffff, 0.4);
-        shipGfx.strokeRoundedRect(-iconPx / 2, -iconPx / 2, iconPx, iconPx, 4);
-        container.add(shipGfx);
       }
+      const sprite = this.add.sprite(0, 0, canvasKey);
+      sprite.setName('shipSprite');
+      // 3D renders nose-right — no rotation needed
+      sprite.setDisplaySize(iconPx, iconPx);
+      container.add(sprite);
 
       // Counter-rotate text labels so they stay upright regardless of ship facing
       const textAngle = -Phaser.Math.RadToDeg(ship.facing);
