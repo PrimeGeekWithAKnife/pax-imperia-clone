@@ -8397,12 +8397,16 @@
 
 .combat-instructions-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
 }
 
 .combat-instructions-panel {
@@ -8410,8 +8414,9 @@
   border: 2px solid rgba(51, 136, 204, 0.7);
   border-radius: 10px;
   padding: 32px 40px;
-  max-width: min(900px, 92vw);
-  max-height: min(700px, 90vh);
+  width: min(900px, 92vw);
+  min-height: min(500px, 70vh);
+  max-height: 90vh;
   overflow: auto;
   text-align: center;
   box-shadow: 0 0 40px rgba(0, 150, 255, 0.15);
