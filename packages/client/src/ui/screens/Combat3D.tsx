@@ -27,6 +27,8 @@ import {
   EscapePodEffects,
   ExplosionEffects,
   DebrisEffects,
+  EngineThrustPlumes,
+  RcsPuffEffects,
 } from './combat3d/CombatEffects';
 import { CombatHUD } from './combat3d/CombatHUD';
 import { CombatInput } from './combat3d/CombatInput';
@@ -100,7 +102,12 @@ function CombatScene({
       <CombatShips api={api} />
 
       {/* Weapons */}
-      <CombatWeapons state={api.state} playerSide={api.playerSide} />
+      <CombatWeapons
+        state={api.state}
+        playerSide={api.playerSide}
+        attackerSpeciesId={combatData.attackerSpeciesId}
+        defenderSpeciesId={combatData.defenderSpeciesId}
+      />
 
       {/* Effects */}
       <FighterEffects
@@ -112,6 +119,16 @@ function CombatScene({
       <EscapePodEffects state={api.state} />
       <ExplosionEffects api={api} />
       <DebrisEffects state={api.state} />
+      <EngineThrustPlumes
+        state={api.state}
+        attackerSpeciesId={combatData.attackerSpeciesId}
+        defenderSpeciesId={combatData.defenderSpeciesId}
+      />
+      <RcsPuffEffects
+        state={api.state}
+        attackerSpeciesId={combatData.attackerSpeciesId}
+        defenderSpeciesId={combatData.defenderSpeciesId}
+      />
 
       {/* Input (invisible — events only) */}
       <CombatInput api={api} />

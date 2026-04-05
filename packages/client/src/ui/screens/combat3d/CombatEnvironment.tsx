@@ -15,6 +15,7 @@ import {
   BOUNDARY_WARNING_MARGIN,
   BOUNDARY_FLEE_MARGIN,
   ASTEROID_COLOR,
+  ASTEROID_HIGHLIGHT_COLOR,
   NEBULA_COLOR,
   tacticalTo3D,
 } from './constants';
@@ -188,13 +189,64 @@ export function BattlefieldGrid({ width, height }: BattlefieldGridProps): JSX.El
 // 3. EnvironmentFeatures — asteroids & nebulae from TacticalState
 // ---------------------------------------------------------------------------
 
+/**
+ * Create a craggy, irregular asteroid geometry by displacing vertices of a
+ * high-detail icosahedron along their normals with seeded noise.
+ *
+ * Each asteroid gets a unique seed derived from its id so the shape is stable
+ * across re-renders but differs per asteroid.
+ */
+function createCraggyGeometry(radius: number, seed: number): THREE.BufferGeometry {
+  // Detail level 2 gives 162 verts — enough for visible crags without being
+  // expensive. We clone so we can mutate positions freely.
+  const geo = new THREE.IcosahedronGeometry(radius, 2);
+  const posAttr = geo.getAttribute('position');
+  const normalAttr = geo.getAttribute('normal');
+
+  // Simple seeded pseudo-random for deterministic displacement
+  let s = seed;
+  const rand = (): number => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s & 0x7fffffff) / 0x7fffffff;
+  };
+
+  // Displace each vertex along its normal by a random amount.
+  // The amplitude is proportional to the radius to keep the crags looking
+  // natural at all scales.
+  const amplitude = radius * 0.3;
+  for (let i = 0; i < posAttr.count; i++) {
+    const nx = normalAttr.getX(i);
+    const ny = normalAttr.getY(i);
+    const nz = normalAttr.getZ(i);
+    const displacement = (rand() - 0.5) * 2 * amplitude;
+
+    posAttr.setX(i, posAttr.getX(i) + nx * displacement);
+    posAttr.setY(i, posAttr.getY(i) + ny * displacement);
+    posAttr.setZ(i, posAttr.getZ(i) + nz * displacement);
+  }
+
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Derive a stable integer seed from a feature id string.
+ */
+function idToSeed(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) + 1; // ensure positive non-zero
+}
+
 interface EnvironmentFeaturesProps {
   state: TacticalState;
 }
 
 /**
- * Renders asteroids (dodecahedrons) and nebulae (translucent spheres) from
- * the tactical state's environment array.
+ * Renders asteroids as craggy irregular rocky bodies and nebulae as
+ * translucent spheres from the tactical state's environment array.
  */
 export function EnvironmentFeatures({ state }: EnvironmentFeaturesProps): JSX.Element {
   const { bfWidth, bfHeight } = useMemo(
@@ -202,21 +254,91 @@ export function EnvironmentFeatures({ state }: EnvironmentFeaturesProps): JSX.El
     [state.battlefieldWidth, state.battlefieldHeight],
   );
 
+  // Pre-build asteroid geometries so they are stable across renders.
+  // Each asteroid gets 2-3 overlapping craggy bodies for a lumpy composite.
+  const asteroidData = useMemo(() => {
+    return (state.environment ?? [])
+      .filter(f => f.type === 'asteroid')
+      .map(feat => {
+        const seed = idToSeed(feat.id);
+        const r = feat.radius * BF_SCALE;
+        // Primary body
+        const primary = createCraggyGeometry(r, seed);
+        // Secondary lump — offset and slightly smaller
+        const secondary = createCraggyGeometry(r * 0.7, seed + 37);
+        // Tertiary lump — smaller still
+        const tertiary = createCraggyGeometry(r * 0.5, seed + 73);
+
+        // Deterministic rotation for each asteroid
+        let s = seed;
+        const rand = (): number => {
+          s = (s * 16807 + 0) % 2147483647;
+          return (s & 0x7fffffff) / 0x7fffffff;
+        };
+        const rotation: [number, number, number] = [
+          rand() * Math.PI * 2,
+          rand() * Math.PI * 2,
+          rand() * Math.PI * 2,
+        ];
+        // Offsets for secondary/tertiary lumps (fraction of radius)
+        const secOffset: [number, number, number] = [
+          (rand() - 0.5) * r * 0.6,
+          (rand() - 0.5) * r * 0.4,
+          (rand() - 0.5) * r * 0.6,
+        ];
+        const terOffset: [number, number, number] = [
+          (rand() - 0.5) * r * 0.5,
+          (rand() - 0.5) * r * 0.3,
+          (rand() - 0.5) * r * 0.5,
+        ];
+
+        return { feat, primary, secondary, tertiary, rotation, secOffset, terOffset };
+      });
+  }, [state.environment]);
+
   return (
     <group>
-      {state.environment.map((feat) => {
+      {asteroidData.map(({ feat, primary, secondary, tertiary, rotation, secOffset, terOffset }) => {
         const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight);
 
-        if (feat.type === 'asteroid') {
-          return (
-            <mesh key={feat.id} position={[pos.x, 0, pos.z]}>
-              <dodecahedronGeometry args={[feat.radius * BF_SCALE]} />
-              <meshStandardMaterial color={ASTEROID_COLOR} roughness={0.9} />
+        return (
+          <group key={feat.id} position={[pos.x, 0, pos.z]} rotation={rotation}>
+            {/* Primary craggy body — dark base colour */}
+            <mesh geometry={primary}>
+              <meshStandardMaterial
+                color={ASTEROID_COLOR}
+                roughness={0.95}
+                metalness={0.05}
+                flatShading
+              />
             </mesh>
-          );
-        }
+            {/* Secondary lump — slightly lighter for surface variation */}
+            <mesh geometry={secondary} position={secOffset}>
+              <meshStandardMaterial
+                color={ASTEROID_HIGHLIGHT_COLOR}
+                roughness={0.9}
+                metalness={0.08}
+                flatShading
+              />
+            </mesh>
+            {/* Tertiary lump — dark again for depth */}
+            <mesh geometry={tertiary} position={terOffset}>
+              <meshStandardMaterial
+                color={ASTEROID_COLOR}
+                roughness={0.95}
+                metalness={0.05}
+                flatShading
+              />
+            </mesh>
+          </group>
+        );
+      })}
 
-        if (feat.type === 'nebula') {
+      {/* Nebulae */}
+      {(state.environment ?? [])
+        .filter(f => f.type === 'nebula')
+        .map(feat => {
+          const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight);
           return (
             <mesh key={feat.id} position={[pos.x, 0, pos.z]}>
               <sphereGeometry args={[feat.radius * BF_SCALE, 16, 16]} />
@@ -228,11 +350,7 @@ export function EnvironmentFeatures({ state }: EnvironmentFeaturesProps): JSX.El
               />
             </mesh>
           );
-        }
-
-        // Debris — skip for now (handled by effects layer)
-        return null;
-      })}
+        })}
     </group>
   );
 }

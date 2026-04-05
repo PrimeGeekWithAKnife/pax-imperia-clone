@@ -183,9 +183,12 @@ export const MISSILE_VISUALS: Record<MissileStyle, {
 // Environment colours
 // ---------------------------------------------------------------------------
 
-export const ASTEROID_COLOR = 0x888888;
+export const ASTEROID_COLOR = 0x333340;
+export const ASTEROID_HIGHLIGHT_COLOR = 0x555560;
 export const NEBULA_COLOR = 0x6644aa;
 export const DEBRIS_COLOR = 0xcc6622;
+export const DEBRIS_METALLIC_COLORS = [0x556677, 0x667788, 0x445566];
+export const DEBRIS_HOT_EDGE_COLOR = 0xff6633;
 
 /** Planet surface colour by type (fallback to grey). */
 export const PLANET_SURFACE_COLOURS: Record<string, number> = {
