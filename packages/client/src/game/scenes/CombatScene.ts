@@ -1886,10 +1886,10 @@ export class CombatScene extends Phaser.Scene {
   private _showInstructions(): void {
     this.paused = true;
 
-    // Emit after a short delay — React needs time to mount the event listener
-    // after the scene transition. Without this, the event fires before anyone listens.
-    this.time.delayedCall(100, () => {
-    this.game.events.emit('combat:show_instructions', {
+    // Emit instructions data repeatedly until React acknowledges.
+    // React's useGameEvent polls every 100ms for the game instance,
+    // so a single emit can race and be missed.
+    const instructionsData = {
       attackerName: this.sceneData.attackerName,
       defenderName: this.sceneData.defenderName,
       attackerColor: this.sceneData.attackerColor,
@@ -1897,12 +1897,17 @@ export class CombatScene extends Phaser.Scene {
       attackerShipCount: this.tacticalState.ships.filter(s => s.side === 'attacker').length,
       defenderShipCount: this.tacticalState.ships.filter(s => s.side === 'defender').length,
       battlefieldSize: (this.sceneData as Record<string, unknown>).battlefieldSize ?? 'small',
+    };
+    const retryTimer = this.time.addEvent({
+      delay: 150,
+      repeat: 10,
+      callback: () => this.game.events.emit('combat:show_instructions', instructionsData),
     });
-    }); // end delayedCall
 
     // Listen for React to signal "begin battle"
     const beginHandler = () => {
       this.game.events.off('combat:begin_battle', beginHandler);
+      retryTimer.remove();
       this.paused = false;
       if (this.tickTimer) this.tickTimer.paused = false;
     };
