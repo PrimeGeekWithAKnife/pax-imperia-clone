@@ -65,30 +65,30 @@ const PROJECTILE_DEFAULT_AMMO = 200;
 /** Default ammo for point defence weapons. */
 const POINT_DEFENSE_DEFAULT_AMMO = 300;
 
-/** Per-missile-type physics and ammo profiles. */
-const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number }> = {
-  // All missiles outrun ships (fastest ship = 14). Slowest missile maxSpeed 15,
-  // fastest 30. Higher tech = faster, harder to intercept.
-  // nano_atomic age (15–18)
-  basic_missile:       { initSpeed: 5,  maxSpeed: 17, accel: 1.8, ammo: 12, cooldown: 8 },   // cheap salvo
-  hv_missile:          { initSpeed: 7,  maxSpeed: 18, accel: 2.2, ammo: 8,  cooldown: 10 },  // high-velocity
-  basic_torpedo:       { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20 },  // standard torpedo
-  torpedo_rack:        { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20 },  // multi-tube
-  icbm_torpedo:        { initSpeed: 3,  maxSpeed: 15, accel: 0.8, ammo: 1,  cooldown: 40 },  // crude nuke — slowest
-  // fusion age (19–21)
-  guided_torpedo:      { initSpeed: 6,  maxSpeed: 20, accel: 2.2, ammo: 4,  cooldown: 20 },  // smart tracking
-  cluster_missile:     { initSpeed: 6,  maxSpeed: 19, accel: 2.0, ammo: 4,  cooldown: 15 },  // splits near target
-  emp_torpedo:         { initSpeed: 6,  maxSpeed: 21, accel: 1.8, ammo: 3,  cooldown: 20 },  // EMP warhead
-  // nano_fusion age (23–26)
-  fusion_torpedo:      { initSpeed: 8,  maxSpeed: 25, accel: 2.8, ammo: 3,  cooldown: 18 },  // fast heavy
-  swarm_missiles:      { initSpeed: 10, maxSpeed: 26, accel: 3.0, ammo: 16, cooldown: 15 },  // overwhelming swarm
-  bunker_buster:       { initSpeed: 5,  maxSpeed: 23, accel: 1.8, ammo: 2,  cooldown: 25 },  // heavy penetrator
-  // anti_matter age (27–28)
-  antimatter_torpedo:  { initSpeed: 9,  maxSpeed: 27, accel: 3.5, ammo: 2,  cooldown: 18 },  // fast and devastating
-  void_seeker:         { initSpeed: 10, maxSpeed: 28, accel: 4.0, ammo: 2,  cooldown: 18 },  // stealthy and fast
-  // singularity age (30)
-  singularity_torpedo: { initSpeed: 12, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // near-impossible to intercept
-  phase_torpedo:       { initSpeed: 14, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20 },  // phases through shields
+/** Per-missile-type physics and ammo profiles.
+ *  turnRate = max radians/tick. Early missiles fly wide arcs (~2°/tick),
+ *  advanced missiles make sharp turns (~10°/tick). */
+const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number; turnRate: number }> = {
+  // nano_atomic age — crude guidance, wide arcs only
+  basic_missile:       { initSpeed: 5,  maxSpeed: 17, accel: 1.8, ammo: 12, cooldown: 8,  turnRate: 0.04 },  // ~2.3°/tick
+  hv_missile:          { initSpeed: 7,  maxSpeed: 18, accel: 2.2, ammo: 8,  cooldown: 10, turnRate: 0.03 },  // fast = less agile
+  basic_torpedo:       { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20, turnRate: 0.035 },
+  torpedo_rack:        { initSpeed: 4,  maxSpeed: 16, accel: 1.2, ammo: 6,  cooldown: 20, turnRate: 0.035 },
+  icbm_torpedo:        { initSpeed: 3,  maxSpeed: 15, accel: 0.8, ammo: 1,  cooldown: 40, turnRate: 0.02 },  // heavy, sluggish
+  // fusion age — improved seekers, moderate turns
+  guided_torpedo:      { initSpeed: 6,  maxSpeed: 20, accel: 2.2, ammo: 4,  cooldown: 20, turnRate: 0.07 },  // ~4°/tick
+  cluster_missile:     { initSpeed: 6,  maxSpeed: 19, accel: 2.0, ammo: 4,  cooldown: 15, turnRate: 0.06 },
+  emp_torpedo:         { initSpeed: 6,  maxSpeed: 21, accel: 1.8, ammo: 3,  cooldown: 20, turnRate: 0.065 },
+  // nano_fusion age — advanced guidance, good agility
+  fusion_torpedo:      { initSpeed: 8,  maxSpeed: 25, accel: 2.8, ammo: 3,  cooldown: 18, turnRate: 0.10 },  // ~5.7°/tick
+  swarm_missiles:      { initSpeed: 10, maxSpeed: 26, accel: 3.0, ammo: 16, cooldown: 15, turnRate: 0.09 },
+  bunker_buster:       { initSpeed: 5,  maxSpeed: 23, accel: 1.8, ammo: 2,  cooldown: 25, turnRate: 0.08 },  // heavy warhead
+  // anti_matter age — near-perfect tracking
+  antimatter_torpedo:  { initSpeed: 9,  maxSpeed: 27, accel: 3.5, ammo: 2,  cooldown: 18, turnRate: 0.13 },  // ~7.5°/tick
+  void_seeker:         { initSpeed: 10, maxSpeed: 28, accel: 4.0, ammo: 2,  cooldown: 18, turnRate: 0.15 },  // designed to track
+  // singularity age — near-impossible to evade
+  singularity_torpedo: { initSpeed: 12, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20, turnRate: 0.18 },  // ~10°/tick
+  phase_torpedo:       { initSpeed: 14, maxSpeed: 30, accel: 5.0, ammo: 1,  cooldown: 20, turnRate: 0.20 },  // best guidance
 };
 
 /** Default salvo count per missile component (how many missiles per volley). */
@@ -237,6 +237,12 @@ export interface TacticalShip {
   crew: Crew;
   /** Unmanned craft (drones) — no morale, never flee, fight to destruction. */
   unmanned?: boolean;
+  /** ECM evasion bonus — reduces incoming weapon accuracy. */
+  evasionBonus: number;
+  /** ECM missile deflection — chance per tick (0-100) that a tracking missile loses lock. */
+  missileDeflection: number;
+  /** ECM sensor jamming — reduces enemy sensor range within this ship's radius. */
+  sensorJamming: number;
   /** Hull class from template (e.g. 'fighter', 'corvette', 'battleship'). */
   hullClass?: string;
   /** Fighter AI phase — tracks attack-run state machine. */
@@ -271,6 +277,10 @@ export interface Missile {
   damageType: string;
   /** Remaining fuel ticks — missile goes inert when exhausted. */
   fuel: number;
+  /** Current heading in radians — missiles turn toward target, not teleport. */
+  heading: number;
+  /** Max turn rate in radians/tick — limits how sharply the missile can steer. */
+  turnRate: number;
 }
 
 export interface PointDefenceEffect {
@@ -1793,6 +1803,9 @@ export function initializeTacticalCombat(
           experience: (ship.crewExperience ?? 'regular') as CrewExperience,
         },
         unmanned: hullTemplate?.manned === false,
+        evasionBonus: extracted.evasionBonus,
+        missileDeflection: extracted.missileDeflection,
+        sensorJamming: extracted.sensorJamming,
         hullClass: hullTemplate?.class as string | undefined,
       };
     });
@@ -1853,6 +1866,9 @@ export function initializeTacticalCombat(
         destroyed: false,
         routed: false,
         damageTakenThisTick: 0,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
         crew: {
           morale: 90,
           health: 100,
@@ -1899,6 +1915,10 @@ interface ExtractedStats {
   accuracyBonus: number;
   /** Evasion bonus from ECM suites (reduces incoming accuracy). */
   evasionBonus: number;
+  /** Missile deflection from ECM (chance 0-100 per tick to break missile lock). */
+  missileDeflection: number;
+  /** Sensor jamming strength from ECM (reduces enemy sensor range). */
+  sensorJamming: number;
   /** Hull repair rate per tick from damage control systems. */
   repairRate: number;
   /** Morale recovery bonus from life support systems. */
@@ -1930,6 +1950,8 @@ function extractShipStats(
   let sensorRange = 0;
   let accuracyBonus = 0;
   let evasionBonus = 0;
+  let missileDeflection = 0;
+  let sensorJamming = 0;
   let repairRate = 0;
   let moraleRecovery = 0;
 
@@ -2030,6 +2052,8 @@ function extractShipStats(
           break;
         case 'ecm_suite':
           evasionBonus += comp.stats['evasionBonus'] ?? 0;
+          missileDeflection += comp.stats['missileDeflection'] ?? 0;
+          sensorJamming += comp.stats['sensorJamming'] ?? 0;
           break;
         case 'damage_control':
         case 'repair_drone':
@@ -2061,6 +2085,8 @@ function extractShipStats(
     weapons,
     accuracyBonus,
     evasionBonus,
+    missileDeflection: Math.min(missileDeflection, 80), // cap at 80%
+    sensorJamming,
     repairRate,
     moraleRecovery,
   };
@@ -3099,6 +3125,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
     const target = ships.find((s) => s.id === missile.targetShipId && !s.destroyed);
 
+    // ECM missile deflection — target's ECM has a chance to break missile lock.
+    // A deflected missile loses guidance and drifts inert (removed next tick).
+    if (target && (target.missileDeflection ?? 0) > 0) {
+      if (Math.random() * 100 < target.missileDeflection) {
+        // Lock broken — missile continues on current heading but loses tracking
+        const driftMX = missile.x + Math.cos(missile.heading ?? 0) * (missile.speed ?? 10);
+        const driftMY = missile.y + Math.sin(missile.heading ?? 0) * (missile.speed ?? 10);
+        if (driftMX > -50 && driftMX < state.battlefieldWidth + 50 &&
+            driftMY > -50 && driftMY < state.battlefieldHeight + 50) {
+          survivingMissiles.push({
+            ...missile, x: driftMX, y: driftMY, fuel: 0, // will be removed next tick
+          });
+        }
+        continue;
+      }
+    }
+
     // If target destroyed mid-flight, retarget nearest enemy
     if (target == null) {
       const sourceSide = ships.find(s => s.id === missile.sourceShipId)?.side;
@@ -3123,8 +3166,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       target.velocity ?? { x: 0, y: 0 },
       speed,
     );
-    const dx = interceptPt.x - missile.x;
-    const dy = interceptPt.y - missile.y;
+
+    // ── Turn-rate-limited steering ──────────────────────────────────────
+    // Missiles can't instantly reorient. They steer toward the intercept
+    // point at their turnRate. Early missiles fly wide arcs; advanced
+    // missiles can make sharper corrections.
+    const desiredHeading = Math.atan2(
+      interceptPt.y - missile.y,
+      interceptPt.x - missile.x,
+    );
+    const currentHeading = missile.heading ?? desiredHeading;
+    const headingDiff = normaliseAngle(desiredHeading - currentHeading);
+    const maxTurn = missile.turnRate ?? 0.06;
+    const newHeading = currentHeading + clamp(headingDiff, -maxTurn, maxTurn);
+
+    // Movement is along the missile's ACTUAL heading, not the desired heading
+    const dx = Math.cos(newHeading);
+    const dy = Math.sin(newHeading);
     const d = Math.sqrt(
       (target.position.x - missile.x) ** 2 + (target.position.y - missile.y) ** 2,
     );
@@ -3158,11 +3216,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       continue; // missile consumed
     }
 
-    // Move toward the intercept point (not the target's current position)
-    const interceptDist = Math.sqrt(dx * dx + dy * dy);
-    const moveDir = interceptDist > 0.1 ? interceptDist : 1;
-    const newMX = missile.x + (dx / moveDir) * speed;
-    const newMY = missile.y + (dy / moveDir) * speed;
+    // Move along the missile's current heading (turn-rate limited)
+    const newMX = missile.x + dx * speed;
+    const newMY = missile.y + dy * speed;
 
     // Asteroid intercept for missiles in flight
     const asteroidHit = segmentPassesThroughFeature(
@@ -3179,6 +3235,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       x: newMX,
       y: newMY,
       fuel: remainingFuel,
+      heading: newHeading,
     });
   }
 
@@ -3405,15 +3462,17 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Misses create physical projectiles that fly off-target and can hit bystanders.
       let shotHits = true;
       if (weapon.type !== 'fighter_bay') {
-        // Evasion check
+        // Evasion check — speed, size, AND ECM evasionBonus
         const isMoving = weaponTarget.order.type !== 'idle' || weaponTarget.stance === 'at_ease' || weaponTarget.stance === 'evasive';
         if (isMoving) {
           const speedFactor = weaponTarget.speed / 5;
           const sizeFactor = weaponTarget.maxHull < 60 ? 0.3 : weaponTarget.maxHull < 200 ? 0.15 : weaponTarget.maxHull < 400 ? 0.05 : 0;
-          const evasionChance = Math.min(0.4, speedFactor * 0.1 + sizeFactor);
+          // ECM evasionBonus adds directly to evasion chance (10 bonus = +10%)
+          const ecmFactor = (weaponTarget.evasionBonus ?? 0) / 100;
+          const evasionChance = Math.min(0.6, speedFactor * 0.1 + sizeFactor + ecmFactor);
           if (Math.random() < evasionChance) shotHits = false;
         }
-        // Accuracy roll
+        // Accuracy roll — ECM sensorJamming reduces effective accuracy
         if (shotHits) {
           const EXP_ACCURACY: Record<CrewExperience, number> = {
             recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
@@ -3421,7 +3480,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           };
           const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
           const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
-          const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod;
+          // Target's sensor jamming degrades the attacker's targeting solution
+          const jammingPenalty = Math.max(0, 1 - (weaponTarget.sensorJamming ?? 0) / 200);
+          const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod * jammingPenalty;
           if (Math.random() * 100 > effectiveAccuracy) shotHits = false;
         }
       }
@@ -3508,6 +3569,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           const posOffset = salvo > 1
             ? (Math.random() - 0.5) * 10  // ±5px random offset
             : 0;
+          // Launch heading = ship facing + salvo spread angle
+          const launchHeading = ship.facing + angleOffset;
           newMissiles.push({
             id: `missile-${state.tick}-${ship.id}-${weapon.componentId}-${si}`,
             sourceShipId: ship.id,
@@ -3521,6 +3584,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             damage: perMissileDamage,
             damageType: 'explosive',
             fuel: MISSILE_FUEL_TICKS,
+            heading: launchHeading,
+            turnRate: mProfile?.turnRate ?? 0.06,
           });
         }
       } else {

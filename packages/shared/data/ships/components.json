@@ -789,9 +789,89 @@
     "minAge": "nano_atomic"
   },
   {
+    "id": "flare_dispenser",
+    "name": "Flare Dispenser",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "Compact thermal decoy launcher \u2014 draws heat-seeking missiles away from the craft",
+    "stats": {
+      "powerDraw": 1,
+      "evasionBonus": 5,
+      "missileDeflection": 20
+    },
+    "cost": 40,
+    "requiredTech": null,
+    "minAge": "nano_atomic"
+  },
+  {
+    "id": "compact_jammer",
+    "name": "Compact Jammer",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "Miniaturised electronic warfare pod for fighters \u2014 disrupts missile guidance and targeting",
+    "stats": {
+      "powerDraw": 2,
+      "evasionBonus": 8,
+      "missileDeflection": 25,
+      "sensorJamming": 5
+    },
+    "cost": 70,
+    "requiredTech": null,
+    "minAge": "fusion"
+  },
+  {
+    "id": "adaptive_ecm_pod",
+    "name": "Adaptive ECM Pod",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "AI-driven miniature ECM that adapts to enemy targeting frequencies in real time",
+    "stats": {
+      "powerDraw": 3,
+      "evasionBonus": 12,
+      "missileDeflection": 35,
+      "sensorJamming": 10
+    },
+    "cost": 150,
+    "requiredTech": "electronic_warfare",
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "phase_flicker_pod",
+    "name": "Phase Flicker Pod",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "Micro phase-shifting unit \u2014 briefly renders the craft invisible to targeting systems",
+    "stats": {
+      "powerDraw": 4,
+      "evasionBonus": 18,
+      "missileDeflection": 45,
+      "sensorJamming": 15
+    },
+    "cost": 280,
+    "requiredTech": null,
+    "minAge": "anti_matter"
+  },
+  {
+    "id": "quantum_decoy_pod",
+    "name": "Quantum Decoy Pod",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "Projects quantum-entangled sensor ghosts \u2014 virtually impossible to distinguish from the real craft",
+    "stats": {
+      "powerDraw": 5,
+      "evasionBonus": 25,
+      "missileDeflection": 55,
+      "sensorJamming": 20
+    },
+    "cost": 400,
+    "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
     "id": "ecm_suite_mk1",
     "name": "ECM Suite Mk I",
     "type": "ecm_suite",
+    "size": "medium",
     "description": "Electronic countermeasures \u2014 reduces enemy accuracy",
     "stats": {
       "powerDraw": 3,
@@ -806,6 +886,7 @@
     "id": "ecm_suite_mk2",
     "name": "ECM Suite Mk II",
     "type": "ecm_suite",
+    "size": "medium",
     "description": "Advanced electronic warfare suite",
     "stats": {
       "powerDraw": 5,
@@ -962,6 +1043,7 @@
     "id": "electronic_warfare_suite",
     "name": "Electronic Warfare Suite",
     "type": "ecm_suite",
+    "size": "medium",
     "description": "Broadband jammer and spoofing transmitter.",
     "stats": {
       "powerDraw": 5,
@@ -2304,6 +2386,7 @@
     "id": "jammer_pod",
     "name": "Jammer Pod",
     "type": "ecm_suite",
+    "size": "small",
     "description": "Dedicated missile jamming pod \u2014 effective against guided ordnance",
     "stats": {
       "powerDraw": 2,
@@ -2319,6 +2402,7 @@
     "id": "decoy_launcher",
     "name": "Decoy Launcher",
     "type": "ecm_suite",
+    "size": "medium",
     "description": "Launches sensor-spoofing decoys that draw enemy fire and missiles",
     "stats": {
       "powerDraw": 3,
@@ -2334,6 +2418,7 @@
     "id": "signal_distortion_array",
     "name": "Signal Distortion Array",
     "type": "ecm_suite",
+    "size": "large",
     "description": "Distorts all electromagnetic emissions in a wide radius \u2014 disrupts enemy fleet coordination",
     "stats": {
       "powerDraw": 6,
@@ -2349,6 +2434,7 @@
     "id": "phase_cloak_ecm",
     "name": "Phase-Cloak ECM",
     "type": "ecm_suite",
+    "size": "large",
     "description": "Phase-modulated ECM that intermittently renders the vessel invisible to sensors",
     "stats": {
       "powerDraw": 8,
@@ -2365,6 +2451,7 @@
     "id": "ghost_projector",
     "name": "Ghost Projector",
     "type": "ecm_suite",
+    "size": "large",
     "description": "Projects convincing holographic duplicates that draw enemy fire",
     "stats": {
       "powerDraw": 7,
@@ -2380,6 +2467,7 @@
     "id": "dimensional_cloak_ecm",
     "name": "Dimensional Cloak ECM",
     "type": "ecm_suite",
+    "size": "large",
     "description": "Shifts the vessel partially between dimensions \u2014 nearly undetectable",
     "stats": {
       "powerDraw": 10,
@@ -2390,6 +2478,42 @@
     },
     "cost": 500,
     "requiredTech": null,
+    "minAge": "singularity"
+  },
+  {
+    "id": "theatre_ecm_array",
+    "name": "Theatre ECM Array",
+    "type": "ecm_suite",
+    "size": "huge",
+    "description": "Massive electronic warfare array that blankets the battlefield. Enemy missiles lose lock, targeting systems malfunction, forcing opponents into line-of-sight visual engagement.",
+    "stats": {
+      "powerDraw": 15,
+      "evasionBonus": 20,
+      "missileDeflection": 60,
+      "sensorJamming": 60,
+      "commDisruption": 40,
+      "areaEffect": 500
+    },
+    "cost": 800,
+    "requiredTech": "electronic_warfare",
+    "minAge": "nano_fusion"
+  },
+  {
+    "id": "reality_distortion_array",
+    "name": "Reality Distortion Array",
+    "type": "ecm_suite",
+    "size": "huge",
+    "description": "Warps local spacetime to scramble all sensor returns. Against ill-equipped foes, virtually all guided weapons fail to lock.",
+    "stats": {
+      "powerDraw": 20,
+      "evasionBonus": 30,
+      "missileDeflection": 75,
+      "sensorJamming": 80,
+      "commDisruption": 60,
+      "areaEffect": 700
+    },
+    "cost": 1500,
+    "requiredTech": "electronic_warfare",
     "minAge": "singularity"
   },
   {
