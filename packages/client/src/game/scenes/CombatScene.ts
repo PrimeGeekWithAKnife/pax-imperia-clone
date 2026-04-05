@@ -622,11 +622,26 @@ export class CombatScene extends Phaser.Scene {
   // Camera
   // =========================================================================
 
+  /** UI objects that need zoom compensation — tracked so we can rescale on zoom change. */
+  private _uiObjects: Phaser.GameObjects.Components.Transform[] = [];
+
+  /** Register a UI object so it stays screen-sized regardless of camera zoom. */
+  private _trackUI<T extends Phaser.GameObjects.Components.Transform>(obj: T): T {
+    this._uiObjects.push(obj);
+    const s = 1 / this.cameras.main.zoom;
+    obj.setScale(s);
+    return obj;
+  }
+
+  /** Rescale all tracked UI objects to counteract the current camera zoom. */
+  private _rescaleUI(): void {
+    const s = 1 / this.cameras.main.zoom;
+    for (const obj of this._uiObjects) obj.setScale(s);
+  }
+
   private _setupCamera(): void {
     const cam = this.cameras.main;
     cam.setRoundPixels(true);
-    // Expand camera bounds well beyond battlefield so the starfield background
-    // fills any screen size without black borders
     const camPad = 1000;
     cam.setBounds(
       -camPad,
@@ -635,7 +650,7 @@ export class CombatScene extends Phaser.Scene {
       this._bfHeight + camPad * 2,
     );
 
-    // Scale battlefield to FILL the screen (use max, not min, so no empty borders)
+    // Scale battlefield to FILL the screen
     const { width, height } = this.scale;
     const scaleX = width / this._bfWidth;
     const scaleY = height / this._bfHeight;
@@ -643,14 +658,17 @@ export class CombatScene extends Phaser.Scene {
     cam.setZoom(fitZoom);
     cam.centerOn(this._bfWidth / 2, this._bfHeight / 2);
 
-    // Zoom with scroll wheel — prevent browser zoom
+    // Min zoom scales with map size so ships stay visible
+    const minZoom = Math.max(0.3, fitZoom * 0.5);
+
     this.game.canvas.addEventListener('wheel', (e: WheelEvent) => {
       e.preventDefault();
     }, { passive: false });
 
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
-      const newZoom = Phaser.Math.Clamp(cam.zoom + (dy > 0 ? -0.05 : 0.05), 0.3, 2.0);
+      const newZoom = Phaser.Math.Clamp(cam.zoom + (dy > 0 ? -0.05 : 0.05), minZoom, 2.0);
       cam.setZoom(newZoom);
+      this._rescaleUI();
     });
 
     // Pan by dragging middle mouse or when holding shift
@@ -1557,7 +1575,9 @@ export class CombatScene extends Phaser.Scene {
   // =========================================================================
 
   private _createHUD(): void {
-    const { width, height } = this.scale;
+    const z = this.cameras.main.zoom;
+    const width = this.scale.width / z;
+    const height = this.scale.height / z;
 
     // ── Top-left: title + tick counter ─────────────────────────────────────
     const titleLabel = this.add.text(12, 10, 'TACTICAL COMBAT', {
@@ -1865,7 +1885,10 @@ export class CombatScene extends Phaser.Scene {
    */
   private _showInstructions(): void {
     this.paused = true;
-    const { width, height } = this.scale;
+    // Divide screen coords by zoom so overlay renders at screen-pixel size
+    const z = this.cameras.main.zoom;
+    const width = this.scale.width / z;
+    const height = this.scale.height / z;
     const panelW = Math.min(1020, width - 40);
     const panelH = Math.min(740, height - 40);
     const px = (width - panelW) / 2;
@@ -2582,7 +2605,10 @@ export class CombatScene extends Phaser.Scene {
   // =========================================================================
 
   private _showBattleSummary(): void {
-    const { width, height } = this.scale;
+    // Divide screen coords by zoom so overlay renders at screen-pixel size
+    const z = this.cameras.main.zoom;
+    const width = this.scale.width / z;
+    const height = this.scale.height / z;
     const allElements: Phaser.GameObjects.GameObject[] = [];
 
     const playerIsAttacker =

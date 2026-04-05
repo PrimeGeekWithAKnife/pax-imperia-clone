@@ -316,9 +316,9 @@ export const BATTLEFIELD_SIZE_CONFIG: Record<BattlefieldSize, {
   asteroidMin: number; asteroidMax: number;
   nebulaMin: number; nebulaMax: number;
 }> = {
-  small:  { width: 1600,  height: 1000, maxShipsPerSide: 9,  asteroidMin: 3,  asteroidMax: 8,  nebulaMin: 0, nebulaMax: 2 },
-  medium: { width: 4800,  height: 3000, maxShipsPerSide: 18, asteroidMin: 8,  asteroidMax: 20, nebulaMin: 1, nebulaMax: 5 },
-  large:  { width: 14400, height: 9000, maxShipsPerSide: 36, asteroidMin: 20, asteroidMax: 50, nebulaMin: 3, nebulaMax: 10 },
+  small:  { width: 1600, height: 1000, maxShipsPerSide: 9,  asteroidMin: 3,  asteroidMax: 8,  nebulaMin: 0, nebulaMax: 2 },
+  medium: { width: 2800, height: 1750, maxShipsPerSide: 18, asteroidMin: 5,  asteroidMax: 12, nebulaMin: 1, nebulaMax: 3 },
+  large:  { width: 4800, height: 3000, maxShipsPerSide: 36, asteroidMin: 8,  asteroidMax: 20, nebulaMin: 2, nebulaMax: 5 },
 };
 
 export interface PlanetData {
@@ -760,17 +760,21 @@ function smallCraftFlank(
 
   const angleToSlot = normaliseAngle(slotAngle - currentAngle);
 
-  if (d > myOrbitRadius * 3) {
+  // Cap the fan-out phase so drones don't scatter on large maps.
+  // Fan out only within 400 units of the target — beyond that, close in directly.
+  const FAN_OUT_RANGE = Math.max(myOrbitRadius * 3, 400);
+
+  if (d > FAN_OUT_RANGE) {
     // ── Phase 1: Fan out — spread to assigned approach vectors ──
     // Each drone steers laterally to its slot angle before closing in.
-    // This fans the swarm into a wide arc during the approach.
-    if (Math.abs(angleToSlot) > 0.4) {
+    // Capped so the swarm stays cohesive on larger battlefields.
+    if (Math.abs(angleToSlot) > 0.4 && d < FAN_OUT_RANGE * 2) {
       // Not at assigned vector yet — move laterally (same distance, different angle)
       const turnRate = Math.min(Math.abs(angleToSlot), Math.PI / 4);
       goalAngle = currentAngle + Math.sign(angleToSlot) * turnRate;
       goalRadius = Math.max(d * 0.85, myOrbitRadius * 2); // close slowly while fanning
     } else {
-      // At assigned vector — close in along this bearing
+      // Too far for fanning or already at assigned vector — close in directly
       goalAngle = slotAngle;
       goalRadius = Math.max(myOrbitRadius, d * 0.65);
     }
