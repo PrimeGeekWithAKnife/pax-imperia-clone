@@ -1853,10 +1853,13 @@ export function initializeTacticalCombat(
           / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 50)),
         // RCS provides direction-independent thrust for braking without turning
         rcsThrust: extracted.rcsThrust ?? 0,
-        // Turn rate scales inversely with mass. Drones turn on a pin,
-        // battleships lumber. Unmanned craft (drones) get a 2x bonus.
-        turnRate: (hullTemplate?.manned === false ? 0.20 : 0.10)
-          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100)),
+        // Turn rate: base rate / mass, boosted by RCS thruster quality.
+        // Less mass = faster rotation. Better RCS = even faster.
+        // rcsTurnBonus 0-5 maps to 1.0x-3.0x multiplier (huge impact).
+        // Drones get a 2x base. Fighters with top RCS spin very fast.
+        turnRate: ((hullTemplate?.manned === false ? 0.20 : 0.10)
+          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100)))
+          * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4),
         hull: ship.hullPoints,
         maxHull: ship.maxHullPoints,
         shields: extracted.maxShields,
@@ -1988,6 +1991,8 @@ interface ExtractedStats {
   accuracyBonus: number;
   /** Evasion bonus from ECM suites (reduces incoming accuracy). */
   evasionBonus: number;
+  /** RCS turn rate bonus from thruster components (0-5 scale). */
+  rcsTurnBonus: number;
   /** Missile deflection from ECM (chance 0-100 per tick to break missile lock). */
   missileDeflection: number;
   /** Sensor jamming strength from ECM (reduces enemy sensor range). */
@@ -2025,6 +2030,7 @@ function extractShipStats(
   let sensorRange = 0;
   let accuracyBonus = 0;
   let evasionBonus = 0;
+  let rcsTurnBonus = 0;
   let missileDeflection = 0;
   let sensorJamming = 0;
   let shieldAge = 'nano_atomic';
@@ -2108,6 +2114,7 @@ function extractShipStats(
           break;
         case 'rcs_thrusters':
           evasionBonus += comp.stats['evasionBonus'] ?? 0;
+          rcsTurnBonus += comp.stats['turnRate'] ?? 0;
           break;
         case 'shield':
           maxShields += comp.stats['shieldStrength'] ?? 0;
@@ -2168,6 +2175,7 @@ function extractShipStats(
     weapons,
     accuracyBonus,
     evasionBonus,
+    rcsTurnBonus,
     missileDeflection: Math.min(missileDeflection, 80), // cap at 80%
     sensorJamming,
     shieldAge,
