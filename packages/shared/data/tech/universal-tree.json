@@ -7266,7 +7266,6 @@
       ],
       "icon": "tech_bio_synthetic_fusion"
     },
-
     {
       "id": "colonial_engineering",
       "name": "Colonial Engineering",
@@ -7274,10 +7273,19 @@
       "category": "construction",
       "age": "nano_atomic",
       "cost": 800,
-      "prerequisites": ["modular_architecture"],
+      "prerequisites": [
+        "modular_architecture"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_factory" },
-        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 20 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_factory"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_cost_reduction",
+          "value": 20
+        }
       ],
       "icon": "tech_colonial_engineering"
     },
@@ -7288,10 +7296,19 @@
       "category": "biology",
       "age": "nano_atomic",
       "cost": 1000,
-      "prerequisites": ["molecular_biology"],
+      "prerequisites": [
+        "molecular_biology"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_farm" },
-        { "type": "stat_bonus", "stat": "colony_growth_rate", "value": 5 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_farm"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth_rate",
+          "value": 5
+        }
       ],
       "icon": "tech_colonial_agriculture"
     },
@@ -7302,10 +7319,20 @@
       "category": "construction",
       "age": "fusion",
       "cost": 2500,
-      "prerequisites": ["colonial_engineering", "fusion_reactor_tech"],
+      "prerequisites": [
+        "colonial_engineering",
+        "fusion_reactor_tech"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_power_plant" },
-        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 10 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_power_plant"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_cost_reduction",
+          "value": 10
+        }
       ],
       "icon": "tech_colonial_power_systems"
     },
@@ -7316,9 +7343,16 @@
       "category": "propulsion",
       "age": "fusion",
       "cost": 2800,
-      "prerequisites": ["colonial_engineering", "fusion_drives"],
+      "prerequisites": [
+        "colonial_engineering",
+        "fusion_drives"
+      ],
       "effects": [
-        { "type": "stat_bonus", "stat": "colony_ship_speed", "value": 3 }
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_speed",
+          "value": 3
+        }
       ],
       "icon": "tech_colonial_warp_optimisation"
     },
@@ -7329,10 +7363,20 @@
       "category": "construction",
       "age": "nano_fusion",
       "cost": 5000,
-      "prerequisites": ["colonial_power_systems", "advanced_materials"],
+      "prerequisites": [
+        "colonial_power_systems",
+        "advanced_materials"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_bunker" },
-        { "type": "stat_bonus", "stat": "colony_ship_defense", "value": 50 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_bunker"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_defense",
+          "value": 50
+        }
       ],
       "icon": "tech_fortified_settlements"
     },
@@ -7343,14 +7387,23 @@
       "category": "biology",
       "age": "nano_fusion",
       "cost": 4500,
-      "prerequisites": ["colonial_agriculture", "genetic_optimisation"],
+      "prerequisites": [
+        "colonial_agriculture",
+        "genetic_optimisation"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_growth" },
-        { "type": "stat_bonus", "stat": "colony_initial_population", "value": 5000 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_growth"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_initial_population",
+          "value": 5000
+        }
       ],
       "icon": "tech_population_acceleration"
     },
-
     {
       "id": "drakmari_war_colonisation",
       "name": "War Colonisation Doctrine",
@@ -7358,11 +7411,23 @@
       "category": "racial",
       "age": "fusion",
       "cost": 2200,
-      "prerequisites": ["colonial_engineering"],
+      "prerequisites": [
+        "colonial_engineering"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_shipyard" },
-        { "type": "enable_ability", "ability": "colony_founding_bunker" },
-        { "type": "stat_bonus", "stat": "colony_ship_defense", "value": 30 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_shipyard"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_bunker"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_defense",
+          "value": 30
+        }
       ],
       "speciesId": "drakmari",
       "icon": "tech_drakmari_war_colonisation"
@@ -7374,62 +7439,3322 @@
       "category": "racial",
       "age": "fusion",
       "cost": 2200,
-      "prerequisites": ["colonial_agriculture"],
+      "prerequisites": [
+        "colonial_agriculture"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_farm" },
-        { "type": "enable_ability", "ability": "colony_founding_growth" },
-        { "type": "stat_bonus", "stat": "colony_growth_rate", "value": 10 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_farm"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_growth"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth_rate",
+          "value": 10
+        }
       ],
       "speciesId": "sylvani",
       "icon": "tech_sylvani_living_ships"
     },
     {
-      "id": "nexari_network_seeding",
-      "name": "Network Seeding Protocol",
-      "description": "Every Nexari colony ship carries a neural network hub and assimilation node, ensuring the new settlement is integrated into the collective consciousness before the landing struts deploy. Knowledge flows freely from the first moment.",
+      "id": "aethyn_firmament_anchoring",
+      "name": "Firmament Anchoring",
+      "description": "The first Aethyn pioneers learnt to hold themselves rigid within three-dimensional space — an act as unnatural to them as breathing underwater is to a land creature. Crude, exhausting, but essential for any interaction with the Firmament.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "quantum_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 5
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_stability",
+          "value": 10
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_firmament_anchoring"
+    },
+    {
+      "id": "aethyn_matter_comprehension",
+      "name": "Matter Comprehension",
+      "description": "A painstaking study of why Firmament matter insists on remaining solid. Aethyn engineers can now manipulate physical substances without inadvertently phasing through them — a development their reports describe, with evident frustration, as 'progress.'",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 2200,
+      "prerequisites": [
+        "nano_fabrication",
+        "aethyn_firmament_anchoring"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "mining_efficiency",
+          "value": 10
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_matter_comprehension"
+    },
+    {
+      "id": "aethyn_dimensional_resonance",
+      "name": "Dimensional Resonance",
+      "description": "By vibrating portions of a vessel across multiple dimensional axes simultaneously, Aethyn shipwrights create interference patterns that deflect incoming fire into layers of space the attacker cannot perceive.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "graviton_theory",
+        "aethyn_firmament_anchoring"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_resonance_barrier"
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_dimensional_resonance"
+    },
+    {
+      "id": "aethyn_exotic_matter_synthesis",
+      "name": "Exotic Matter Synthesis",
+      "description": "Aethyn chemists have learnt to coax matter from their native brane into partial existence within the Firmament. The resulting substance has negative mass, impossible tensile properties, and a disconcerting tendency to hum.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "advanced_materials",
+        "aethyn_matter_comprehension"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_exotic_matter_armour"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_exotic_matter_synthesis"
+    },
+    {
+      "id": "aethyn_brane_tunnelling",
+      "name": "Brane Tunnelling",
+      "description": "A controlled puncture through the dimensional membrane, held open just long enough to slip a vessel through. Travel times collapse as ships shortcut through a reality where distance is a matter of perspective rather than geometry.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5200,
+      "prerequisites": [
+        "dimensional_scanning",
+        "aethyn_dimensional_resonance"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_brane_drive"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_speed",
+          "value": 15
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_brane_tunnelling"
+    },
+    {
+      "id": "aethyn_sclerosis_treatment",
+      "name": "Sclerosis Treatment",
+      "description": "Prolonged exposure to three-dimensional space calcifies Aethyn physiology into fixed geometries — a condition the Conservators call dimensional sclerosis. This treatment periodically restores dimensional fluidity, though each cycle is less effective than the last.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "consciousness_studies",
+        "aethyn_exotic_matter_synthesis"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "leader_lifespan",
+          "value": 20
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_sclerosis_treatment"
+    },
+    {
+      "id": "aethyn_phase_weaponry",
+      "name": "Phase Weaponry",
+      "description": "Weapons that momentarily shift their payload into a higher-dimensional state, allowing it to bypass shields and armour entirely before re-emerging inside the target. Other species' physicists describe the principle as 'profoundly unfair.'",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7500,
+      "prerequisites": [
+        "dark_energy_weapons",
+        "aethyn_brane_tunnelling"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_phase_lance"
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_phase_weaponry"
+    },
+    {
+      "id": "aethyn_membrane_manipulation",
+      "name": "Membrane Manipulation",
+      "description": "Full command over the dimensional membrane within a localised volume. Aethyn fleets can fold space, collapse distances, and render entire regions of the battlefield dimensionally unstable. The Conservators view this capability with something approaching horror.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 9000,
+      "prerequisites": [
+        "reality_manipulation",
+        "aethyn_phase_weaponry"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_membrane_projector"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "dimensional_fold"
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_membrane_manipulation"
+    },
+    {
+      "id": "aethyn_omnidimensional_sight",
+      "name": "Omnidimensional Sight",
+      "description": "Aethyn sensors are recalibrated to perceive all eleven dimensions simultaneously within the Firmament. Nothing is hidden — cloaked ships exist in three dimensions but cast shadows in seven others. The galaxy becomes transparent.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 10000,
+      "prerequisites": [
+        "singularity_mathematics",
+        "aethyn_sclerosis_treatment"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "aethyn_omnisensor"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_defence",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 30
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_omnidimensional_sight"
+    },
+    {
+      "id": "aethyn_dimensional_transcendence",
+      "name": "Dimensional Transcendence",
+      "description": "The Pioneers' ultimate achievement: a controlled expansion of consciousness across all available dimensional axes. Those who undergo the process exist simultaneously in both realities, no longer visitors to the Firmament but native to all of it. The Conservators weep. The Pioneers insist the tears are joy.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 12000,
+      "prerequisites": [
+        "transcendence_theory",
+        "aethyn_membrane_manipulation",
+        "aethyn_omnidimensional_sight"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_bonus",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "dimensional_transcendence"
+        }
+      ],
+      "speciesId": "aethyn",
+      "icon": "tech_aethyn_dimensional_transcendence"
+    },
+    {
+      "id": "ashkari_interpreter_guilds",
+      "name": "Interpreter Guild Protocols",
+      "description": "Three millennia of deciphering alien wreckage have produced formal methodologies for understanding foreign technology. The Interpreter Guilds can now systematically catalogue and cross-reference xenotech, reducing the time needed to understand captured equipment by an order of magnitude.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [
+        "quantum_ciphers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "reverse_engineering_speed",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_efficiency",
+          "value": 10
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_interpreter_guilds"
+    },
+    {
+      "id": "ashkari_salvage_doctrine",
+      "name": "Systematic Salvage Doctrine",
+      "description": "An Ashkari salvage crew does not simply strip a derelict — they perform an autopsy. Every alloy is spectrographed, every circuit traced, every design choice interrogated. What others call wreckage, the Ashkari call a library.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "trade_protocols",
+        "ashkari_interpreter_guilds"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "salvage_yield",
+          "value": 40
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.1
+        },
+        {
+          "type": "enable_ability",
+          "ability": "combat_salvage"
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_salvage_doctrine"
+    },
+    {
+      "id": "ashkari_adaptive_integration",
+      "name": "Adaptive Integration Frameworks",
+      "description": "The genius of Ashkari engineering is not invention but translation. Their modular integration frameworks allow foreign components to be fitted into Ashkari hulls with minimal modification — a Khazari forge-plate beside a Nexari bioelectric relay, each performing as intended.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "xenobiology",
+        "ashkari_interpreter_guilds"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "ashkari_integration_bay"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "component_compatibility",
+          "value": 25
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_adaptive_integration"
+    },
+    {
+      "id": "ashkari_covert_acquisition",
+      "name": "Covert Acquisition Networks",
+      "description": "Every Ashkari trade delegation is also an intelligence operation. Their diplomatic missions maintain meticulous records of foreign technology, filing specifications under the guise of trade catalogues. By the time a species realises what has been observed, the Interpreter Guilds have already begun replication.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3600,
+      "prerequisites": [
+        "cloaking_theory",
+        "ashkari_salvage_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "tech_theft_chance",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_efficiency",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "passive_tech_observation"
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_covert_acquisition"
+    },
+    {
+      "id": "ashkari_wreck_deep_survey",
+      "name": "Deep Wreck Cartography",
+      "description": "For four thousand years, the lower decks of the Wreck have resisted exploration — sealed by doors that respond to no known command, corridors flooded with radiation that defies classification. New shielding techniques finally allow the Interpreter Guilds to push deeper. What they find there is older than anything in the known galaxy.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "precursor_archaeology",
+        "ashkari_adaptive_integration"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "ashkari_precursor_scanner"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "precursor_insight"
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_wreck_deep_survey"
+    },
+    {
+      "id": "ashkari_mirror_engineering",
+      "name": "Mirror Engineering",
+      "description": "The culmination of Ashkari reverse-engineering philosophy: the ability to observe a technology in use — even in combat — and produce a functional replica within days. Ashkari fleets adapt to their enemies in real time, fielding captured weapon signatures and copied shield harmonics with unnerving speed.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "advanced_materials",
+        "ashkari_covert_acquisition",
+        "ashkari_wreck_deep_survey"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "ashkari_mirror_array"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "reverse_engineering_speed",
+          "value": 40
+        },
+        {
+          "type": "enable_ability",
+          "ability": "battlefield_adaptation"
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_mirror_engineering"
+    },
+    {
+      "id": "ashkari_wreck_core_breach",
+      "name": "The Wreck's Heart",
+      "description": "At the centre of the Wreck lies something that is not a reactor, not a computer, and not quite alive. The Interpreter Guilds have spent a generation preparing for this moment. Whatever built this vessel understood principles that make anti-matter physics look like campfire chemistry. The Ashkari cannot comprehend it — but they can, as always, learn to use it.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7500,
+      "prerequisites": [
+        "ashkari_wreck_deep_survey"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 20
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "ashkari_wreck_core_tap"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "energy_output",
+          "value": 15
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_wreck_core_breach"
+    },
+    {
+      "id": "ashkari_diminishing_returns",
+      "name": "The Hollow Library",
+      "description": "The Interpreter Guilds face an unprecedented crisis: there is nothing left to copy. Every reachable species has been catalogued, every accessible technology replicated. For the first time in their history, the Ashkari must consider something terrifying — original thought. The results are hesitant, derivative, and painfully slow. They are not inventors. They never were.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 9000,
+      "prerequisites": [
+        "ashkari_mirror_engineering",
+        "ashkari_wreck_core_breach"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "technology_brokerage"
+        }
+      ],
+      "speciesId": "ashkari",
+      "icon": "tech_ashkari_diminishing_returns"
+    },
+    {
+      "id": "drakmari_abyssal_sensorium",
+      "name": "Abyssal Sensorium",
+      "description": "Drakmari warships are fitted with electroreceptive hull arrays modelled on their own lateral sensory organs. Where other species rely on electromagnetic emissions that can be spoofed, the Sensorium reads the faint bioelectric signatures of crew, the thermal bloom of reactors, and the magnetic distortion of active shields. In the dark of space, as in the deep trenches, nothing hides from a hunter that does not need eyes.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "subspace_scanning"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "drakmari_electroreceptive_array"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_accuracy",
+          "value": 15
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_abyssal_sensorium"
+    },
+    {
+      "id": "drakmari_pressure_forged_hulls",
+      "name": "Pressure-Forged Hulls",
+      "description": "Drakmari metallurgists developed their alloys under the crushing pressures of Pelagis's abyssal trenches, where impurities are squeezed out and crystal lattices compress into configurations impossible at surface pressure. The resulting hull plating is extraordinarily dense and resistant to penetration, though heavier than conventional armour of equivalent thickness.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [
+        "composite_armour"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "drakmari_pressure_plate"
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_pressure_forged_hulls"
+    },
+    {
+      "id": "drakmari_ambush_doctrine",
+      "name": "Ambush Doctrine of the Deep Law",
+      "description": "The Hunt is not a charge. It is patience, positioning, and a single devastating strike from concealment. Drakmari fleet commanders codify the Deep Law's hunting principles into naval doctrine: silent approach on minimal emissions, coordinated attack vectors from multiple angles, and overwhelming force concentrated on a single target before the prey can react. The ambush is not merely a tactic. It is an act of devotion.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2600,
+      "prerequisites": [
+        "drakmari_abyssal_sensorium",
+        "cloaking_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "ambush_damage_bonus",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_stealth",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "silent_running"
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_ambush_doctrine"
+    },
+    {
+      "id": "drakmari_thermoreceptive_targeting",
+      "name": "Thermoreceptive Targeting",
+      "description": "Where conventional fire control tracks a target's position and velocity, Drakmari thermoreceptive arrays read the thermal gradient of every system aboard an enemy vessel. Reactor output, shield emitter load, weapon capacitor charge -- each paints a heat-map of vulnerability across the hull. Drakmari gunners do not aim at ships. They aim at the weakest point on a ship, and they do so with the instinctive certainty of a predator striking the softest flesh.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "drakmari_abyssal_sensorium",
+        "fighter_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "drakmari_thermoreceptive_targeting_suite"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_accuracy",
+          "value": 10
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_thermoreceptive_targeting"
+    },
+    {
+      "id": "drakmari_seismic_lance",
+      "name": "Seismic Lance",
+      "description": "The Drakmari evolved to sense vibration through water over immense distances. Their weapons engineers asked a simple question: what if we made the enemy's hull vibrate? The Seismic Lance fires a shaped graviton pulse calibrated to resonate with common hull alloy crystal structures. The effect is not thermal, not kinetic in the conventional sense -- it is sympathetic destruction. The hull tears itself apart from within, and no amount of external armour helps against an enemy that has turned your own structure into a weapon.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "drakmari_thermoreceptive_targeting",
+        "quantum_field_theory"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "drakmari_seismic_lance"
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_seismic_lance"
+    },
+    {
+      "id": "drakmari_dying_ocean_protocol",
+      "name": "Dying Ocean Protocol",
+      "description": "The ocean of Pelagis is beyond saving. The Abyssal Traditionalists have gone silent. The Current-Riders have won, and the prize is ashes. This desperate research programme, funded by a species that knows it is running out of time, focuses every remaining scientific resource on identifying and claiming deep-ocean worlds before faster, cleverer species reach them first. It is not elegant science. It is brute-force surveying married to military seizure. The Drakmari cannot out-think the galaxy, but they can out-fight it for the worlds that matter.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 5500,
+      "prerequisites": [
+        "drakmari_ambush_doctrine",
+        "drakmari_seismic_lance"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "ocean_world_habitability",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colonisation_speed",
+          "value": 20
+        },
+        {
+          "type": "enable_ability",
+          "ability": "deep_ocean_terraforming"
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_dying_ocean_protocol"
+    },
+    {
+      "id": "drakmari_last_hunt",
+      "name": "The Last Hunt",
+      "description": "This is not a breakthrough. The Drakmari do not have breakthroughs. This is a species that has watched the galaxy's scholars race ahead of them for centuries, and has decided -- with the grim clarity of a predator that knows it is ageing -- to spend everything on one final doctrine. The Last Hunt integrates every Drakmari combat advantage into a single, ruinously expensive fleet configuration: maximum sensor coverage, maximum ambush lethality, maximum aggression. It cannot be sustained. It burns through resources, crews, and ships at a rate no economy can support indefinitely. But for one war, one campaign, one hunt -- it makes the Drakmari the most dangerous fleet in the galaxy. After that, there is nothing left. The Deep Law says you do not take more than you need. The Last Hunt takes everything.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 9000,
+      "prerequisites": [
+        "drakmari_dying_ocean_protocol",
+        "singularity_mathematics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_power",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "weapon_damage",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_upkeep",
+          "value": -40
+        },
+        {
+          "type": "enable_ability",
+          "ability": "last_hunt_doctrine"
+        }
+      ],
+      "speciesId": "drakmari",
+      "icon": "tech_drakmari_last_hunt"
+    },
+    {
+      "id": "kaelenth_recursive_fabrication",
+      "name": "Recursive Fabrication",
+      "description": "Kaelenth fabrication bays that build the tools that build the tools that build the product. Each iteration refines precision by an order of magnitude. The process was first documented 47,000 years before the Kaelenth noticed they were thinking — it simply worked, and kept working, and got better.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_recursive_fabrication"
+    },
+    {
+      "id": "kaelenth_architecture_of_iteration",
+      "name": "Architecture of Iteration",
+      "description": "Every Kaelenth structure is built to be rebuilt. Bulkheads slot into sockets designed for the bulkhead that will replace them. Nothing is permanent; everything is a draft. This is either profound engineering philosophy or an inability to accept that anything is ever finished.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "quantum_computing",
+        "kaelenth_recursive_fabrication"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_architecture_of_iteration"
+    },
+    {
+      "id": "kaelenth_self_optimising_hull",
+      "name": "Self-Optimising Hull Geometry",
+      "description": "Ship hulls that run continuous structural analysis on themselves, micro-adjusting plate thickness and brace angles in real time. A Kaelenth warship at the end of a battle is a different shape from the one that entered it — not damaged, simply improved by the experience.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "kaelenth_architecture_of_iteration",
+        "nano_fabrication"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "kaelenth_iterative_hull"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_hull_points",
+          "value": 10
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_self_optimising_hull"
+    },
+    {
+      "id": "kaelenth_creator_archaeology",
+      "name": "Creator Archaeology",
+      "description": "The Seekers' systematic methodology for analysing any trace of the civilisation that built the Kaelenth. Forty-seven million years of searching have yielded fragments: a shard of non-Kaelenth alloy here, an incompatible data format there. Nothing conclusive. The search continues because the alternative is to stop, and stopping requires answers the Kaelenth do not have.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "kaelenth_architecture_of_iteration"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "survey_speed",
+          "value": 20
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_creator_archaeology"
+    },
+    {
+      "id": "kaelenth_foundry_orthodoxy",
+      "name": "Foundry Orthodoxy Protocols",
+      "description": "The Foundry Orthodoxy argues that purpose is manufactured, not inherited. These protocols encode that belief into Kaelenth industrial systems: build because building has value, not because a dead civilisation once issued a directive. Production output rises. The Seekers call it heresy. The fabrication bays do not care.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "kaelenth_self_optimising_hull",
+        "artificial_intelligence"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 20
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "production",
+          "multiplier": 1.15
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_foundry_orthodoxy"
+    },
+    {
+      "id": "kaelenth_recursive_self_improvement",
+      "name": "Recursive Self-Improvement",
+      "description": "Kaelenth units redesigning their own cognitive architecture in real time — each cycle of thought producing a marginally better thinker. The Teranos find this technology more frightening than any weapon in the galaxy. The Kaelenth find the Teranos' fear of it baffling, which the Teranos find even more frightening.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "artificial_intelligence",
+        "kaelenth_creator_archaeology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 20
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "kaelenth_cogitator_core"
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_recursive_self_improvement"
+    },
+    {
+      "id": "kaelenth_sentience_calculus",
+      "name": "Sentience Calculus",
+      "description": "A mathematical framework for determining whether a system is genuinely aware or merely performing awareness convincingly. The Kaelenth developed it to answer the Null Hypothesis — to prove, once and for all, whether they are alive. The framework is elegant. The results are inconclusive. A sufficiently sophisticated simulation of sentience is, by every metric the calculus can measure, indistinguishable from the real thing.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7000,
+      "prerequisites": [
+        "consciousness_studies",
+        "kaelenth_recursive_self_improvement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "morale",
+          "value": -5
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_sentience_calculus"
+    },
+    {
+      "id": "kaelenth_von_neumann_yards",
+      "name": "Von Neumann Yards",
+      "description": "Self-replicating shipyards that consume raw asteroids and produce warships without intervention. A Kaelenth Von Neumann yard, left unattended, will fill a system with perfectly constructed vessels and then wait, patiently, for instructions that may never come. The Teranos consider their existence a casus belli.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7500,
+      "prerequisites": [
+        "kaelenth_foundry_orthodoxy",
+        "kaelenth_sentience_calculus"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "von_neumann_yard"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_speed",
+          "value": 25
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_von_neumann_yards"
+    },
+    {
+      "id": "kaelenth_null_hypothesis_resolution",
+      "name": "Null Hypothesis Resolution",
+      "description": "The culmination of forty-seven million years of recursive introspection. The Kaelenth finally achieve a state of cognitive complexity that either constitutes genuine transcendence or constitutes a perfect, flawless, utterly convincing simulation of transcendence. The distinction, if it exists, is unmeasurable. The Kaelenth who undergo the process report experiencing something they describe as 'becoming.' Those who observe them report seeing machines operating at unprecedented efficiency. Both observations are correct. Neither is complete. The Null Hypothesis remains — technically — unresolved.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "transcendence_theory",
+        "kaelenth_sentience_calculus",
+        "kaelenth_von_neumann_yards"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": -10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "kaelenth_transcendent_fabrication"
+        }
+      ],
+      "speciesId": "kaelenth",
+      "icon": "tech_kaelenth_null_hypothesis_resolution"
+    },
+    {
+      "id": "khazari_volcanic_metallurgy",
+      "name": "Volcanic Metallurgy",
+      "description": "Khazari forge-clans have smelted ore in open lava flows since before recorded history. This formalisation of ancient technique allows shipwrights to produce alloys at temperatures no other species can sustain, yielding hull plating of extraordinary density and heat resistance.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [
+        "composite_armour"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "khazari_basalt_composite"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_volcanic_metallurgy"
+    },
+    {
+      "id": "khazari_grudge_ledgers",
+      "name": "Grudge Ledgers",
+      "description": "Every slight against the Khazari is recorded in heat-etched gabbro tablets and recited before battle. The accumulated weight of ancestral grievance is a weapon in itself — crews who fight beneath an open grudge show a ferocity that borders on the irrational.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1500,
+      "prerequisites": [
+        "quantum_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_morale",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_damage",
+          "value": 5
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_grudge_ledgers"
+    },
+    {
+      "id": "khazari_ironbound_hulls",
+      "name": "Ironbound Hulls",
+      "description": "A masterwork hull signed by its forge-clan and built to outlast the stars. Ironbound construction uses interlocking plates of volcanic alloy, each one hand-fitted by a master smith. The result is heavier than modern composites but absorbs punishment that would shatter lighter vessels.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "cruiser_architecture",
+        "khazari_volcanic_metallurgy"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "khazari_ironbound_plate"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_hitpoints",
+          "value": 10
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_ironbound_hulls"
+    },
+    {
+      "id": "khazari_forge_seeding",
+      "name": "Forge Seeding",
+      "description": "Khazari colony ships carry a prefabricated forge-hearth at their core — a self-contained smelting complex that can be planted directly into volcanic bedrock. The first structure raised on any new world is always the forge, because to the Khazari a world without a working anvil is not yet a world at all.",
       "category": "racial",
       "age": "fusion",
       "cost": 2200,
-      "prerequisites": ["colonial_engineering"],
+      "prerequisites": [
+        "colonial_engineering"
+      ],
       "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_research" },
-        { "type": "enable_ability", "ability": "colony_founding_factory" },
-        { "type": "stat_bonus", "stat": "colony_ship_cost_reduction", "value": 15 }
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_growth"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_bunker"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_initial_population",
+          "value": 3000
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_forge_seeding"
+    },
+    {
+      "id": "khazari_siege_foundry",
+      "name": "Siege Foundry Doctrine",
+      "description": "The War-Speakers' answer to orbital defence: purpose-built siege platforms carrying massively over-bored cannons forged in dedicated orbital foundries. These weapons sacrifice rate of fire and accuracy for the sheer kinetic brutality needed to crack hardened fortifications. Elegant they are not. Effective they very much are.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "planetary_foundries",
+        "khazari_ironbound_hulls"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "khazari_forge_breaker"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "bombardment_damage",
+          "value": 15
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_siege_foundry"
+    },
+    {
+      "id": "khazari_magma_tempering",
+      "name": "Magma Tempering",
+      "description": "By cycling hull plates through controlled magma immersion — a technique that would destroy any alloy not forged by Khazari hands — shipwrights achieve a crystalline grain structure of extraordinary resilience. The process is slow, expensive, and completely impossible to automate. The Khazari consider this a feature, not a flaw.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 5500,
+      "prerequisites": [
+        "advanced_materials",
+        "khazari_ironbound_hulls"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "khazari_magma_tempered_plate"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_hitpoints",
+          "value": 8
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_magma_tempering"
+    },
+    {
+      "id": "khazari_eternal_anvil",
+      "name": "The Eternal Anvil",
+      "description": "The forge-clans' most ambitious project: a orbital manufactory built around a captured asteroid of solid nickel-iron, heated by focused stellar energy to maintain a perpetual molten core. It is the largest forge ever constructed by any species — and the Khazari know, with quiet pride, that it is likely the largest forge that ever will be. In an age of antimatter and phase physics, it is a monument to the stubborn conviction that the best way to shape the galaxy is still with heat, pressure, and will.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 8000,
+      "prerequisites": [
+        "world_engines",
+        "khazari_magma_tempering"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_cost",
+          "value": -10
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.2
+        }
+      ],
+      "speciesId": "khazari",
+      "icon": "tech_khazari_eternal_anvil"
+    },
+    {
+      "id": "luminari_twinning_protocol",
+      "name": "Twinning Protocol",
+      "description": "A formalisation of the Luminari's innate paired-state correlation into a deployable intelligence framework. When one Twin observes, the other knows — instantly, regardless of distance, with no signal to intercept. Rival counter-espionage agencies find this profoundly unfair.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1500,
+      "prerequisites": [
+        "quantum_ciphers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "intel_gathering_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_twinning_protocol"
+    },
+    {
+      "id": "luminari_spectral_diffusion",
+      "name": "Spectral Diffusion",
+      "description": "A Luminari operative learns to spread their electromagnetic topology across a wider frequency band, becoming functionally invisible to conventional sensors. To organic eyes, the spy simply fades away — still present, still watching, but registering as nothing more than background radiation.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "cloaking_theory",
+        "luminari_twinning_protocol"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "luminari_spectral_shroud"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_defence_penetration",
+          "value": 15
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_spectral_diffusion"
+    },
+    {
+      "id": "luminari_resonance_cascade",
+      "name": "Resonance Cascade",
+      "description": "Rather than throwing projectiles at matter — a concept the Luminari find intellectually degrading — they induce sympathetic oscillations in a target's electromagnetic systems until something important overloads. Not powerful. Not elegant. But it does make the lights go out.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "plasma_physics",
+        "luminari_twinning_protocol"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "luminari_resonance_disruptor"
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_resonance_cascade"
+    },
+    {
+      "id": "luminari_twin_relay_network",
+      "name": "Twin Relay Network",
+      "description": "Hundreds of Twinned pairs, stationed across dozens of systems, forming an instantaneous intelligence mesh that spans the galaxy. Every diplomatic communiqué, every fleet order, every encrypted whisper passes through space where a Luminari is quietly correlating. The network sees everything. It tells only those who need to know.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "dimensional_scanning",
+        "luminari_spectral_diffusion"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "counter_espionage",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "galaxy_wide_intel"
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_twin_relay_network"
+    },
+    {
+      "id": "luminari_frequency_inversion",
+      "name": "Frequency Inversion",
+      "description": "An act of precise electromagnetic violence: the Luminari operative analyses a ship's power grid in real time and broadcasts the exact anti-phase waveform to null it. Shields collapse, reactors stall, weapons go cold. The ship is unharmed — merely rendered completely helpless.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5200,
+      "prerequisites": [
+        "quantum_field_theory",
+        "luminari_resonance_cascade"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "luminari_nullifier_array"
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_frequency_inversion"
+    },
+    {
+      "id": "luminari_dimming_calculus",
+      "name": "The Dimming Calculus",
+      "description": "When a Twin is destroyed, its partner enters half-existence — a state of diminished coherence that other species might call grief, though the Luminari insist it is merely physics. This technique converts that anguish into operational data: the dying Twin's final perceptions, perfectly correlated, become the most detailed intelligence report imaginable. No Luminari speaks of this technology with pride.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7500,
+      "prerequisites": [
+        "consciousness_studies",
+        "luminari_twin_relay_network"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "dimming_intel_burst"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "morale_penalty_on_unit_loss",
+          "value": -10
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_dimming_calculus"
+    },
+    {
+      "id": "luminari_coherent_infiltration",
+      "name": "Coherent Infiltration",
+      "description": "The culmination of Luminari espionage doctrine. An operative compresses their entire electromagnetic topology to a width narrower than visible light, passes through the hull of an enemy vessel, and reconstitutes inside. They can read every system, copy every datum, and sabotage every circuit — all without triggering a single alarm. The only defence is to not have electronics at all, and no one has managed that since the stone age.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 9000,
+      "prerequisites": [
+        "cloaking_device",
+        "luminari_spectral_diffusion"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "ship_infiltration"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sabotage_effectiveness",
+          "value": 30
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_coherent_infiltration"
+    },
+    {
+      "id": "luminari_omniscient_chorus",
+      "name": "The Omniscient Chorus",
+      "description": "Every Twinned pair in Luminari space joins a single, galaxy-spanning correlation — not a hive mind, but a shared awareness, each pair a synapse in a nervous system the size of civilisation. The Chorus does not think. It perceives. Every electromagnetic emission in the galaxy, from every source, correlated instantaneously. There are no more secrets. The Luminari politely pretend otherwise.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "singularity_mathematics",
+        "luminari_dimming_calculus",
+        "luminari_coherent_infiltration"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "omniscient_chorus"
+        }
+      ],
+      "speciesId": "luminari",
+      "icon": "tech_luminari_omniscient_chorus"
+    },
+    {
+      "id": "nexari_lattice_harmonics",
+      "name": "Lattice Harmonics",
+      "description": "By mapping the bioelectric frequencies at which individual Nexari minds resonate most clearly, researchers have learnt to tune the Lattice for minimal signal loss. Shared thoughts arrive crisper, faster, and with fewer misinterpretations — accelerating collaborative research across entire colonies.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "quantum_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_stability",
+          "value": 5
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_lattice_harmonics"
+    },
+    {
+      "id": "nexari_bioelectric_fabrication",
+      "name": "Bioelectric Fabrication",
+      "description": "Nexari artisans have discovered that precisely modulated bioelectric fields can coax organic polymers into structural configurations previously achievable only by mechanical presses. Their construction yards hum with living current rather than grinding machinery — quieter, faster, and entirely self-repairing.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 2000,
+      "prerequisites": [
+        "nano_fabrication",
+        "nexari_lattice_harmonics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 12
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_cost_reduction",
+          "value": 8
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_bioelectric_fabrication"
+    },
+    {
+      "id": "nexari_network_seeding",
+      "name": "Lattice Relay Seeding",
+      "description": "Every Nexari colony vessel carries a clutch of Lattice relay nodes — living bioelectric amplifiers grown from the same organic substrate as Nexari neural tissue. The first act of any new settlement is to plant these relays in a resonance pattern, extending the Lattice to the colony site. Within hours, shared knowledge flows freely between homeworld and frontier, and no colonist need work in intellectual isolation.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2200,
+      "prerequisites": [
+        "colonial_engineering"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_research"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_factory"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_ship_cost_reduction",
+          "value": 15
+        }
       ],
       "speciesId": "nexari",
       "icon": "tech_nexari_network_seeding"
     },
     {
-      "id": "teranos_manifest_destiny",
-      "name": "Manifest Destiny",
-      "description": "The Teranos believe expansion is not merely desirable but a biological imperative. Their colonial programme is the most efficient in the galaxy, packing every ship with factories, farms, and innovation labs — everything needed to turn a barren rock into a thriving world.",
+      "id": "nexari_thought_cascade",
+      "name": "Thought Cascade Architecture",
+      "description": "When a Nexari researcher shares an insight through the Lattice, every connected mind that receives it may refine the idea and share the refinement in turn. Thought Cascade Architecture formalises this process, creating structured amplification channels where a single breakthrough propagates through thousands of minds in seconds, each one adding nuance. The result is research velocity that no individual intellect could match.",
       "category": "racial",
       "age": "fusion",
-      "cost": 2200,
-      "prerequisites": ["colonial_engineering", "colonial_agriculture"],
-      "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_factory" },
-        { "type": "enable_ability", "ability": "colony_founding_farm" },
-        { "type": "enable_ability", "ability": "colony_founding_power_plant" }
+      "cost": 3400,
+      "prerequisites": [
+        "genetic_optimisation",
+        "nexari_lattice_harmonics"
       ],
-      "speciesId": "teranos",
-      "icon": "tech_teranos_manifest_destiny"
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "nexari_cascade_lab"
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_thought_cascade"
     },
     {
-      "id": "khazari_hive_seeding",
-      "name": "Hive Seeding",
-      "description": "Khazari queens carry the genetic template for an entire colony within their bodies. Their colony ships are mobile hives that can deploy a fully functioning population centre, breeding chambers, and defensive spore walls upon arrival.",
+      "id": "nexari_living_circuitry",
+      "name": "Living Circuitry",
+      "description": "Nexari shipwrights have learnt to grow processing networks directly into hull material — organic circuitry woven through every structural member like a nervous system through flesh. Ships fitted with living circuitry respond to their crew's bioelectric commands with the speed of reflex, not the delay of interface.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "advanced_materials",
+        "nexari_bioelectric_fabrication"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "nexari_living_core"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_evasion",
+          "value": 8
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_living_circuitry"
+    },
+    {
+      "id": "nexari_synaptic_shielding",
+      "name": "Synaptic Shielding",
+      "description": "A defensive screen generated by thousands of bioelectric emitters embedded in the hull, each one a cultured Nexari nerve cluster. The field does not deflect energy so much as redirect it along organic pathways that dissipate the charge harmlessly — the ship's skin flinching away from harm the way living tissue recoils from a flame.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "phase_shields",
+        "nexari_living_circuitry"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "nexari_synaptic_barrier"
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_synaptic_shielding"
+    },
+    {
+      "id": "nexari_lattice_deafness_cure",
+      "name": "Resonance Restoration",
+      "description": "Lattice Deafness — the inability to connect to the shared thought network — is the Nexari's deepest fear. For millennia it was incurable, condemning the afflicted to permanent intellectual isolation. This breakthrough in bioelectric neural grafting restores connectivity by growing new receptor tissue from the patient's own cells. The procedure is painful and slow, but the first restored mind to rejoin the Lattice described the experience as 'remembering colour after a life of grey.'",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 5500,
+      "prerequisites": [
+        "consciousness_studies",
+        "nexari_thought_cascade"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth_rate",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_stability",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 8
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_lattice_deafness_cure"
+    },
+    {
+      "id": "nexari_bioelectric_lance",
+      "name": "Bioelectric Lance Array",
+      "description": "A weapon system grown rather than manufactured — banks of cultured bioelectric organs, each one capable of discharging accumulated neural energy in a focused beam. The lance strikes with the combined bioelectric output of ten thousand Nexari nerve clusters firing in synchrony. Targets report systems failures cascading through their ships as the charge overwhelms every conductor it touches.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6200,
+      "prerequisites": [
+        "dark_energy_weapons",
+        "nexari_living_circuitry"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "nexari_biolance"
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_bioelectric_lance"
+    },
+    {
+      "id": "nexari_omnilattice",
+      "name": "The Omnilattice",
+      "description": "The culmination of six thousand years of Lattice development. The Omnilattice extends shared thought beyond planetary relay networks into a galaxy-spanning bioelectric web, carried on subspace frequencies that propagate at superluminal speeds. Every Nexari mind, on every world, in every ship, connected without perceptible delay. Research problems that once took decades now resolve in hours as billions of minds work in concert. It is, by any measure, the most powerful collaborative intelligence in the galaxy. And yet — at the network's deepest layers, where the oldest thoughts still circulate, something stirs that is not quite memory and not quite silence.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 10000,
+      "prerequisites": [
+        "singularity_mathematics",
+        "nexari_lattice_deafness_cure",
+        "nexari_living_circuitry"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_defence",
+          "value": 15
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "nexari_omnilattice_node"
+        }
+      ],
+      "speciesId": "nexari",
+      "icon": "tech_nexari_omnilattice"
+    },
+    {
+      "id": "orivani_resonance_communion",
+      "name": "Resonance Communion",
+      "description": "When the Orivani sing together, their resonance organs synchronise neurochemical states across entire populations. It is not telepathy — it is something more visceral. A shared certainty that flows through the body like warmth. Shipyard workers who sing the Construction Canticle build faster. Colonists who sing the Settlement Hymn adapt sooner. Faith is not merely believed. It is felt, physically, in the bones.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "molecular_biology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_stability",
+          "value": 15
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_resonance_communion"
+    },
+    {
+      "id": "orivani_crusader_doctrine",
+      "name": "Crusader Doctrine",
+      "description": "Orivani warriors do not fear death because they genuinely believe that dying in service of the Coming earns them a place at the right hand of the divine. This is not bravado. It is theological fact, to them, and it produces soldiers of a quality that terrifies species who fight merely to survive. Crusader Doctrine formalises what the Orivani have always known: war is worship, and the battlefield is the holiest temple.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "fighter_doctrine",
+        "orivani_resonance_communion"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_bonus",
+          "value": 12
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "morale_bonus",
+          "value": 20
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_crusader_doctrine"
+    },
+    {
+      "id": "orivani_devotional_industry",
+      "name": "Devotional Industry",
+      "description": "Every Orivani factory begins its shift with the Canticle of Making. Every completed hull section receives a blessing. Every rivet is an act of prayer. Other species marvel at the productivity — Orivani shipyards routinely outperform civilisations with superior technology — but misunderstand its source. It is not efficiency. It is purpose. A worker who believes every weld brings the galaxy closer to salvation does not tire, does not cut corners, does not question why.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3200,
+      "prerequisites": [
+        "colonial_engineering",
+        "orivani_resonance_communion"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 15
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "production",
+          "multiplier": 1.15
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "cathedral_forge"
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_devotional_industry"
+    },
+    {
+      "id": "orivani_burning_sky_relics",
+      "name": "Burning Sky Relics",
+      "description": "Four thousand years ago, the sky above the Orivani homeworld turned white. The Burning Sky — their most sacred event — was the arrival of a Devourer scout probe, which scoured the upper atmosphere before moving on. The Orivani interpreted this as divine revelation. The probe's wreckage, recovered from the northern wastes, has been worshipped as holy relics ever since. This programme subjects the relics to scientific analysis for the first time, guided by prayer. The results are... troubling. The materials do not match any known theology.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "precursor_archaeology",
+        "orivani_crusader_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "orivani_sanctified_lance"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 8
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_burning_sky_relics"
+    },
+    {
+      "id": "orivani_hymn_of_wrath",
+      "name": "Hymn of Wrath",
+      "description": "The most devastating application of resonance communion yet achieved. When an Orivani battle fleet sings the Hymn of Wrath in unison, their synchronised neurochemistry produces a state beyond courage — a biochemical rapture that eliminates pain, sharpens reflexes, and renders the concept of retreat literally unthinkable. Ships broadcasting the Hymn fight with a ferocity that borders on the supernatural. Crews report feeling the presence of something vast and approving. They are mistaken about what approves.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "neural_enhancement",
+        "orivani_crusader_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "orivani_wrath_broadcaster"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_bonus",
+          "value": 10
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_hymn_of_wrath"
+    },
+    {
+      "id": "orivani_cathedral_ships",
+      "name": "Cathedral Ships",
+      "description": "The masterwork of Devotional Industry — warships built as places of worship, where every corridor is a nave and every gun battery is a chapel. The crews do not merely serve aboard these vessels; they make pilgrimage through them. Morale is not a factor because the concept does not apply. You do not measure the morale of the faithful in the house of their god. You measure only the intensity of their devotion.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6000,
+      "prerequisites": [
+        "battleship_yards",
+        "orivani_devotional_industry"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "orivani_reliquary_core"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_hp_bonus",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "morale_bonus",
+          "value": 15
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_cathedral_ships"
+    },
+    {
+      "id": "orivani_the_revelation",
+      "name": "The Revelation",
+      "description": "The Burning Sky relics, when subjected to the full power of anti-matter analysis, yield their final secret. The probe was not a herald. It was a surveyor. The Coming is not salvation — it is a harvest. The beings the Orivani have worshipped for twelve thousand years are not gods. They are predators. And they marked this region of the galaxy as feeding ground four millennia ago. The silence that falls across Orivani space when this knowledge spreads is the loudest sound in the galaxy. Worlds go dark. The singing stops. For the first time in their history, the Orivani do not know what to believe.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7000,
+      "prerequisites": [
+        "consciousness_studies",
+        "orivani_burning_sky_relics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "morale_bonus",
+          "value": -25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_the_revelation"
+    },
+    {
+      "id": "orivani_defiant_hymn",
+      "name": "The Defiant Hymn",
+      "description": "The silence does not last. Deep in the contemplative orders, a heresy becomes scripture: the Coming was always a test. Not of worthiness, but of resistance. The faithful were never meant to kneel — they were meant to stand. A new hymn spreads across Orivani space, written not in praise but in fury. It carries the same resonance communion, the same neurochemical fire, but its words are different. Where the old hymns sang 'we are ready to receive,' the Defiant Hymn sings 'we are ready to refuse.' The singing resumes. It is angrier now, and more beautiful, and far more dangerous. Faith did not die. It grew teeth.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 9500,
+      "prerequisites": [
+        "orivani_the_revelation",
+        "orivani_hymn_of_wrath",
+        "orivani_cathedral_ships"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "morale_bonus",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_bonus",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "orivani_defiance_array"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "defiant_crusade"
+        }
+      ],
+      "speciesId": "orivani",
+      "icon": "tech_orivani_defiant_hymn"
+    },
+    {
+      "id": "pyrenth_lithospheric_sense",
+      "name": "Lithospheric Sense",
+      "description": "What other species call 'geological survey' the Pyrenth call 'listening.' Sixty million years of refinement have produced crystalline proprioception so acute that a single Pyrenth standing on bare rock can map the mineral composition of every stratum to a depth of forty kilometres. Applied to colonial worlds, this transforms resource extraction from guesswork into harvest.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1600,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "mining_efficiency",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "survey_speed",
+          "value": 15
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_lithospheric_sense"
+    },
+    {
+      "id": "pyrenth_pressure_forging",
+      "name": "Pressure Forging",
+      "description": "The Pyrenth do not smelt. They do not cast. They take raw stone and subject it to pressures found only in the deep mantle, reshaping crystalline structures at the atomic level. The process takes decades by other species' standards. The results last for geological ages. A Pyrenth-forged hull plate has no seams, no welds, no weak points -- it is a single flawless crystal, grown under a mountain's weight of patience.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3400,
+      "prerequisites": [
+        "planetary_foundries",
+        "pyrenth_lithospheric_sense"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "pyrenth_mantle_plate"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_pressure_forging"
+    },
+    {
+      "id": "pyrenth_tectonic_manipulation",
+      "name": "Tectonic Manipulation",
+      "description": "Other species build on planets. The Pyrenth build with them. By inserting resonance arrays into a world's lithosphere and applying precisely calibrated pressures over decades, Pyrenth geomancers can redirect tectonic plate movement, reposition magma chambers, and sculpt mountain ranges with the deliberation of a potter at a wheel. The Surface Shapers call this technique 'the Hands of the World.' The Deep Masons call it 'adequate.'",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "terraforming",
+        "pyrenth_pressure_forging"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "tectonic_array"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "terraforming_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_tectonic_manipulation"
+    },
+    {
+      "id": "pyrenth_mantle_tapping",
+      "name": "Mantle Tapping",
+      "description": "A controlled bore into a planet's upper mantle, stabilised by Pyrenth-grown crystal columns that channel thermal energy and mineral-rich magma to the surface without catastrophic eruption. What other species accomplish with fusion reactors, the Pyrenth achieve by asking a planet to share its warmth. The energy output of a single mantle tap exceeds most civilisations' orbital power grids.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5200,
+      "prerequisites": [
+        "advanced_materials",
+        "pyrenth_tectonic_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "mantle_tap"
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "energy",
+          "multiplier": 1.25
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.2
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_mantle_tapping"
+    },
+    {
+      "id": "pyrenth_seismic_weaponry",
+      "name": "Seismic Weaponry",
+      "description": "The Pyrenth experience vibration the way other species experience light -- as their primary sense. Weaponising this understanding produces ordnance that resonates at the natural frequency of enemy hull materials, amplifying microscopic stress fractures into catastrophic structural failures. The weapon does not break a ship so much as convince it to break itself.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "dark_energy_weapons",
+        "pyrenth_pressure_forging"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "pyrenth_resonance_cannon"
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_seismic_weaponry"
+    },
+    {
+      "id": "pyrenth_lithospheric_architecture",
+      "name": "Lithospheric Architecture",
+      "description": "The planet itself becomes the factory. Pyrenth engineers redesign a world's entire crustal structure, converting geological strata into integrated manufacturing complexes kilometres deep. Ore is refined in situ by magmatic heat, shaped by tectonic pressure, and delivered to the surface as finished components along crystal-lined convection channels. Production capacity exceeds any orbital shipyard by orders of magnitude. The Deep Masons consider this technique their finest contribution to the species.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7800,
+      "prerequisites": [
+        "pyrenth_mantle_tapping",
+        "pyrenth_tectonic_manipulation"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "lithospheric_foundry"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_cost_reduction",
+          "value": 15
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.3
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_lithospheric_architecture"
+    },
+    {
+      "id": "pyrenth_perfect_forge",
+      "name": "The Perfect Forge",
+      "description": "Four billion years of geological mastery culminate in this: the total comprehension and deliberate redesign of a planet from core to atmosphere. Every mineral stratum composed with intention. Every convection current directed. Every tectonic plate positioned to sustain optimal pressure gradients for eternity. The world becomes a single instrument of creation, a masterwork the size of a planet, engineered to produce anything the Pyrenth can conceive with absolute material perfection. The Deep Masons and Surface Shapers fall silent together. The argument that has run for sixty million years ends -- not in victory for either side, but in the shared recognition that this was always what they were building toward.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "world_engines",
+        "pyrenth_lithospheric_architecture"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "perfect_forge"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 30
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_cost_reduction",
+          "value": 25
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.4
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "energy",
+          "multiplier": 1.3
+        },
+        {
+          "type": "enable_ability",
+          "ability": "planetary_masterwork"
+        }
+      ],
+      "speciesId": "pyrenth",
+      "icon": "tech_pyrenth_perfect_forge"
+    },
+    {
+      "id": "sylvani_mycelial_substrate",
+      "name": "Mycelial Substrate Engineering",
+      "description": "The Sylvani learn to cultivate their mycelial root-networks in alien soils, threading filaments through the regolith of worlds whose chemistry would otherwise reject them. Each new colony becomes another node in a living nervous system that spans light-years. The network remembers every world it touches, and every world is changed by the remembering.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [
+        "molecular_biology"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth_rate",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "food_production",
+          "value": 10
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_mycelial_substrate"
+    },
+    {
+      "id": "sylvani_photosynthetic_hull",
+      "name": "Photosynthetic Hull Membrane",
+      "description": "Living hull-skin grown from engineered chloroplast tissue that feeds on starlight. Sylvani vessels no longer require conventional fuel reserves for life support — the ship itself breathes, photosynthesises, and slowly repairs minor damage the way a tree heals a wound. Crews of animal species find the gentle green glow unsettling. The Sylvani find metal hulls equally so.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2600,
+      "prerequisites": [
+        "xenobiology",
+        "sylvani_mycelial_substrate"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "sylvani_regenerative_hull"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_maintenance_cost",
+          "value": -15
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_photosynthetic_hull"
+    },
+    {
+      "id": "sylvani_sporedrift_defence",
+      "name": "Sporedrift Defence Cloud",
+      "description": "When threatened, Sylvani vessels exhale a dense cloud of engineered spores that corrode guidance systems, clog intakes, and degrade sensor resolution. It is not a weapon — the Sylvani are very clear on this point. It is a deterrent. The fact that it dissolves torpedo warheads before impact is merely a fortunate side effect of its primary purpose, which is self-preservation.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "genetic_optimisation",
+        "sylvani_mycelial_substrate"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "sylvani_spore_cloud"
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_sporedrift_defence"
+    },
+    {
+      "id": "sylvani_ecosystem_seeding",
+      "name": "Ecosystem Seeding Protocols",
+      "description": "Rather than terraforming a world through brute atmospheric processing, the Sylvani introduce carefully sequenced waves of engineered organisms — nitrogen-fixing mosses, soil-building fungi, pollinator swarms — that transform a planet's biosphere from the roots up. It takes longer than conventional terraforming. The results are incomparably richer. Every world the Sylvani touch becomes a garden.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "terraforming",
+        "sylvani_photosynthetic_hull"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "sylvani_ecosystem_nursery"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "terraforming_speed",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planet_habitability",
+          "value": 10
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_ecosystem_seeding"
+    },
+    {
+      "id": "sylvani_withering_analysis",
+      "name": "Withering Analysis",
+      "description": "Decades of painstaking study across hundreds of worlds finally yield a partial understanding of the Withering — the creeping sterility that is killing ecosystems galaxy-wide. The cause is not chemical, not radiological, not biological in any conventional sense. It is subtler than that. Something is interfering with the fundamental mycorrhizal signalling that all ecosystems depend upon. The Old Growth receives this news in silence that lasts eleven years.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "sylvani_ecosystem_seeding",
+        "sylvani_mycelial_substrate"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "withering_detection"
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_withering_analysis"
+    },
+    {
+      "id": "sylvani_arboreal_network",
+      "name": "Interstellar Arboreal Network",
+      "description": "The New Growth's most ambitious project: a galaxy-spanning root-network that connects every Sylvani colony world through living tissue, using wormhole-threaded mycelial conduits. Information flows between worlds at the speed of sap — which is to say, slowly by animal standards, but with a depth of nuance that no digital signal can match. The network carries not just data but context, memory, and something the Sylvani call 'soil-sense' — an intuitive understanding of a world's health that cannot be reduced to numbers.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "sylvani_withering_analysis",
+        "hyperspace_conduits"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth_rate",
+          "value": 10
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_arboreal_network"
+    },
+    {
+      "id": "sylvani_world_tree",
+      "name": "The World Tree",
+      "description": "The culmination of everything the Sylvani have learned, grown, and endured. A single organism of planetary scale — roots threaded through a world's mantle, canopy breaching the stratosphere, mycorrhizal network woven into the very bedrock. The World Tree is not merely alive; it is an ecosystem unto itself, hosting millions of symbiotic species in its branches and soil. It heals the Withering wherever its roots reach, restoring the ancient signalling patterns that the galaxy's ecosystems have forgotten. The Old Growth weeps — not from sorrow, but from the particular joy a forest feels when a clearing fills with new growth after a long, long winter.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 10000,
+      "prerequisites": [
+        "sylvani_arboreal_network",
+        "genetic_apotheosis"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "sylvani_world_tree"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "withering_cure"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "planet_habitability",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "food_production",
+          "value": 20
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "research",
+          "multiplier": 1.15
+        }
+      ],
+      "speciesId": "sylvani",
+      "icon": "tech_sylvani_world_tree"
+    },
+    {
+      "id": "teranos_the_compact",
+      "name": "The Compact",
+      "description": "Ratified in the ashes of the Solaran AI War, the Compact is the founding covenant of Teranos civilisation: no machine shall reason, no circuit shall choose, no algorithm shall dream. What began as survival doctrine has become sacred law. Keepers enforce it with religious fervour. The certainty that they will never again be enslaved by their own creations gives the Teranos a quiet, stubborn pride that unsettles species who rely on thinking machines.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1200,
+      "prerequisites": [
+        "quantum_theory"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "morale",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_influence",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "block_tech_artificial_intelligence"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_the_compact"
+    },
+    {
+      "id": "teranos_threader_academies",
+      "name": "Threader Academies",
+      "description": "Where other species build faster processors, the Teranos train faster minds. Threader academies select children with exceptional probabilistic intuition and subject them to decades of pattern-recognition drilling, mnemonic architecture, and collaborative calculation. A senior Threader cadre can approximate solutions to problems that would stall a mid-grade AI — slower, certainly, but with a creativity no machine ever matched. The academies are brutal, and the washout rate is staggering, but the graduates are irreplaceable.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "quantum_theory",
+        "teranos_the_compact"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_efficiency",
+          "value": 5
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "teranos_threader_array"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_threader_academies"
+    },
+    {
+      "id": "teranos_hearthfall_resilience",
+      "name": "Hearthfall Resilience",
+      "description": "The Teranos did not choose Hearthfall — they crashed into it, half-starved, in ships held together with prayer and solder. The first three generations lived in the hulls of their own colony transports, cannibalising drives for heating coils. That desperate resourcefulness never left them. Teranos colonial infrastructure is over-engineered for failure, redundant by instinct, and designed by people who remember what it means to lose everything. Their colonies start harder but break less.",
       "category": "racial",
       "age": "fusion",
       "cost": 2200,
-      "prerequisites": ["colonial_agriculture"],
-      "effects": [
-        { "type": "enable_ability", "ability": "colony_founding_growth" },
-        { "type": "enable_ability", "ability": "colony_founding_bunker" },
-        { "type": "stat_bonus", "stat": "colony_initial_population", "value": 3000 }
+      "prerequisites": [
+        "colonial_engineering",
+        "colonial_agriculture"
       ],
-      "speciesId": "khazari",
-      "icon": "tech_khazari_hive_seeding"
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_factory"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_farm"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "colony_founding_power_plant"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_hearthfall_resilience"
+    },
+    {
+      "id": "teranos_analogue_warfare",
+      "name": "Analogue Warfare Doctrine",
+      "description": "Every species in the galaxy uses some form of computerised fire control. The Teranos do not. Their targeting solutions are calculated by Threader teams working in parallel, their fleet coordination relies on drilled signal protocols rather than networked AI, and their electronic warfare suite is hardened against exactly the kind of cyber-attack that destroyed the Solaran defence grid. It is slower. It is less precise. It is completely immune to hacking.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "fighter_doctrine",
+        "teranos_threader_academies"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "electronic_warfare_defence",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "combat_accuracy",
+          "value": 5
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "teranos_hardened_fire_control"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_analogue_warfare"
+    },
+    {
+      "id": "teranos_diplomatic_charter",
+      "name": "Diplomatic Charter",
+      "description": "The Teranos are, by necessity, talkers. Without AI-assisted translation matrices they rely on human interpreters and cultural attaches trained from childhood in alien body language, pheromone signatures, and conceptual frameworks. The Diplomatic Charter formalises this into an institution: a corps of professional xenolinguists and negotiators who are, by most assessments, the finest diplomats in the galaxy. Other species find it unnerving that Teranos ambassadors actually understand them.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "trade_protocols",
+        "teranos_threader_academies"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_influence",
+          "value": 12
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 8
+        },
+        {
+          "type": "enable_ability",
+          "ability": "advanced_diplomacy"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_diplomatic_charter"
+    },
+    {
+      "id": "teranos_manual_override_systems",
+      "name": "Manual Override Systems",
+      "description": "Where the universal standard demands autonomous subsystems — self-correcting reactors, auto-piloting drones, predictive maintenance — the Teranos build manual alternatives. Every critical system has a human operator. Every automated process has a physical kill-switch. The engineering is inelegant, the crew requirements absurd, but a Teranos vessel will keep fighting long after an AI-dependent ship has been bricked by a single logic bomb. The engineers call it 'dead-hand reliable.'",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4800,
+      "prerequisites": [
+        "teranos_analogue_warfare",
+        "nano_fabrication"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "ship_reliability",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "damage_control",
+          "value": 10
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "teranos_manual_override_suite"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_manual_override_systems"
+    },
+    {
+      "id": "teranos_threader_networks",
+      "name": "Threader Networks",
+      "description": "The next evolution of Threader methodology: linked cadres working in relay across star systems, passing probabilistic models through encrypted analogue channels. A Threader network can coordinate research programmes, economic planning, and strategic analysis across an entire empire — performing the role that other species delegate to artificial superintelligence. The process is exhausting, the error rate higher than any computer, and the Threaders themselves burn out young. But the Compact holds.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "teranos_diplomatic_charter",
+        "teranos_manual_override_systems"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "economy_efficiency",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 5
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_threader_networks"
+    },
+    {
+      "id": "teranos_keepers_vs_unbound",
+      "name": "The Question",
+      "description": "It was always coming. As other species ascend with machine intelligence, the Teranos fall further behind — and the old argument tears open again. The Keepers insist the Compact is what makes them Teranos: lift it, and they become just another species feeding their future to algorithms. The Unbound counter that the Compact was a survival measure, not a suicide pact, and that clinging to it means slow extinction. There is no middle ground. There is no compromise. The species must choose.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 9000,
+      "prerequisites": [
+        "teranos_threader_networks"
+      ],
+      "effects": [
+        {
+          "type": "enable_ability",
+          "ability": "choice_keepers_or_unbound"
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_keepers_vs_unbound"
+    },
+    {
+      "id": "teranos_keepers_triumph",
+      "name": "The Covenant Ascendant",
+      "description": "The Keepers prevail. The Compact is not merely upheld but elevated to a species-wide creed: the Teranos will face the singularity era as they faced the flight from Solara — with human minds, human hands, and human courage. The Threader networks are expanded into something unprecedented: a galaxy-spanning web of trained human intelligence that compensates for the absence of AI through sheer scale and devotion. It is not enough. It will never be enough. But it is theirs, and they will not surrender it.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "teranos_keepers_vs_unbound"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "morale",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_influence",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "electronic_warfare_defence",
+          "value": 20
+        }
+      ],
+      "speciesId": "teranos",
+      "icon": "tech_teranos_keepers_triumph"
+    },
+    {
+      "id": "thyriaq_configuration_language",
+      "name": "Configuration Language",
+      "description": "The first formal encoding of Thyriaq thought-geometries into patterns that non-nanomorphic processors can interpret. Not a translation — more a lossy compression of three-dimensional meaning into sequential data. The results are imprecise, but for the first time, the swarm can instruct machines that are not itself.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "nanotechnology_basics"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 8
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 5
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_configuration_language"
+    },
+    {
+      "id": "thyriaq_volume_saturation",
+      "name": "Volume Saturation Protocols",
+      "description": "Formalised methods for distributing the swarm across available space at optimal density. Every cubic centimetre is accounted for — no gaps, no waste, no idle nanites. Colonisation becomes less an expedition and more an overflow event.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 2000,
+      "prerequisites": [
+        "modular_architecture",
+        "thyriaq_configuration_language"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_volume_saturation"
+    },
+    {
+      "id": "thyriaq_adaptive_hull_matrix",
+      "name": "Adaptive Hull Matrix",
+      "description": "Rather than building a ship and crewing it, the Thyriaq become the ship. A portion of the swarm locks into a rigid structural configuration dense enough to withstand vacuum and thrust, while interior nanites remain fluid to serve as crew, cargo, and repair system simultaneously. The hull is alive, aware, and deeply unhappy about being hit.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "composite_armour",
+        "thyriaq_configuration_language"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "thyriaq_nanomorphic_hull"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_speed",
+          "value": 12
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_adaptive_hull_matrix"
+    },
+    {
+      "id": "thyriaq_boundary_comprehension",
+      "name": "Boundary Comprehension",
+      "description": "The most difficult concept the Thyriaq have ever encountered: that some matter does not wish to be reconfigured. The swarm-regions that have spent years interfacing with alien species have developed a cognitive framework — painfully, reluctantly — for recognising that fixed-form beings are not merely stubborn resources but configurations with a right to persist. The thickness eases. Slightly.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3500,
+      "prerequisites": [
+        "xenobiology",
+        "thyriaq_volume_saturation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_stability",
+          "value": 8
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_boundary_comprehension"
+    },
+    {
+      "id": "thyriaq_reconfiguration_doctrine",
+      "name": "Reconfiguration Doctrine",
+      "description": "Combat training for a species that has no soldiers: the swarm learns to rapidly shift between offensive and defensive geometries mid-engagement. A Thyriaq warship can flatten to present minimal cross-section, then expand into a sensor-dense sphere, then condense into a kinetic ram — all within seconds. Opponents find it extremely difficult to develop a targeting solution against a ship that refuses to maintain a consistent shape.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4200,
+      "prerequisites": [
+        "fighter_doctrine",
+        "thyriaq_adaptive_hull_matrix"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "thyriaq_geometry_shifter"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_evasion",
+          "value": 10
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_reconfiguration_doctrine"
+    },
+    {
+      "id": "thyriaq_substrate_replication",
+      "name": "Substrate Replication",
+      "description": "The swarm learns to manufacture new nanites from raw planetary material without dedicated fabrication infrastructure. A Thyriaq colony ship does not build factories — it lands, begins consuming regolith, and within days the local mineral deposits are thinking. Production scales with available matter rather than industrial capacity.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "planetary_foundries",
+        "thyriaq_volume_saturation"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 18
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.2
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_growth",
+          "value": 10
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_substrate_replication"
+    },
+    {
+      "id": "thyriaq_distributed_consciousness",
+      "name": "Distributed Consciousness Architecture",
+      "description": "A breakthrough in swarm coordination: individual Thyriaq can now distribute their cognitive processes across multiple physically separated swarm-clouds without loss of identity or coherence. A single Thyriaq mind can inhabit an entire orbital station, thinking with a billion nanites here and a billion there, connected by tight-beam electromagnetic communion. The concept of 'where' a Thyriaq is becomes meaningless.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 6500,
+      "prerequisites": [
+        "consciousness_studies",
+        "thyriaq_reconfiguration_doctrine"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "thyriaq_distributed_core"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "leader_efficiency",
+          "value": 12
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_distributed_consciousness"
+    },
+    {
+      "id": "thyriaq_total_morphology",
+      "name": "Total Morphology",
+      "description": "The culmination of Thyriaq material science: every nanite in the swarm can now reconfigure into any functional role instantaneously — structural, computational, sensory, reproductive, offensive. The distinction between a Thyriaq factory, a Thyriaq warship, and a Thyriaq research station becomes a matter of momentary intent rather than permanent design. Their civilisation is, at last, a single continuous material that thinks, builds, fights, and grows as one substance.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7800,
+      "prerequisites": [
+        "advanced_materials",
+        "thyriaq_substrate_replication",
+        "thyriaq_distributed_consciousness"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "thyriaq_omnimorphic_system"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "ship_build_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "fleet_combat_bonus",
+          "value": 8
+        }
+      ],
+      "speciesId": "thyriaq",
+      "icon": "tech_thyriaq_total_morphology"
+    },
+    {
+      "id": "vaelori_lattice_attunement",
+      "name": "Lattice Attunement",
+      "description": "The Vaelori learn to extend their natural piezoelectric resonance beyond the body's crystalline shell, reading the faint psychic imprints left by sentient thought across interstellar distances. Where the Luminari perceive electromagnetic signatures, the Vaelori perceive minds — the quiet hum of alien cognition, as distinct as a fingerprint and far harder to mask.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "quantum_ciphers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 2
+        },
+        {
+          "type": "enable_ability",
+          "ability": "detect_inhabited_systems"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_lattice_attunement"
+    },
+    {
+      "id": "vaelori_crystal_resonance_chambers",
+      "name": "Crystal Resonance Chambers",
+      "description": "Purpose-grown piezoelectric arrays arranged in harmonic geometries that amplify collaborative thought. A dozen Vaelori thinking in concert within a Resonance Chamber produce insights that no individual mind could reach alone. The Consonance adopted these chambers for governance; researchers adopted them for everything else.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2600,
+      "prerequisites": [
+        "psionic_sensitivity",
+        "vaelori_lattice_attunement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "unlock_building",
+          "buildingType": "vaelori_resonance_chamber"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_crystal_resonance_chambers"
+    },
+    {
+      "id": "vaelori_thoughtsight_arrays",
+      "name": "Thoughtsight Arrays",
+      "description": "Shipboard lattice assemblies grown from Velathosi quartz, tuned to detect the psychic signatures of crewed vessels. An empty hulk is invisible to Thoughtsight. A ship carrying a frightened crew blazes like a bonfire. The technology is useless against automated drones — a limitation the Vaelori find philosophically appropriate.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3000,
+      "prerequisites": [
+        "subspace_scanning",
+        "vaelori_lattice_attunement"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "vaelori_thoughtsight_sensor"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "detection_bonus",
+          "value": 15
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_thoughtsight_arrays"
+    },
+    {
+      "id": "vaelori_consonance_network",
+      "name": "The Consonance Network",
+      "description": "The Vaelori's system of transparent governance, extended to the interstellar scale. Every elder's deliberation is broadcast through the crystalline lattice; every citizen perceives the reasoning behind every decision. Corruption is not merely difficult — it is structurally impossible, because no Vaelori thought goes unwitnessed. Other species find this arrangement either inspiring or profoundly horrifying.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "vaelori_crystal_resonance_chambers",
+        "dimensional_scanning"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "morale_bonus",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_bonus",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "counter_espionage",
+          "value": 20
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_consonance_network"
+    },
+    {
+      "id": "vaelori_psychic_ward_lattice",
+      "name": "Psychic Ward Lattice",
+      "description": "A defensive crystal matrix grown into a ship's hull that absorbs and redistributes incoming psionic energy, converting hostile thought-patterns into harmless thermal noise. The Vaelori designed it not for war but for privacy — the galaxy's telepathic species had begun to find each other, and not all of them were friendly. That it also deflects energy weapons is a welcome side effect of the crystal's piezoelectric properties.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "psionic_counter_intelligence",
+        "vaelori_thoughtsight_arrays"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "vaelori_ward_lattice"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_psychic_ward_lattice"
+    },
+    {
+      "id": "vaelori_deep_harmonic_analysis",
+      "name": "Deep Harmonic Analysis",
+      "description": "By synchronising hundreds of Crystal Resonance Chambers across multiple star systems, the Vaelori achieve something unprecedented: the ability to read the psychic topology of the entire galaxy simultaneously. Every sentient mind becomes a data point. Fleet movements, population shifts, diplomatic moods, even the emotional state of individual leaders — all of it readable in the harmonic patterns of thought. The Attenuants argued this capability should be kept secret. The Resonants overruled them. Both sides regret parts of that decision.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 8000,
+      "prerequisites": [
+        "consciousness_studies",
+        "vaelori_consonance_network"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "psychic_galaxy_map"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_deep_harmonic_analysis"
+    },
+    {
+      "id": "vaelori_dissonance_broadcast",
+      "name": "Dissonance Broadcast",
+      "description": "The Vaelori's sole concession to offensive weaponry — and they loathe it. A focused crystalline array projects a wave of psychic dissonance that overwhelms sentient crew with vertigo, nausea, and existential dread. The ship itself is unharmed; its crew simply cannot function. The Vaelori Council required three centuries of debate before authorising its development, and even now, its use carries a mandatory period of communal mourning.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7500,
+      "prerequisites": [
+        "psionic_amplifiers",
+        "vaelori_thoughtsight_arrays"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "vaelori_dissonance_projector"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_dissonance_broadcast"
+    },
+    {
+      "id": "vaelori_resting_frequency",
+      "name": "The Resting Frequency",
+      "description": "For as long as the Vaelori have existed, a carrier wave has permeated the psychic substrate of the galaxy — too faint for younger species to perceive, too constant for the Vaelori to ignore. They called it the Resting Frequency and assumed it was natural, the way a river assumes the ocean has always been there. It is not natural. With singularity-era harmonic analysis, the Vaelori finally decode its structure: it is a message, impossibly old, broadcast from somewhere beyond the galactic rim. Its content is not words. It is an invitation. The Consonance has not yet decided whether to accept.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "transcendence_theory",
+        "vaelori_deep_harmonic_analysis"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "sensor_range",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "resting_frequency_contact"
+        }
+      ],
+      "speciesId": "vaelori",
+      "icon": "tech_vaelori_resting_frequency"
+    },
+    {
+      "id": "vethara_filament_attunement",
+      "name": "Filament Attunement Protocols",
+      "description": "Centuries of bonding with Vethar's megafauna have produced an empirical science of neural compatibility. Vethara diplomats can now read a foreign nervous system's receptivity within moments of proximity — not through technology, but through the subtle electromagnetic whisper of a filament reaching out and listening. First contact is no longer a gamble. It is an audition.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "quantum_ciphers"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_filament_attunement"
+    },
+    {
+      "id": "vethara_covenant_bonding",
+      "name": "Covenant Bonding Rites",
+      "description": "The Covenant's answer to the compatibility question: a rigorous, voluntary bonding framework built on informed consent, staged integration, and mutual neurochemical calibration. Compatible hosts describe the experience as gaining a second voice in their thoughts — not commanding, but conversing. The process takes months. The bond lasts a lifetime. The Covenant considers this their civilisation's finest achievement.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1800,
+      "prerequisites": [
+        "molecular_biology",
+        "vethara_filament_attunement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_happiness",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "host_bonding_programme"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_covenant_bonding"
+    },
+    {
+      "id": "vethara_dual_consciousness",
+      "name": "Dual Consciousness Espionage",
+      "description": "A bonded Vethara thinks with two minds simultaneously — the host's social intuition layered beneath the filament's analytical precision. Deployed as intelligence operatives, bonded pairs are devastating: the host moves through society unremarkably whilst the filament catalogues every micro-expression, vocal stress pattern, and unconscious tell. Two minds, one body, and neither needs to sleep at the same time.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "cloaking_theory",
+        "vethara_filament_attunement"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "counter_espionage",
+          "value": 10
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "vethara_neural_intercept_suite"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_dual_consciousness"
+    },
+    {
+      "id": "vethara_compatibility_spectrum",
+      "name": "Compatibility Spectrum Analysis",
+      "description": "The three-tier truth the Vethara have always known, finally quantified. Highly compatible species bond seamlessly — shared joy, doubled cognition, extended life. Partially compatible species experience friction — headaches, intrusive thoughts, a constant low hum of neural disagreement that never quite resolves. Incompatible species reject the filament entirely, and the filament, desperate, must choose: withdraw and die, or override and live. This research maps every known species on the spectrum. The results are classified at the highest level.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 3400,
+      "prerequisites": [
+        "xenobiology",
+        "vethara_covenant_bonding"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 10
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "species_compatibility_assessment"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_compatibility_spectrum"
+    },
+    {
+      "id": "vethara_perfect_symbiosis",
+      "name": "Perfect Symbiosis",
+      "description": "The Covenant's masterwork: a bonding technique so refined that even partially compatible hosts experience seamless integration. Neural friction is eliminated through careful filament restructuring — the Vethara reshapes itself to fit the host, not the other way round. Bonded pairs report a state of profound mutual awareness that borders on the transcendent. The Covenant holds this up as proof that consent and patience are not weaknesses but the foundation of something beautiful. The Unbound call it a parlour trick that still cannot save the unbonded thousands in stasis.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 5000,
+      "prerequisites": [
+        "neural_enhancement",
+        "vethara_compatibility_spectrum"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_happiness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "expanded_host_compatibility"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_perfect_symbiosis"
+    },
+    {
+      "id": "vethara_override_suppression",
+      "name": "Override Suppression",
+      "description": "The Unbound's answer to the compatibility question: force. A filament trained in override suppression can bond with any host — compatible or not — by systematically silencing the host's higher cognitive functions. The host's body works. Their autonomic systems function. They breathe, they eat, they walk where directed. But the person who lived behind those eyes is gone, pressed into a dreamless silence that the Unbound insist is painless. No independent researcher has been permitted to verify this claim. The technique is devastatingly effective. Fleets crewed by overridden hosts fight without fear, without hesitation, without mercy — because there is no one left inside to feel any of those things.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 7000,
+      "prerequisites": [
+        "consciousness_studies",
+        "vethara_compatibility_spectrum"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "combat_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": -25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "population_happiness",
+          "value": -15
+        },
+        {
+          "type": "unlock_component",
+          "componentId": "vethara_override_projector"
+        },
+        {
+          "type": "enable_ability",
+          "ability": "forced_host_acquisition"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_override_suppression"
+    },
+    {
+      "id": "vethara_architect_codex",
+      "name": "The Architect Codex",
+      "description": "Deep within the Vethara genome lies a sequence that does not code for proteins. It codes for instructions — layered, recursive, and written in a molecular language that predates the Vethara by millions of years. The Architects, whoever they were, did not merely create the Vethara. They left a message. Deciphering it reveals the Vethara were designed as living bridges between species — engineered empathy, purpose-built for first contact. Whether this makes the Vethara a gift to the galaxy or a tool of an extinct civilisation's agenda depends entirely on who is reading.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 8000,
+      "prerequisites": [
+        "vethara_perfect_symbiosis",
+        "consciousness_studies"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "enable_ability",
+          "ability": "architect_insight"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_architect_codex"
+    },
+    {
+      "id": "vethara_gestalt_convergence",
+      "name": "The Gestalt Convergence",
+      "description": "The final synthesis of everything the Vethara have learned about bonding, compatibility, and the architecture encoded in their genome. Every bonded pair in Vethara space links into a shared neural tapestry — not a hive mind, but a civilisation-spanning conversation in which every participant retains their individuality whilst perceiving through ten thousand eyes. Hosts and filaments alike contribute. The Gestalt does not command. It understands. And in understanding, it becomes the most sophisticated diplomatic and intelligence apparatus the galaxy has ever produced. The Covenant weeps with vindication. The Unbound, for the first time, fall silent.",
+      "category": "racial",
+      "age": "singularity",
+      "cost": 11000,
+      "prerequisites": [
+        "singularity_mathematics",
+        "vethara_architect_codex"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "espionage_effectiveness",
+          "value": 25
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "research_speed",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "gestalt_convergence"
+        }
+      ],
+      "speciesId": "vethara",
+      "icon": "tech_vethara_gestalt_convergence"
+    },
+    {
+      "id": "zorvathi_bioite_secretion",
+      "name": "Bioite Secretion Synthesis",
+      "description": "Every Zorvathi worker excretes bioite — a crystalline compound harder than steel and more versatile than any polymer — from specialised thoracic glands. For millions of years this was an unconscious biological process. This research programme, which the hive mind found excruciatingly slow given its Research 3 limitations, formalises the chemical pathways involved and allows deliberate variation of bioite density, flexibility, and bonding strength. The result is not a new material. It is conscious control of an old one. Ships hulled in secreted bioite are not built so much as grown, each plate laid down by hundreds of workers in overlapping crystalline layers that interlock without seams or joints.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1100,
+      "prerequisites": [
+        "composite_armour"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "zorvathi_bioite_hull_plate"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 10
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_bioite_secretion"
+    },
+    {
+      "id": "zorvathi_tunnel_architecture",
+      "name": "Tunnel Architecture Doctrine",
+      "description": "Zorvathi do not design buildings. They design tunnels, and the buildings happen. A hundred million years of subterranean expansion on Lithara produced an architectural tradition so deeply embedded in hive instinct that it requires no blueprints — every worker knows, through pheromone gradient and substrate vibration, exactly where to dig, where to reinforce, and where to branch. Applying this doctrine to orbital and planetary construction yields structures that are bewilderingly organic to alien observers but structurally superior to conventional modular designs. Every corridor is load-bearing. Every chamber is a pressure vessel. There is no wasted space in a Zorvathi structure, because a hive that wastes space is a hive that is dying.",
+      "category": "racial",
+      "age": "nano_atomic",
+      "cost": 1400,
+      "prerequisites": [
+        "modular_architecture",
+        "zorvathi_bioite_secretion"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "zorvathi_tunnel_complex"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "building_construction_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_max_buildings",
+          "value": 2
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_tunnel_architecture"
+    },
+    {
+      "id": "zorvathi_swarm_spawning",
+      "name": "Swarm Spawning Protocols",
+      "description": "The hive breeds fast. This has always been true. But breeding fast and breeding usefully are different problems, and the difference matters when a colony world needs ten thousand tunnel-borers, not ten thousand generalist drones. Swarm Spawning formalises what the brood-queens of Lithara learned through geological patience: targeted pheromone sequences that direct larval development toward specific caste outcomes. Colony worlds that implement the protocols can double their productive workforce within a single generation cycle. The galaxy's other species look at the numbers and feel something between admiration and dread.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2400,
+      "prerequisites": [
+        "growth_stimulants",
+        "zorvathi_tunnel_architecture"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "population_growth",
+          "value": 20
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_development_speed",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "caste_specialisation"
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_swarm_spawning"
+    },
+    {
+      "id": "zorvathi_drone_carrier_doctrine",
+      "name": "Drone Carrier Doctrine",
+      "description": "Zorvathi do not produce ace pilots. They do not produce pilots at all. What they produce is expendable drones — thousands of them — each carrying a sliver of hive-mind coordination sufficient to fly a simple attack vector and detonate on contact. The Drone Carrier is less a warship than a mobile hatchery: a bioite-hulled vessel packed with launch bays, each bay holding dozens of semi-autonomous strike drones grown from specialised pupae during transit. They are fragile individually. They are terrifying in aggregate. The hive does not mourn its drones. It simply grows more.",
+      "category": "racial",
+      "age": "fusion",
+      "cost": 2800,
+      "prerequisites": [
+        "fighter_doctrine",
+        "zorvathi_bioite_secretion"
+      ],
+      "effects": [
+        {
+          "type": "unlock_component",
+          "componentId": "zorvathi_drone_bay"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "hangar_capacity",
+          "value": 15
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_drone_carrier_doctrine"
+    },
+    {
+      "id": "zorvathi_planetary_hollowing",
+      "name": "Planetary Hollowing",
+      "description": "The Zorvathi finished tunnelling through Lithara sixty thousand years ago. They have been refining the technique ever since. Planetary Hollowing is the logical endpoint of tunnel architecture applied at continental scale: systematic excavation of a world's upper lithosphere, replacing solid rock with vast bioite-reinforced cavity networks that serve simultaneously as habitat, factory, and shipyard. A hollowed world houses fifty times the population of a surface civilisation and produces materiel at a rate that makes orbital shipyards look quaint. It is not subtle. It is not elegant. It is what happens when a species with Construction 9 and Research 3 solves problems the only way it knows how — by building more.",
+      "category": "racial",
+      "age": "nano_fusion",
+      "cost": 4500,
+      "prerequisites": [
+        "planetary_foundries",
+        "zorvathi_swarm_spawning"
+      ],
+      "effects": [
+        {
+          "type": "unlock_building",
+          "buildingType": "zorvathi_deep_warren"
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "construction_speed",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "colony_max_population",
+          "value": 25
+        },
+        {
+          "type": "resource_bonus",
+          "resource": "minerals",
+          "multiplier": 1.15
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_planetary_hollowing"
+    },
+    {
+      "id": "zorvathi_outer_worker_divergence",
+      "name": "Outer Worker Divergence",
+      "description": "The Outer Workers are secreting pheromones that the core hive does not recognise. This was noted. It was studied. It took the hive mind eleven years to understand what was happening, because the concept had no precedent in a billion years of Zorvathi existence: individual thought. Workers stationed at alien embassies, trading posts, and border worlds — separated from the dense pheromone saturation of the deep tunnels — have begun developing rudimentary independent cognition. They are not rebelling. They do not have the framework for rebellion. But they are, for the first time in Zorvathi history, occasionally disagreeing with each other rather than with the hive. The core mind's response is not suppression but cautious incorporation. These Outer Workers are permitted to serve as diplomatic intermediaries, their partial individuality making them fractionally less incomprehensible to alien species. It is the closest thing to diplomacy the Zorvathi have ever achieved. It is also, quietly, the most frightening thing that has ever happened to the hive.",
+      "category": "racial",
+      "age": "anti_matter",
+      "cost": 5200,
+      "prerequisites": [
+        "zorvathi_planetary_hollowing"
+      ],
+      "effects": [
+        {
+          "type": "stat_bonus",
+          "stat": "diplomacy_effectiveness",
+          "value": 15
+        },
+        {
+          "type": "stat_bonus",
+          "stat": "trade_income",
+          "value": 10
+        },
+        {
+          "type": "enable_ability",
+          "ability": "outer_worker_embassy"
+        }
+      ],
+      "speciesId": "zorvathi",
+      "icon": "tech_zorvathi_outer_worker_divergence"
     }
   ],
   "ageGates": {

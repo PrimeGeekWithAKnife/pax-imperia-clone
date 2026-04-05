@@ -3,13 +3,13 @@
     "id": "pulse_laser",
     "name": "Pulse Laser",
     "type": "weapon_beam",
-    "description": "Short-burst coherent light weapon \u2014 rapid fire, low damage per shot",
+    "description": "Short-burst coherent light weapon — rapid fire, low damage per shot",
     "stats": {
       "damage": 10,
       "range": 8,
       "accuracy": 85,
       "powerDraw": 3,
-      "rateOfFire": 3.0
+      "rateOfFire": 3
     },
     "cost": 50,
     "requiredTech": "high_energy_weapons",
@@ -27,7 +27,7 @@
       "accuracy": 90,
       "powerDraw": 5,
       "piercingBonus": 5,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 120,
     "requiredTech": "phased_arrays",
@@ -45,7 +45,7 @@
       "accuracy": 88,
       "powerDraw": 7,
       "armorPenetration": 15,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 200,
     "requiredTech": "particle_acceleration",
@@ -56,14 +56,14 @@
     "id": "disruptor_beam",
     "name": "Disruptor Beam",
     "type": "weapon_beam",
-    "description": "Disrupts molecular bonds \u2014 devastating against shields",
+    "description": "Disrupts molecular bonds — devastating against shields",
     "stats": {
       "damage": 40,
       "range": 10,
       "accuracy": 88,
       "powerDraw": 8,
       "shieldPenetration": 20,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 280,
     "requiredTech": "disruptor_beams",
@@ -74,7 +74,7 @@
     "id": "radiation_ray",
     "name": "Radiation Ray",
     "type": "weapon_beam",
-    "description": "Ionising radiation projector \u2014 damages crew and systems through hull",
+    "description": "Ionising radiation projector — damages crew and systems through hull",
     "stats": {
       "damage": 22,
       "range": 8,
@@ -82,7 +82,7 @@
       "powerDraw": 6,
       "systemDamageBonus": 25,
       "crewDamage": 15,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 240,
     "requiredTech": "directed_radiation",
@@ -93,14 +93,14 @@
     "id": "plasma_lance",
     "name": "Plasma Lance",
     "type": "weapon_beam",
-    "description": "Superheated plasma stream \u2014 the most powerful beam weapon",
+    "description": "Superheated plasma stream — the most powerful beam weapon",
     "stats": {
       "damage": 55,
       "range": 11,
       "accuracy": 82,
       "powerDraw": 12,
       "armorPenetration": 30,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 450,
     "requiredTech": "plasma_lances",
@@ -117,7 +117,7 @@
       "range": 13,
       "accuracy": 72,
       "powerDraw": 1,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 60,
     "requiredTech": null,
@@ -134,7 +134,7 @@
       "range": 11,
       "accuracy": 76,
       "powerDraw": 0,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 70,
     "requiredTech": null,
@@ -145,14 +145,14 @@
     "id": "mass_driver",
     "name": "Mass Driver",
     "type": "weapon_projectile",
-    "description": "High-velocity mass accelerator \u2014 punches through armour at extreme range",
+    "description": "High-velocity mass accelerator — punches through armour at extreme range",
     "stats": {
       "damage": 15,
       "range": 17,
       "accuracy": 68,
       "powerDraw": 2,
       "armorPenetration": 20,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 180,
     "requiredTech": "mass_drivers",
@@ -170,7 +170,7 @@
       "accuracy": 70,
       "powerDraw": 3,
       "armorPenetration": 25,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 300,
     "requiredTech": "gauss_technology",
@@ -181,13 +181,13 @@
     "id": "basic_missile",
     "name": "Missile Battery",
     "type": "weapon_missile",
-    "description": "Standard self-propelled guided missiles \u2014 rapid salvo fire",
+    "description": "Standard self-propelled guided missiles — rapid salvo fire",
     "stats": {
       "damage": 12,
       "range": 20,
       "accuracy": 65,
       "powerDraw": 1,
-      "rateOfFire": 2.0,
+      "rateOfFire": 2,
       "areaOfEffect": 1
     },
     "cost": 70,
@@ -221,7 +221,7 @@
       "range": 24,
       "accuracy": 80,
       "powerDraw": 2,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 2
     },
     "cost": 150,
@@ -233,7 +233,7 @@
     "id": "fusion_torpedo",
     "name": "Fusion Torpedo",
     "type": "weapon_missile",
-    "description": "Fusion-warhead torpedo \u2014 massive blast radius",
+    "description": "Fusion-warhead torpedo — massive blast radius",
     "stats": {
       "damage": 48,
       "range": 28,
@@ -251,7 +251,7 @@
     "id": "antimatter_torpedo",
     "name": "Antimatter Torpedo",
     "type": "weapon_missile",
-    "description": "Antimatter annihilation warhead \u2014 devastating against capital ships",
+    "description": "Antimatter annihilation warhead — devastating against capital ships",
     "stats": {
       "damage": 68,
       "range": 32,
@@ -295,7 +295,7 @@
       "accuracy": 60,
       "powerDraw": 1,
       "interceptRate": 30,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 45,
     "requiredTech": null,
@@ -313,7 +313,7 @@
       "accuracy": 70,
       "powerDraw": 2,
       "interceptRate": 45,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 60,
     "requiredTech": null,
@@ -355,7 +355,7 @@
     "id": "deflector_shield",
     "name": "Deflector Shield",
     "type": "shield",
-    "description": "Basic energy barrier \u2014 absorbs incoming damage",
+    "description": "Basic energy barrier — absorbs incoming damage",
     "stats": {
       "powerDraw": 4,
       "shieldStrength": 30,
@@ -384,7 +384,7 @@
     "id": "neutronium_barrier",
     "name": "Neutronium Barrier",
     "type": "shield",
-    "description": "Ultra-dense energy barrier \u2014 excellent kinetic absorption",
+    "description": "Ultra-dense energy barrier — excellent kinetic absorption",
     "stats": {
       "powerDraw": 9,
       "shieldStrength": 90,
@@ -399,7 +399,7 @@
     "id": "phase_shield",
     "name": "Phase Shield",
     "type": "shield",
-    "description": "Partially phase-shifts incoming projectiles \u2014 the pinnacle of antimatter-era shielding",
+    "description": "Partially phase-shifts incoming projectiles — the pinnacle of antimatter-era shielding",
     "stats": {
       "powerDraw": 14,
       "shieldStrength": 140,
@@ -524,7 +524,7 @@
     "id": "phase_armour",
     "name": "Phase-Shift Armour",
     "type": "armor",
-    "description": "Dimensional phase plating \u2014 weapons pass through",
+    "description": "Dimensional phase plating — weapons pass through",
     "stats": {
       "armorRating": 160,
       "massIncrease": 4,
@@ -553,7 +553,7 @@
     "id": "ion_engine",
     "name": "Ion Engine",
     "type": "engine",
-    "description": "Basic ion thruster \u2014 reliable but low output",
+    "description": "Basic ion thruster — reliable but low output",
     "stats": {
       "powerOutput": 10,
       "speed": 3
@@ -579,7 +579,7 @@
     "id": "antimatter_drive",
     "name": "Antimatter Drive",
     "type": "engine",
-    "description": "Antimatter annihilation engine \u2014 extreme power output",
+    "description": "Antimatter annihilation engine — extreme power output",
     "stats": {
       "powerOutput": 30,
       "speed": 7
@@ -592,7 +592,7 @@
     "id": "singularity_drive",
     "name": "Singularity Drive",
     "type": "engine",
-    "description": "Harnesses a contained micro-singularity \u2014 ultimate power source",
+    "description": "Harnesses a contained micro-singularity — ultimate power source",
     "stats": {
       "powerOutput": 50,
       "speed": 9
@@ -633,7 +633,7 @@
     "id": "transwarp_drive",
     "name": "Transwarp Drive",
     "type": "warp_drive",
-    "description": "Tears a temporary wormhole \u2014 near-instant travel",
+    "description": "Tears a temporary wormhole — near-instant travel",
     "stats": {
       "powerDraw": 10,
       "warpSpeed": 8,
@@ -696,7 +696,7 @@
       "range": 1,
       "accuracy": 90,
       "powerDraw": 1,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 90,
     "requiredTech": "modular_architecture",
@@ -706,7 +706,7 @@
     "id": "basic_life_support",
     "name": "Basic Life Support",
     "type": "life_support",
-    "description": "Standard crew life support \u2014 improves morale recovery",
+    "description": "Standard crew life support — improves morale recovery",
     "stats": {
       "powerDraw": 2,
       "crewCapacity": 50,
@@ -735,7 +735,7 @@
     "id": "targeting_computer_mk1",
     "name": "Targeting Computer Mk I",
     "type": "targeting_computer",
-    "description": "Fire-control system \u2014 increases weapon accuracy",
+    "description": "Fire-control system — increases weapon accuracy",
     "stats": {
       "powerDraw": 2,
       "accuracyBonus": 10,
@@ -793,7 +793,7 @@
     "name": "Flare Dispenser",
     "type": "ecm_suite",
     "size": "small",
-    "description": "Compact thermal decoy launcher \u2014 draws heat-seeking missiles away from the craft",
+    "description": "Compact thermal decoy launcher — draws heat-seeking missiles away from the craft",
     "stats": {
       "powerDraw": 1,
       "evasionBonus": 5,
@@ -808,7 +808,7 @@
     "name": "Compact Jammer",
     "type": "ecm_suite",
     "size": "small",
-    "description": "Miniaturised electronic warfare pod for fighters \u2014 disrupts missile guidance and targeting",
+    "description": "Miniaturised electronic warfare pod for fighters — disrupts missile guidance and targeting",
     "stats": {
       "powerDraw": 2,
       "evasionBonus": 8,
@@ -840,7 +840,7 @@
     "name": "Phase Flicker Pod",
     "type": "ecm_suite",
     "size": "small",
-    "description": "Micro phase-shifting unit \u2014 briefly renders the craft invisible to targeting systems",
+    "description": "Micro phase-shifting unit — briefly renders the craft invisible to targeting systems",
     "stats": {
       "powerDraw": 4,
       "evasionBonus": 18,
@@ -856,7 +856,7 @@
     "name": "Quantum Decoy Pod",
     "type": "ecm_suite",
     "size": "small",
-    "description": "Projects quantum-entangled sensor ghosts \u2014 virtually impossible to distinguish from the real craft",
+    "description": "Projects quantum-entangled sensor ghosts — virtually impossible to distinguish from the real craft",
     "stats": {
       "powerDraw": 5,
       "evasionBonus": 25,
@@ -872,7 +872,7 @@
     "name": "ECM Suite Mk I",
     "type": "ecm_suite",
     "size": "medium",
-    "description": "Electronic countermeasures \u2014 reduces enemy accuracy",
+    "description": "Electronic countermeasures — reduces enemy accuracy",
     "stats": {
       "powerDraw": 3,
       "evasionBonus": 10,
@@ -902,7 +902,7 @@
     "id": "capacitor_bank",
     "name": "Capacitor Bank",
     "type": "battery",
-    "description": "Energy storage cells \u2014 provides additional power buffer",
+    "description": "Energy storage cells — provides additional power buffer",
     "stats": {
       "powerBuffer": 8
     },
@@ -914,7 +914,7 @@
     "id": "fusion_battery",
     "name": "Fusion Battery",
     "type": "battery",
-    "description": "Compact fusion cells \u2014 significant power reserves",
+    "description": "Compact fusion cells — significant power reserves",
     "stats": {
       "powerBuffer": 18
     },
@@ -926,7 +926,7 @@
     "id": "antimatter_battery",
     "name": "Antimatter Battery",
     "type": "battery",
-    "description": "Antimatter containment cells \u2014 massive stored energy",
+    "description": "Antimatter containment cells — massive stored energy",
     "stats": {
       "powerBuffer": 30
     },
@@ -938,7 +938,7 @@
     "id": "zero_point_cell",
     "name": "Zero-Point Cell",
     "type": "battery",
-    "description": "Extracts energy from quantum vacuum \u2014 near-unlimited buffer",
+    "description": "Extracts energy from quantum vacuum — near-unlimited buffer",
     "stats": {
       "powerBuffer": 45
     },
@@ -965,7 +965,7 @@
     "id": "geological_scanner",
     "name": "Geological Scanner",
     "type": "scanner",
-    "description": "Subsurface resonance imager \u2014 reveals exact mineral concentrations.",
+    "description": "Subsurface resonance imager — reveals exact mineral concentrations.",
     "stats": {
       "powerDraw": 3,
       "sensorRange": 1,
@@ -1060,7 +1060,7 @@
     "id": "repair_drone_bay",
     "name": "Repair Drone Bay",
     "type": "repair_drone",
-    "description": "Autonomous nano-fabricator drones \u2014 perform field repairs on allied vessels.",
+    "description": "Autonomous nano-fabricator drones — perform field repairs on allied vessels.",
     "stats": {
       "powerDraw": 4,
       "repairRate": 10,
@@ -1098,7 +1098,7 @@
       "accuracy": 69,
       "powerDraw": 4,
       "armorPenetration": 30,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 380,
     "requiredTech": "antimatter_munitions",
@@ -1117,7 +1117,7 @@
       "powerDraw": 5,
       "armorPenetration": 40,
       "graviticPull": 15,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 580,
     "requiredTech": "singularity_weapons",
@@ -1135,7 +1135,7 @@
       "accuracy": 70,
       "powerDraw": 1,
       "armorPenetration": 10,
-      "rateOfFire": 8.0
+      "rateOfFire": 8
     },
     "cost": 100,
     "requiredTech": "fusion_kinetics",
@@ -1543,7 +1543,7 @@
       "accuracy": 80,
       "powerDraw": 4,
       "armorPenetration": 8,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 60,
     "requiredTech": "high_energy_weapons",
@@ -1554,14 +1554,14 @@
     "id": "uv_blaster",
     "name": "UV Blaster",
     "type": "weapon_beam",
-    "description": "Ultraviolet pulse emitter \u2014 rapid cadence, effective against shields",
+    "description": "Ultraviolet pulse emitter — rapid cadence, effective against shields",
     "stats": {
       "damage": 7,
       "range": 7,
       "accuracy": 90,
       "powerDraw": 2,
       "shieldDamageBonus": 10,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 45,
     "requiredTech": null,
@@ -1580,7 +1580,7 @@
       "powerDraw": 6,
       "armorPenetration": 12,
       "hullFireChance": 10,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 150,
     "requiredTech": null,
@@ -1598,7 +1598,7 @@
       "accuracy": 88,
       "powerDraw": 4,
       "systemDisruptChance": 15,
-      "rateOfFire": 3.0
+      "rateOfFire": 3
     },
     "cost": 100,
     "requiredTech": null,
@@ -1609,7 +1609,7 @@
     "id": "neutron_beam",
     "name": "Neutron Beam",
     "type": "weapon_beam",
-    "description": "Focused neutron stream \u2014 passes through shields to irradiate crew",
+    "description": "Focused neutron stream — passes through shields to irradiate crew",
     "stats": {
       "damage": 25,
       "range": 10,
@@ -1617,7 +1617,7 @@
       "powerDraw": 7,
       "shieldPenetration": 10,
       "crewDamage": 10,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 220,
     "requiredTech": null,
@@ -1628,14 +1628,14 @@
     "id": "antimatter_beam",
     "name": "Antimatter Beam",
     "type": "weapon_beam",
-    "description": "Focused antimatter annihilation stream \u2014 extreme raw damage",
+    "description": "Focused antimatter annihilation stream — extreme raw damage",
     "stats": {
       "damage": 50,
       "range": 9,
       "accuracy": 80,
       "powerDraw": 10,
       "armorPenetration": 25,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 350,
     "requiredTech": null,
@@ -1654,7 +1654,7 @@
       "powerDraw": 9,
       "phaseThrough": 30,
       "systemDamageBonus": 15,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 300,
     "requiredTech": null,
@@ -1673,7 +1673,7 @@
       "powerDraw": 14,
       "graviticPull": 20,
       "armorPenetration": 35,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 2
     },
     "cost": 550,
@@ -1693,7 +1693,7 @@
       "powerDraw": 11,
       "shieldPenetration": 25,
       "systemDisruptChance": 20,
-      "rateOfFire": 3.0
+      "rateOfFire": 3
     },
     "cost": 500,
     "requiredTech": null,
@@ -1704,13 +1704,13 @@
     "id": "scatter_cannon",
     "name": "Scatter Cannon",
     "type": "weapon_projectile",
-    "description": "Fragmentation slug cannon \u2014 wide spread, effective against fighters and close targets",
+    "description": "Fragmentation slug cannon — wide spread, effective against fighters and close targets",
     "stats": {
       "damage": 10,
       "range": 13,
       "accuracy": 60,
       "powerDraw": 1,
-      "rateOfFire": 4.0,
+      "rateOfFire": 4,
       "areaOfEffect": 2
     },
     "cost": 130,
@@ -1722,14 +1722,14 @@
     "id": "coilgun_array",
     "name": "Coilgun Array",
     "type": "weapon_projectile",
-    "description": "Multi-barrel electromagnetic accelerator \u2014 sustained suppressive fire",
+    "description": "Multi-barrel electromagnetic accelerator — sustained suppressive fire",
     "stats": {
       "damage": 12,
       "range": 15,
       "accuracy": 68,
       "powerDraw": 2,
       "armorPenetration": 15,
-      "rateOfFire": 8.0
+      "rateOfFire": 8
     },
     "cost": 250,
     "requiredTech": null,
@@ -1740,7 +1740,7 @@
     "id": "siege_cannon",
     "name": "Siege Cannon",
     "type": "weapon_projectile",
-    "description": "Massive bore cannon firing explosive penetrator rounds \u2014 designed for station assault",
+    "description": "Massive bore cannon firing explosive penetrator rounds — designed for station assault",
     "stats": {
       "damage": 40,
       "range": 18,
@@ -1748,7 +1748,7 @@
       "powerDraw": 3,
       "armorPenetration": 30,
       "structureDamage": 20,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 3
     },
     "cost": 350,
@@ -1768,7 +1768,7 @@
       "powerDraw": 3,
       "armorPenetration": 20,
       "hullFireChance": 15,
-      "rateOfFire": 6.0,
+      "rateOfFire": 6,
       "areaOfEffect": 2
     },
     "cost": 320,
@@ -1780,7 +1780,7 @@
     "id": "hypermass_projector",
     "name": "Hypermass Projector",
     "type": "weapon_projectile",
-    "description": "Projects ultra-dense matter at relativistic speed \u2014 catastrophic on impact",
+    "description": "Projects ultra-dense matter at relativistic speed — catastrophic on impact",
     "stats": {
       "damage": 55,
       "range": 19,
@@ -1788,7 +1788,7 @@
       "powerDraw": 7,
       "armorPenetration": 45,
       "graviticPull": 25,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 3
     },
     "cost": 650,
@@ -1800,7 +1800,7 @@
     "id": "icbm_torpedo",
     "name": "Tactical Nuke",
     "type": "weapon_missile",
-    "description": "Crude fission warhead on a ballistic delivery system \u2014 devastating but inaccurate and slow to reload",
+    "description": "Crude fission warhead on a ballistic delivery system — devastating but inaccurate and slow to reload",
     "stats": {
       "damage": 50,
       "range": 25,
@@ -1823,7 +1823,7 @@
       "range": 22,
       "accuracy": 70,
       "powerDraw": 1,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 1
     },
     "cost": 80,
@@ -1835,7 +1835,7 @@
     "id": "torpedo_rack",
     "name": "Torpedo Rack",
     "type": "weapon_missile",
-    "description": "Heavy anti-ship torpedoes \u2014 slow rate of fire but punishing damage",
+    "description": "Heavy anti-ship torpedoes — slow rate of fire but punishing damage",
     "stats": {
       "damage": 25,
       "range": 24,
@@ -1853,14 +1853,14 @@
     "id": "cluster_missile",
     "name": "Cluster Missile",
     "type": "weapon_missile",
-    "description": "Splits into six submunitions on approach \u2014 wide area saturation",
+    "description": "Splits into six submunitions on approach — wide area saturation",
     "stats": {
       "damage": 20,
       "range": 22,
       "accuracy": 75,
       "powerDraw": 2,
       "submunitionCount": 6,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 4
     },
     "cost": 130,
@@ -1872,7 +1872,7 @@
     "id": "emp_torpedo",
     "name": "EMP Torpedo",
     "type": "weapon_missile",
-    "description": "Electromagnetic pulse warhead \u2014 disables systems and drains shields",
+    "description": "Electromagnetic pulse warhead — disables systems and drains shields",
     "stats": {
       "damage": 15,
       "range": 24,
@@ -1892,7 +1892,7 @@
     "id": "swarm_missiles",
     "name": "Swarm Missiles",
     "type": "weapon_missile",
-    "description": "Salvo of eight micro-missiles with cooperative guidance \u2014 overwhelms point defence",
+    "description": "Salvo of eight micro-missiles with cooperative guidance — overwhelms point defence",
     "stats": {
       "damage": 10,
       "range": 24,
@@ -1900,7 +1900,7 @@
       "powerDraw": 3,
       "missileCount": 8,
       "evasiveManoeuvre": true,
-      "rateOfFire": 3.0,
+      "rateOfFire": 3,
       "areaOfEffect": 1
     },
     "cost": 200,
@@ -1912,7 +1912,7 @@
     "id": "bunker_buster",
     "name": "Bunker Buster",
     "type": "weapon_missile",
-    "description": "Armour-piercing penetrator torpedo \u2014 designed to crack stations and capital ships",
+    "description": "Armour-piercing penetrator torpedo — designed to crack stations and capital ships",
     "stats": {
       "damage": 60,
       "range": 26,
@@ -1932,7 +1932,7 @@
     "id": "void_seeker",
     "name": "Void Seeker",
     "type": "weapon_missile",
-    "description": "Low-observable torpedo with adaptive countermeasures \u2014 extremely hard to intercept",
+    "description": "Low-observable torpedo with adaptive countermeasures — extremely hard to intercept",
     "stats": {
       "damage": 45,
       "range": 30,
@@ -1940,7 +1940,7 @@
       "powerDraw": 3,
       "stealthProfile": true,
       "interceptEvasion": 40,
-      "rateOfFire": 1.0,
+      "rateOfFire": 1,
       "areaOfEffect": 1
     },
     "cost": 350,
@@ -1972,7 +1972,7 @@
     "id": "scatter_field",
     "name": "Scatter Field",
     "type": "shield",
-    "description": "Low-power dispersal field \u2014 less raw absorption but deflects incoming missiles",
+    "description": "Low-power dispersal field — less raw absorption but deflects incoming missiles",
     "stats": {
       "powerDraw": 3,
       "shieldStrength": 20,
@@ -2034,7 +2034,7 @@
     "id": "hardlight_barrier",
     "name": "Hardlight Barrier",
     "type": "shield",
-    "description": "Solid-light projection that physically deflects objects \u2014 effective against rams and boarding",
+    "description": "Solid-light projection that physically deflects objects — effective against rams and boarding",
     "stats": {
       "powerDraw": 12,
       "shieldStrength": 120,
@@ -2050,7 +2050,7 @@
     "id": "dimensional_ward",
     "name": "Dimensional Ward",
     "type": "shield",
-    "description": "Partially shifts the vessel between dimensions \u2014 projectiles pass through empty space",
+    "description": "Partially shifts the vessel between dimensions — projectiles pass through empty space",
     "stats": {
       "powerDraw": 16,
       "shieldStrength": 180,
@@ -2080,7 +2080,7 @@
     "id": "dimensional_drive",
     "name": "Dimensional Drive",
     "type": "warp_drive",
-    "description": "Slips between dimensional folds \u2014 virtually instantaneous transit across any distance",
+    "description": "Slips between dimensional folds — virtually instantaneous transit across any distance",
     "stats": {
       "powerDraw": 14,
       "warpSpeed": 12,
@@ -2120,7 +2120,7 @@
     "id": "reactor_zero_point",
     "name": "Zero-Point Reactor",
     "type": "power_reactor",
-    "description": "Extracts energy from quantum vacuum fluctuations \u2014 near-limitless output.",
+    "description": "Extracts energy from quantum vacuum fluctuations — near-limitless output.",
     "stats": {
       "powerOutput": 40
     },
@@ -2157,14 +2157,14 @@
     "id": "rapid_pulse_beam",
     "name": "Rapid Pulse Beam",
     "type": "weapon_point_defense",
-    "description": "Rapid-cadence pulse beam turret \u2014 improved tracking and intercept rate",
+    "description": "Rapid-cadence pulse beam turret — improved tracking and intercept rate",
     "stats": {
       "damage": 6,
       "range": 3,
       "accuracy": 70,
       "powerDraw": 3,
       "interceptRate": 55,
-      "rateOfFire": 6.0
+      "rateOfFire": 6
     },
     "cost": 120,
     "requiredTech": "advanced_point_defense",
@@ -2175,14 +2175,14 @@
     "id": "laser_cwis",
     "name": "Laser CWIS",
     "type": "weapon_point_defense",
-    "description": "Close-in weapon system using continuous laser sweep \u2014 excellent against fighter swarms",
+    "description": "Close-in weapon system using continuous laser sweep — excellent against fighter swarms",
     "stats": {
       "damage": 4,
       "range": 2,
       "accuracy": 80,
       "powerDraw": 3,
       "interceptRate": 50,
-      "rateOfFire": 8.0
+      "rateOfFire": 8
     },
     "cost": 140,
     "requiredTech": null,
@@ -2200,7 +2200,7 @@
       "accuracy": 75,
       "powerDraw": 4,
       "interceptRate": 65,
-      "rateOfFire": 10.0
+      "rateOfFire": 10
     },
     "cost": 180,
     "requiredTech": null,
@@ -2218,7 +2218,7 @@
       "accuracy": 80,
       "powerDraw": 5,
       "interceptRate": 70,
-      "rateOfFire": 4.0
+      "rateOfFire": 4
     },
     "cost": 200,
     "requiredTech": null,
@@ -2236,7 +2236,7 @@
       "accuracy": 85,
       "powerDraw": 6,
       "interceptRate": 75,
-      "rateOfFire": 2.0
+      "rateOfFire": 2
     },
     "cost": 250,
     "requiredTech": null,
@@ -2247,14 +2247,14 @@
     "id": "micro_pbc_gatling",
     "name": "Micro PBC Gatling",
     "type": "weapon_point_defense",
-    "description": "Miniaturised particle beam array with predictive targeting \u2014 near-perfect intercept rate",
+    "description": "Miniaturised particle beam array with predictive targeting — near-perfect intercept rate",
     "stats": {
       "damage": 12,
       "range": 4,
       "accuracy": 90,
       "powerDraw": 9,
       "interceptRate": 80,
-      "rateOfFire": 8.0
+      "rateOfFire": 8
     },
     "cost": 300,
     "requiredTech": null,
@@ -2265,14 +2265,14 @@
     "id": "triple_layer_mesh",
     "name": "Triple Layer Mesh",
     "type": "weapon_point_defense",
-    "description": "Three overlapping defensive meshes \u2014 extremely difficult to penetrate",
+    "description": "Three overlapping defensive meshes — extremely difficult to penetrate",
     "stats": {
       "damage": 15,
       "range": 5,
       "accuracy": 88,
       "powerDraw": 7,
       "interceptRate": 85,
-      "rateOfFire": 3.0
+      "rateOfFire": 3
     },
     "cost": 280,
     "requiredTech": null,
@@ -2290,7 +2290,7 @@
       "accuracy": 95,
       "powerDraw": 8,
       "interceptRate": 90,
-      "rateOfFire": 1.0
+      "rateOfFire": 1
     },
     "cost": 400,
     "requiredTech": null,
@@ -2301,14 +2301,14 @@
     "id": "phase_intercept_array",
     "name": "Phase Intercept Array",
     "type": "weapon_point_defense",
-    "description": "Phase-shifts incoming ordnance into another dimension \u2014 the ultimate point defence",
+    "description": "Phase-shifts incoming ordnance into another dimension — the ultimate point defence",
     "stats": {
       "damage": 15,
       "range": 6,
       "accuracy": 92,
       "powerDraw": 10,
       "interceptRate": 95,
-      "rateOfFire": 6.0
+      "rateOfFire": 6
     },
     "cost": 350,
     "requiredTech": null,
@@ -2335,7 +2335,7 @@
     "id": "bomber_bay",
     "name": "Bomber Bay",
     "type": "fighter_bay",
-    "description": "Launches 4 torpedo bombers \u2014 devastating against capital ships",
+    "description": "Launches 4 torpedo bombers — devastating against capital ships",
     "stats": {
       "damage": 25,
       "range": 10,
@@ -2387,7 +2387,7 @@
     "name": "Jammer Pod",
     "type": "ecm_suite",
     "size": "small",
-    "description": "Dedicated missile jamming pod \u2014 effective against guided ordnance",
+    "description": "Dedicated missile jamming pod — effective against guided ordnance",
     "stats": {
       "powerDraw": 2,
       "evasionBonus": 5,
@@ -2419,7 +2419,7 @@
     "name": "Signal Distortion Array",
     "type": "ecm_suite",
     "size": "large",
-    "description": "Distorts all electromagnetic emissions in a wide radius \u2014 disrupts enemy fleet coordination",
+    "description": "Distorts all electromagnetic emissions in a wide radius — disrupts enemy fleet coordination",
     "stats": {
       "powerDraw": 6,
       "evasionBonus": 15,
@@ -2468,7 +2468,7 @@
     "name": "Dimensional Cloak ECM",
     "type": "ecm_suite",
     "size": "large",
-    "description": "Shifts the vessel partially between dimensions \u2014 nearly undetectable",
+    "description": "Shifts the vessel partially between dimensions — nearly undetectable",
     "stats": {
       "powerDraw": 10,
       "evasionBonus": 35,
@@ -2520,7 +2520,7 @@
     "id": "fire_director",
     "name": "Fire Director",
     "type": "targeting_computer",
-    "description": "Fleet fire coordination system \u2014 synchronises volleys across multiple ships",
+    "description": "Fleet fire coordination system — synchronises volleys across multiple ships",
     "stats": {
       "powerDraw": 3,
       "accuracyBonus": 15,
@@ -2535,7 +2535,7 @@
     "id": "neural_targeting",
     "name": "Neural Targeting Array",
     "type": "targeting_computer",
-    "description": "Neural-linked targeting system \u2014 reaction times approaching precognition",
+    "description": "Neural-linked targeting system — reaction times approaching precognition",
     "stats": {
       "powerDraw": 4,
       "accuracyBonus": 25,
@@ -2550,7 +2550,7 @@
     "id": "quantum_targeting",
     "name": "Quantum Targeting Matrix",
     "type": "targeting_computer",
-    "description": "Quantum-entangled targeting \u2014 fires at where the target will be, not where it is",
+    "description": "Quantum-entangled targeting — fires at where the target will be, not where it is",
     "stats": {
       "powerDraw": 5,
       "accuracyBonus": 30,
@@ -2566,7 +2566,7 @@
     "id": "hull_sealant_system",
     "name": "Hull Sealant System",
     "type": "repair_drone",
-    "description": "Rapid-deploying hull sealant system \u2014 seals breaches during combat",
+    "description": "Rapid-deploying hull sealant system — seals breaches during combat",
     "stats": {
       "powerDraw": 3,
       "repairRate": 7,
@@ -2597,7 +2597,7 @@
     "id": "temporal_repair_field",
     "name": "Temporal Repair Field",
     "type": "repair_drone",
-    "description": "Localised temporal reversal field \u2014 literally undoes damage by rewinding time around the hull",
+    "description": "Localised temporal reversal field — literally undoes damage by rewinding time around the hull",
     "stats": {
       "powerDraw": 8,
       "repairRate": 25,
@@ -2613,7 +2613,7 @@
     "id": "rcs_gravitic",
     "name": "Gravitic RCS",
     "type": "rcs_thrusters",
-    "description": "Gravitational thrust vectoring \u2014 instant directional changes.",
+    "description": "Gravitational thrust vectoring — instant directional changes.",
     "stats": {
       "powerDraw": 3,
       "evasionBonus": 12,
@@ -2628,7 +2628,7 @@
     "id": "rcs_inertialess",
     "name": "Inertialess RCS",
     "type": "rcs_thrusters",
-    "description": "Negates inertia entirely \u2014 the vessel can change direction instantaneously.",
+    "description": "Negates inertia entirely — the vessel can change direction instantaneously.",
     "stats": {
       "powerDraw": 4,
       "evasionBonus": 16,
@@ -2658,7 +2658,7 @@
     "id": "entropy_radiator",
     "name": "Entropy Radiator",
     "type": "temperature_control",
-    "description": "Channels waste heat into dimensional folds \u2014 effectively limitless thermal capacity.",
+    "description": "Channels waste heat into dimensional folds — effectively limitless thermal capacity.",
     "stats": {
       "powerDraw": 3,
       "heatDissipation": 45
@@ -2736,7 +2736,7 @@
     "id": "bio_reclaim_synthesis",
     "name": "Molecular Synthesis System",
     "type": "bio_reclaim",
-    "description": "Synthesises food and water from raw elements \u2014 virtually unlimited endurance.",
+    "description": "Synthesises food and water from raw elements — virtually unlimited endurance.",
     "stats": {
       "powerDraw": 4,
       "supplyBonus": 10,
@@ -2752,7 +2752,7 @@
     "id": "bio_reclaim_perfect",
     "name": "Perfect Reclamation",
     "type": "bio_reclaim",
-    "description": "Complete matter-energy cycling \u2014 the vessel is entirely self-sustaining.",
+    "description": "Complete matter-energy cycling — the vessel is entirely self-sustaining.",
     "stats": {
       "powerDraw": 4,
       "supplyBonus": 15,
@@ -2816,7 +2816,7 @@
     "id": "life_support_core_mk4",
     "name": "Arcology Life Support",
     "type": "life_support",
-    "description": "Full artificial gravity and arcology-grade habitability \u2014 crew never want to leave.",
+    "description": "Full artificial gravity and arcology-grade habitability — crew never want to leave.",
     "stats": {
       "powerDraw": 4,
       "crewCapacity": 400,
@@ -2845,5 +2845,850 @@
     "requiredTech": null,
     "minAge": "singularity",
     "coreSystemRole": "life_support"
+  },
+  {
+    "id": "aethyn_resonance_barrier",
+    "name": "Resonance Barrier",
+    "type": "shield",
+    "description": "Dimensional interference pattern that shunts incoming energy into adjacent brane layers — damage simply ceases to exist in three-dimensional space",
+    "stats": {
+      "powerDraw": 7,
+      "shieldStrength": 70,
+      "rechargeRate": 8,
+      "phaseShift": 15
+    },
+    "cost": 180,
+    "requiredTech": "aethyn_dimensional_resonance",
+    "minAge": "fusion",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "aethyn_exotic_matter_armour",
+    "name": "Exotic Matter Armour",
+    "type": "armor",
+    "description": "Hull plating synthesised from trans-dimensional matter with negative mass properties — absorbs kinetic impacts by redistributing force across dimensional axes",
+    "stats": {
+      "hullBonus": 60,
+      "kineticResist": 30,
+      "energyResist": 20,
+      "weight": 8
+    },
+    "cost": 280,
+    "requiredTech": "aethyn_exotic_matter_synthesis",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "aethyn_brane_drive",
+    "name": "Brane Drive",
+    "type": "warp_drive",
+    "description": "Punctures the dimensional membrane and slides the vessel through a higher-dimensional shortcut — distances in the Firmament are merely a projection of a far more accommodating geometry",
+    "stats": {
+      "powerDraw": 8,
+      "warpSpeed": 12,
+      "fuelEfficiency": 80
+    },
+    "cost": 350,
+    "requiredTech": "aethyn_brane_tunnelling",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "aethyn_phase_lance",
+    "name": "Phase Lance",
+    "type": "weapon_beam",
+    "description": "Projects a beam that phase-shifts through shields and armour before re-materialising inside the target hull — other species consider this weapon a violation of fair play",
+    "stats": {
+      "damage": 50,
+      "range": 11,
+      "accuracy": 85,
+      "powerDraw": 10,
+      "shieldPenetration": 40,
+      "armorPenetration": 30,
+      "rateOfFire": 1.5
+    },
+    "cost": 450,
+    "requiredTech": "aethyn_phase_weaponry",
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "aethyn_membrane_projector",
+    "name": "Membrane Projector",
+    "type": "special",
+    "description": "Destabilises the dimensional membrane in a target area, causing enemy ships to partially phase out of coherent space — their weapons misfire, their engines stall, and their crews experience reality as a series of contradictions",
+    "stats": {
+      "powerDraw": 14,
+      "aoeRadius": 5,
+      "accuracyDebuff": 30,
+      "speedDebuff": 25,
+      "duration": 8
+    },
+    "cost": 600,
+    "requiredTech": "aethyn_membrane_manipulation",
+    "minAge": "singularity",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "aethyn_omnisensor",
+    "name": "Omnidimensional Sensor Array",
+    "type": "sensor",
+    "description": "Perceives all eleven dimensional axes simultaneously — cloaked ships, hidden fleets, and subspace anomalies are laid bare, their three-dimensional concealment meaningless against a sensor that sees in seven additional directions",
+    "stats": {
+      "powerDraw": 8,
+      "sensorRange": 15,
+      "detectionBonus": 50,
+      "deepScanBonus": 40,
+      "cloakDetection": 80
+    },
+    "cost": 550,
+    "requiredTech": "aethyn_omnidimensional_sight",
+    "minAge": "singularity",
+    "speciesRestriction": "aethyn"
+  },
+  {
+    "id": "ashkari_integration_bay",
+    "name": "Xenotech Integration Bay",
+    "type": "special",
+    "description": "A modular workshop fitted into the ship's hull, allowing Ashkari engineers to strip, analyse, and refit captured foreign components during deployment. What goes in as alien scrap comes out as a functioning system.",
+    "stats": {
+      "powerDraw": 3,
+      "salvageBonus": 20,
+      "componentCompatibility": 25,
+      "repairRate": 3
+    },
+    "cost": 150,
+    "requiredTech": "ashkari_adaptive_integration",
+    "minAge": "fusion",
+    "speciesRestriction": "ashkari"
+  },
+  {
+    "id": "ashkari_precursor_scanner",
+    "name": "Wreck-Derived Sensor Suite",
+    "type": "sensor",
+    "description": "Reverse-engineered from scanning equipment found in the Wreck's mid-decks. The Ashkari do not fully understand the operating principles, but the results are unmistakable — detection ranges that exceed anything their own science could produce.",
+    "stats": {
+      "powerDraw": 4,
+      "sensorRange": 10,
+      "detectionBonus": 30,
+      "deepScanBonus": 20
+    },
+    "cost": 280,
+    "requiredTech": "ashkari_wreck_deep_survey",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "ashkari"
+  },
+  {
+    "id": "ashkari_mirror_array",
+    "name": "Mirror Analysis Array",
+    "type": "special",
+    "description": "A dense cluster of passive sensors and rapid-fabrication units that observes enemy weapons fire, analyses its composition, and begins producing countermeasures mid-battle. Each engagement makes the Ashkari vessel slightly harder to kill.",
+    "stats": {
+      "powerDraw": 5,
+      "adaptiveDefence": 15,
+      "evasionBonus": 8,
+      "shieldRegenBonus": 5
+    },
+    "cost": 350,
+    "requiredTech": "ashkari_mirror_engineering",
+    "minAge": "anti_matter",
+    "speciesRestriction": "ashkari"
+  },
+  {
+    "id": "ashkari_wreck_core_tap",
+    "name": "Wreck Core Power Tap",
+    "type": "special",
+    "description": "A carefully shielded conduit to a fragment of the Wreck's central power source, mounted in a containment cradle that the Interpreter Guilds frankly admit they designed by trial and error. It produces more energy than any reactor the Ashkari could build. They try not to think about what happens if the containment fails.",
+    "stats": {
+      "powerDraw": -12,
+      "shieldBonus": 10,
+      "hullIntegrity": -5
+    },
+    "cost": 450,
+    "requiredTech": "ashkari_wreck_core_breach",
+    "minAge": "anti_matter",
+    "speciesRestriction": "ashkari"
+  },
+  {
+    "id": "drakmari_electroreceptive_array",
+    "name": "Electroreceptive Array",
+    "type": "sensor",
+    "description": "Hull-mounted sensory organs derived from Drakmari biology. Detects bioelectric signatures, reactor emissions, and magnetic field distortions with predatory precision.",
+    "stats": {
+      "powerDraw": 1,
+      "sensorRange": 4,
+      "detectionBonus": 12,
+      "stealthPenetration": 8
+    },
+    "cost": 80,
+    "requiredTech": "drakmari_abyssal_sensorium",
+    "minAge": "nano_atomic",
+    "speciesRestriction": "drakmari"
+  },
+  {
+    "id": "drakmari_pressure_plate",
+    "name": "Pressure-Forged Plate",
+    "type": "armor",
+    "description": "Ultra-dense hull plating compressed under abyssal conditions. Heavier than standard composites, but far harder to penetrate.",
+    "stats": {
+      "armorRating": 22,
+      "massIncrease": 6,
+      "kineticResistance": 15
+    },
+    "cost": 65,
+    "requiredTech": "drakmari_pressure_forged_hulls",
+    "minAge": "nano_atomic",
+    "speciesRestriction": "drakmari"
+  },
+  {
+    "id": "drakmari_thermoreceptive_targeting_suite",
+    "name": "Thermoreceptive Targeting Suite",
+    "type": "sensor",
+    "description": "Reads thermal gradients across enemy hulls to identify reactor cores, shield emitters, and ammunition stores. Grants devastating precision against critical subsystems.",
+    "stats": {
+      "powerDraw": 3,
+      "sensorRange": 5,
+      "detectionBonus": 15,
+      "criticalHitBonus": 20,
+      "targetingAccuracy": 12
+    },
+    "cost": 200,
+    "requiredTech": "drakmari_thermoreceptive_targeting",
+    "minAge": "fusion",
+    "speciesRestriction": "drakmari"
+  },
+  {
+    "id": "drakmari_seismic_lance",
+    "name": "Seismic Lance",
+    "type": "weapon_beam",
+    "description": "Shaped graviton pulse tuned to resonate with common hull alloy crystal structures. Causes sympathetic vibration that tears armour apart from within.",
+    "stats": {
+      "damage": 35,
+      "range": 7,
+      "accuracy": 82,
+      "powerDraw": 8,
+      "armorPenetration": 30,
+      "rateOfFire": 0.8
+    },
+    "cost": 320,
+    "requiredTech": "drakmari_seismic_lance",
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting",
+    "speciesRestriction": "drakmari"
+  },
+  {
+    "id": "kaelenth_iterative_hull",
+    "name": "Iterative Hull Plating",
+    "type": "armor",
+    "description": "Hull plates that continuously redistribute stress loads, growing stronger at points of repeated impact. After sustained combat, the hull is measurably tougher than when it was built.",
+    "stats": {
+      "hullPoints": 45,
+      "repairRate": 3,
+      "weight": 8
+    },
+    "cost": 180,
+    "requiredTech": "kaelenth_self_optimising_hull",
+    "minAge": "fusion",
+    "speciesRestriction": "kaelenth"
+  },
+  {
+    "id": "kaelenth_cogitator_core",
+    "name": "Cogitator Core",
+    "type": "targeting_computer",
+    "description": "A recursively self-improving tactical processor that rewrites its own targeting algorithms mid-engagement. Each salvo is informed by every salvo that preceded it. The Teranos diplomatic corps has formally requested that this device be classified as a war crime.",
+    "stats": {
+      "accuracyBonus": 18,
+      "evasionBonus": 12,
+      "powerDraw": 5,
+      "researchBonus": 10
+    },
+    "cost": 280,
+    "requiredTech": "kaelenth_recursive_self_improvement",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "kaelenth"
+  },
+  {
+    "id": "khazari_basalt_composite",
+    "name": "Basalt Composite Plate",
+    "type": "armor",
+    "description": "Volcanic glass-fibre composite forged in open lava flows — heavier than standard plating but remarkably heat-resistant",
+    "stats": {
+      "armorRating": 22,
+      "massIncrease": 6,
+      "heatResistance": 15
+    },
+    "cost": 55,
+    "requiredTech": "khazari_volcanic_metallurgy",
+    "minAge": "nano_atomic",
+    "speciesId": "khazari"
+  },
+  {
+    "id": "khazari_ironbound_plate",
+    "name": "Ironbound Hull Plate",
+    "type": "armor",
+    "description": "Hand-fitted interlocking volcanic alloy plates, each one signed by its forge-clan — heavy, unyielding, and built to endure",
+    "stats": {
+      "armorRating": 55,
+      "massIncrease": 10,
+      "heatResistance": 20,
+      "kineticResistance": 15
+    },
+    "cost": 180,
+    "requiredTech": "khazari_ironbound_hulls",
+    "minAge": "fusion",
+    "speciesId": "khazari"
+  },
+  {
+    "id": "khazari_forge_breaker",
+    "name": "Forge-Breaker Cannon",
+    "type": "weapon_projectile",
+    "description": "Massively over-bored siege cannon firing white-hot tungsten slugs — designed to crack fortifications, not chase fighters",
+    "stats": {
+      "damage": 50,
+      "range": 16,
+      "accuracy": 50,
+      "powerDraw": 4,
+      "armorPenetration": 35,
+      "structureDamage": 30,
+      "rateOfFire": 0.8,
+      "areaOfEffect": 4
+    },
+    "cost": 400,
+    "requiredTech": "khazari_siege_foundry",
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting",
+    "speciesId": "khazari"
+  },
+  {
+    "id": "khazari_magma_tempered_plate",
+    "name": "Magma-Tempered Plate",
+    "type": "armor",
+    "description": "Hull plating cycled through controlled magma immersion — the crystalline grain structure absorbs tremendous punishment before fracturing",
+    "stats": {
+      "armorRating": 110,
+      "massIncrease": 9,
+      "heatResistance": 30,
+      "kineticResistance": 25,
+      "explosiveResistance": 15
+    },
+    "cost": 450,
+    "requiredTech": "khazari_magma_tempering",
+    "minAge": "anti_matter",
+    "speciesId": "khazari"
+  },
+  {
+    "id": "luminari_spectral_shroud",
+    "name": "Spectral Shroud",
+    "type": "ecm_suite",
+    "size": "medium",
+    "description": "A Luminari-designed frequency diffusion field that scatters the vessel's electromagnetic signature across the full spectrum, rendering it indistinguishable from cosmic background noise.",
+    "stats": {
+      "powerDraw": 4,
+      "evasionBonus": 20,
+      "sensorJamming": 30,
+      "stealthRating": 25
+    },
+    "cost": 200,
+    "requiredTech": "luminari_spectral_diffusion",
+    "minAge": "fusion",
+    "speciesRestriction": "luminari"
+  },
+  {
+    "id": "luminari_resonance_disruptor",
+    "name": "Resonance Disruptor",
+    "type": "weapon",
+    "size": "small",
+    "description": "Induces destructive oscillations in a target's power conduits and electronic systems. Deals minimal hull damage but degrades shields, accuracy, and engine performance. The Luminari's reluctant concession to the concept of warfare.",
+    "stats": {
+      "damage": 4,
+      "shieldDamageBonus": 60,
+      "systemDisruption": 25,
+      "accuracyReduction": 15,
+      "range": 5,
+      "fireRate": 0.8,
+      "powerDraw": 3
+    },
+    "cost": 120,
+    "requiredTech": "luminari_resonance_cascade",
+    "minAge": "fusion",
+    "speciesRestriction": "luminari"
+  },
+  {
+    "id": "luminari_nullifier_array",
+    "name": "Nullifier Array",
+    "type": "weapon",
+    "size": "medium",
+    "description": "Broadcasts precisely calibrated anti-phase waveforms that collapse a target's power grid. Shields fail, weapons go silent, engines stall. The ship is left intact but utterly defenceless — a state the Luminari consider far more civilised than destruction.",
+    "stats": {
+      "damage": 2,
+      "shieldDamageBonus": 100,
+      "systemDisruption": 50,
+      "accuracyReduction": 30,
+      "speedReduction": 40,
+      "range": 6,
+      "fireRate": 0.4,
+      "powerDraw": 6
+    },
+    "cost": 320,
+    "requiredTech": "luminari_frequency_inversion",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "luminari"
+  },
+  {
+    "id": "nexari_living_core",
+    "name": "Living Circuitry Core",
+    "type": "special",
+    "description": "Organic processing network grown into the hull — responds to bioelectric commands at reflex speed",
+    "stats": {
+      "powerDraw": 2,
+      "evasionBonus": 8,
+      "sensorRange": 1,
+      "accuracy": 5
+    },
+    "cost": 180,
+    "requiredTech": "nexari_living_circuitry",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "nexari"
+  },
+  {
+    "id": "nexari_synaptic_barrier",
+    "name": "Synaptic Barrier",
+    "type": "shield",
+    "description": "Bioelectric defensive field generated by cultured nerve clusters — dissipates energy along organic pathways",
+    "stats": {
+      "shieldPoints": 70,
+      "shieldRegen": 8,
+      "powerDraw": 5,
+      "systemDamageResist": 15
+    },
+    "cost": 260,
+    "requiredTech": "nexari_synaptic_shielding",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "nexari"
+  },
+  {
+    "id": "nexari_biolance",
+    "name": "Bioelectric Lance",
+    "type": "weapon_beam",
+    "description": "Focused discharge from banks of cultured bioelectric organs — overwhelms target conductors on contact",
+    "stats": {
+      "damage": 38,
+      "range": 10,
+      "accuracy": 86,
+      "powerDraw": 7,
+      "systemDamageBonus": 20,
+      "shieldPenetration": 10,
+      "rateOfFire": 1.5
+    },
+    "cost": 320,
+    "requiredTech": "nexari_bioelectric_lance",
+    "minAge": "anti_matter",
+    "speciesRestriction": "nexari"
+  },
+  {
+    "id": "nexari_omnilattice_node",
+    "name": "Omnilattice Node",
+    "type": "sensor",
+    "description": "Subspace bioelectric relay connecting the ship to the galaxy-spanning Omnilattice — unmatched situational awareness",
+    "stats": {
+      "powerDraw": 4,
+      "sensorRange": 5,
+      "accuracy": 10,
+      "evasionBonus": 5,
+      "espionageDefence": 10
+    },
+    "cost": 400,
+    "requiredTech": "nexari_omnilattice",
+    "minAge": "singularity",
+    "speciesRestriction": "nexari"
+  },
+  {
+    "id": "orivani_sanctified_lance",
+    "name": "Sanctified Lance",
+    "type": "weapon_beam",
+    "description": "A beam weapon reverse-engineered from Burning Sky relic fragments — the Orivani do not fully understand the physics, but they have learnt to replicate the energy signature through a process they insist is prayer-guided calibration. It cuts through shields with an efficiency that suggests the original builders designed it for exactly this purpose.",
+    "stats": {
+      "damage": 32,
+      "range": 10,
+      "accuracy": 88,
+      "powerDraw": 7,
+      "shieldPenetration": 25,
+      "rateOfFire": 1.5
+    },
+    "cost": 250,
+    "requiredTech": "orivani_burning_sky_relics",
+    "minAge": "nano_fusion",
+    "coreSystemRole": "targeting",
+    "speciesRestriction": "orivani"
+  },
+  {
+    "id": "orivani_wrath_broadcaster",
+    "name": "Wrath Broadcaster",
+    "type": "special",
+    "description": "A resonance amplification array tuned to the Hymn of Wrath. When activated, every Orivani crew within range enters a state of biochemical rapture — pain suppressed, reflexes heightened, fear abolished. Enemy crews exposed to the broadcast report feelings of profound unease, as though something vast has noticed them and found them wanting.",
+    "stats": {
+      "powerDraw": 5,
+      "aoeRadius": 4,
+      "moraleBoost": 25,
+      "accuracyBonus": 10,
+      "enemyMoralePenalty": 10,
+      "duration": 12
+    },
+    "cost": 200,
+    "requiredTech": "orivani_hymn_of_wrath",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "orivani"
+  },
+  {
+    "id": "orivani_reliquary_core",
+    "name": "Reliquary Core",
+    "type": "special",
+    "description": "The heart of a Cathedral Ship — a consecrated chamber housing fragments of Burning Sky relics, suspended in a resonance field maintained by continuous chanting. Crews stationed near the Reliquary report heightened reflexes, reduced fatigue, and an unshakeable conviction that they cannot lose. The relics pulse in time with the singing. No one has explained why.",
+    "stats": {
+      "powerDraw": 6,
+      "hullBonus": 40,
+      "repairRate": 5,
+      "moraleBoost": 20,
+      "crewEfficiency": 15
+    },
+    "cost": 350,
+    "requiredTech": "orivani_cathedral_ships",
+    "minAge": "anti_matter",
+    "speciesRestriction": "orivani"
+  },
+  {
+    "id": "orivani_defiance_array",
+    "name": "Defiance Array",
+    "type": "special",
+    "description": "The final evolution of Orivani resonance technology — no longer a tool of worship but a weapon of refusal. The Defiance Array broadcasts the Defiant Hymn at frequencies that resonate with the Devourer's own communication bands. It is, in effect, a declaration of war transmitted in the enemy's own language. Orivani crews near an active Array fight with a transcendent fury that defies tactical modelling. They have spent twelve thousand years preparing to meet their gods. They are ready. Just not in the way their gods expected.",
+    "stats": {
+      "powerDraw": 10,
+      "aoeRadius": 6,
+      "moraleBoost": 35,
+      "accuracyBonus": 15,
+      "enemyMoralePenalty": 20,
+      "damageBonus": 15,
+      "duration": 15
+    },
+    "cost": 550,
+    "requiredTech": "orivani_defiant_hymn",
+    "minAge": "singularity",
+    "speciesRestriction": "orivani"
+  },
+  {
+    "id": "pyrenth_mantle_plate",
+    "name": "Mantle-Forged Plate",
+    "type": "armor",
+    "description": "Hull armour grown under mantle-equivalent pressure as a single flawless crystal lattice -- no seams, no grain boundaries, no weak points. It does not dent; it shatters incoming projectiles against its own perfection.",
+    "stats": {
+      "armorRating": 40,
+      "kineticResist": 25,
+      "energyResist": 10,
+      "massIncrease": 12
+    },
+    "cost": 200,
+    "requiredTech": "pyrenth_pressure_forging",
+    "minAge": "fusion",
+    "speciesRestriction": "pyrenth"
+  },
+  {
+    "id": "pyrenth_resonance_cannon",
+    "name": "Resonance Cannon",
+    "type": "weapon_kinetic",
+    "description": "Projects a precisely tuned seismic pulse that vibrates at the resonant frequency of the target's hull material, amplifying stress fractures into cascading structural failure. The ship does not explode -- it comes apart, methodically, as though it had always intended to.",
+    "stats": {
+      "damage": 45,
+      "range": 9,
+      "accuracy": 82,
+      "powerDraw": 9,
+      "armorPenetration": 35,
+      "structuralDamageBonus": 20,
+      "rateOfFire": 1.2
+    },
+    "cost": 380,
+    "requiredTech": "pyrenth_seismic_weaponry",
+    "minAge": "anti_matter",
+    "coreSystemRole": "targeting",
+    "speciesRestriction": "pyrenth"
+  },
+  {
+    "id": "sylvani_regenerative_hull",
+    "name": "Regenerative Hull Membrane",
+    "type": "armor",
+    "description": "Living hull tissue that photosynthesises starlight and slowly knits itself back together after damage. Not strong by conventional standards, but remarkably persistent.",
+    "stats": {
+      "hullBonus": 25,
+      "powerDraw": 0,
+      "repairRate": 4,
+      "weight": 8
+    },
+    "cost": 130,
+    "requiredTech": "sylvani_photosynthetic_hull",
+    "minAge": "fusion",
+    "speciesRestriction": "sylvani"
+  },
+  {
+    "id": "sylvani_spore_cloud",
+    "name": "Sporedrift Emitter",
+    "type": "weapon_point_defense",
+    "description": "Exhales a dense cloud of engineered spores that corrode guidance systems and degrade incoming ordnance. Purely defensive — the Sylvani insist on this distinction.",
+    "stats": {
+      "damage": 5,
+      "range": 3,
+      "accuracy": 75,
+      "powerDraw": 2,
+      "rateOfFire": 2,
+      "missileInterception": 30,
+      "accuracyPenaltyToEnemy": 10
+    },
+    "cost": 110,
+    "requiredTech": "sylvani_sporedrift_defence",
+    "minAge": "fusion",
+    "speciesRestriction": "sylvani"
+  },
+  {
+    "id": "teranos_threader_array",
+    "name": "Threader Calculation Array",
+    "type": "targeting_computer",
+    "description": "A cramped compartment of linked Threader stations replacing digital fire control. Slower to lock, immune to electronic warfare.",
+    "stats": {
+      "powerDraw": 1,
+      "accuracyBonus": 12,
+      "trackingSpeed": 6,
+      "electronicWarfareDefence": 15
+    },
+    "cost": 100,
+    "requiredTech": "teranos_threader_academies",
+    "minAge": "nano_atomic",
+    "speciesId": "teranos"
+  },
+  {
+    "id": "teranos_hardened_fire_control",
+    "name": "Hardened Fire Control",
+    "type": "targeting_computer",
+    "description": "Fully analogue ballistic computer with mechanical cam predictors and optical rangefinding. No software, no firmware, no vulnerability surface. Threader operators handle target prioritisation whilst the mechanism handles the trigonometry.",
+    "stats": {
+      "powerDraw": 2,
+      "accuracyBonus": 18,
+      "trackingSpeed": 9,
+      "electronicWarfareDefence": 25
+    },
+    "cost": 200,
+    "requiredTech": "teranos_analogue_warfare",
+    "minAge": "fusion",
+    "speciesId": "teranos"
+  },
+  {
+    "id": "teranos_manual_override_suite",
+    "name": "Manual Override Suite",
+    "type": "damage_control",
+    "description": "Every critical system wired to a physical control station with trained crew. When automation fails — or is sabotaged — these ships keep fighting on muscle memory and hand-cranked backups.",
+    "stats": {
+      "powerDraw": 2,
+      "repairRate": 8,
+      "hullIntegrity": 10,
+      "electronicWarfareDefence": 10
+    },
+    "cost": 250,
+    "requiredTech": "teranos_manual_override_systems",
+    "minAge": "nano_fusion",
+    "speciesId": "teranos"
+  },
+  {
+    "id": "thyriaq_nanomorphic_hull",
+    "name": "Nanomorphic Hull",
+    "type": "armor",
+    "description": "The hull is not plating bolted to a frame — it is a living shell of compressed Thyriaq nanites locked in rigid configuration, capable of shifting density to absorb impacts and sealing breaches by flowing into the wound",
+    "stats": {
+      "hullBonus": 50,
+      "kineticResist": 20,
+      "energyResist": 15,
+      "repairRate": 5,
+      "weight": 6
+    },
+    "cost": 160,
+    "requiredTech": "thyriaq_adaptive_hull_matrix",
+    "minAge": "fusion",
+    "speciesRestriction": "thyriaq"
+  },
+  {
+    "id": "thyriaq_geometry_shifter",
+    "name": "Geometry Shifter",
+    "type": "special",
+    "description": "A coordination subsystem that allows the vessel to radically alter its physical profile mid-combat — flattening, elongating, or compressing to present the worst possible target while optimising for the current tactical requirement",
+    "stats": {
+      "powerDraw": 5,
+      "evasionBonus": 20,
+      "accuracyBonus": 8,
+      "shieldPenetration": 0
+    },
+    "cost": 240,
+    "requiredTech": "thyriaq_reconfiguration_doctrine",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "thyriaq"
+  },
+  {
+    "id": "thyriaq_distributed_core",
+    "name": "Distributed Core",
+    "type": "computer",
+    "description": "The ship's command intelligence is spread across every nanite in the hull rather than concentrated in a single bridge or processor. Destroying any section of the vessel merely reduces processing capacity — nothing short of total annihilation can eliminate the mind within",
+    "stats": {
+      "powerDraw": 6,
+      "computerBonus": 12,
+      "criticalHitResist": 40,
+      "sensorRange": 3
+    },
+    "cost": 320,
+    "requiredTech": "thyriaq_distributed_consciousness",
+    "minAge": "anti_matter",
+    "speciesRestriction": "thyriaq"
+  },
+  {
+    "id": "thyriaq_omnimorphic_system",
+    "name": "Omnimorphic System",
+    "type": "special",
+    "description": "Every component slot on the vessel can dynamically reallocate function — weapons become shields, engines become sensors, armour becomes computational substrate. The ship is no longer a collection of systems but a single adaptive material responding to circumstance",
+    "stats": {
+      "powerDraw": 9,
+      "evasionBonus": 12,
+      "accuracyBonus": 12,
+      "repairRate": 10,
+      "hullBonus": 30
+    },
+    "cost": 480,
+    "requiredTech": "thyriaq_total_morphology",
+    "minAge": "anti_matter",
+    "speciesRestriction": "thyriaq"
+  },
+  {
+    "id": "vaelori_thoughtsight_sensor",
+    "name": "Thoughtsight Sensor",
+    "type": "sensor",
+    "size": "medium",
+    "description": "A lattice of Velathosi quartz crystals tuned to detect psychic emissions from sentient crews. Reveals crewed vessels at extreme range but is completely blind to automated drones and empty hulks. The sensor's resolution scales with the target crew's emotional state — a panicking bridge crew is visible across an entire system.",
+    "stats": {
+      "powerDraw": 2,
+      "sensorRange": 10,
+      "detectionBonus": 25,
+      "stealthPenetration": 20,
+      "droneDetection": 0
+    },
+    "cost": 160,
+    "requiredTech": "vaelori_thoughtsight_arrays",
+    "minAge": "fusion",
+    "speciesRestriction": "vaelori"
+  },
+  {
+    "id": "vaelori_ward_lattice",
+    "name": "Psychic Ward Lattice",
+    "type": "shield",
+    "size": "medium",
+    "description": "Interlocking piezoelectric crystals grown throughout the hull that absorb psionic attacks and convert stray energy weapon impacts into harmless heat. Provides moderate energy resistance and strong psionic defence, but offers nothing against kinetic projectiles — the Vaelori never expected to be shot at with rocks.",
+    "stats": {
+      "powerDraw": 3,
+      "shieldStrength": 30,
+      "energyResistance": 20,
+      "psionicResistance": 50,
+      "kineticResistance": 0,
+      "regenRate": 2
+    },
+    "cost": 240,
+    "requiredTech": "vaelori_psychic_ward_lattice",
+    "minAge": "nano_fusion",
+    "speciesRestriction": "vaelori"
+  },
+  {
+    "id": "vaelori_dissonance_projector",
+    "name": "Dissonance Projector",
+    "type": "weapon",
+    "size": "medium",
+    "description": "Projects a focused beam of psychic dissonance that incapacitates sentient crew without damaging the vessel. Targets suffer cascading cognitive failure — loss of coordination, inability to process orders, and overwhelming existential dread. Completely ineffective against automated ships or species without centralised nervous systems.",
+    "stats": {
+      "damage": 3,
+      "crewDamage": 40,
+      "accuracyReduction": 25,
+      "speedReduction": 20,
+      "moraleReduction": 30,
+      "range": 7,
+      "fireRate": 0.5,
+      "powerDraw": 5
+    },
+    "cost": 300,
+    "requiredTech": "vaelori_dissonance_broadcast",
+    "minAge": "anti_matter",
+    "speciesRestriction": "vaelori"
+  },
+  {
+    "id": "vethara_neural_intercept_suite",
+    "name": "Neural Intercept Suite",
+    "type": "ecm_suite",
+    "size": "small",
+    "description": "A filament-derived sensor array that detects and decodes the bioelectric signatures of enemy crew. In combat, it maps the neural state of opposing bridge officers — stress, fatigue, indecision — and feeds this intelligence to Vethara tacticians in real time. The enemy's morale becomes readable as plaintext.",
+    "stats": {
+      "powerDraw": 3,
+      "sensorJamming": 15,
+      "moraleDisruption": 20,
+      "accuracyBonus": 10,
+      "espionageBonus": 15
+    },
+    "cost": 140,
+    "requiredTech": "vethara_dual_consciousness",
+    "minAge": "fusion",
+    "speciesRestriction": "vethara"
+  },
+  {
+    "id": "vethara_override_projector",
+    "name": "Override Projector",
+    "type": "weapon",
+    "size": "medium",
+    "description": "A weaponised application of the Unbound's forced bonding technique, broadcast at range through a focused neurolytic carrier wave. Targeted crew experience cascading neural suppression — confusion, loss of motor control, and eventually a docile compliance that makes boarding actions trivially easy. The projector does not damage ships. It empties them of will. Most species consider its use a war crime. The Unbound consider it mercy compared to the alternative.",
+    "stats": {
+      "damage": 0,
+      "crewDamage": 8,
+      "moraleDisruption": 40,
+      "systemDisruption": 20,
+      "boardingBonus": 35,
+      "range": 6,
+      "fireRate": 0.3,
+      "powerDraw": 7
+    },
+    "cost": 380,
+    "requiredTech": "vethara_override_suppression",
+    "minAge": "anti_matter",
+    "speciesRestriction": "vethara"
+  },
+  {
+    "id": "zorvathi_bioite_hull_plate",
+    "name": "Bioite Hull Plate",
+    "type": "armor",
+    "description": "Layered crystalline bioite secreted by Zorvathi workers in overlapping sheets. Seamless, lightweight, and self-sealing — micro-fractures trigger fresh secretion from embedded gland-nodules that fill cracks within minutes.",
+    "stats": {
+      "armorRating": 18,
+      "massIncrease": 3,
+      "selfRepair": 1
+    },
+    "cost": 45,
+    "requiredTech": "zorvathi_bioite_secretion",
+    "minAge": "nano_atomic",
+    "speciesRestriction": "zorvathi"
+  },
+  {
+    "id": "zorvathi_drone_bay",
+    "name": "Hive Drone Bay",
+    "type": "hangar",
+    "description": "A bioite-walled hatchery bay containing dozens of semi-autonomous strike drones grown from specialised pupae. Each drone carries minimal armament and no self-preservation instinct — it flies its attack vector and detonates. The bay regrows replacements between engagements.",
+    "stats": {
+      "fighterCount": 12,
+      "fighterDamage": 4,
+      "fighterHitpoints": 8,
+      "launchRate": 4,
+      "powerDraw": 4,
+      "regenerationRate": 2
+    },
+    "cost": 180,
+    "requiredTech": "zorvathi_drone_carrier_doctrine",
+    "minAge": "fusion",
+    "speciesRestriction": "zorvathi"
   }
 ]
