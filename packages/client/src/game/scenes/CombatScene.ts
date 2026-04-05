@@ -15,6 +15,7 @@ import {
   BATTLEFIELD_HEIGHT,
 } from '@nova-imperia/shared';
 import { renderShipIcon } from '../../assets/graphics/ShipGraphics';
+import { render3DShipSprite } from '../../assets/graphics/render3DShipSprite';
 import { getAudioEngine, MusicGenerator, SfxGenerator } from '../../audio';
 import type { MusicTrack } from '../../audio';
 import type { TacticalState, TacticalShip, ShipOrder, TacticalOutcome, FormationType, Admiral, CombatLayout, PlanetData, CombatStance, CrewExperience, BattlefieldSize } from '@nova-imperia/shared';
@@ -802,7 +803,7 @@ export class CombatScene extends Phaser.Scene {
       glow.fillCircle(-height / 2, 0, base * 0.6);
       container.add(glow);
 
-      // ── Ship icon from ShipGraphics (hull-class silhouette) ──────────
+      // ── Ship icon — 3D model rendered to sprite ──────────────────────
       const hullClass = this._getHullClass(ship);
       const colorHex = ship.side === 'attacker'
         ? this.sceneData.attackerColor
@@ -812,12 +813,18 @@ export class CombatScene extends Phaser.Scene {
         : this.sceneData.defenderSpeciesId;
       const texKey = `ship_${hullClass}_${ship.side}_${iconPx}_${speciesId ?? 'default'}`;
 
-      // Render ship silhouette directly as a Phaser Graphics object
-      // (avoids async texture loading issues with addBase64/Image)
+      // Try 3D render first (species-specific procedural models), fall back to 2D
       const shipGfx = this.add.graphics();
-      const dataUrl = renderShipIcon(hullClass, iconPx, colorHex, speciesId);
+      let dataUrl: string;
+      try {
+        dataUrl = speciesId
+          ? render3DShipSprite(speciesId, hullClass, iconPx)
+          : renderShipIcon(hullClass, iconPx, colorHex, speciesId);
+      } catch {
+        // WebGL unavailable or geometry error — fall back to 2D
+        dataUrl = renderShipIcon(hullClass, iconPx, colorHex, speciesId);
+      }
       if (dataUrl && dataUrl.startsWith('data:')) {
-        // Use a canvas texture created from the data URL
         const canvasKey = `canvas_${texKey}`;
         if (!this.textures.exists(canvasKey)) {
           const canvasTex = this.textures.createCanvas(canvasKey, iconPx, iconPx);
@@ -833,8 +840,8 @@ export class CombatScene extends Phaser.Scene {
         }
         const sprite = this.add.sprite(0, 0, `canvas_${texKey}`);
         sprite.setName('shipSprite');
-        // ShipGraphics renders nose-up; combat scene faces right (+x)
-        sprite.setAngle(-90);
+        // 3D renders nose-right already; 2D renders nose-up (needs -90)
+        if (!speciesId) sprite.setAngle(-90);
         sprite.setDisplaySize(iconPx, iconPx);
         container.add(sprite);
       } else {
