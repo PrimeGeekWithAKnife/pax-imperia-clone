@@ -1275,7 +1275,7 @@ function renderToDataUrl(
 
   // Check for a race-specific design family override
   const family = getDesignFamily(speciesId);
-  const familyDraw = getFamilyDrawFn(hullClass, family);
+  const familyDraw = getFamilyDrawFn(hullClass, family, speciesId);
   if (familyDraw) {
     familyDraw(ctx, accentColour);
   } else {
