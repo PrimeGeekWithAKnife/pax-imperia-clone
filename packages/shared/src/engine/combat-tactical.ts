@@ -2315,11 +2315,18 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
       (enemy.order.targetId === ship.id || enemy.order.targetId === ship.sourceShipId);
     if (isTargetingUs) score += 25;
 
-    // --- Size factor: prefer engaging similar or smaller targets ---
-    if (enemy.maxHull <= ship.maxHull) {
-      score += 10; // smaller or equal target
-    } else {
-      score -= 5; // larger target penalty (unless we're aggressive)
+    // --- Size matching: large ships prefer large targets, small prefer small ---
+    // A destroyer shooting at a fighter is wasteful; it should target the cruiser.
+    // A fighter picking on a battleship is brave but ineffective.
+    const sizeRatio = enemy.maxHull / Math.max(ship.maxHull, 1);
+    if (sizeRatio > 0.5 && sizeRatio < 2.0) {
+      score += 15; // similar size = ideal matchup
+    } else if (ship.maxHull > 150 && enemy.maxHull > 150) {
+      score += 10; // big ship vs big ship — good engagement
+    } else if (ship.maxHull < 80 && enemy.maxHull < 80) {
+      score += 10; // small craft dogfight — appropriate
+    } else if (ship.maxHull > 150 && enemy.maxHull < 60) {
+      score -= 15; // capital ship wasting firepower on a fighter
     }
 
     // --- Stance-specific weighting ---
@@ -3116,6 +3123,26 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   // 2. Move ships
   ships = ships.map((ship) => moveShip(ship, state));
+
+  // 2b. RCS facing pass: all ships rotate to face their primary target.
+  // In space, velocity and facing are independent — RCS thrusters rotate
+  // the ship without changing trajectory. This keeps weapons on target.
+  // Fighters already handle this in fighterCombatAI; this covers capital ships.
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed || ship.stance === 'flee') return ship;
+    // Fighters in aggressive stance already have facing override
+    if (ship.hullClass === 'fighter' && ship.stance === 'aggressive') return ship;
+
+    const target = findTarget(ship, ships);
+    if (!target) return ship;
+
+    const desiredFacing = angleTo(ship.position, target.position);
+    const facingDiff = normaliseAngle(desiredFacing - ship.facing);
+    const maxTurn = ship.turnRate ?? 0.08;
+    // Blend: mostly face target, slight bias toward velocity for visual smoothness
+    const newFacing = normaliseAngle(ship.facing + clamp(facingDiff, -maxTurn, maxTurn));
+    return newFacing !== ship.facing ? { ...ship, facing: newFacing } : ship;
+  });
 
   // 3. Move projectiles and check for hits (with friendly fire + asteroid intercept)
   const hitRadius = 12;
