@@ -1593,14 +1593,14 @@ describe('ammo system', () => {
     expect(missileWeapon!.maxAmmo).toBe(12);
   });
 
-  it('projectile weapons have 50 ammo by default', () => {
+  it('projectile weapons have 200 ammo by default', () => {
     const projDesign = makeProjectileDesign('d-ammo-proj', 'empire-1');
     const state = setupOnePair({ attacker: projDesign });
     const atk = state.ships.find((s) => s.side === 'attacker')!;
     const projWeapon = atk.weapons.find((w) => w.type === 'projectile');
     expect(projWeapon).toBeDefined();
-    expect(projWeapon!.ammo).toBe(50);
-    expect(projWeapon!.maxAmmo).toBe(50);
+    expect(projWeapon!.ammo).toBe(200);
+    expect(projWeapon!.maxAmmo).toBe(200);
   });
 
   it('beam weapons have unlimited ammo', () => {
@@ -1612,14 +1612,14 @@ describe('ammo system', () => {
     expect(beamWeapon!.maxAmmo).toBeUndefined();
   });
 
-  it('point defence weapons have 100 ammo by default', () => {
+  it('point defence weapons have 300 ammo by default', () => {
     const pdDesign = makePointDefenceDesign('d-ammo-pd', 'empire-1');
     const state = setupOnePair({ attacker: pdDesign });
     const atk = state.ships.find((s) => s.side === 'attacker')!;
     const pdWeapon = atk.weapons.find((w) => w.type === 'point_defense');
     expect(pdWeapon).toBeDefined();
-    expect(pdWeapon!.ammo).toBe(100);
-    expect(pdWeapon!.maxAmmo).toBe(100);
+    expect(pdWeapon!.ammo).toBe(300);
+    expect(pdWeapon!.maxAmmo).toBe(300);
   });
 
   it('ammo depletes on firing', () => {

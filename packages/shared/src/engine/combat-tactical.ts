@@ -59,11 +59,11 @@ const MISSILE_HIT_RADIUS = 12;
 const MISSILE_FUEL_TICKS = 60;
 
 /** Default ammo for missile weapons. */
-const MISSILE_DEFAULT_AMMO = 6;
+const MISSILE_DEFAULT_AMMO = 8;
 /** Default ammo for projectile weapons. */
-const PROJECTILE_DEFAULT_AMMO = 50;
+const PROJECTILE_DEFAULT_AMMO = 200;
 /** Default ammo for point defence weapons. */
-const POINT_DEFENSE_DEFAULT_AMMO = 100;
+const POINT_DEFENSE_DEFAULT_AMMO = 300;
 
 /** Per-missile-type physics and ammo profiles. */
 const MISSILE_PROFILES: Record<string, { initSpeed: number; maxSpeed: number; accel: number; ammo: number; cooldown: number }> = {
@@ -505,13 +505,15 @@ function mapComponentType(ct: ComponentType): WeaponType | null {
 // Weapon arc checking
 // ---------------------------------------------------------------------------
 
-/** Half-arc width in radians for each weapon facing. */
+/** Full arc width in radians for each weapon facing.
+ *  Port/starboard guns traverse from ahead to behind on their side (180°).
+ *  Fore/aft cover a 120° cone. Turrets cover nearly everything. */
 export const WEAPON_ARC: Record<WeaponFacing, number> = {
-  fore: Math.PI / 2,        // 90 deg forward arc
-  aft: Math.PI / 2,         // 90 deg rear arc
-  port: Math.PI / 2,        // 90 deg left arc
-  starboard: Math.PI / 2,   // 90 deg right arc
-  turret: Math.PI * 1.5,    // 270 deg (everything except directly behind)
+  fore: Math.PI * 2 / 3,       // 120 deg forward cone
+  aft: Math.PI * 2 / 3,        // 120 deg rear cone
+  port: Math.PI,                // 180 deg — full left hemisphere
+  starboard: Math.PI,           // 180 deg — full right hemisphere
+  turret: Math.PI * 5 / 3,     // 300 deg (only 60° blind spot at aft)
 };
 
 /**
@@ -559,7 +561,7 @@ export function isInWeaponArc(
   while (diff < -Math.PI) diff += 2 * Math.PI;
 
   const arc = WEAPON_ARC[weapon.facing] ?? Math.PI;
-  return Math.abs(diff) <= arc / 2;
+  return Math.abs(diff) <= arc / 2 + 0.01; // tiny epsilon for floating-point edge cases
 }
 
 // ---------------------------------------------------------------------------
@@ -596,6 +598,18 @@ function computeThreatAwareFacing(
     return dist(ship.position, e.position) < maxRange && !e.destroyed && !e.routed;
   });
   if (inRangeEnemies.length === 0) return moveAngle;
+
+  // Single enemy: face directly toward them. Threat-aware circling only
+  // helps with multiple enemies — with one, it causes perpendicular deadlocks.
+  if (inRangeEnemies.length === 1) {
+    const enemy = inRangeEnemies[0]!;
+    const angleToEnemy = angleTo(ship.position, enemy.position);
+    // Slight blend with move target for smooth transitions
+    return Math.atan2(
+      Math.sin(angleToEnemy) * 0.85 + Math.sin(moveAngle) * 0.15,
+      Math.cos(angleToEnemy) * 0.85 + Math.cos(moveAngle) * 0.15,
+    );
+  }
 
   // Compute threat-weighted centroid angle
   let threatSinSum = 0;
@@ -2223,7 +2237,16 @@ function moveToward(
   let newVx = vx;
   let newVy = vy;
 
-  if (d > minDist) {
+  // Anticipatory braking: start slowing down when stopping distance
+  // exceeds remaining distance. Prevents overshoot at engagement range.
+  const closingSpeed = d > 0.1
+    ? -(vx * (target.x - ship.position.x) + vy * (target.y - ship.position.y)) / d
+    : 0; // negative = closing
+  const brakeAccel = accel * 0.3 + (ship.rcsThrust ?? 0);
+  const stoppingDist = brakeAccel > 0.01 ? (Math.max(0, -closingSpeed) ** 2) / (2 * brakeAccel) : 0;
+  const needsBraking = d > minDist && (d - minDist) < stoppingDist * 1.2;
+
+  if (d > minDist && !needsBraking) {
     // Thrust toward target — small random angle deviation from helmsman
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
     const thrustAngle = newFacing + jitterAngle;
@@ -2908,41 +2931,33 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
-      // Evasion check — moving ships are harder to hit, especially small fast ones
-      // Stationary ships get no evasion bonus
+      // Determine if the shot hits or misses — but ALWAYS fire the weapon.
+      // Misses create physical projectiles that fly off-target and can hit bystanders.
+      let shotHits = true;
       if (weapon.type !== 'fighter_bay') {
+        // Evasion check
         const isMoving = weaponTarget.order.type !== 'idle' || weaponTarget.stance === 'at_ease' || weaponTarget.stance === 'evasive';
         if (isMoving) {
-          const speedFactor = weaponTarget.speed / 5; // normalise to baseline speed of 5
+          const speedFactor = weaponTarget.speed / 5;
           const sizeFactor = weaponTarget.maxHull < 60 ? 0.3 : weaponTarget.maxHull < 200 ? 0.15 : weaponTarget.maxHull < 400 ? 0.05 : 0;
           const evasionChance = Math.min(0.4, speedFactor * 0.1 + sizeFactor);
-          if (Math.random() < evasionChance) {
-            // Evaded — weapon missed
-            updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax });
-            continue;
-          }
+          if (Math.random() < evasionChance) shotHits = false;
+        }
+        // Accuracy roll
+        if (shotHits) {
+          const EXP_ACCURACY: Record<CrewExperience, number> = {
+            recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
+            veteran: 1.10, hardened: 1.15, elite: 1.20, ace: 1.25, legendary: 1.30,
+          };
+          const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
+          const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
+          const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod;
+          if (Math.random() * 100 > effectiveAccuracy) shotHits = false;
         }
       }
 
-      // Accuracy roll — experience and morale affect hit chance
-      // Fighter bays always launch (accuracy is per-fighter, handled elsewhere)
-      if (weapon.type !== 'fighter_bay') {
-        const EXP_ACCURACY: Record<CrewExperience, number> = {
-          recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
-          veteran: 1.10, hardened: 1.15, elite: 1.20, ace: 1.25, legendary: 1.30,
-        };
-        const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
-        const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
-        const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod;
-        if (Math.random() * 100 > effectiveAccuracy) {
-          // Miss — consume cooldown and ammo but no projectile/beam created
-          const missAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
-          updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax, ammo: missAmmo });
-          continue;
-        }
-      }
-
-      // Fire!
+      // Fire! Missed shots still create projectiles — they fly off-target
+      // and can hit anyone in their path (stray bullets are dangerous).
       if (weapon.type === 'fighter_bay') {
         // Launch fighters — ammo is fighter count
         const fighterCount = weapon.ammo ?? 0;
@@ -2996,12 +3011,12 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           beamDamage *= NEBULA_BEAM_DAMAGE_FACTOR;
         }
 
-        // Beams have NO splash/collateral damage — they hit their target precisely
-
-        // Queue damage for the intended target (applied after .map() completes)
-        const idx = ships.indexOf(weaponTarget);
-        if (idx >= 0) {
-          pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage });
+        // Beams hit precisely — no collateral. Misses still show the beam visually.
+        if (shotHits) {
+          const idx = ships.indexOf(weaponTarget);
+          if (idx >= 0) {
+            pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage });
+          }
         }
         newBeamEffects.push({
           sourceShipId: ship.id,
@@ -3039,16 +3054,22 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           });
         }
       } else {
-        // Projectile
+        // Projectile — missed shots still fly, just not toward the target.
+        // They travel in the fired direction and can hit bystanders.
+        const fireAngle = angleTo(ship.position, weaponTarget.position);
+        const scatter = shotHits ? 0 : (Math.random() - 0.5) * 0.3; // ±~9° scatter on miss
         newProjectiles.push({
           id: generateId(),
           position: { ...ship.position },
           speed: PROJECTILE_SPEED,
           damage: weapon.damage,
           sourceShipId: ship.id,
-          targetShipId: weaponTarget.id,
+          // Missed shots get a dummy target so they fly straight (not tracking)
+          targetShipId: shotHits ? weaponTarget.id : '__stray__',
           componentId: weapon.componentId,
-        });
+          // Store the fired direction for stray projectile movement
+          ...(shotHits ? {} : { prevDx: Math.cos(fireAngle + scatter), prevDy: Math.sin(fireAngle + scatter) }),
+        } as Projectile);
       }
 
       // Reset cooldown and decrement ammo
