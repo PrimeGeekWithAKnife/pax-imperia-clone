@@ -2456,7 +2456,7 @@ export function App(): React.ReactElement {
   }
 
   // Don't render game HUD until a game is actually running
-  // But still allow the settings/pause menu overlay and save/load screen from the main menu
+  // But still allow the settings/pause menu overlay, save/load, and combat instructions
   if (!gameStarted) {
     return (
       <div className="ui-overlay">
@@ -2472,6 +2472,16 @@ export function App(): React.ReactElement {
             initialTab={saveLoadTab}
             onClose={handleCloseSaveLoad}
             onLoaded={handleGameLoaded}
+          />
+        )}
+        {combatInstructions !== null && (
+          <CombatInstructionsOverlay
+            data={combatInstructions}
+            onBeginBattle={() => {
+              setCombatInstructions(null);
+              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
+              game?.events?.emit('combat:begin_battle');
+            }}
           />
         )}
         <Tooltip />
