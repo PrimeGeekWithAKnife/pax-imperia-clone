@@ -390,6 +390,71 @@ export interface TacticalState {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Compute the interception point — where a pursuer at speed `pursuerSpeed`
+ * starting from `pursuer` should aim to intercept a `target` moving at
+ * `targetVelocity`.
+ *
+ * Uses the classic "closing triangle" (A² + B² = C²):
+ *   - Target moves from T along its velocity vector
+ *   - Pursuer moves from P at `pursuerSpeed` toward the intercept point I
+ *   - Solve for the time t where |P→I| = pursuerSpeed × t and I = T + vel × t
+ *
+ * Returns the intercept point, or the target's current position if no
+ * intercept is possible (e.g. target is faster and moving away).
+ */
+function computeInterceptPoint(
+  pursuer: { x: number; y: number },
+  target: { x: number; y: number },
+  targetVelocity: { x: number; y: number },
+  pursuerSpeed: number,
+): { x: number; y: number } {
+  const dx = target.x - pursuer.x;
+  const dy = target.y - pursuer.y;
+  const tvx = targetVelocity.x;
+  const tvy = targetVelocity.y;
+
+  // Quadratic coefficients: a*t² + b*t + c = 0
+  // where t is the intercept time
+  const a = tvx * tvx + tvy * tvy - pursuerSpeed * pursuerSpeed;
+  const b = 2 * (dx * tvx + dy * tvy);
+  const c = dx * dx + dy * dy;
+
+  // If pursuer is much faster than target, `a` is negative → guaranteed solution
+  const discriminant = b * b - 4 * a * c;
+
+  if (Math.abs(a) < 0.001) {
+    // Speeds are nearly equal — use linear approximation
+    const t = c > 0.001 ? -c / (b || 0.001) : 0;
+    if (t > 0 && t < 200) {
+      return { x: target.x + tvx * t, y: target.y + tvy * t };
+    }
+    return { x: target.x, y: target.y };
+  }
+
+  if (discriminant < 0) {
+    // No intercept possible — target is faster and moving away
+    // Fall back to aiming at the target's predicted position in 10 ticks
+    return { x: target.x + tvx * 10, y: target.y + tvy * 10 };
+  }
+
+  const sqrtD = Math.sqrt(discriminant);
+  const t1 = (-b - sqrtD) / (2 * a);
+  const t2 = (-b + sqrtD) / (2 * a);
+
+  // Pick the smallest positive time
+  let t = -1;
+  if (t1 > 0.1) t = t1;
+  if (t2 > 0.1 && (t < 0 || t2 < t)) t = t2;
+
+  if (t > 0 && t < 200) {
+    return { x: target.x + tvx * t, y: target.y + tvy * t };
+  }
+
+  // Fallback — aim at current position
+  return { x: target.x, y: target.y };
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -975,10 +1040,14 @@ function smallCraftFlank(
 //   approach → engage (fire during pass) → break (away) → regroup → repeat
 // Wings (groups of 3) attack together: leader picks target, wingmen follow.
 
-/** Ticks of evasion after a close pass before re-engaging. */
-const FIGHTER_EVADE_TICKS = 6;
-/** Perpendicular dodge distance during evasion. */
-const FIGHTER_EVADE_OFFSET = 60;
+/** Ticks spent on the engage run before breaking. */
+const FIGHTER_ENGAGE_TICKS = 25;
+/** Ticks spent breaking (sweeping lateral arc). */
+const FIGHTER_BREAK_TICKS = 8;
+/** Radius of the pursuit curve offset behind the target. */
+const FIGHTER_PURSUIT_OFFSET = 60;
+/** Lateral sweep distance during break. */
+const FIGHTER_BREAK_SWEEP = 120;
 /** Wingman offset distance from leader. */
 const WINGMAN_OFFSET = 35;
 
@@ -1080,28 +1149,56 @@ function fighterCombatAI(
   let phaseTick = ship.fighterPhaseTick ?? tick;
 
   // ── Phase transitions ──
-  // Two-phase dogfighting: engage (pursue + fire) and evade (brief sidestep).
-  // Fighters spend most of their time in engage, only briefly evading after
-  // a close pass to avoid head-on collisions. This maximises time-on-target.
+  // Three-phase dogfighting: approach → engage → break (wide arc) → engage
+  //
+  // Fighters NEVER fly head-on. During engage they aim BEHIND the target
+  // (pursuit curve). During break they sweep laterally across the battlefield,
+  // naturally setting up the next pass from a different angle. This creates
+  // the swirling "fur ball" pattern of real fighter combat.
   const ticksInPhase = tick - phaseTick;
+
+  // Stable per-fighter hash for consistent turn preferences
+  const hash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+  // Each fighter has a preferred turn direction (CW or CCW)
+  const turnSign = hash % 2 === 0 ? 1 : -1;
+
+  // Desperation: when few allies remain, skip breaks — pure pursuit.
+  const alliesAlive = state.ships.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed,
+  ).length;
+  const desperate = alliesAlive <= 4;
 
   switch (phase) {
     case 'approach':
+      // Commit to engage when within 1.2x weapon range
+      if (d <= maxWeaponRange * 1.2) {
+        phase = 'engage';
+        phaseTick = tick;
+      }
+      break;
+
     case 'regroup':
-      // Legacy phases → treat as engage
-      phase = 'engage';
+      // Legacy → approach
+      phase = 'approach';
       phaseTick = tick;
       break;
 
     case 'engage': {
-      // Evade after a very close pass — prevents fighters ramming through each other
+      if (desperate) break; // No breaks in desperation mode — keep chasing
+
+      // Break after time limit OR after overshooting the target
       const vx = ship.velocity?.x ?? 0;
       const vy = ship.velocity?.y ?? 0;
       const toTargetX = target.position.x - ship.position.x;
       const toTargetY = target.position.y - ship.position.y;
       const dot = vx * toTargetX + vy * toTargetY;
-      // Passed the target at close range — brief evasion
-      if (dot < 0 && d < maxWeaponRange * 0.3 && ticksInPhase > 4) {
+      // Overshot and close — break to avoid ram
+      if (dot < 0 && d < maxWeaponRange * 0.4 && ticksInPhase > 5) {
+        phase = 'break';
+        phaseTick = tick;
+      }
+      // Time limit — forces periodic repositioning
+      if (ticksInPhase >= FIGHTER_ENGAGE_TICKS) {
         phase = 'break';
         phaseTick = tick;
       }
@@ -1109,8 +1206,8 @@ function fighterCombatAI(
     }
 
     case 'break':
-      // Short evasion — sidestep then re-engage
-      if (ticksInPhase >= FIGHTER_EVADE_TICKS) {
+      // Sweeping lateral arc — then re-engage from a new angle
+      if (ticksInPhase >= FIGHTER_BREAK_TICKS) {
         phase = 'engage';
         phaseTick = tick;
       }
@@ -1130,50 +1227,97 @@ function fighterCombatAI(
   let goalX: number;
   let goalY: number;
 
-  // Stable per-fighter hash for consistent angle offsets
-  const hash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+  // Wing approach sector — each wing comes from a different direction
+  const wingIdx = ship.wingId ? parseInt(ship.wingId.split('-').pop() ?? '0', 10) : 0;
+  const wingSectorAngle = (wingIdx * Math.PI * 2 / 3) + turnSign * 0.3; // 120° separation between wings
 
   switch (phase) {
-    case 'engage': {
-      // Pursue target — lead it based on velocity for weapon convergence.
+    case 'approach': {
+      // Interception approach — compute where to meet the target, with
+      // a wing-based sector offset so wings come from different angles.
       const tvx = target.velocity?.x ?? 0;
       const tvy = target.velocity?.y ?? 0;
-      const leadTicks = d > maxWeaponRange ? 2 : 4;
-      goalX = target.position.x + tvx * leadTicks;
-      goalY = target.position.y + tvy * leadTicks;
+      const intercept = computeInterceptPoint(
+        ship.position, target.position, { x: tvx, y: tvy }, ship.speed,
+      );
+      const sectorOffset = ((wingIdx % 3) - 1) * 0.35;
+      const interceptAngle = angleTo(ship.position, intercept);
+      // Offset the intercept point laterally per wing
+      goalX = intercept.x + Math.cos(interceptAngle + Math.PI / 2) * sectorOffset * 40;
+      goalY = intercept.y + Math.sin(interceptAngle + Math.PI / 2) * sectorOffset * 40;
 
-      // Slight offset angle so fighters don't all fly the exact same path
-      const approachOffset = ((hash % 5) - 2) * 0.15;
-      const offsetAngle = angleTo(ship.position, target.position) + approachOffset;
-      // Only apply offset when closing from distance — at close range, head straight in
-      if (d > maxWeaponRange * 0.5) {
-        goalX += Math.cos(offsetAngle + Math.PI / 2) * 15;
-        goalY += Math.sin(offsetAngle + Math.PI / 2) * 15;
+      // Wingmen: fly in formation with leader during approach
+      if (!isLeader && leader.fighterPhase === 'approach') {
+        goalX = leader.position.x + wingOffset.x;
+        goalY = leader.position.y + wingOffset.y;
+      }
+      break;
+    }
+
+    case 'engage': {
+      // RANGE-DEPENDENT PURSUIT — at long range, curve toward the target's
+      // tail (pursuit curve). At close range, go direct for the kill.
+      // This creates the "zoom and boom" pattern: wide approach, tight pass.
+      const tvx = target.velocity?.x ?? 0;
+      const tvy = target.velocity?.y ?? 0;
+      const tSpeed = Math.sqrt(tvx * tvx + tvy * tvy);
+
+      if (desperate) {
+        // DESPERATION: interception trajectory — compute where to meet the target
+        const intercept = computeInterceptPoint(
+          ship.position, target.position,
+          { x: tvx, y: tvy }, ship.speed,
+        );
+        goalX = intercept.x;
+        goalY = intercept.y;
+      } else if (d > maxWeaponRange * 0.8 && tSpeed > 1) {
+        // FAR: pursuit curve — aim behind target to get on its tail
+        const behindAngle = Math.atan2(-tvy, -tvx);
+        goalX = target.position.x + Math.cos(behindAngle) * FIGHTER_PURSUIT_OFFSET;
+        goalY = target.position.y + Math.sin(behindAngle) * FIGHTER_PURSUIT_OFFSET;
+        goalX += tvx * 3;
+        goalY += tvy * 3;
+      } else if (d > maxWeaponRange * 0.8) {
+        // FAR + slow target: flank approach
+        const flankerAngle = angleTo(ship.position, target.position) + turnSign * 0.5;
+        goalX = target.position.x - Math.cos(flankerAngle) * FIGHTER_PURSUIT_OFFSET * 0.4;
+        goalY = target.position.y - Math.sin(flankerAngle) * FIGHTER_PURSUIT_OFFSET * 0.4;
+      } else {
+        // CLOSE: direct attack — lead the target for weapon convergence
+        goalX = target.position.x + tvx * 4;
+        goalY = target.position.y + tvy * 4;
       }
 
-      // Wingmen: slight offset from leader's path
+      // Per-fighter offset so wingmates don't stack on the same pursuit point
+      const idOffset = ((hash % 7) - 3) * 8;
+      goalX += Math.cos(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
+      goalY += Math.sin(angleTo(ship.position, target.position) + Math.PI / 2) * idOffset;
+
+      // Wingmen: tighter grouping during engage
       if (!isLeader) {
-        goalX += wingOffset.x * 0.4;
-        goalY += wingOffset.y * 0.4;
+        goalX += wingOffset.x * 0.3;
+        goalY += wingOffset.y * 0.3;
       }
       break;
     }
 
     case 'break': {
-      // Brief sidestep — pull perpendicular, then we'll re-engage.
-      const perpSign = hash % 2 === 0 ? 1 : -1;
+      // SWEEPING ARC — fly perpendicular to the engagement axis.
+      // Creates wide lateral movement so fighters use the whole battlefield
+      // and re-engage from different angles each pass.
       const awayAngle = angleTo(target.position, ship.position);
-      const dodgeAngle = awayAngle + perpSign * Math.PI * 0.45;
-      goalX = ship.position.x + Math.cos(dodgeAngle) * FIGHTER_EVADE_OFFSET;
-      goalY = ship.position.y + Math.sin(dodgeAngle) * FIGHTER_EVADE_OFFSET;
+      const breakProgress = ticksInPhase / FIGHTER_BREAK_TICKS; // 0→1
+      // Sweep perpendicular, curving slightly back in the second half
+      const sweepAngle = awayAngle + turnSign * (Math.PI * 0.5 - breakProgress * 0.4);
+      goalX = ship.position.x + Math.cos(sweepAngle) * FIGHTER_BREAK_SWEEP;
+      goalY = ship.position.y + Math.sin(sweepAngle) * FIGHTER_BREAK_SWEEP;
 
-      goalX = clamp(goalX, 50, state.battlefieldWidth - 50);
-      goalY = clamp(goalY, 50, state.battlefieldHeight - 50);
+      goalX = clamp(goalX, 80, state.battlefieldWidth - 80);
+      goalY = clamp(goalY, 80, state.battlefieldHeight - 80);
       break;
     }
 
     default: {
-      // Fallback: pursue target
       goalX = target.position.x;
       goalY = target.position.y;
       break;
@@ -1219,9 +1363,18 @@ function fighterCombatAI(
     }
   }
 
+  // Clamp goal to battlefield bounds — fighters must stay on the field
+  goalX = clamp(goalX, 40, state.battlefieldWidth - 40);
+  goalY = clamp(goalY, 40, state.battlefieldHeight - 40);
+
   // During engage phase, don't use minDist — fly through. Otherwise, stop near goal.
   const minDist = phase === 'engage' ? 0 : 5;
-  return moveToward(updated, { x: goalX, y: goalY }, minDist, state.environment, state.ships);
+  const result = moveToward(updated, { x: goalX, y: goalY }, minDist, state.environment, state.ships);
+
+  // Hard clamp position — prevent drifting off the battlefield
+  result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
+  result.position.y = clamp(result.position.y, -20, state.battlefieldHeight + 20);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -2964,10 +3117,19 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // Accelerate
     const speed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
 
-    // Track target
-    const dx = target.position.x - missile.x;
-    const dy = target.position.y - missile.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
+    // Track target using interception trajectory — predict where the target
+    // will be and aim there instead of chasing its current position.
+    const interceptPt = computeInterceptPoint(
+      { x: missile.x, y: missile.y },
+      target.position,
+      target.velocity ?? { x: 0, y: 0 },
+      speed,
+    );
+    const dx = interceptPt.x - missile.x;
+    const dy = interceptPt.y - missile.y;
+    const d = Math.sqrt(
+      (target.position.x - missile.x) ** 2 + (target.position.y - missile.y) ** 2,
+    );
 
     if (d < MISSILE_HIT_RADIUS + speed) {
       // Asteroid cover: dodge bonus
@@ -2998,8 +3160,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       continue; // missile consumed
     }
 
-    const newMX = missile.x + (dx / d) * speed;
-    const newMY = missile.y + (dy / d) * speed;
+    // Move toward the intercept point (not the target's current position)
+    const interceptDist = Math.sqrt(dx * dx + dy * dy);
+    const moveDir = interceptDist > 0.1 ? interceptDist : 1;
+    const newMX = missile.x + (dx / moveDir) * speed;
+    const newMY = missile.y + (dy / moveDir) * speed;
 
     // Asteroid intercept for missiles in flight
     const asteroidHit = segmentPassesThroughFeature(

@@ -101,7 +101,7 @@ function setup9v9(): TacticalState {
 }
 
 /** Run a battle to completion, returning tick count and final state. */
-function runBattle(initialState: TacticalState, maxTicks = 3000): {
+function runBattle(initialState: TacticalState, maxTicks = 8000): {
   state: TacticalState;
   ticks: number;
 } {
@@ -205,8 +205,8 @@ describe('Fighter dogfight — 9v9', () => {
         wingsAssigned: hasWingAssignments(initial),
       });
 
-      // Must resolve within 3000 ticks
-      expect(ticks).toBeLessThan(3000);
+      // Must resolve within 8000 ticks (wide dogfighting pattern takes longer)
+      expect(ticks).toBeLessThan(8000);
       // Must have a winner
       expect(state.outcome).not.toBeNull();
     });
