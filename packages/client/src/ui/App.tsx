@@ -841,6 +841,17 @@ export function App(): React.ReactElement {
       battlefieldSize: config.battlefieldSize,
     };
 
+    // Show the React instructions overlay BEFORE launching the scene
+    setCombatInstructions({
+      attackerName: config.playerSpecies.name,
+      defenderName: config.aiSpecies.name,
+      attackerColor: '#00d4ff',
+      defenderColor: '#ff6644',
+      attackerShipCount: config.playerShips.length,
+      defenderShipCount: config.aiShips.length,
+      battlefieldSize: config.battlefieldSize,
+    });
+
     setCurrentScreen('game');
     // Launch combat scene directly
     const activeScene = phaserGame.scene.getScenes(true)[0];
@@ -1797,9 +1808,6 @@ export function App(): React.ReactElement {
   }, []));
   useGameEvent<unknown>('engine:tech_researched', handleTechResearched);
   useGameEvent<BattleResultsData>('engine:battle_resolved', handleBattleResolved);
-  useGameEvent<CombatInstructionsData>('combat:show_instructions', useCallback((data: CombatInstructionsData) => {
-    setCombatInstructions(data);
-  }, []));
   useGameEvent<unknown>('engine:combat_pending', handleCombatPending);
   useGameEvent<unknown>('combat:tactical_complete', handleTacticalComplete);
   useGameEvent<unknown>('ground_combat:complete', handleGroundCombatComplete);

@@ -1886,28 +1886,10 @@ export class CombatScene extends Phaser.Scene {
   private _showInstructions(): void {
     this.paused = true;
 
-    // Emit instructions data repeatedly until React acknowledges.
-    // React's useGameEvent polls every 100ms for the game instance,
-    // so a single emit can race and be missed.
-    const instructionsData = {
-      attackerName: this.sceneData.attackerName,
-      defenderName: this.sceneData.defenderName,
-      attackerColor: this.sceneData.attackerColor,
-      defenderColor: this.sceneData.defenderColor,
-      attackerShipCount: this.tacticalState.ships.filter(s => s.side === 'attacker').length,
-      defenderShipCount: this.tacticalState.ships.filter(s => s.side === 'defender').length,
-      battlefieldSize: (this.sceneData as Record<string, unknown>).battlefieldSize ?? 'small',
-    };
-    const retryTimer = this.time.addEvent({
-      delay: 150,
-      repeat: 10,
-      callback: () => this.game.events.emit('combat:show_instructions', instructionsData),
-    });
-
-    // Listen for React to signal "begin battle"
+    // React shows the instructions overlay directly (set in handleStartSkirmish).
+    // Wait for React to signal "begin battle" before unpausing.
     const beginHandler = () => {
       this.game.events.off('combat:begin_battle', beginHandler);
-      retryTimer.remove();
       this.paused = false;
       if (this.tickTimer) this.tickTimer.paused = false;
     };
