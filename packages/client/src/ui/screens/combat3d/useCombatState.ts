@@ -224,6 +224,9 @@ export interface UseCombatStateReturn {
 // useCombatState
 // ---------------------------------------------------------------------------
 
+/** Convenience alias used by 3D renderer components. */
+export type CombatStateAPI = UseCombatStateReturn;
+
 export function useCombatState(data: CombatSceneData): UseCombatStateReturn {
   // ── Derive player side (stable for the battle's lifetime) ───────────────
   const playerSide: 'attacker' | 'defender' =
