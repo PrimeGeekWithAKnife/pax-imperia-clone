@@ -237,6 +237,8 @@ export interface TacticalShip {
   crew: Crew;
   /** Unmanned craft (drones) — no morale, never flee, fight to destruction. */
   unmanned?: boolean;
+  /** Tech age of the ship's shield system (determines weapon-type effectiveness). */
+  shieldAge?: string;
   /** ECM evasion bonus — reduces incoming weapon accuracy. */
   evasionBonus: number;
   /** ECM missile deflection — chance per tick (0-100) that a tracking missile loses lock. */
@@ -1803,6 +1805,7 @@ export function initializeTacticalCombat(
           experience: (ship.crewExperience ?? 'regular') as CrewExperience,
         },
         unmanned: hullTemplate?.manned === false,
+        shieldAge: extracted.shieldAge,
         evasionBonus: extracted.evasionBonus,
         missileDeflection: extracted.missileDeflection,
         sensorJamming: extracted.sensorJamming,
@@ -1919,6 +1922,8 @@ interface ExtractedStats {
   missileDeflection: number;
   /** Sensor jamming strength from ECM (reduces enemy sensor range). */
   sensorJamming: number;
+  /** Best shield tech age on the ship (determines weapon-type effectiveness). */
+  shieldAge: string;
   /** Hull repair rate per tick from damage control systems. */
   repairRate: number;
   /** Morale recovery bonus from life support systems. */
@@ -1952,6 +1957,7 @@ function extractShipStats(
   let evasionBonus = 0;
   let missileDeflection = 0;
   let sensorJamming = 0;
+  let shieldAge = 'nano_atomic';
   let repairRate = 0;
   let moraleRecovery = 0;
 
@@ -2035,6 +2041,13 @@ function extractShipStats(
           break;
         case 'shield':
           maxShields += comp.stats['shieldStrength'] ?? 0;
+          // Track the highest-tech shield age for effectiveness calculation
+          if (comp.minAge) {
+            const AGE_ORDER = ['nano_atomic', 'fusion', 'nano_fusion', 'anti_matter', 'singularity'];
+            const compIdx = AGE_ORDER.indexOf(comp.minAge);
+            const curIdx = AGE_ORDER.indexOf(shieldAge);
+            if (compIdx > curIdx) shieldAge = comp.minAge;
+          }
           break;
         case 'armor':
           armour += comp.stats['armorRating'] ?? 0;
@@ -2087,6 +2100,7 @@ function extractShipStats(
     evasionBonus,
     missileDeflection: Math.min(missileDeflection, 80), // cap at 80%
     sensorJamming,
+    shieldAge,
     repairRate,
     moraleRecovery,
   };
@@ -3005,7 +3019,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           const baseDmg = feature.damage ?? 1;
           const variance = 1 + (Math.random() * 2 - 1) * DEBRIS_DAMAGE_VARIANCE;
           const dmg = Math.max(1, Math.round(baseDmg * variance));
-          return applyDamage(ship, dmg);
+          return applyDamage(ship, dmg, 'kinetic');
         }
         break; // only check one debris field per tick
       }
@@ -3040,7 +3054,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         if (s.id === proj.sourceShipId || s.destroyed || s.routed) continue;
         const d = dist({ x: newX, y: newY }, s.position);
         if (d < hitRadius + proj.speed) {
-          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage) : sh));
+          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
           hitSomeone = true;
           break;
         }
@@ -3065,7 +3079,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
       ships = ships.map((s) => {
         if (s !== target) return s;
-        return applyDamage(s, proj.damage);
+        return applyDamage(s, proj.damage, 'kinetic');
       });
     } else {
       const angle = angleTo(proj.position, target.position);
@@ -3092,7 +3106,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         const closestY = proj.position.y + projDy * t;
         const perpDist = dist({ x: closestX, y: closestY }, s.position);
         if (perpDist < hitRadius) {
-          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage) : sh));
+          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
           break; // projectile consumed by collateral hit
         }
       }
@@ -3199,7 +3213,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Hit! Apply direct damage to target
       const targetIdx = ships.findIndex((s) => s.id === missile.targetShipId);
       if (targetIdx >= 0) {
-        ships[targetIdx] = applyDamage(ships[targetIdx]!, missile.damage);
+        ships[targetIdx] = applyDamage(ships[targetIdx]!, missile.damage, 'explosive');
       }
       // AOE splash: nearby ships take 30% damage (within 40px radius)
       const MISSILE_AOE_RADIUS = 40;
@@ -3210,7 +3224,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         if (s.destroyed || s.routed) continue;
         const splashD = dist({ x: missile.x, y: missile.y }, s.position);
         if (splashD < MISSILE_AOE_RADIUS) {
-          ships[si] = applyDamage(s, missile.damage * MISSILE_AOE_FRACTION);
+          ships[si] = applyDamage(s, missile.damage * MISSILE_AOE_FRACTION, 'explosive');
         }
       }
       continue; // missile consumed
@@ -3359,7 +3373,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Strafing run — deal damage
       const targetIdx = ships.findIndex((s) => s.id === currentTarget.id);
       if (targetIdx >= 0) {
-        ships[targetIdx] = applyDamage(ships[targetIdx]!, fighter.damage * FIGHTER_STRAFE_DAMAGE_FRACTION);
+        ships[targetIdx] = applyDamage(ships[targetIdx]!, fighter.damage * FIGHTER_STRAFE_DAMAGE_FRACTION, 'energy');
       }
     }
 
@@ -3381,7 +3395,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   // Collect beam damage to apply AFTER the weapon-firing map, because
   // .map() returns new ship objects — mutating ships[idx] inside the
   // callback is lost when .map() overwrites the array.
-  const pendingBeamDamage: Array<{ targetIdx: number; damage: number }> = [];
+  const pendingBeamDamage: Array<{ targetIdx: number; damage: number; damageType: DamageType }> = [];
 
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed) return ship;
@@ -3546,7 +3560,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         if (shotHits) {
           const idx = ships.indexOf(weaponTarget);
           if (idx >= 0) {
-            pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage });
+            pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage, damageType: 'beam' });
           }
         }
         newBeamEffects.push({
@@ -3615,9 +3629,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   });
 
   // 4b. Apply deferred beam damage (must happen AFTER .map() so changes aren't lost)
-  for (const { targetIdx, damage } of pendingBeamDamage) {
+  for (const { targetIdx, damage, damageType: dmgType } of pendingBeamDamage) {
     if (targetIdx >= 0 && targetIdx < ships.length) {
-      ships[targetIdx] = applyDamage(ships[targetIdx]!, damage);
+      ships[targetIdx] = applyDamage(ships[targetIdx]!, damage, dmgType);
     }
   }
 
@@ -3847,9 +3861,35 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 // ---------------------------------------------------------------------------
 
 /**
+ * Shield effectiveness by weapon type and tech age.
+ *
+ * Low-tech shields (nano_atomic) are good against beams/radiation but struggle
+ * with kinetic projectiles and missiles. As tech advances, shields become
+ * effective against all damage types.
+ *
+ * Values are multipliers on shield absorption (1.0 = full, 0.3 = 30% effective).
+ */
+export type DamageType = 'beam' | 'kinetic' | 'explosive' | 'energy' | 'unknown';
+
+const SHIELD_EFFECTIVENESS: Record<string, Record<DamageType, number>> = {
+  // nano_atomic: good vs beams, poor vs kinetic/explosive
+  nano_atomic:  { beam: 1.0, energy: 0.9, kinetic: 0.3, explosive: 0.25, unknown: 1.0 },
+  // fusion: improving across the board
+  fusion:       { beam: 1.0, energy: 1.0, kinetic: 0.5, explosive: 0.4,  unknown: 1.0 },
+  // nano_fusion: solid all-round protection
+  nano_fusion:  { beam: 1.0, energy: 1.0, kinetic: 0.7, explosive: 0.6,  unknown: 1.0 },
+  // anti_matter: very effective against everything
+  anti_matter:  { beam: 1.0, energy: 1.0, kinetic: 0.85, explosive: 0.8, unknown: 1.0 },
+  // singularity: near-perfect against all types
+  singularity:  { beam: 1.0, energy: 1.0, kinetic: 0.95, explosive: 0.9, unknown: 1.0 },
+};
+
+/**
  * Apply raw damage to a ship through the shield -> armour -> hull pipeline.
  *
- * 1. Shields absorb damage first (point-for-point).
+ * 1. Shields absorb damage first — effectiveness depends on shield tech age
+ *    vs weapon type. Low-tech shields barely stop kinetics; advanced shields
+ *    handle everything.
  * 2. Armour reduces remaining damage by 25%, but degrades by half the
  *    absorbed amount each hit.
  * 3. Hull takes the rest (minimum 1 if any damage got past shields).
@@ -3858,15 +3898,26 @@ export function processTacticalTick(state: TacticalState): TacticalState {
  *
  * Exported for testing — not part of the public API contract.
  */
-export function applyDamage(ship: TacticalShip, rawDamage: number): TacticalShip {
+export function applyDamage(
+  ship: TacticalShip,
+  rawDamage: number,
+  damageType: DamageType = 'unknown',
+  shieldAge?: string,
+): TacticalShip {
   let remaining = rawDamage;
 
-  // 1. Shields absorb first
+  // 1. Shields absorb first — effectiveness depends on tech age vs damage type
   let newShields = ship.shields;
   if (newShields > 0) {
-    const absorbed = Math.min(newShields, remaining);
-    newShields -= absorbed;
-    remaining -= absorbed;
+    const age = shieldAge ?? ship.shieldAge ?? 'nano_atomic';
+    const eff = SHIELD_EFFECTIVENESS[age]?.[damageType] ?? 0.5;
+    // Shield absorbs (raw * effectiveness) but depletes by the full amount
+    const effectiveAbsorb = remaining * eff;
+    const shieldDrain = Math.min(newShields, effectiveAbsorb);
+    newShields -= shieldDrain;
+    // Damage reduced by what the shield actually blocked
+    remaining -= shieldDrain / (eff || 1); // convert back to raw damage blocked
+    if (remaining < 0) remaining = 0;
   }
 
   // 2. Armour reduces remaining damage by 25% (but armour degrades)
