@@ -266,8 +266,7 @@ export class SystemViewScene extends Phaser.Scene {
     // Minimap click — return to galaxy map view
     this.game.events.on('minimap:navigate', this._handleMinimapNavigate, this);
 
-    // Tactical combat — transition to CombatScene when the player clicks Engage
-    this.game.events.on('combat:start_tactical', this._handleStartTactical, this);
+    // Tactical combat handled by Combat3D React component — no Phaser listener needed
 
     // Notify React which system is currently being viewed
     this.game.events.emit('system:entered', { systemId: this.system.id });
@@ -291,7 +290,7 @@ export class SystemViewScene extends Phaser.Scene {
       this.game.events.off('engine:tick', this._handleEngineTick, this);
       this.game.events.off('scene:request_galaxy_view', this._handleRequestGalaxyView, this);
       this.game.events.off('minimap:navigate', this._handleMinimapNavigate, this);
-      this.game.events.off('combat:start_tactical', this._handleStartTactical, this);
+      // combat:start_tactical listener removed — handled by Combat3D
       this._clearMigrationAnimations();
       // Destroy ship indicators
       for (const [, sprites] of this.shipSprites) {
@@ -1398,10 +1397,7 @@ export class SystemViewScene extends Phaser.Scene {
     this.scene.start('GalaxyMapScene', {});
   };
 
-  /** Transition to the CombatScene for tactical combat. */
-  private _handleStartTactical = (data: unknown): void => {
-    this.scene.start('CombatScene', data as object);
-  };
+  // _handleStartTactical removed — combat now handled by Combat3D React component
 
   /** Minimap click while in system view — return to galaxy map. */
   private _handleMinimapNavigate = (_data: unknown): void => {

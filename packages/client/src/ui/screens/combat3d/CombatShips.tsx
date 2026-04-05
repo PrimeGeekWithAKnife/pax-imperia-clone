@@ -9,7 +9,6 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TacticalShip, HullClass } from '@nova-imperia/shared';
-import { BATTLEFIELD_WIDTH, BATTLEFIELD_HEIGHT } from '@nova-imperia/shared';
 import { generateShipGeometry, getShipMaterial } from '../../../game/rendering/ShipModels3D';
 import type { CombatStateAPI } from './useCombatState';
 import { tacticalTo3D, shipYOffset, shipScale, DAMAGE_FLASH_COLOR } from './constants';
@@ -132,7 +131,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
       if (isPlayer) {
         api.selectShip(ship.id);
       } else if (api.selectedShipIds.length > 0) {
-        api.issueOrder({ type: 'attack', targetShipId: ship.id });
+        api.issueOrder({ type: 'attack', targetId: ship.id });
       }
     },
     [isPlayer, ship.id, api],
@@ -143,7 +142,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
       if (!isPlayer && api.selectedShipIds.length > 0) {
-        api.issueOrder({ type: 'attack', targetShipId: ship.id });
+        api.issueOrder({ type: 'attack', targetId: ship.id });
       }
     },
     [isPlayer, ship.id, api],
@@ -320,8 +319,8 @@ export const CombatShips: React.FC<CombatShipsProps> = React.memo(function Comba
             key={ship.id}
             ship={ship}
             api={api}
-            bfWidth={BATTLEFIELD_WIDTH}
-            bfHeight={BATTLEFIELD_HEIGHT}
+            bfWidth={api.state.battlefieldWidth}
+            bfHeight={api.state.battlefieldHeight}
             hullClass={hullClass}
             speciesId={speciesId}
             empireColor={empireColor}

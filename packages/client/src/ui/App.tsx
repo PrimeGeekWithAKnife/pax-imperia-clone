@@ -1380,6 +1380,15 @@ export function App(): React.ReactElement {
 
   const handleCombatEngage = useCallback(() => {
     if (!pendingCombat) return;
+    // Show instructions overlay so player can choose formation/stance before battle
+    setCombatInstructions({
+      attackerName: pendingCombat.attackerName,
+      defenderName: pendingCombat.defenderName,
+      attackerColor: pendingCombat.attackerColor,
+      defenderColor: pendingCombat.defenderColor,
+      attackerShipCount: pendingCombat.attackerShipCount,
+      defenderShipCount: pendingCombat.defenderShipCount,
+    });
     setCombat3DData(pendingCombat.combatData as CombatSceneData);
     setPendingCombat(null);
   }, [pendingCombat]);

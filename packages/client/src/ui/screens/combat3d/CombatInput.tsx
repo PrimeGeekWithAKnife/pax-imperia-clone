@@ -11,7 +11,6 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { CombatStateAPI } from './useCombatState';
 import { BF_SCALE } from './constants';
-import { BATTLEFIELD_WIDTH, BATTLEFIELD_HEIGHT } from '@nova-imperia/shared';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -68,8 +67,8 @@ export function CombatInput({ api }: CombatInputProps): null {
         return null;
       }
       return {
-        x: intersection.x / BF_SCALE + BATTLEFIELD_WIDTH / 2,
-        y: intersection.z / BF_SCALE + BATTLEFIELD_HEIGHT / 2,
+        x: intersection.x / BF_SCALE + api.state.battlefieldWidth / 2,
+        y: intersection.z / BF_SCALE + api.state.battlefieldHeight / 2,
       };
     },
     [camera, gl],
