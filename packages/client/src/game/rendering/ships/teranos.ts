@@ -101,37 +101,66 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
 /**
  * Build Teranos ship geometry -- pragmatic layered steel, bulldog chin,
  * broad stern, hexagonal turret mounts, dorsal spine weapon.
+ *
+ * Part counts by complexity:
+ *   cx 0 (probe/satellite)  ~8 parts   -- hull, chin, bridge nub, 2 nozzles, RCS, antenna
+ *   cx 1 (fighter/scout)    ~12 parts  -- adds seam lines, dorsal fin, sensor dish
+ *   cx 2 (destroyer)        ~18 parts  -- adds side pods, struts, hull plating
+ *   cx 3 (frigate)          ~25 parts  -- adds hex turrets, PD clusters, ventral fin
+ *   cx 4 (cruiser)          ~35 parts  -- adds antenna farm, weapon pods, comm arrays
+ *   cx 5 (battleship)       ~48 parts  -- adds spine weapon, layered armour, hangar
+ *   cx 6 (dreadnought)      ~60 parts  -- adds flanking nacelles, sensor dome, keel
+ *   cx 7 (station-class)    ~70 parts  -- adds habitat ring, forward array, extra rings
  */
 export function buildTeranos(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;   // Slightly wider than average -- sturdy, broad-shouldered
-  const h = len * 0.18;   // Moderate height -- not flat, not tall
+  const w = len * 0.25;   // Utilitarian width -- broad-shouldered, functional
+  const h = len * 0.20;   // Moderate height -- not flat, not tall
   const parts: THREE.BufferGeometry[] = [];
 
+  // Thin slab helper for panel seam lines
+  const seam = (sx: number, sy: number, sz: number,
+    px: number, py: number, pz: number,
+    rx = 0, ry = 0, rz = 0) =>
+    place(new THREE.BoxGeometry(sx, sy, sz), px, py, pz, rx, ry, rz);
+
   // ── CORE HULL ──────────────────────────────────────────────────────────────
-  // Tapered main body: wider at stern, narrowing to bow. Not a pure box --
-  // slight trapezoidal cross-section using an extruded shape.
+  // Tapered main body: wider at stern, narrowing to bow. Trapezoidal cross-
+  // section -- slightly narrower top gives a warship profile.
 
   const hullShape = new THREE.Shape();
-  hullShape.moveTo(-w * 0.5, -h * 0.45);   // bottom-left
-  hullShape.lineTo(-w * 0.42, h * 0.45);   // top-left (narrower top = slight wedge)
-  hullShape.lineTo(w * 0.42, h * 0.45);    // top-right
-  hullShape.lineTo(w * 0.5, -h * 0.45);    // bottom-right
+  hullShape.moveTo(-w * 0.50, -h * 0.45);
+  hullShape.lineTo(-w * 0.42, h * 0.45);
+  hullShape.lineTo(w * 0.42, h * 0.45);
+  hullShape.lineTo(w * 0.50, -h * 0.45);
   hullShape.closePath();
   const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
     depth: len * 0.6,
     bevelEnabled: false,
   });
-  // Extrude goes along local +Z, so position to centre it
   parts.push(place(hullGeo, 0, 0, -len * 0.25));
 
+  // Hull longitudinal seam lines -- thin raised slabs running bow-to-stern.
+  // These are where hull plates were welded together during construction.
+  parts.push(seam(w * 0.02, h * 0.02, len * 0.55,  0, h * 0.46, -len * 0.05));  // dorsal centreline
+  parts.push(seam(w * 0.02, h * 0.02, len * 0.55,  0, -h * 0.46, -len * 0.05)); // ventral centreline
+  parts.push(...mirrorX(s => seam(
+    w * 0.015, h * 0.92, h * 0.02,
+    s * w * 0.47, 0, len * 0.0,
+  ))); // vertical side seams at midships
+
+  // Transverse seam lines -- where hull sections were joined during refit
+  for (let z = -0.2; z <= 0.25; z += 0.15) {
+    parts.push(seam(w * 1.0, h * 0.015, h * 0.015, 0, h * 0.46, len * z));
+  }
+
   // ── BOW / CHIN ASSEMBLY ────────────────────────────────────────────────────
-  // The distinctive Teranos "bulldog chin" -- a forward-jutting sensor and
-  // deflector housing below the bridge. This is the single most recognisable
-  // feature. On small ships it's a small wedge; on capitals it's a full prow.
+  // The distinctive Teranos "bulldog chin" -- forward-jutting sensor and
+  // deflector housing below the bridge.
 
   const chinLen = len * (0.12 + cx * 0.015);
   const chinW = w * 0.55;
   const chinH = h * 0.35;
+  // Main chin block
   parts.push(place(
     new THREE.BoxGeometry(chinW, chinH, chinLen),
     0, -h * 0.22, len * 0.35 + chinLen * 0.4,
@@ -142,261 +171,649 @@ export function buildTeranos(len: number, cx: number): THREE.BufferGeometry {
     0, -h * 0.22, len * 0.35 + chinLen * 0.85,
     HALF_PI, 0, 0,
   ));
-
-  // ── BRIDGE BLOCK ───────────────────────────────────────────────────────────
-  // Raised command section on top of the hull, slightly forward of centre.
-  // Boxy, pragmatic -- a box on a box, clearly a separate module.
-
-  parts.push(place(
-    new THREE.BoxGeometry(w * 0.4, h * 0.35, len * 0.12),
-    0, h * 0.4, len * 0.2,
+  // Chin underplate -- thin armoured slab beneath the chin
+  parts.push(seam(
+    chinW * 0.9, h * 0.03, chinLen * 0.85,
+    0, -h * 0.22 - chinH * 0.52, len * 0.35 + chinLen * 0.3,
   ));
-  // Bridge viewport strip -- thin horizontal cylinder
+  // Chin side rails -- small strips along chin edges
+  parts.push(...mirrorX(s => seam(
+    w * 0.02, chinH * 0.6, chinLen * 0.7,
+    s * chinW * 0.52, -h * 0.22, len * 0.35 + chinLen * 0.3,
+  )));
+
+  // ── BRIDGE / COMMAND MODULE ────────────────────────────────────────────────
+  // Raised command section on top of the hull, slightly forward of centre.
+  // Clearly a separate bolted-on module with its own seam lines.
+
+  // Main bridge block
   parts.push(place(
-    new THREE.BoxGeometry(w * 0.44, h * 0.06, len * 0.02),
-    0, h * 0.52, len * 0.27,
+    new THREE.BoxGeometry(w * 0.40, h * 0.32, len * 0.13),
+    0, h * 0.41, len * 0.20,
+  ));
+  // Bridge viewport strip -- thin horizontal window band
+  parts.push(seam(w * 0.44, h * 0.05, len * 0.015, 0, h * 0.52, len * 0.275));
+  // Bridge roof plate -- slightly wider than the block (overhang)
+  parts.push(seam(w * 0.46, h * 0.025, len * 0.14, 0, h * 0.58, len * 0.20));
+  // Bridge base flange -- where it bolts to the hull
+  parts.push(seam(w * 0.48, h * 0.02, len * 0.15, 0, h * 0.25, len * 0.20));
+  // Comms antenna on bridge roof -- short vertical spike
+  parts.push(place(
+    new THREE.CylinderGeometry(w * 0.008, w * 0.005, h * 0.25, 4),
+    w * 0.12, h * 0.72, len * 0.22,
   ));
 
   // ── ENGINE BLOCK (BROAD STERN) ─────────────────────────────────────────────
   // Wider than the main hull -- the "broad stern" that defines the aft view.
-  // Engine housing is a boxy nacelle block.
 
+  // Main engine housing
   parts.push(place(
     new THREE.BoxGeometry(w * 1.25, h * 0.85, len * 0.15),
     0, 0, -len * 0.38,
   ));
+  // Engine housing top plate (heat shield)
+  parts.push(seam(w * 1.3, h * 0.025, len * 0.16, 0, h * 0.44, -len * 0.38));
+  // Engine housing seam -- where it attaches to main hull
+  parts.push(seam(w * 1.28, h * 0.86, h * 0.02, 0, 0, -len * 0.305));
 
-  // Engine thrust bells -- conical nozzles clustered at the stern
-  const nozzleCount = Math.min(2 + Math.floor(cx * 0.8), 6);
+  // Engine thrust bells -- cylindrical nozzles with cone exhaust
+  const nozzleCount = Math.min(2 + Math.floor(cx * 0.8), 7);
   const nozzleSpread = w * 1.1;
   for (let i = 0; i < nozzleCount; i++) {
     const nx = (i - (nozzleCount - 1) / 2) * (nozzleSpread / Math.max(nozzleCount - 1, 1));
-    // Conical bell: wider at exhaust end (aft), narrower at housing
+    // Cylindrical bell housing
     parts.push(place(
-      new THREE.CylinderGeometry(h * 0.1, h * 0.18, len * 0.08, 8),
-      nx, 0, -len * 0.49,
+      new THREE.CylinderGeometry(h * 0.10, h * 0.14, len * 0.06, 8),
+      nx, 0, -len * 0.48,
+      HALF_PI, 0, 0,
+    ));
+    // Cone exhaust nozzle protruding aft of the bell
+    parts.push(place(
+      new THREE.ConeGeometry(h * 0.16, len * 0.04, 8),
+      nx, 0, -len * 0.525,
+      HALF_PI, 0, 0,
+    ));
+    // Nozzle rim ring -- thin torus at the exhaust lip
+    parts.push(place(
+      new THREE.TorusGeometry(h * 0.145, h * 0.015, 4, 8),
+      nx, 0, -len * 0.545,
       HALF_PI, 0, 0,
     ));
   }
 
   // ── MANOEUVRING THRUSTER HOUSINGS ──────────────────────────────────────────
-  // Small boxes at the corners of the stern -- clearly bolted-on RCS units.
+  // Small boxes at the corners of the stern -- bolted-on RCS units.
+  // Four corners: upper-port, upper-starboard, lower-port, lower-starboard.
   parts.push(...mirrorX(s => place(
-    new THREE.BoxGeometry(w * 0.12, h * 0.15, len * 0.06),
-    s * w * 0.7, h * 0.35, -len * 0.42,
+    new THREE.BoxGeometry(w * 0.12, h * 0.14, len * 0.06),
+    s * w * 0.70, h * 0.35, -len * 0.42,
   )));
   parts.push(...mirrorX(s => place(
-    new THREE.BoxGeometry(w * 0.12, h * 0.15, len * 0.06),
-    s * w * 0.7, -h * 0.35, -len * 0.42,
+    new THREE.BoxGeometry(w * 0.12, h * 0.14, len * 0.06),
+    s * w * 0.70, -h * 0.35, -len * 0.42,
+  )));
+  // Forward RCS nubs (small cylinders near bow, for braking thrust)
+  parts.push(...mirrorX(s => place(
+    new THREE.CylinderGeometry(w * 0.025, w * 0.03, h * 0.06, 6),
+    s * w * 0.40, h * 0.10, len * 0.30,
   )));
 
-  // ── cx >= 2: SIDE MODULE BLISTERS ──────────────────────────────────────────
-  // Bolted-on side pods -- sensor arrays, auxiliary systems, extra fuel.
-  // Asymmetric detail: port side gets a slightly different pod than starboard.
+  // ── DORSAL FIN / HEAT RADIATOR ─────────────────────────────────────────────
+  // Even the smallest Teranos ship has a small dorsal fin -- a heat radiator
+  // slab that doubles as a recognition silhouette element.
+  const finH = h * (0.15 + cx * 0.03);
+  parts.push(seam(
+    w * 0.03, finH, len * (0.10 + cx * 0.02),
+    0, h * 0.46 + finH * 0.5, -len * 0.10,
+  ));
+
+  // ── SENSOR DISH (ALL SIZES) ────────────────────────────────────────────────
+  // A small parabolic dish (approximated as a flattened hemisphere) mounted
+  // asymmetrically -- Teranos always bolt sensors where there's room.
+  parts.push(place(
+    new THREE.SphereGeometry(w * 0.08, 6, 4, 0, PI * 2, 0, HALF_PI),
+    -w * 0.38, h * 0.30, len * 0.10,
+    0.3, 0, 0,  // tilted slightly forward
+  ));
+  // Dish support strut
+  parts.push(place(
+    new THREE.CylinderGeometry(w * 0.01, w * 0.01, h * 0.15, 4),
+    -w * 0.38, h * 0.20, len * 0.10,
+  ));
+
+  // ── RUNNING LIGHT BUMPS ────────────────────────────────────────────────────
+  // Tiny spheres at wing-tips and keel -- navigation lights visible even on
+  // probes. Adds visual interest to the silhouette.
+  parts.push(...mirrorX(s => place(
+    new THREE.SphereGeometry(w * 0.03, 4, 4),
+    s * w * 0.52, 0, len * 0.32,
+  )));
+  parts.push(place(
+    new THREE.SphereGeometry(w * 0.025, 4, 4),
+    0, -h * 0.48, len * 0.30,
+  )); // keel light
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  COMPLEXITY-GATED ADDITIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── cx >= 1: SCOUT/FIGHTER UPGRADES ────────────────────────────────────────
+  // Even small combat ships get extra recognition detail: ventral fin,
+  // wing-root fairings, and hull panel detail.
+  if (cx >= 1) {
+    // Ventral fin -- small stabiliser beneath the hull
+    parts.push(seam(
+      w * 0.025, h * 0.20, len * 0.12,
+      0, -h * 0.55, -len * 0.08,
+    ));
+    // Wing-root fairings -- small wedges where the hull meets the engine block
+    parts.push(...mirrorX(s => place(
+      new THREE.BoxGeometry(w * 0.18, h * 0.10, len * 0.10),
+      s * w * 0.55, 0, -len * 0.28,
+      0, 0, s * 0.15,
+    )));
+    // Additional hull panel lines (diagonal refit seams)
+    parts.push(seam(w * 0.7, h * 0.015, h * 0.015, 0, h * 0.20, len * 0.15));
+    parts.push(seam(w * 0.7, h * 0.015, h * 0.015, 0, -h * 0.20, len * 0.15));
+    // Intake scoops -- small recessed boxes on the hull sides
+    parts.push(...mirrorX(s => place(
+      new THREE.BoxGeometry(w * 0.04, h * 0.12, len * 0.06),
+      s * w * 0.48, h * 0.15, len * 0.05,
+    )));
+  }
+
+  // ── cx >= 2: DESTROYER-CLASS MODULES ───────────────────────────────────────
+  // Bolted-on side pods, connecting struts, additional hull plating.
+  // Asymmetric: port gets a sensor array, starboard gets a utility pod.
   if (cx >= 2) {
-    // Starboard module -- standard rectangular pod
+    // Starboard module -- standard rectangular utility pod
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.22, h * 0.4, len * 0.2),
-      w * 0.6, 0, len * 0.08,
+      new THREE.BoxGeometry(w * 0.22, h * 0.38, len * 0.20),
+      w * 0.60, 0, len * 0.08,
     ));
-    // Port module -- slightly longer, different purpose (sensor array)
+    // Starboard pod seam line
+    parts.push(seam(w * 0.23, h * 0.015, len * 0.21, w * 0.60, h * 0.20, len * 0.08));
+    // Port module -- longer sensor array housing (asymmetric)
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.2, h * 0.35, len * 0.25),
-      -w * 0.6, h * 0.05, len * 0.05,
+      new THREE.BoxGeometry(w * 0.20, h * 0.34, len * 0.26),
+      -w * 0.60, h * 0.05, len * 0.04,
     ));
+    // Port sensor array spine -- raised rail on top of the pod
+    parts.push(seam(w * 0.04, h * 0.06, len * 0.22, -w * 0.60, h * 0.25, len * 0.04));
     // Connecting struts (small cylinders linking pods to hull)
     parts.push(...mirrorX(s => place(
       new THREE.CylinderGeometry(w * 0.025, w * 0.025, w * 0.15, 4),
       s * w * 0.48, 0, len * 0.08,
       0, 0, HALF_PI,
     )));
+    // Aft connecting struts (second attachment point per pod)
+    parts.push(...mirrorX(s => place(
+      new THREE.CylinderGeometry(w * 0.02, w * 0.02, w * 0.12, 4),
+      s * w * 0.48, -h * 0.12, len * -0.02,
+      0, 0, HALF_PI,
+    )));
+    // Hull reinforcement plates -- overlapping slabs on the sides
+    parts.push(...mirrorX(s => seam(
+      w * 0.04, h * 0.50, len * 0.25,
+      s * w * 0.50, 0, len * 0.05,
+    )));
+    // Dorsal cable conduit -- raised pipe running along the top
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.018, w * 0.018, len * 0.30, 6),
+      w * 0.15, h * 0.47, len * 0.0,
+      HALF_PI, 0, 0,
+    ));
   }
 
-  // ── cx >= 3: HEXAGONAL TURRET MOUNTS ───────────────────────────────────────
-  // Standardised modular weapon platforms -- hexagonal bases with cylindrical
-  // barrel assemblies. This is the Teranos way: one mounting standard, many
-  // weapon types slotted in.
+  // ── cx >= 3: FRIGATE-CLASS WEAPONS ─────────────────────────────────────────
+  // Hexagonal turret mounts, point-defence clusters, ventral keel fin,
+  // and the beginning of the "busy warship" look.
   if (cx >= 3) {
-    // Dorsal turrets (port and starboard)
+    // Dorsal turrets (port and starboard) -- hex base + twin barrels
     parts.push(...mirrorX(s => {
       const turretParts: THREE.BufferGeometry[] = [];
-      // Hex base (approximated with 6-sided cylinder, very flat)
+      // Hex base platform
       turretParts.push(place(
-        new THREE.CylinderGeometry(w * 0.12, w * 0.13, h * 0.08, 6),
-        s * w * 0.3, h * 0.5, len * 0.05,
+        new THREE.CylinderGeometry(w * 0.12, w * 0.13, h * 0.07, 6),
+        s * w * 0.30, h * 0.50, len * 0.05,
+      ));
+      // Turret housing dome
+      turretParts.push(place(
+        new THREE.SphereGeometry(w * 0.08, 6, 4, 0, PI * 2, 0, HALF_PI),
+        s * w * 0.30, h * 0.54, len * 0.05,
       ));
       // Twin barrel assembly
       turretParts.push(place(
-        new THREE.CylinderGeometry(w * 0.02, w * 0.02, len * 0.1, 4),
-        s * w * 0.3 + w * 0.04, h * 0.55, len * 0.12,
+        new THREE.CylinderGeometry(w * 0.018, w * 0.018, len * 0.11, 4),
+        s * w * 0.30 + w * 0.04, h * 0.56, len * 0.13,
         HALF_PI, 0, 0,
       ));
       turretParts.push(place(
-        new THREE.CylinderGeometry(w * 0.02, w * 0.02, len * 0.1, 4),
-        s * w * 0.3 - w * 0.04, h * 0.55, len * 0.12,
+        new THREE.CylinderGeometry(w * 0.018, w * 0.018, len * 0.11, 4),
+        s * w * 0.30 - w * 0.04, h * 0.56, len * 0.13,
         HALF_PI, 0, 0,
       ));
       return merge(turretParts);
     }));
 
-    // Forward point-defence cluster (small bumps along chin edges)
+    // Forward point-defence clusters (chin edges)
     parts.push(...mirrorX(s => place(
       new THREE.SphereGeometry(w * 0.04, 4, 4),
-      s * chinW * 0.45, -h * 0.1, len * 0.38,
+      s * chinW * 0.50, -h * 0.10, len * 0.38,
     )));
+    // Mid-hull point-defence bumps
+    parts.push(...mirrorX(s => place(
+      new THREE.SphereGeometry(w * 0.035, 4, 4),
+      s * w * 0.48, h * 0.30, len * 0.0,
+    )));
+
+    // Ventral keel fin -- larger stabiliser for frigate+
+    parts.push(seam(
+      w * 0.03, h * 0.28, len * 0.20,
+      0, -h * 0.60, len * 0.0,
+    ));
+    // Keel fin cross-brace
+    parts.push(seam(
+      w * 0.10, h * 0.02, h * 0.02,
+      0, -h * 0.70, len * 0.0,
+    ));
+
+    // Aft sensor pylon -- short mast behind the bridge
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.012, w * 0.008, h * 0.30, 4),
+      -w * 0.10, h * 0.72, len * 0.08,
+    ));
+    // Pylon crossbar
+    parts.push(seam(w * 0.15, h * 0.015, h * 0.015, -w * 0.10, h * 0.88, len * 0.08));
+
+    // Hull panel greebles -- small raised rectangles that break up flat surfaces
+    for (let z = -0.15; z <= 0.20; z += 0.12) {
+      parts.push(...mirrorX(s => seam(
+        w * 0.06, h * 0.08, len * 0.05,
+        s * w * 0.47, h * (0.10 + z * 0.3), len * z,
+      )));
+    }
   }
 
-  // ── cx >= 4: ANTENNA FARM + VENTRAL HARDPOINTS ─────────────────────────────
-  // The "committee additions" -- sensor masts, communication arrays, and
-  // ventral weapon pods that were clearly added in the last refit.
+  // ── cx >= 4: CRUISER-CLASS SYSTEMS ─────────────────────────────────────────
+  // Antenna farm, communication arrays, ventral weapon pods, dorsal sensor
+  // mast. The ship begins to look "committee-designed" -- busy with add-ons.
   if (cx >= 4) {
-    // Tall sensor mast (slightly off-centre -- asymmetric, realistic)
+    // PRIMARY SENSOR MAST -- tall, slightly off-centre (asymmetric)
     parts.push(place(
-      new THREE.CylinderGeometry(w * 0.015, w * 0.012, h * 1.0, 4),
-      w * 0.05, h * 0.9, len * 0.15,
+      new THREE.CylinderGeometry(w * 0.015, w * 0.010, h * 1.10, 4),
+      w * 0.05, h * 0.95, len * 0.15,
     ));
-    // Antenna crossbar at top of mast
+    // Mast crossbar (antenna array)
+    parts.push(seam(w * 0.32, h * 0.02, h * 0.02, w * 0.05, h * 1.45, len * 0.15));
+    // Mast tip -- small sphere (radar dome)
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.3, h * 0.02, h * 0.02),
-      w * 0.05, h * 1.35, len * 0.15,
+      new THREE.SphereGeometry(w * 0.025, 6, 4),
+      w * 0.05, h * 1.50, len * 0.15,
     ));
-    // Secondary antenna (shorter, other side)
+    // Crossbar end dipoles
     parts.push(place(
-      new THREE.CylinderGeometry(w * 0.012, w * 0.01, h * 0.6, 4),
-      -w * 0.15, h * 0.7, -len * 0.1,
+      new THREE.CylinderGeometry(w * 0.005, w * 0.005, h * 0.10, 4),
+      w * 0.05 + w * 0.16, h * 1.50, len * 0.15,
+    ));
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.005, w * 0.005, h * 0.10, 4),
+      w * 0.05 - w * 0.16, h * 1.50, len * 0.15,
     ));
 
-    // Ventral weapon pods -- underslung missile/torpedo racks
+    // SECONDARY ANTENNA (port side, shorter -- different department added it)
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.012, w * 0.008, h * 0.65, 4),
+      -w * 0.18, h * 0.75, -len * 0.10,
+    ));
+    // Secondary antenna dish
+    parts.push(place(
+      new THREE.SphereGeometry(w * 0.05, 6, 4, 0, PI * 2, 0, HALF_PI),
+      -w * 0.18, h * 1.05, -len * 0.10,
+      -0.4, 0, 0,
+    ));
+
+    // COMM ARRAY -- horizontal antenna spar near bridge
+    parts.push(seam(
+      w * 0.50, h * 0.012, h * 0.012,
+      0, h * 0.62, len * 0.28,
+    ));
+    // Comm array vertical elements
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.006, w * 0.006, h * 0.12, 4),
+      w * 0.25, h * 0.68, len * 0.28,
+    ));
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.006, w * 0.006, h * 0.12, 4),
+      -w * 0.25, h * 0.68, len * 0.28,
+    ));
+
+    // VENTRAL WEAPON PODS -- underslung missile/torpedo racks
     parts.push(...mirrorX(s => place(
-      new THREE.BoxGeometry(w * 0.15, h * 0.2, len * 0.18),
-      s * w * 0.35, -h * 0.5, len * 0.0,
+      new THREE.BoxGeometry(w * 0.15, h * 0.18, len * 0.18),
+      s * w * 0.35, -h * 0.52, len * 0.0,
     )));
-    // Ventral pod mounting pylons
+    // Weapon pod mounting pylons
     parts.push(...mirrorX(s => place(
-      new THREE.BoxGeometry(w * 0.04, h * 0.15, len * 0.05),
-      s * w * 0.35, -h * 0.35, len * 0.0,
+      new THREE.BoxGeometry(w * 0.04, h * 0.14, len * 0.05),
+      s * w * 0.35, -h * 0.38, len * 0.0,
+    )));
+    // Weapon pod barrel tips
+    parts.push(...mirrorX(s => place(
+      new THREE.CylinderGeometry(w * 0.02, w * 0.025, len * 0.06, 6),
+      s * w * 0.35, -h * 0.52, len * 0.12,
+      HALF_PI, 0, 0,
+    )));
+
+    // MIDSHIPS TURRET -- single barrel on the centreline, aft of bridge
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.10, w * 0.11, h * 0.06, 6),
+      0, h * 0.50, -len * 0.05,
+    ));
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.022, w * 0.022, len * 0.10, 4),
+      0, h * 0.54, len * 0.02,
+      HALF_PI, 0, 0,
+    ));
+
+    // Additional hull greeble panels
+    parts.push(...mirrorX(s => seam(
+      w * 0.08, h * 0.12, len * 0.08,
+      s * w * 0.46, -h * 0.20, len * 0.15,
+    )));
+    parts.push(...mirrorX(s => seam(
+      w * 0.10, h * 0.10, len * 0.06,
+      s * w * 0.46, h * 0.15, -len * 0.18,
     )));
   }
 
   // ── cx >= 5: CAPITAL SHIP FEATURES ─────────────────────────────────────────
-  // The full expression: dorsal spine weapon, layered armour plates,
-  // expanded bridge tower, hangar section, and dense turret coverage.
+  // Dorsal spine weapon, layered armour plates, expanded bridge tower,
+  // hangar section, broadside turret platforms, and dense detail.
   if (cx >= 5) {
     // DORSAL SPINE WEAPON -- the signature capital ship feature.
     // A long rail/spinal mount running along the top centreline.
     const spineLen = len * 0.45;
     parts.push(place(
       new THREE.BoxGeometry(w * 0.08, h * 0.12, spineLen),
-      0, h * 0.56, len * 0.05,
+      0, h * 0.58, len * 0.05,
     ));
     // Spine weapon barrel/emitter at bow end
     parts.push(place(
-      new THREE.CylinderGeometry(w * 0.03, w * 0.05, len * 0.12, 6),
-      0, h * 0.56, len * 0.33,
+      new THREE.CylinderGeometry(w * 0.03, w * 0.05, len * 0.14, 6),
+      0, h * 0.58, len * 0.34,
       HALF_PI, 0, 0,
     ));
+    // Spine mounting brackets -- small vertical slabs along the spine
+    for (let z = -0.12; z <= 0.20; z += 0.08) {
+      parts.push(seam(
+        w * 0.12, h * 0.04, h * 0.02,
+        0, h * 0.52, len * z,
+      ));
+    }
+    // Spine capacitor housings -- boxy lumps along the rail
+    parts.push(seam(w * 0.10, h * 0.08, len * 0.06, 0, h * 0.62, len * -0.05));
+    parts.push(seam(w * 0.10, h * 0.08, len * 0.06, 0, h * 0.62, len * 0.15));
 
     // LAYERED ARMOUR PLATES -- overlapping slabs welded to hull sides.
-    // These are visibly separate from the hull, at slight angles.
+    // Primary layer
     parts.push(...mirrorX(s => place(
-      new THREE.BoxGeometry(w * 0.06, h * 0.75, len * 0.4),
+      new THREE.BoxGeometry(w * 0.05, h * 0.75, len * 0.40),
       s * w * 0.55, 0, len * 0.0,
-      0, 0, s * 0.08,  // slight outward cant
+      0, 0, s * 0.08,
     )));
-    // Secondary armour layer (shorter, further aft)
+    // Secondary armour layer (shorter, further aft, different angle)
     parts.push(...mirrorX(s => place(
-      new THREE.BoxGeometry(w * 0.05, h * 0.6, len * 0.25),
+      new THREE.BoxGeometry(w * 0.04, h * 0.60, len * 0.25),
       s * w * 0.62, 0, -len * 0.15,
       0, 0, s * 0.12,
     )));
+    // Tertiary armour strip (thin, near bow)
+    parts.push(...mirrorX(s => seam(
+      w * 0.03, h * 0.50, len * 0.15,
+      s * w * 0.52, h * 0.05, len * 0.20,
+      0, 0, s * 0.06,
+    )));
+    // Armour bolt heads -- small cubes along the plate edges
+    for (let z = -0.10; z <= 0.15; z += 0.08) {
+      parts.push(...mirrorX(s => place(
+        new THREE.BoxGeometry(w * 0.025, w * 0.025, w * 0.025),
+        s * w * 0.58, h * 0.30, len * z,
+      )));
+    }
 
     // EXPANDED BRIDGE TOWER -- taller command structure for flagships
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.3, h * 0.25, len * 0.1),
-      0, h * 0.65, len * 0.22,
+      new THREE.BoxGeometry(w * 0.30, h * 0.22, len * 0.10),
+      0, h * 0.68, len * 0.22,
+    ));
+    // Flag bridge viewport (second window band)
+    parts.push(seam(w * 0.34, h * 0.04, len * 0.012, 0, h * 0.76, len * 0.28));
+    // Bridge tower roof antenna cluster
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.006, w * 0.006, h * 0.15, 4),
+      w * 0.08, h * 0.87, len * 0.22,
+    ));
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.006, w * 0.006, h * 0.12, 4),
+      -w * 0.06, h * 0.85, len * 0.22,
     ));
 
-    // ADDITIONAL TURRET PLATFORMS (broadside mounts)
+    // BROADSIDE TURRET PLATFORMS
     parts.push(...mirrorX(s => {
       const bsideParts: THREE.BufferGeometry[] = [];
+      // Hex base
       bsideParts.push(place(
-        new THREE.CylinderGeometry(w * 0.1, w * 0.11, h * 0.06, 6),
-        s * w * 0.55, h * 0.4, -len * 0.1,
+        new THREE.CylinderGeometry(w * 0.10, w * 0.11, h * 0.06, 6),
+        s * w * 0.55, h * 0.42, -len * 0.10,
       ));
+      // Turret housing
       bsideParts.push(place(
-        new THREE.CylinderGeometry(w * 0.018, w * 0.018, len * 0.08, 4),
-        s * w * 0.55, h * 0.44, -len * 0.04,
+        new THREE.SphereGeometry(w * 0.06, 6, 4, 0, PI * 2, 0, HALF_PI),
+        s * w * 0.55, h * 0.46, -len * 0.10,
+      ));
+      // Barrel
+      bsideParts.push(place(
+        new THREE.CylinderGeometry(w * 0.016, w * 0.016, len * 0.09, 4),
+        s * w * 0.55, h * 0.46, -len * 0.04,
         HALF_PI, 0, 0,
       ));
       return merge(bsideParts);
     }));
 
-    // AFT HANGAR BAY (recessed area at stern top)
+    // AFT HANGAR BAY -- recessed flight deck at stern dorsal
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.6, h * 0.3, len * 0.12),
-      0, h * 0.15, -len * 0.28,
+      new THREE.BoxGeometry(w * 0.60, h * 0.28, len * 0.14),
+      0, h * 0.16, -len * 0.28,
     ));
+    // Hangar door frame
+    parts.push(seam(w * 0.64, h * 0.30, h * 0.02, 0, h * 0.16, -len * 0.35));
+    // Hangar internal deck (visible through opening)
+    parts.push(seam(w * 0.55, h * 0.02, len * 0.12, 0, h * 0.03, -len * 0.28));
+
+    // VENTRAL TORPEDO TUBES -- capital ships get fixed forward launchers
+    parts.push(...mirrorX(s => place(
+      new THREE.CylinderGeometry(w * 0.03, w * 0.035, len * 0.10, 6),
+      s * w * 0.20, -h * 0.42, len * 0.30,
+      HALF_PI, 0, 0,
+    )));
   }
 
-  // ── cx >= 6: SUPER-CAPITAL EXTRAS ──────────────────────────────────────────
+  // ── cx >= 6: DREADNOUGHT / SUPER-CAPITAL ───────────────────────────────────
+  // Flanking engine nacelles, sensor dome, ventral keel plate, additional
+  // point-defence, and the dense "bristling with add-ons" look.
   if (cx >= 6) {
-    // Extra engine nacelle pods flanking the main stern
+    // FLANKING ENGINE NACELLE PODS
     parts.push(...mirrorX(s => place(
-      new THREE.BoxGeometry(w * 0.2, h * 0.4, len * 0.2),
-      s * w * 0.85, 0, -len * 0.35,
+      new THREE.BoxGeometry(w * 0.22, h * 0.38, len * 0.22),
+      s * w * 0.85, 0, -len * 0.34,
     )));
-    // Extra nozzles on flanking nacelles
+    // Nacelle connecting pylons (struts to main hull)
     parts.push(...mirrorX(s => place(
-      new THREE.CylinderGeometry(h * 0.08, h * 0.14, len * 0.06, 8),
+      new THREE.BoxGeometry(w * 0.10, h * 0.08, len * 0.08),
+      s * w * 0.72, 0, -len * 0.30,
+    )));
+    // Nacelle nozzles
+    parts.push(...mirrorX(s => place(
+      new THREE.CylinderGeometry(h * 0.08, h * 0.13, len * 0.06, 8),
       s * w * 0.85, 0, -len * 0.48,
       HALF_PI, 0, 0,
     )));
+    // Nacelle exhaust cones
+    parts.push(...mirrorX(s => place(
+      new THREE.ConeGeometry(h * 0.12, len * 0.03, 8),
+      s * w * 0.85, 0, -len * 0.52,
+      HALF_PI, 0, 0,
+    )));
+    // Nacelle seam lines
+    parts.push(...mirrorX(s => seam(
+      w * 0.23, h * 0.015, h * 0.015,
+      s * w * 0.85, h * 0.20, -len * 0.34,
+    )));
 
-    // Dorsal sensor dome (large sphere, looks like a radar installation)
+    // DORSAL SENSOR DOME (large sphere -- radar installation)
     parts.push(place(
       new THREE.SphereGeometry(w * 0.12, 8, 6),
-      0, h * 0.85, -len * 0.05,
+      0, h * 0.90, -len * 0.05,
     ));
-
-    // Ventral keel reinforcement -- heavy armour plate
+    // Dome support pedestal
     parts.push(place(
-      new THREE.BoxGeometry(w * 0.8, h * 0.06, len * 0.55),
-      0, -h * 0.52, 0,
+      new THREE.CylinderGeometry(w * 0.06, w * 0.08, h * 0.10, 6),
+      0, h * 0.82, -len * 0.05,
     ));
 
-    // More point-defence bumps along hull edges
-    for (let z = -0.2; z <= 0.2; z += 0.2) {
+    // VENTRAL KEEL REINFORCEMENT -- heavy armour plate
+    parts.push(place(
+      new THREE.BoxGeometry(w * 0.80, h * 0.05, len * 0.55),
+      0, -h * 0.53, 0,
+    ));
+    // Keel plate seam lines
+    for (let z = -0.20; z <= 0.20; z += 0.10) {
+      parts.push(seam(w * 0.82, h * 0.015, h * 0.015, 0, -h * 0.56, len * z));
+    }
+
+    // DENSE POINT-DEFENCE BUMPS along hull edges
+    for (let z = -0.20; z <= 0.20; z += 0.10) {
       parts.push(...mirrorX(s => place(
-        new THREE.SphereGeometry(w * 0.035, 4, 3),
-        s * w * 0.52, h * 0.46, len * z,
+        new THREE.SphereGeometry(w * 0.032, 4, 3),
+        s * w * 0.53, h * 0.44, len * z,
       )));
+    }
+    // Ventral PD turrets
+    for (let z = -0.10; z <= 0.15; z += 0.12) {
+      parts.push(...mirrorX(s => place(
+        new THREE.SphereGeometry(w * 0.028, 4, 3),
+        s * w * 0.40, -h * 0.50, len * z,
+      )));
+    }
+
+    // ASYMMETRIC REFIT MODULE -- port side gets a large comms blister
+    // that starboard does not (committee added it in the last refit)
+    parts.push(place(
+      new THREE.BoxGeometry(w * 0.16, h * 0.20, len * 0.12),
+      -w * 0.68, h * 0.20, len * 0.10,
+    ));
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.008, w * 0.008, h * 0.25, 4),
+      -w * 0.68, h * 0.42, len * 0.10,
+    ));
+    // Starboard gets a different addition -- a small hangar extension
+    parts.push(place(
+      new THREE.BoxGeometry(w * 0.14, h * 0.22, len * 0.08),
+      w * 0.68, -h * 0.10, -len * 0.15,
+    ));
+
+    // HULL GREEBLE DENSITY -- lots of small raised panels
+    for (let z = -0.20; z <= 0.20; z += 0.08) {
+      for (const yOff of [-0.25, 0.10, 0.30]) {
+        parts.push(...mirrorX(s => seam(
+          w * 0.04, h * 0.05, len * 0.03,
+          s * w * 0.46, h * yOff, len * z,
+        )));
+      }
     }
   }
 
-  // ── cx >= 7: STATION-CLASS ADDITIONS ───────────────────────────────────────
+  // ── cx >= 7: STATION-CLASS / PLANET-KILLER ─────────────────────────────────
+  // Habitat ring, massive forward weapon array, additional ring structures,
+  // and the full "small city bolted to an engine block" look.
   if (cx >= 7) {
-    // Rotating habitat ring (torus) -- stations and planet killers
+    // ROTATING HABITAT RING (torus)
     parts.push(place(
-      new THREE.TorusGeometry(w * 0.8, w * 0.08, 6, 16),
+      new THREE.TorusGeometry(w * 0.85, w * 0.08, 6, 16),
       0, 0, -len * 0.05,
       HALF_PI, 0, 0,
     ));
-    // Ring support struts
+    // Ring support struts (4 radial spokes)
     for (let a = 0; a < 4; a++) {
-      const angle = (a / 4) * Math.PI * 2;
+      const angle = (a / 4) * PI * 2;
       parts.push(place(
-        new THREE.CylinderGeometry(w * 0.02, w * 0.02, w * 0.65, 4),
-        Math.cos(angle) * w * 0.4, Math.sin(angle) * w * 0.4, -len * 0.05,
+        new THREE.CylinderGeometry(w * 0.022, w * 0.022, w * 0.70, 4),
+        Math.cos(angle) * w * 0.42, Math.sin(angle) * w * 0.42, -len * 0.05,
         0, 0, angle + HALF_PI,
       ));
     }
 
-    // Massive forward weapon array
+    // SECONDARY RING (smaller, further forward)
     parts.push(place(
-      new THREE.CylinderGeometry(w * 0.08, w * 0.15, len * 0.2, 8),
-      0, 0, len * 0.45,
+      new THREE.TorusGeometry(w * 0.55, w * 0.05, 6, 12),
+      0, 0, len * 0.15,
       HALF_PI, 0, 0,
     ));
+    // Secondary ring struts
+    for (let a = 0; a < 3; a++) {
+      const angle = (a / 3) * PI * 2 + 0.3;
+      parts.push(place(
+        new THREE.CylinderGeometry(w * 0.015, w * 0.015, w * 0.42, 4),
+        Math.cos(angle) * w * 0.27, Math.sin(angle) * w * 0.27, len * 0.15,
+        0, 0, angle + HALF_PI,
+      ));
+    }
+
+    // MASSIVE FORWARD WEAPON ARRAY
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.08, w * 0.16, len * 0.22, 8),
+      0, 0, len * 0.46,
+      HALF_PI, 0, 0,
+    ));
+    // Weapon array focusing rings
+    parts.push(place(
+      new THREE.TorusGeometry(w * 0.13, w * 0.015, 4, 8),
+      0, 0, len * 0.50,
+      HALF_PI, 0, 0,
+    ));
+    parts.push(place(
+      new THREE.TorusGeometry(w * 0.10, w * 0.012, 4, 8),
+      0, 0, len * 0.54,
+      HALF_PI, 0, 0,
+    ));
+
+    // ADDITIONAL BROADSIDE BATTERIES (multi-turret rows)
+    for (let z = -0.15; z <= 0.10; z += 0.12) {
+      parts.push(...mirrorX(s => {
+        const tParts: THREE.BufferGeometry[] = [];
+        tParts.push(place(
+          new THREE.CylinderGeometry(w * 0.08, w * 0.09, h * 0.05, 6),
+          s * w * 0.58, h * 0.44, len * z,
+        ));
+        tParts.push(place(
+          new THREE.CylinderGeometry(w * 0.014, w * 0.014, len * 0.07, 4),
+          s * w * 0.58, h * 0.47, len * z + len * 0.05,
+          HALF_PI, 0, 0,
+        ));
+        return merge(tParts);
+      }));
+    }
+
+    // DORSAL ANTENNA FOREST -- multiple masts of varying height
+    for (let i = 0; i < 4; i++) {
+      const xOff = (i - 1.5) * w * 0.15;
+      const mH = h * (0.30 + Math.sin(i * 1.7) * 0.15);
+      parts.push(place(
+        new THREE.CylinderGeometry(w * 0.006, w * 0.004, mH, 4),
+        xOff, h * 0.80 + mH * 0.5, -len * 0.15 + i * len * 0.04,
+      ));
+    }
   }
 
   return merge(parts);
