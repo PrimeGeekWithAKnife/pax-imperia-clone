@@ -28,9 +28,13 @@ export function place(
 export function merge(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const valid = geos.filter(Boolean);
   if (valid.length === 0) return new THREE.BoxGeometry(1, 1, 1);
-  const merged = mergeGeometries(valid, false);
-  if (!merged) return valid[0];
+  // Ensure all geometries are non-indexed so mergeGeometries doesn't fail
+  // when mixing indexed (ExtrudeGeometry, LatheGeometry) with non-indexed.
+  const normalised = valid.map(g => g.index ? g.toNonIndexed() : g);
+  const merged = mergeGeometries(normalised, false);
+  if (!merged) return normalised[0];
   for (const g of valid) g.dispose();
+  for (const g of normalised) { if (!valid.includes(g)) g.dispose(); }
   return merged;
 }
 
