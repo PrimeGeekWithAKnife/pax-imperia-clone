@@ -650,11 +650,11 @@ export class CombatScene extends Phaser.Scene {
       this._bfHeight + camPad * 2,
     );
 
-    // Scale battlefield to FILL the screen
+    // Scale battlefield to FIT the screen — entire map visible, no clipping
     const { width, height } = this.scale;
     const scaleX = width / this._bfWidth;
     const scaleY = height / this._bfHeight;
-    const fitZoom = Math.max(scaleX, scaleY);
+    const fitZoom = Math.min(scaleX, scaleY);
     cam.setZoom(fitZoom);
     cam.centerOn(this._bfWidth / 2, this._bfHeight / 2);
 
