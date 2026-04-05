@@ -3108,12 +3108,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         });
       }
 
-      // Allied ships suffer morale drop when a comrade is destroyed (not drones)
+      // Allied ships suffer morale drop when a comrade is destroyed (not drones).
+      // Losing a capital ship is devastating; losing a fighter is sad but expected.
+      const deathImpact = ship.maxHull >= 200 ? 8 : ship.maxHull >= 80 ? 5 : 2;
       ships = ships.map((s) => {
         if (s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.unmanned) {
           return {
             ...s,
-            crew: { ...s.crew, morale: Math.max(0, s.crew.morale - 5) },
+            crew: { ...s.crew, morale: Math.max(0, s.crew.morale - deathImpact) },
           };
         }
         return s;
@@ -3154,6 +3156,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     };
     const resilienceBonus = EXP_RESILIENCE[ship.crew.experience] ?? 0;
     morale += resilienceBonus;
+
+    // Fighter pilot courage — small manned craft pilots are the bravest.
+    // They volunteered for this; they don't break as easily as capital ship crews.
+    if (ship.maxHull < 80 && !ship.unmanned) morale += 0.25;
+
+    // Defending home planet — crews fight harder when their world is at stake.
+    if (state.layout === 'planetary_assault' && ship.side === 'defender') morale += 0.2;
 
     morale = Math.max(0, Math.min(100, morale));
 
