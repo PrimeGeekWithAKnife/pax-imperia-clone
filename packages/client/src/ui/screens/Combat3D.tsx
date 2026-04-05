@@ -153,8 +153,12 @@ export function Combat3D({
     if (api.battleEnded && onBattleEnded) onBattleEnded(api.state);
   }, [api.battleEnded, onBattleEnded, api.state]);
 
-  // Cleanup on unmount
-  useEffect(() => () => api.cleanup(), [api]);
+  // Cleanup on unmount only — api.cleanup is stable (useCallback with [] deps)
+  // so a ref is not needed, but we must NOT depend on `api` as that changes
+  // every render and the cleanup function would kill the tick interval.
+  const cleanupRef = useRef(api.cleanup);
+  cleanupRef.current = api.cleanup;
+  useEffect(() => () => cleanupRef.current(), []);
 
   // Camera: above and behind, looking at centre
   const bfW = api.state.battlefieldWidth * BF_SCALE;
