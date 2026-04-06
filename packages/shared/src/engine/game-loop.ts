@@ -3547,6 +3547,11 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
     }
 
     if (evt.type === 'capture') {
+      // Record espionage detection in the psychology relationship system
+      if (state.psychStateMap) {
+        recordDiplomaticEvent(state.psychStateMap, evt.empireId, evt.targetEmpireId, 'espionage_detected', state.gameState.currentTick);
+      }
+
       // Apply diplomatic attitude penalty:
       // The target empire (who caught the spy) dislikes the spy's owner.
       empires = empires.map(e => {
