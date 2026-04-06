@@ -4061,6 +4061,13 @@ function executeAIDiplomacy(
     if (targetEmpire.isAI) {
       // Winner accepts peace unless they're overwhelmingly dominant
       const updatedDiplomacy = makePeace(diplomacyState, empireId, targetEmpireId, tick);
+
+      // Record psychology events for both sides — relief + lingering mistrust
+      if (state.psychStateMap) {
+        recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'peace_made', tick);
+        recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, 'peace_made', tick);
+      }
+
       return { ...state, diplomacyState: updatedDiplomacy };
     }
 
@@ -4109,6 +4116,12 @@ function executeAIWar(
 
   // Execute the war declaration
   const updatedDiplomacy = declareWar(diplomacyState, empireId, targetEmpireId, tick);
+
+  // Record asymmetric psychology events — aggressor vs target experience war differently
+  if (state.psychStateMap) {
+    recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'war_declared', tick);
+    recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, 'war_declared_on_us', tick);
+  }
 
   // Notify the target empire (if it's the player)
   const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
