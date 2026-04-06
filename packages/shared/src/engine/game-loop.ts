@@ -5480,6 +5480,14 @@ export function processGameTick(
   // 8f. Psychology Tick (Maslow needs → stress → mood → effective traits)
   s = stepPsychology(s);
 
+  // 8f+. Sync psychology sentiments back to legacy diplomacy attitudes
+  if (s.diplomacyState && s.psychStateMap) {
+    s = {
+      ...s,
+      diplomacyState: syncPsychologyToDiplomacy(s.psychStateMap, s.diplomacyState, s.gameState.currentTick),
+    };
+  }
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
