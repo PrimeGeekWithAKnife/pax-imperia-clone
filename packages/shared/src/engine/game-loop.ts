@@ -279,6 +279,7 @@ import type { EmpireStateSnapshot } from './psychology/maslow.js';
 import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
 import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
+import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -4012,6 +4013,13 @@ function executeAIDiplomacy(
         toEmpireId: targetEmpireId,
         treatyType: treatyType as TreatyType,
       }, tick);
+
+      // Fire psychology relationship events for both sides of the treaty
+      const relEventType = mapTreatyToRelationshipEvent(treatyType);
+      if (relEventType && state.psychStateMap) {
+        recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, relEventType, tick);
+        recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, relEventType, tick);
+      }
 
       return {
         ...state,
