@@ -415,6 +415,10 @@ export interface GameTickState {
    * Key = empireId. Updated each tick during AI decisions.
    */
   warTerritoryTrackers: Map<string, WarTerritoryTracker>;
+  /** Inter-empire diplomatic relations (legacy attitude/trust model). */
+  diplomacyState?: DiplomacyState;
+  /** Per-empire psychological state (5-dimensional relationship model). */
+  psychStateMap?: Map<string, EmpirePsychologicalState>;
 }
 
 /** The result returned by processGameTick. */
@@ -1026,8 +1030,7 @@ function stepFleetMovement(
           }
         }
         // Establish first contact for any new encounters
-        let dipState = (state as unknown as Record<string, unknown>).diplomacyState as
-          | DiplomacyState | undefined;
+        let dipState: DiplomacyState | undefined = state.diplomacyState;
         if (dipState) {
           for (const foreignId of foreignEmpireIds) {
             const rel = getRelation(dipState, fleet.empireId, foreignId);
@@ -1035,7 +1038,7 @@ function stepFleetMovement(
             // exists but firstContact hasn't been recorded (-1).
             if (!rel || rel.firstContact === -1) {
               dipState = makeFirstContact(dipState, fleet.empireId, foreignId, tick);
-              (state as unknown as Record<string, unknown>).diplomacyState = dipState;
+              (state as { diplomacyState: DiplomacyState }).diplomacyState = dipState;
 
               // Emit first contact events for both sides
               events.push({
@@ -1054,10 +1057,9 @@ function stepFleetMovement(
               });
 
               // Create psychology relationships for both empires
-              const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
-                Map<string, EmpirePsychologicalState>;
-              const ourPsych = psychMap.get(fleet.empireId);
-              const theirPsych = psychMap.get(foreignId);
+              const psychMap = state.psychStateMap;
+              const ourPsych = psychMap?.get(fleet.empireId);
+              const theirPsych = psychMap?.get(foreignId);
               if (ourPsych && theirPsych) {
                 if (!ourPsych.relationships[foreignId]) {
                   ourPsych.relationships[foreignId] = createRelationship(
@@ -1077,9 +1079,7 @@ function stepFleetMovement(
 
       // Check if there are enemy fleets in the arrived system
       const empireId = fleet.empireId;
-      const combatDiplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-        | DiplomacyState
-        | undefined;
+      const combatDiplomacyState: DiplomacyState | undefined = state.diplomacyState;
       const enemyFleetsInSystem = fleets.filter(
         f =>
           f.id !== fleet.id &&
@@ -2124,8 +2124,7 @@ function stepUnopposedOccupation(state: GameTickState, events: GameEvent[]): Gam
   let notifications = [...(((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[])];
 
   // Check diplomacy state — only capture planets of empires we're at war with
-  const dipState = (state as unknown as Record<string, unknown>).diplomacyState as
-    | DiplomacyState | undefined;
+  const dipState: DiplomacyState | undefined = state.diplomacyState;
 
   for (const system of systems) {
     // Find all empires that have fleets in this system
@@ -2448,7 +2447,7 @@ function stepMigrations(
 
 function stepWarState(state: GameTickState): GameTickState {
   const warStateMap = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as DiplomacyState | undefined;
+  const diplomacyState: DiplomacyState | undefined = state.diplomacyState;
   const updatedMap = new Map(warStateMap);
 
   for (const empire of state.gameState.empires) {
@@ -3446,9 +3445,7 @@ function stepResearch(
 
 function stepDiplomacyTick(state: GameTickState): GameTickState {
   // Guard: skip if the state has no diplomacy state structure yet (old saves)
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-    | DiplomacyState
-    | undefined;
+  const diplomacyState = state.diplomacyState;
   if (!diplomacyState) return state;
 
   const tick = state.gameState.currentTick;
@@ -3494,9 +3491,10 @@ function stepDiplomacyTick(state: GameTickState): GameTickState {
     diplomacyState: updatedDiplomacy,
     gameState: {
       ...state.gameState,
-      empires: syncedEmpires,
+      // Cast needed: syncedEmpires diplomacy array omits communicationLevel
+      empires: syncedEmpires as unknown as typeof state.gameState.empires,
     },
-  } as unknown as GameTickState;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3644,14 +3642,12 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
  * the snapshot is fully current, and before AI decisions so they can use it.
  */
 function stepPsychology(state: GameTickState): GameTickState {
-  const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
-    Map<string, EmpirePsychologicalState>;
+  const psychMap = state.psychStateMap;
 
-  if (psychMap.size === 0) return state;
+  if (!psychMap || psychMap.size === 0) return state;
 
   const updatedMap = new Map(psychMap);
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-    Record<string, unknown> | undefined;
+  const diplomacyState = state.diplomacyState;
 
   for (const empire of state.gameState.empires) {
     const psychState = updatedMap.get(empire.id);
@@ -3665,7 +3661,7 @@ function stepPsychology(state: GameTickState): GameTickState {
     updatedMap.set(empire.id, updated);
   }
 
-  return { ...state, psychStateMap: updatedMap } as unknown as GameTickState;
+  return { ...state, psychStateMap: updatedMap };
 }
 
 /**
@@ -3958,9 +3954,7 @@ function executeAIDiplomacy(
   };
   if (!targetEmpireId || !treatyType) return state;
 
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-    | DiplomacyState
-    | undefined;
+  const diplomacyState = state.diplomacyState;
   if (!diplomacyState) return state;
 
   const tick = state.gameState.currentTick;
@@ -3983,9 +3977,8 @@ function executeAIDiplomacy(
 
     if (targetEmpire.isAI) {
       // Try psychology-driven evaluation first, fall back to legacy
-      const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
-        Map<string, EmpirePsychologicalState>;
-      const targetPsych = psychMap.get(targetEmpireId);
+      const psychMap = state.psychStateMap;
+      const targetPsych = psychMap?.get(targetEmpireId);
 
       let accepted = false;
       if (targetPsych && targetPsych.relationships[empireId]) {
@@ -4023,7 +4016,7 @@ function executeAIDiplomacy(
       return {
         ...state,
         diplomacyState: updatedDiplomacy,
-      } as GameTickState;
+      };
     }
 
     // AI-to-player: create a notification for the player to accept/reject
@@ -4060,7 +4053,7 @@ function executeAIDiplomacy(
     if (targetEmpire.isAI) {
       // Winner accepts peace unless they're overwhelmingly dominant
       const updatedDiplomacy = makePeace(diplomacyState, empireId, targetEmpireId, tick);
-      return { ...state, diplomacyState: updatedDiplomacy } as GameTickState;
+      return { ...state, diplomacyState: updatedDiplomacy };
     }
 
     // AI-to-player: offer peace via notification
@@ -4097,9 +4090,7 @@ function executeAIWar(
   const { targetEmpireId } = decision.params as { targetEmpireId: string };
   if (!targetEmpireId) return state;
 
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-    | DiplomacyState
-    | undefined;
+  const diplomacyState = state.diplomacyState;
   if (!diplomacyState) return state;
 
   const tick = state.gameState.currentTick;
@@ -4133,7 +4124,7 @@ function executeAIWar(
     ...state,
     diplomacyState: updatedDiplomacy,
     notifications,
-  } as GameTickState;
+  } as GameTickState; // notifications is not yet on GameTickState
 }
 
 // ---------------------------------------------------------------------------
@@ -4701,8 +4692,7 @@ export function isGameOver(
       a.memberEmpires.length >= b.memberEmpires.length ? a : b,
     );
     // Check psychStateMap for senate leadership
-    const psychMap = ((state as unknown as Record<string, unknown>).psychStateMap ?? new Map()) as
-      Map<string, { personality: unknown }>;
+    const psychMap = state.psychStateMap;
     // The senate state isn't directly on the org — check if any empire is marked as leader
     // For now, use the empire with the highest voting power in the largest org as a proxy
     let highestPower = 0;
@@ -5211,9 +5201,7 @@ function stepGalacticOrganisations(state: GameTickState, _events: GameEvent[]): 
     | undefined;
   if (!organisationState) return state;
 
-  const diplomacyState = (state as unknown as Record<string, unknown>).diplomacyState as
-    | DiplomacyState
-    | undefined;
+  const diplomacyState = state.diplomacyState;
   if (!diplomacyState) return state;
 
   const tick = state.gameState.currentTick;
