@@ -97,6 +97,19 @@ const BUILDERS: Record<string, ShipBuilder> = {
   pyrenth:  buildPyrenth,
 };
 
+// ─── Geometry cache ─────────────────────────────────────────────────────────
+// Key: "speciesId:hullClass". Callers receive a .clone() which is cheap —
+// it shares the underlying typed-array data via copy-on-write semantics
+// in most JS engines, and avoids the expensive merge/toNonIndexed rebuild.
+
+const _geometryCache = new Map<string, THREE.BufferGeometry>();
+
+/** Clear the geometry cache (useful on scene teardown to free GPU memory). */
+export function clearShipGeometryCache(): void {
+  for (const geo of _geometryCache.values()) geo.dispose();
+  _geometryCache.clear();
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
@@ -104,17 +117,26 @@ const BUILDERS: Record<string, ShipBuilder> = {
  *
  * Ships face along +Z (bow), centred at origin.
  * Scale ranges from ~1.5 units (probe) to ~24 units (battle station).
+ *
+ * Results are cached by speciesId:hullClass — subsequent calls for the same
+ * key return a cheap clone instead of rebuilding 50-238 merged parts.
  */
 export function generateShipGeometry(
   speciesId: string,
   hullClass: HullClass,
 ): THREE.BufferGeometry {
+  const key = `${speciesId}:${hullClass}`;
+  const cached = _geometryCache.get(key);
+  if (cached) return cached.clone();
+
   const builder = BUILDERS[speciesId] ?? BUILDERS.teranos;
   const len = HULL_SCALE[hullClass] ?? 4;
   const cx = HULL_COMPLEXITY[hullClass] ?? 2;
   const geo = builder(len, cx);
   geo.computeVertexNormals();
-  return geo;
+
+  _geometryCache.set(key, geo);
+  return geo.clone();
 }
 
 // ─── Materials ──────────────────────────────────────────────────────────────
