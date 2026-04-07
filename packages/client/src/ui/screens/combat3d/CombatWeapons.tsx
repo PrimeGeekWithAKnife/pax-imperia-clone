@@ -628,12 +628,11 @@ function MissileEffects({
         const pos = _tmpPos;
 
         const heading = m.heading;
-        // Capsule body is along Y. Rotate so tip (+Y) points toward heading in XZ plane:
-        // 1. Tilt -90° around X so +Y tip → +Z (into the battlefield)
-        // 2. Rotate around Y by -heading to face travel direction
-        // Scale: stretch along Y (body axis) for elongated missile shape
+        // Capsule body along Y. After tilting -90° around X, tip points +Z.
+        // Y-rotation maps (0,0,1) to (sinθ, 0, cosθ). We need tip at
+        // (cos(heading), 0, sin(heading)) in 3D, so θ = PI/2 - heading.
         _tmpQuat.setFromAxisAngle(_xAxis, -Math.PI / 2);
-        _tmpQuat2.setFromAxisAngle(_yAxis, -heading);
+        _tmpQuat2.setFromAxisAngle(_yAxis, Math.PI / 2 - heading);
         _tmpQuat2.multiply(_tmpQuat);
         _tmpScale.set(baseScale, baseScale * 2.2, baseScale);
         _tmpMatrix.compose(pos, _tmpQuat2, _tmpScale);
@@ -655,9 +654,9 @@ function MissileEffects({
           const fadeT = 1 - (t0 + t1) * 0.5;
 
           const p0x = pos.x - cos * trailLen3D * BF_SCALE * t0;
-          const p0z = pos.z + sin * trailLen3D * BF_SCALE * t0;
+          const p0z = pos.z - sin * trailLen3D * BF_SCALE * t0;
           const p1x = pos.x - cos * trailLen3D * BF_SCALE * t1;
-          const p1z = pos.z + sin * trailLen3D * BF_SCALE * t1;
+          const p1z = pos.z - sin * trailLen3D * BF_SCALE * t1;
 
           const base = trailSegIdx * 6;
           trailPosArr[base] = p0x; trailPosArr[base + 1] = pos.y; trailPosArr[base + 2] = p0z;
@@ -679,7 +678,7 @@ function MissileEffects({
           _tmpMatrix.setPosition(
             pos.x - cos * vis.size * BF_SCALE * 4,
             pos.y,
-            pos.z + sin * vis.size * BF_SCALE * 4,
+            pos.z - sin * vis.size * BF_SCALE * 4,
           );
           glowMesh.setMatrixAt(glowIdx, _tmpMatrix);
           _tmpColor.set(palette.missileGlow).multiplyScalar(glowOpacity);
