@@ -14,7 +14,7 @@
  *  - Drag-box:     Selection rectangle (conditional)
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CombatStateAPI } from './useCombatState';
 import type { FormationType, CombatStance } from '@nova-imperia/shared';
 import { SPEED_PRESETS } from './constants';
@@ -48,6 +48,175 @@ const STANCE_COLOURS: Record<CombatStance, string> = {
   defensive: '#4488ff',
   evasive: '#ffaa44',
   flee: '#ff4444',
+};
+
+// ---------------------------------------------------------------------------
+// Controls reference overlay
+// ---------------------------------------------------------------------------
+
+const CONTROLS_REF: { key: string; action: string }[] = [
+  { key: 'LMB', action: 'Select' },
+  { key: 'RMB', action: 'Order' },
+  { key: 'Mid', action: 'Orbit Camera' },
+  { key: 'Scroll', action: 'Zoom' },
+  { key: 'Drag', action: 'Box Select' },
+  { key: 'Esc', action: 'Deselect' },
+  { key: '1/2/4', action: 'Speed' },
+  { key: 'R', action: 'Retreat All' },
+];
+
+const AUTO_HIDE_MS = 10_000;
+
+const ControlsOverlay: React.FC = () => {
+  const [dismissed, setDismissed] = useState(false);
+  const [autoHidden, setAutoHidden] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoveringRef = useRef(false);
+
+  const startAutoHide = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (!hoveringRef.current) setAutoHidden(true);
+    }, AUTO_HIDE_MS);
+  }, []);
+
+  useEffect(() => {
+    startAutoHide();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [startAutoHide]);
+
+  const handleMouseEnter = () => {
+    hoveringRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
+  const handleMouseLeave = () => {
+    hoveringRef.current = false;
+    startAutoHide();
+  };
+
+  // Fully dismissed for the session
+  if (dismissed) return null;
+
+  // Auto-hidden — show small "?" toggle
+  if (autoHidden) {
+    return (
+      <button
+        style={{
+          position: 'absolute',
+          bottom: 56,
+          left: 12,
+          background: 'rgba(10,22,40,0.75)',
+          border: '1px solid #335566',
+          borderRadius: 4,
+          color: '#66cccc',
+          fontFamily: 'monospace',
+          fontSize: 13,
+          fontWeight: 'bold',
+          width: 24,
+          height: 24,
+          cursor: 'pointer',
+          pointerEvents: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+        }}
+        title="Show controls"
+        onClick={() => {
+          setAutoHidden(false);
+          startAutoHide();
+        }}
+      >
+        ?
+      </button>
+    );
+  }
+
+  // Pair the controls into rows of two for the 2-column layout
+  const rows: { key: string; action: string }[][] = [];
+  for (let i = 0; i < CONTROLS_REF.length; i += 2) {
+    rows.push(CONTROLS_REF.slice(i, i + 2));
+  }
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 56,
+        left: 12,
+        background: 'rgba(10,22,40,0.85)',
+        border: '1px solid #335566',
+        borderRadius: 4,
+        padding: '6px 10px 6px 10px',
+        pointerEvents: 'auto',
+        fontFamily: 'monospace',
+        fontSize: 11,
+        color: '#ccddee',
+        minWidth: 260,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 4,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 'bold',
+            letterSpacing: 1.5,
+            color: '#66cccc',
+          }}
+        >
+          CONTROLS
+        </span>
+        <button
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#667788',
+            fontFamily: 'monospace',
+            fontSize: 13,
+            cursor: 'pointer',
+            padding: '0 2px',
+            lineHeight: 1,
+          }}
+          title="Dismiss controls"
+          onClick={() => setDismissed(true)}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Two-column grid */}
+      {rows.map((pair, ri) => (
+        <div
+          key={ri}
+          style={{
+            display: 'flex',
+            gap: 12,
+            lineHeight: '18px',
+          }}
+        >
+          {pair.map(ctrl => (
+            <span key={ctrl.key} style={{ flex: '1 1 0', whiteSpace: 'nowrap' }}>
+              <span style={{ color: '#66cccc' }}>{ctrl.key}:</span>{' '}
+              {ctrl.action}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -206,6 +375,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({ api }) => {
           ATTACK-MOVE
         </div>
       )}
+
+      {/* ── Bottom-left: controls reference overlay ─────────────── */}
+      {selectedShips.length === 0 && <ControlsOverlay />}
 
       {/* ── Bottom-left (above bar): selected ship info ────────── */}
       <div style={{ position: 'absolute', bottom: 56, left: 12 }}>

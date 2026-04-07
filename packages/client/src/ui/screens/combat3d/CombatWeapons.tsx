@@ -31,28 +31,31 @@ import type { SpeciesWeaponPalette } from '../../../assets/graphics/speciesWeapo
 // Helper
 // ---------------------------------------------------------------------------
 
+/** Scratch vector for shipPos3D output — callers must consume before the next call. */
+const _shipPosOut = new THREE.Vector3();
+
 /** Resolve a ship's 3D world position (or null if not found / destroyed). */
 function shipPos3D(
   shipId: string,
-  ships: TacticalShip[],
+  shipMap: Map<string, TacticalShip>,
   bfW: number,
   bfH: number,
 ): THREE.Vector3 | null {
-  const ship = ships.find((s) => s.id === shipId);
+  const ship = shipMap.get(shipId);
   if (!ship) return null;
-  const pos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH);
-  pos.y = shipYOffset(ship.maxHull);
-  return pos;
+  tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _shipPosOut);
+  _shipPosOut.y = shipYOffset(ship.maxHull);
+  return _shipPosOut;
 }
 
 /** Resolve the species palette for a ship based on its side. */
 function shipPalette(
   shipId: string,
-  ships: TacticalShip[],
+  shipMap: Map<string, TacticalShip>,
   attackerSpeciesId?: string,
   defenderSpeciesId?: string,
 ): SpeciesWeaponPalette {
-  const ship = ships.find((s) => s.id === shipId);
+  const ship = shipMap.get(shipId);
   const speciesId =
     ship?.side === 'attacker' ? attackerSpeciesId : defenderSpeciesId;
   return getSpeciesWeaponPalette(speciesId);
@@ -64,12 +67,17 @@ function shipPalette(
 
 const _tmpColor = new THREE.Color();
 const _tmpMatrix = new THREE.Matrix4();
+const _tmpMatrix2 = new THREE.Matrix4();
 const _tmpDir = new THREE.Vector3();
 const _tmpSrc = new THREE.Vector3();
 const _tmpTgt = new THREE.Vector3();
 const _tmpQuat = new THREE.Quaternion();
 const _tmpQuat2 = new THREE.Quaternion();
 const _tmpScale = new THREE.Vector3();
+const _tmpPos = new THREE.Vector3();
+const _perpA = new THREE.Vector3();
+const _perpB = new THREE.Vector3();
+const _tmpUp = new THREE.Vector3();
 const _xAxis = new THREE.Vector3(1, 0, 0);
 const _yAxis = new THREE.Vector3(0, 1, 0);
 
@@ -153,6 +161,10 @@ function BeamEffects({
     const { ships, beamEffects, tick, battlefieldWidth, battlefieldHeight } =
       state;
 
+    // Build O(1) lookup map for ships (avoids O(n) .find per beam)
+    const shipMap = new Map<string, TacticalShip>();
+    for (const s of ships) shipMap.set(s.id, s);
+
     /** Write one line segment (2 vertices) into the pre-allocated buffer. */
     const addSegment = (
       sx: number, sy: number, sz: number,
@@ -191,9 +203,15 @@ function BeamEffects({
     };
 
     for (const beam of beamEffects) {
-      const srcPos = shipPos3D(beam.sourceShipId, ships, battlefieldWidth, battlefieldHeight);
-      const tgtPos = shipPos3D(beam.targetShipId, ships, battlefieldWidth, battlefieldHeight);
-      if (!srcPos || !tgtPos) continue;
+      // Copy source position before shipPos3D overwrites the scratch vector
+      const srcPosRaw = shipPos3D(beam.sourceShipId, shipMap, battlefieldWidth, battlefieldHeight);
+      if (!srcPosRaw) continue;
+      _tmpSrc.copy(srcPosRaw);
+      const tgtPosRaw = shipPos3D(beam.targetShipId, shipMap, battlefieldWidth, battlefieldHeight);
+      if (!tgtPosRaw) continue;
+      _tmpTgt.copy(tgtPosRaw);
+      const srcPos = _tmpSrc;
+      const tgtPos = _tmpTgt;
 
       const style: BeamStyle =
         BEAM_STYLE_MAP[beam.componentId ?? ''] ?? 'pulse';
@@ -202,7 +220,7 @@ function BeamEffects({
 
       // Species-specific palette
       const palette = shipPalette(
-        beam.sourceShipId, ships, attackerSpeciesId, defenderSpeciesId,
+        beam.sourceShipId, shipMap, attackerSpeciesId, defenderSpeciesId,
       );
       _tmpColor.set(palette.beamCore);
       const coreR = _tmpColor.r, coreG = _tmpColor.g, coreB = _tmpColor.b;
@@ -249,13 +267,14 @@ function BeamEffects({
           );
 
           _tmpDir.set(dx, dy, dz).normalize();
-          const perpA = new THREE.Vector3().crossVectors(
-            _tmpDir, new THREE.Vector3(0, 1, 0),
-          );
-          if (perpA.lengthSq() < 0.001)
-            perpA.crossVectors(_tmpDir, new THREE.Vector3(1, 0, 0));
-          perpA.normalize();
-          const perpB = new THREE.Vector3().crossVectors(_tmpDir, perpA).normalize();
+          _tmpUp.set(0, 1, 0);
+          _perpA.crossVectors(_tmpDir, _tmpUp);
+          if (_perpA.lengthSq() < 0.001) {
+            _tmpUp.set(1, 0, 0);
+            _perpA.crossVectors(_tmpDir, _tmpUp);
+          }
+          _perpA.normalize();
+          _perpB.crossVectors(_tmpDir, _perpA).normalize();
 
           // Build zigzag points, writing consecutive segments
           let prevX = sx, prevY = sy, prevZ = sz;
@@ -271,9 +290,9 @@ function BeamEffects({
               const jitterB =
                 (Math.cos(tick * 5 + i * 11) + Math.cos(tick * 13 + i * 3)) *
                 0.5 * (0.4 + intensity * 0.4) * BF_SCALE;
-              px = sx + dx * t + perpA.x * jitterA + perpB.x * jitterB;
-              py = sy + dy * t + perpA.y * jitterA + perpB.y * jitterB;
-              pz = sz + dz * t + perpA.z * jitterA + perpB.z * jitterB;
+              px = sx + dx * t + _perpA.x * jitterA + _perpB.x * jitterB;
+              py = sy + dy * t + _perpA.y * jitterA + _perpB.y * jitterB;
+              pz = sz + dz * t + _perpA.z * jitterA + _perpB.z * jitterB;
             }
             // Outer glow segment
             addSegment(prevX, prevY, prevZ, px, py, pz, glowR, glowG, glowB, fadeAlpha * 0.3 * beamBrightness);
@@ -384,6 +403,10 @@ function ProjectileEffects({
 
     const { projectiles, ships, battlefieldWidth, battlefieldHeight } = state;
 
+    // Build O(1) lookup map for ships
+    const shipMap = new Map<string, TacticalShip>();
+    for (const s of ships) shipMap.set(s.id, s);
+
     const trailPosAttr = trailGeo.getAttribute('position') as THREE.BufferAttribute;
     const trailColAttr = trailGeo.getAttribute('color') as THREE.BufferAttribute;
     const trailPosArr = trailPosAttr.array as Float32Array;
@@ -401,17 +424,19 @@ function ProjectileEffects({
       const dmgFrac = Math.min(1, proj.damage / 65);
 
       const palette = shipPalette(
-        proj.sourceShipId, ships, attackerSpeciesId, defenderSpeciesId,
+        proj.sourceShipId, shipMap, attackerSpeciesId, defenderSpeciesId,
       );
 
-      const pos = tacticalTo3D(
-        proj.position.x, proj.position.y, battlefieldWidth, battlefieldHeight,
+      tacticalTo3D(
+        proj.position.x, proj.position.y, battlefieldWidth, battlefieldHeight, _tmpPos,
       );
-      pos.y = 0.1;
+      _tmpPos.y = 0.1;
+      const pos = _tmpPos;
 
-      // Compute travel direction
+      // Compute travel direction — copy pos first since shipPos3D reuses scratch
+      _tmpSrc.copy(pos);
       const tgtPos = shipPos3D(
-        proj.targetShipId, ships, battlefieldWidth, battlefieldHeight,
+        proj.targetShipId, shipMap, battlefieldWidth, battlefieldHeight,
       );
       _tmpDir.set(1, 0, 0);
       if (tgtPos) {
@@ -425,12 +450,9 @@ function ProjectileEffects({
       _tmpMatrix.identity();
       _tmpMatrix.makeScale(coreLen, coreWidth, coreWidth);
 
-      const rotMat = new THREE.Matrix4();
-      const quat = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(1, 0, 0), _tmpDir,
-      );
-      rotMat.makeRotationFromQuaternion(quat);
-      _tmpMatrix.premultiply(rotMat);
+      _tmpQuat.setFromUnitVectors(_xAxis, _tmpDir);
+      _tmpMatrix2.makeRotationFromQuaternion(_tmpQuat);
+      _tmpMatrix.premultiply(_tmpMatrix2);
       _tmpMatrix.setPosition(pos);
       mesh.setMatrixAt(instanceIdx, _tmpMatrix);
 
@@ -576,6 +598,10 @@ function MissileEffects({
     const { missiles, ships, battlefieldWidth, battlefieldHeight, tick } = state;
     const missileList = missiles ?? [];
 
+    // Build O(1) lookup map for ships
+    const shipMap = new Map<string, TacticalShip>();
+    for (const s of ships) shipMap.set(s.id, s);
+
     const trailPosAttr = trailGeo.getAttribute('position') as THREE.BufferAttribute;
     const trailColAttr = trailGeo.getAttribute('color') as THREE.BufferAttribute;
     const trailPosArr = trailPosAttr.array as Float32Array;
@@ -594,11 +620,12 @@ function MissileEffects({
         const baseScale = vis.size * BF_SCALE * 10;
 
         const palette = shipPalette(
-          m.sourceShipId, ships, attackerSpeciesId, defenderSpeciesId,
+          m.sourceShipId, shipMap, attackerSpeciesId, defenderSpeciesId,
         );
 
-        const pos = tacticalTo3D(m.x, m.y, battlefieldWidth, battlefieldHeight);
-        pos.y = 0.15;
+        tacticalTo3D(m.x, m.y, battlefieldWidth, battlefieldHeight, _tmpPos);
+        _tmpPos.y = 0.15;
+        const pos = _tmpPos;
 
         const heading = m.heading;
         // Capsule body is along Y. Rotate so tip (+Y) points toward heading in XZ plane:

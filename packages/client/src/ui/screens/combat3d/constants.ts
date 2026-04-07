@@ -27,12 +27,13 @@ export function tacticalTo3D(
   engineY: number,
   bfWidth: number = BATTLEFIELD_WIDTH,
   bfHeight: number = BATTLEFIELD_HEIGHT,
+  out?: THREE.Vector3,
 ): THREE.Vector3 {
-  return new THREE.Vector3(
-    (engineX - bfWidth / 2) * BF_SCALE,
-    0,
-    (engineY - bfHeight / 2) * BF_SCALE,
-  );
+  const v = out ?? new THREE.Vector3();
+  v.x = (engineX - bfWidth / 2) * BF_SCALE;
+  v.y = 0;
+  v.z = (engineY - bfHeight / 2) * BF_SCALE;
+  return v;
 }
 
 // ---------------------------------------------------------------------------

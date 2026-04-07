@@ -5,7 +5,7 @@
  * theme lighting.
  */
 
-import React, { useRef, useMemo, useState, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -21,20 +21,18 @@ import { tacticalTo3D, shipYOffset, shipScale, DAMAGE_FLASH_COLOR } from './cons
 
 const DAMAGE_FLASH_DURATION_MS = 120;
 const SELECTION_RING_COLOR = 0xffffff;
-const ENGINE_GLOW_INTENSITY = 0.8;
-const ENGINE_GLOW_DISTANCE = 5;
 const ENGINE_EMISSIVE_RADIUS = 0.15;
 
 /** Running lights blink period in ticks (alternates every 17 ticks). */
 const RUNNING_LIGHT_BLINK_TICKS = 17;
-const RUNNING_LIGHT_INTENSITY = 0.5;
-const RUNNING_LIGHT_DISTANCE = 2.5;
 const PORT_LIGHT_COLOR = 0xff2222;       // red — port (left)
 const STARBOARD_LIGHT_COLOR = 0x22ff44;  // green — starboard (right)
 
-/** Species ambient light to tint the hull with faction colour. */
-const SPECIES_AMBIENT_INTENSITY = 0.4;
-const SPECIES_AMBIENT_DISTANCE = 6;
+/** Tiny emissive sphere radius for running lights. */
+const RUNNING_LIGHT_RADIUS = 0.04;
+
+/** Scratch vector for per-ship positioning (avoid per-frame allocation). */
+const _tmpShipPos = new THREE.Vector3();
 
 // ---------------------------------------------------------------------------
 // Health bar colour helper
@@ -68,18 +66,17 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   bfHeight,
   hullClass,
   speciesId,
-  empireColor,
+  empireColor: _empireColor,
   tick,
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const flashRef = useRef<THREE.Mesh>(null);
-  const [flashOpacity, setFlashOpacity] = useState(0);
   const flashStartRef = useRef<number>(0);
 
-  // Memoise geometry and material per species + hull class
+  // Memoise geometry and material per species + hull class (capped at cx=4 for combat)
   const geometry = useMemo(
-    () => generateShipGeometry(speciesId ?? 'teranos', hullClass),
+    () => generateShipGeometry(speciesId ?? 'teranos', hullClass, 4),
     [speciesId, hullClass],
   );
 
@@ -110,10 +107,6 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   // Running lights blink state — alternates port/starboard visibility every N ticks
   const runningLightsOn = Math.floor(tick / RUNNING_LIGHT_BLINK_TICKS) % 2 === 0;
 
-  // Refs for running light objects (animated in useFrame)
-  const portLightRef = useRef<THREE.PointLight>(null);
-  const starboardLightRef = useRef<THREE.PointLight>(null);
-
   const isSelected = api.selectedShipIds.includes(ship.id);
   const isDamaged = api.damagedShipIds.has(ship.id);
   const isPlayer = api.isPlayerShip(ship);
@@ -122,30 +115,30 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   useFrame((_state, _delta) => {
     if (!groupRef.current) return;
 
-    // Position the group
-    const pos = tacticalTo3D(ship.position.x, ship.position.y, bfWidth, bfHeight);
-    groupRef.current.position.set(pos.x, yOff, pos.z);
+    // Position the group (reuse scratch vector, avoid allocation)
+    tacticalTo3D(ship.position.x, ship.position.y, bfWidth, bfHeight, _tmpShipPos);
+    groupRef.current.position.set(_tmpShipPos.x, yOff, _tmpShipPos.z);
 
     // Rotate the ship mesh (ShipModels3D faces +Z, engine uses 0 = +x)
     if (meshRef.current) {
       meshRef.current.rotation.y = -(ship.facing - Math.PI / 2);
     }
 
-    // Damage flash
+    // Damage flash — driven entirely via ref, no React state setter
     if (isDamaged && flashStartRef.current === 0) {
       flashStartRef.current = performance.now();
     }
 
-    if (flashStartRef.current > 0) {
+    if (flashStartRef.current > 0 && flashRef.current) {
       const elapsed = performance.now() - flashStartRef.current;
       if (elapsed < DAMAGE_FLASH_DURATION_MS) {
         const alpha = 1 - elapsed / DAMAGE_FLASH_DURATION_MS;
         flashMaterial.opacity = alpha * 0.6;
-        setFlashOpacity(alpha * 0.6);
+        flashRef.current.visible = true;
       } else {
         flashMaterial.opacity = 0;
+        flashRef.current.visible = false;
         flashStartRef.current = 0;
-        setFlashOpacity(0);
       }
     }
   });
@@ -206,57 +199,36 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         </mesh>
       )}
 
-      {/* Damage flash sphere overlay */}
-      {flashOpacity > 0 && (
-        <mesh ref={flashRef} scale={[scale * 1.3, scale * 1.3, scale * 1.3]}>
-          <sphereGeometry args={[1, 8, 8]} />
-          <primitive object={flashMaterial} attach="material" />
+      {/* Damage flash sphere overlay — always rendered, visibility toggled via ref */}
+      <mesh ref={flashRef} scale={[scale * 1.3, scale * 1.3, scale * 1.3]} visible={false}>
+        <sphereGeometry args={[1, 8, 8]} />
+        <primitive object={flashMaterial} attach="material" />
+      </mesh>
+
+      {/* Engine glow — emissive sphere (no point light, saves GPU cost) */}
+      <mesh position={[0, 0, -scale * 1.5]}>
+        <sphereGeometry args={[ENGINE_EMISSIVE_RADIUS * scale, 6, 6]} />
+        <meshBasicMaterial
+          color={palette.engineGlow}
+          transparent
+          opacity={0.85}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Running lights — tiny emissive spheres instead of point lights */}
+      {runningLightsOn && (
+        <mesh position={[-scale * 0.9, 0.1, 0]}>
+          <sphereGeometry args={[RUNNING_LIGHT_RADIUS * scale, 4, 4]} />
+          <meshBasicMaterial color={PORT_LIGHT_COLOR} />
         </mesh>
       )}
-
-      {/* Engine glow — emissive sphere + point light at the aft using species engine colour */}
-      <group position={[0, 0, -scale * 1.5]}>
-        <mesh>
-          <sphereGeometry args={[ENGINE_EMISSIVE_RADIUS * scale, 6, 6]} />
-          <meshStandardMaterial
-            color={palette.engineGlow}
-            emissive={palette.engineGlow}
-            emissiveIntensity={3}
-            transparent
-            opacity={0.85}
-            depthWrite={false}
-          />
+      {!runningLightsOn && (
+        <mesh position={[scale * 0.9, 0.1, 0]}>
+          <sphereGeometry args={[RUNNING_LIGHT_RADIUS * scale, 4, 4]} />
+          <meshBasicMaterial color={STARBOARD_LIGHT_COLOR} />
         </mesh>
-        <pointLight
-          color={palette.engineGlow}
-          intensity={ENGINE_GLOW_INTENSITY}
-          distance={ENGINE_GLOW_DISTANCE}
-        />
-      </group>
-
-      {/* Running lights — red port (left), green starboard (right) */}
-      <pointLight
-        ref={portLightRef}
-        color={PORT_LIGHT_COLOR}
-        intensity={runningLightsOn ? RUNNING_LIGHT_INTENSITY : 0}
-        distance={RUNNING_LIGHT_DISTANCE}
-        position={[-scale * 0.9, 0.1, 0]}
-      />
-      <pointLight
-        ref={starboardLightRef}
-        color={STARBOARD_LIGHT_COLOR}
-        intensity={runningLightsOn ? 0 : RUNNING_LIGHT_INTENSITY}
-        distance={RUNNING_LIGHT_DISTANCE}
-        position={[scale * 0.9, 0.1, 0]}
-      />
-
-      {/* Species faction ambient glow — tints the ship with its faction colour */}
-      <pointLight
-        color={empireColor}
-        intensity={SPECIES_AMBIENT_INTENSITY}
-        distance={SPECIES_AMBIENT_DISTANCE}
-        position={[0, scale * 0.8, 0]}
-      />
+      )}
 
       {/* Health bar and name label (HTML overlay) */}
       <Html
