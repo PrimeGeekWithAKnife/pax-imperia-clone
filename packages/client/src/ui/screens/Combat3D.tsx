@@ -177,13 +177,28 @@ export function Combat3D({
   cleanupRef.current = api.cleanup;
   useEffect(() => () => cleanupRef.current(), []);
 
+  // Disable Phaser input while combat is active so keyboard/mouse events
+  // don't leak through to the underlying Phaser game and trigger scene changes.
+  useEffect(() => {
+    const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { input?: { enabled: boolean } } | undefined;
+    if (game?.input) game.input.enabled = false;
+    return () => {
+      if (game?.input) game.input.enabled = true;
+    };
+  }, []);
+
   // Camera: above and behind, looking at centre
   const bfW = api.state.battlefieldWidth * BF_SCALE;
   const bfH = api.state.battlefieldHeight * BF_SCALE;
   const camDist = Math.max(bfW, bfH) * 0.8;
 
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#06081a' }}>
+    <div
+      style={{ position: 'absolute', inset: 0, background: '#06081a', touchAction: 'none' }}
+      onTouchStart={e => e.stopPropagation()}
+      onTouchMove={e => e.stopPropagation()}
+      onTouchEnd={e => e.stopPropagation()}
+    >
       <Canvas
         camera={{
           position: [0, camDist, camDist * 0.6],

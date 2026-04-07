@@ -287,8 +287,14 @@ export function CombatInput({ api }: CombatInputProps): null {
     const onKeyDown = (e: KeyboardEvent) => {
       const a = apiRef.current;
 
+      // Prevent ALL keyboard events from reaching Phaser/other listeners
+      // while combat is active — otherwise Escape triggers scene navigation.
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       switch (e.key) {
         case 'Escape':
+          e.preventDefault();
           a.selectShips([]);
           if (a.attackMoveMode) a.toggleAttackMove();
           break;
