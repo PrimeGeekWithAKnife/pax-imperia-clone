@@ -2504,16 +2504,6 @@ export function App(): React.ReactElement {
             }}
           />
         )}
-        {combatSummary !== null && (
-          <CombatSummaryOverlay
-            data={combatSummary}
-            onContinue={() => {
-              setCombatSummary(null);
-              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { events?: { emit: (e: string) => void } } | undefined;
-              game?.events?.emit('combat:summary_continue');
-            }}
-          />
-        )}
         {combat3DData && (
           <Combat3D
             combatData={combat3DData}
@@ -2558,12 +2548,22 @@ export function App(): React.ReactElement {
                 ticksElapsed: state.tick,
               });
 
-              const engine = getGameEngine();
-              if (engine && rawState) {
-                engine.applyTacticalCombatResult(state);
-                engine.start();
-              }
+              // Skirmish mode — do NOT touch the game engine (there's no active game).
+              // Just clear the combat view; summary overlay stays until user clicks Continue.
               setCombat3DData(null);
+            }}
+          />
+        )}
+        {combatSummary !== null && (
+          <CombatSummaryOverlay
+            data={combatSummary}
+            onContinue={() => {
+              setCombatSummary(null);
+              // Return to main menu after skirmish summary
+              setCurrentScreen('game');
+              const game = (window as unknown as Record<string, unknown>).__EX_NIHILO_GAME__ as { scene?: { scenes?: Array<{ scene: { key: string; start: (k: string) => void } }> } } | undefined;
+              const activeScene = game?.scene?.scenes?.find(s => s.scene.key !== 'BootScene');
+              if (activeScene) activeScene.scene.start('MainMenuScene');
             }}
           />
         )}
