@@ -116,37 +116,60 @@ export function FighterEffects({ state, attackerColor, defenderColor }: FighterE
 // 2. PointDefenceEffects
 // ---------------------------------------------------------------------------
 
+/** Maximum point defence tracer line segments. */
+const MAX_PD_SEGMENTS = 100;
+
 interface PointDefenceEffectsProps {
   state: TacticalState;
 }
 
 /**
  * Renders point defence intercept lines from the firing ship to the target
- * missile position. Lines are rebuilt each frame and fade based on remaining
- * ticks.
+ * missile position. Uses a pre-allocated LineSegments buffer -- positions and
+ * colours are updated in-place each frame, no geometry is ever created or
+ * disposed inside useFrame.
  */
 export function PointDefenceEffects({ state }: PointDefenceEffectsProps): JSX.Element {
-  const groupRef = useRef<THREE.Group>(null);
+  // Pre-allocate geometry once
+  const lineGeo = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(MAX_PD_SEGMENTS * 2 * 3);
+    const colors = new Float32Array(MAX_PD_SEGMENTS * 2 * 3);
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setDrawRange(0, 0);
+    return geo;
+  }, []);
+
+  const lineMat = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: false,
+      }),
+    [],
+  );
+
+  // Base colour for PD tracers (amber-yellow)
+  const pdColor = useMemo(() => new THREE.Color(0xffdd44), []);
 
   useFrame(() => {
-    const group = groupRef.current;
-    if (!group) return;
-
-    // Clear previous frame's children
-    while (group.children.length > 0) {
-      const child = group.children[0]!;
-      group.remove(child);
-      if (child instanceof THREE.Line) {
-        child.geometry.dispose();
-        (child.material as THREE.Material).dispose();
-      }
-    }
+    const posAttr = lineGeo.getAttribute('position') as THREE.BufferAttribute;
+    const colAttr = lineGeo.getAttribute('color') as THREE.BufferAttribute;
+    const posArr = posAttr.array as Float32Array;
+    const colArr = colAttr.array as Float32Array;
 
     const pdEffects = state.pointDefenceEffects ?? [];
     const bfW = state.battlefieldWidth;
     const bfH = state.battlefieldHeight;
 
+    let segIdx = 0;
+
     for (const pd of pdEffects) {
+      if (segIdx >= MAX_PD_SEGMENTS) break;
+
       const ship = state.ships.find(s => s.id === pd.shipId);
       if (!ship) continue;
 
@@ -156,24 +179,26 @@ export function PointDefenceEffects({ state }: PointDefenceEffectsProps): JSX.El
       const opacity = (pd.ticksRemaining / 2) * 0.85 * 0.5;
       if (opacity <= 0) continue;
 
-      const geometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(shipPos.x, 0.1, shipPos.z),
-        new THREE.Vector3(interceptPos.x, 0.1, interceptPos.z),
-      ]);
+      const base = segIdx * 6;
+      posArr[base] = shipPos.x;       posArr[base + 1] = 0.1;  posArr[base + 2] = shipPos.z;
+      posArr[base + 3] = interceptPos.x; posArr[base + 4] = 0.1;  posArr[base + 5] = interceptPos.z;
 
-      const material = new THREE.LineBasicMaterial({
-        color: 0xffdd44,
-        transparent: true,
-        opacity,
-        depthWrite: false,
-      });
+      // Apply opacity by scaling colour brightness
+      const r = pdColor.r * opacity;
+      const g = pdColor.g * opacity;
+      const b = pdColor.b * opacity;
+      colArr[base] = r;     colArr[base + 1] = g;     colArr[base + 2] = b;
+      colArr[base + 3] = r; colArr[base + 4] = g; colArr[base + 5] = b;
 
-      const line = new THREE.Line(geometry, material);
-      group.add(line);
+      segIdx++;
     }
+
+    lineGeo.setDrawRange(0, segIdx * 2);
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
   });
 
-  return <group ref={groupRef} />;
+  return <lineSegments geometry={lineGeo} material={lineMat} />;
 }
 
 // ---------------------------------------------------------------------------
