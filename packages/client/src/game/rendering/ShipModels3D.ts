@@ -118,25 +118,31 @@ export function clearShipGeometryCache(): void {
  * Ships face along +Z (bow), centred at origin.
  * Scale ranges from ~1.5 units (probe) to ~24 units (battle station).
  *
- * Results are cached by speciesId:hullClass — subsequent calls for the same
- * key return a cheap clone instead of rebuilding 50-238 merged parts.
+ * Results are cached by speciesId:hullClass:maxComplexity — subsequent calls
+ * for the same key return the cached geometry directly (safe because meshes
+ * share read-only BufferGeometry in Three.js).
+ *
+ * @param maxComplexity - Optional cap on the complexity tier. Pass 4 for
+ *   combat rendering where ships are small on screen and high detail is
+ *   invisible.
  */
 export function generateShipGeometry(
   speciesId: string,
   hullClass: HullClass,
+  maxComplexity?: number,
 ): THREE.BufferGeometry {
-  const key = `${speciesId}:${hullClass}`;
+  const cx = Math.min(HULL_COMPLEXITY[hullClass] ?? 2, maxComplexity ?? 8);
+  const key = `${speciesId}:${hullClass}:${cx}`;
   const cached = _geometryCache.get(key);
-  if (cached) return cached.clone();
+  if (cached) return cached;
 
   const builder = BUILDERS[speciesId] ?? BUILDERS.teranos;
   const len = HULL_SCALE[hullClass] ?? 4;
-  const cx = HULL_COMPLEXITY[hullClass] ?? 2;
   const geo = builder(len, cx);
   geo.computeVertexNormals();
 
   _geometryCache.set(key, geo);
-  return geo.clone();
+  return geo;
 }
 
 // ─── Materials ──────────────────────────────────────────────────────────────
@@ -280,15 +286,30 @@ const SPECIES_MATERIALS: Record<string, SpeciesMaterialDef> = {
   },
 };
 
+// ─── Material cache ────────────────────────────────────────────────────────
+// Keyed by speciesId. All ships of the same species share a single material
+// instance — safe because the properties are read-only constants. This
+// reduces draw calls from N (per ship) to numSpecies (typically 2).
+
+const _materialCache = new Map<string, THREE.Material>();
+
+/** Clear the material cache (call alongside clearShipGeometryCache). */
+export function clearShipMaterialCache(): void {
+  for (const mat of _materialCache.values()) mat.dispose();
+  _materialCache.clear();
+}
+
 /**
  * Get the standard MeshStandardMaterial for a species' ships.
  *
- * Returns a new material instance each call — the caller is responsible
- * for caching/sharing if desired.
+ * Returns a cached material shared across all ships of the same species.
  */
 export function getShipMaterial(speciesId: string): THREE.Material {
+  const cached = _materialCache.get(speciesId);
+  if (cached) return cached;
+
   const def = SPECIES_MATERIALS[speciesId] ?? SPECIES_MATERIALS.teranos;
-  return new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardMaterial({
     color: def.color,
     emissive: def.emissive,
     emissiveIntensity: def.emissiveIntensity,
@@ -298,4 +319,7 @@ export function getShipMaterial(speciesId: string): THREE.Material {
     opacity: def.opacity ?? 1.0,
     side: THREE.DoubleSide,
   });
+
+  _materialCache.set(speciesId, mat);
+  return mat;
 }

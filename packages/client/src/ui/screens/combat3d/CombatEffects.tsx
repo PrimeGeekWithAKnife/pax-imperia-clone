@@ -28,7 +28,14 @@ import {
 const _tmpMatrix = new THREE.Matrix4();
 const _tmpColor = new THREE.Color();
 const _tmpQuat = new THREE.Quaternion();
+const _tmpQuat2 = new THREE.Quaternion();
+const _tmpVec3 = new THREE.Vector3();
+const _tmpVec3b = new THREE.Vector3();
+const _tmpScale = new THREE.Vector3();
+const _tmpPos = new THREE.Vector3();
+const _xAxis = new THREE.Vector3(1, 0, 0);
 const _upAxis = new THREE.Vector3(0, 1, 0);
+const _identityQuat = new THREE.Quaternion();
 
 // ---------------------------------------------------------------------------
 // 1. FighterEffects
@@ -61,6 +68,10 @@ export function FighterEffects({ state, attackerColor, defenderColor }: FighterE
     const bfH = state.battlefieldHeight;
     let visibleCount = 0;
 
+    // Build O(1) lookup map for ships
+    const shipMap = new Map<string, typeof state.ships[0]>();
+    for (const s of state.ships) shipMap.set(s.id, s);
+
     for (let i = 0; i < fighters.length && i < MAX_FIGHTERS; i++) {
       const f = fighters[i]!;
       if (f.health <= 0) continue;
@@ -68,28 +79,29 @@ export function FighterEffects({ state, attackerColor, defenderColor }: FighterE
       // Position with jitter
       const jitterX = (Math.random() - 0.5) * 0.4 * BF_SCALE;
       const jitterZ = (Math.random() - 0.5) * 0.4 * BF_SCALE;
-      const pos = tacticalTo3D(f.x, f.y, bfW, bfH);
-      pos.x += jitterX;
-      pos.z += jitterZ;
+      tacticalTo3D(f.x, f.y, bfW, bfH, _tmpPos);
+      _tmpPos.x += jitterX;
+      _tmpPos.z += jitterZ;
 
       // Compute heading toward target or carrier
       let heading = 0;
       if (f.targetId) {
-        const tgt = state.ships.find(s => s.id === f.targetId);
+        const tgt = shipMap.get(f.targetId);
         if (tgt) heading = Math.atan2(tgt.position.y - f.y, tgt.position.x - f.x);
       } else if (f.carrierId) {
-        const carrier = state.ships.find(s => s.id === f.carrierId);
+        const carrier = shipMap.get(f.carrierId);
         if (carrier) heading = Math.atan2(carrier.position.y - f.y, carrier.position.x - f.x);
       }
 
       // Build transform: scale 0.3, rotate cone to point toward heading
       // Cone default orientation is along +Y; we rotate it to lie flat (along -Z)
       // then yaw toward heading.
-      _tmpQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2); // tip cone forward
-      const yawQuat = new THREE.Quaternion().setFromAxisAngle(_upAxis, -heading);
-      _tmpQuat.premultiply(yawQuat);
+      _tmpQuat.setFromAxisAngle(_xAxis, -Math.PI / 2); // tip cone forward
+      _tmpQuat2.setFromAxisAngle(_upAxis, -heading);
+      _tmpQuat.premultiply(_tmpQuat2);
 
-      _tmpMatrix.compose(pos, _tmpQuat, new THREE.Vector3(0.3, 0.3, 0.3));
+      _tmpScale.set(0.3, 0.3, 0.3);
+      _tmpMatrix.compose(_tmpPos, _tmpQuat, _tmpScale);
       mesh.setMatrixAt(visibleCount, _tmpMatrix);
 
       // Colour by side
@@ -165,16 +177,22 @@ export function PointDefenceEffects({ state }: PointDefenceEffectsProps): JSX.El
     const bfW = state.battlefieldWidth;
     const bfH = state.battlefieldHeight;
 
+    // Build O(1) lookup map for ships
+    const shipMap = new Map<string, typeof state.ships[0]>();
+    for (const s of state.ships) shipMap.set(s.id, s);
+
     let segIdx = 0;
 
     for (const pd of pdEffects) {
       if (segIdx >= MAX_PD_SEGMENTS) break;
 
-      const ship = state.ships.find(s => s.id === pd.shipId);
+      const ship = shipMap.get(pd.shipId);
       if (!ship) continue;
 
-      const shipPos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH);
-      const interceptPos = tacticalTo3D(pd.missileX, pd.missileY, bfW, bfH);
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpVec3);
+      const shipPos = _tmpVec3;
+      tacticalTo3D(pd.missileX, pd.missileY, bfW, bfH, _tmpVec3b);
+      const interceptPos = _tmpVec3b;
 
       const opacity = (pd.ticksRemaining / 2) * 0.85 * 0.5;
       if (opacity <= 0) continue;
@@ -231,12 +249,13 @@ export function EscapePodEffects({ state }: EscapePodEffectsProps): JSX.Element 
 
     for (let i = 0; i < pods.length && i < MAX_ESCAPE_PODS; i++) {
       const pod = pods[i]!;
-      const pos = tacticalTo3D(pod.x, pod.y, bfW, bfH);
+      tacticalTo3D(pod.x, pod.y, bfW, bfH, _tmpPos);
 
+      _tmpScale.set(scale, scale, scale);
       _tmpMatrix.compose(
-        pos,
-        new THREE.Quaternion(), // identity rotation
-        new THREE.Vector3(scale, scale, scale),
+        _tmpPos,
+        _identityQuat,
+        _tmpScale,
       );
       mesh.setMatrixAt(visibleCount, _tmpMatrix);
 
@@ -619,26 +638,21 @@ export function EngineThrustPlumes({
       const plumeRadius = PLUME_BASE_RADIUS * scale;
 
       // Position: behind the ship (opposite facing)
-      const pos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH);
-      const aftX = pos.x + Math.cos(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
-      const aftZ = pos.z - Math.sin(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
+      const aftX = _tmpPos.x + Math.cos(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
+      const aftZ = _tmpPos.z - Math.sin(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
 
       // The cone geometry has its tip at top (+Y) and base at bottom (-Y).
       // We rotate it to point opposite to facing direction (engine exhaust).
       // First lay the cone flat (tip along -Z), then yaw to face the exhaust direction.
-      const tipQuat = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(1, 0, 0),
-        Math.PI / 2,
-      );
+      _tmpQuat.setFromAxisAngle(_xAxis, Math.PI / 2);
       const yawAngle = -(ship.facing - Math.PI / 2) + Math.PI;
-      const yawQuat = new THREE.Quaternion().setFromAxisAngle(_upAxis, yawAngle);
-      tipQuat.premultiply(yawQuat);
+      _tmpQuat2.setFromAxisAngle(_upAxis, yawAngle);
+      _tmpQuat.premultiply(_tmpQuat2);
 
-      _tmpMatrix.compose(
-        new THREE.Vector3(aftX, 0.05, aftZ),
-        tipQuat,
-        new THREE.Vector3(plumeRadius, plumeLen, plumeRadius),
-      );
+      _tmpVec3.set(aftX, 0.05, aftZ);
+      _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
+      _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
       mesh.setMatrixAt(count, _tmpMatrix);
 
       // Species engine colour with brightness scaled by speed
@@ -688,7 +702,7 @@ interface RcsPuffEntry {
   y: number;
   z: number;
   startTime: number;
-  color: THREE.Color;
+  colorHex: number;
 }
 
 interface RcsPuffEffectsProps {
@@ -745,7 +759,7 @@ export function RcsPuffEffects({
 
       if (Math.abs(dFacing) < RCS_TURN_THRESHOLD) continue;
 
-      const pos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH);
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
       const scale = shipScale(ship.maxHull);
       const palette = ship.side === 'attacker' ? attackerPalette : defenderPalette;
 
@@ -754,28 +768,32 @@ export function RcsPuffEffects({
       const perpAngle = ship.facing + (dFacing > 0 ? -Math.PI / 2 : Math.PI / 2);
       const offset = scale * 0.8;
 
-      const puffX = pos.x + Math.cos(perpAngle) * offset * BF_SCALE * 10;
-      const puffZ = pos.z - Math.sin(perpAngle) * offset * BF_SCALE * 10;
+      const puffX = _tmpPos.x + Math.cos(perpAngle) * offset * BF_SCALE * 10;
+      const puffZ = _tmpPos.z - Math.sin(perpAngle) * offset * BF_SCALE * 10;
+
+      // Store colour as hex number to avoid allocating new THREE.Color per puff
+      _tmpColor.set(palette.engineGlow);
+      const puffColorHex = _tmpColor.getHex();
 
       puffsRef.current.push({
         x: puffX,
         y: 0.1,
         z: puffZ,
         startTime: now,
-        color: new THREE.Color(palette.engineGlow),
+        colorHex: puffColorHex,
       });
 
       // Also fire from the opposite side at the aft for realism
       const aftPerpAngle = ship.facing + Math.PI + (dFacing > 0 ? Math.PI / 2 : -Math.PI / 2);
-      const aftPuffX = pos.x + Math.cos(aftPerpAngle) * offset * 0.6 * BF_SCALE * 10;
-      const aftPuffZ = pos.z - Math.sin(aftPerpAngle) * offset * 0.6 * BF_SCALE * 10;
+      const aftPuffX = _tmpPos.x + Math.cos(aftPerpAngle) * offset * 0.6 * BF_SCALE * 10;
+      const aftPuffZ = _tmpPos.z - Math.sin(aftPerpAngle) * offset * 0.6 * BF_SCALE * 10;
 
       puffsRef.current.push({
         x: aftPuffX,
         y: 0.1,
         z: aftPuffZ,
         startTime: now,
-        color: new THREE.Color(palette.engineGlow),
+        colorHex: puffColorHex,
       });
     }
 
@@ -796,15 +814,13 @@ export function RcsPuffEffects({
       // Expand from small to medium, fade out
       const puffScale = 0.05 + t * 0.15;
 
-      _tmpMatrix.compose(
-        new THREE.Vector3(puff.x, puff.y, puff.z),
-        new THREE.Quaternion(),
-        new THREE.Vector3(puffScale, puffScale, puffScale),
-      );
+      _tmpVec3.set(puff.x, puff.y, puff.z);
+      _tmpScale.set(puffScale, puffScale, puffScale);
+      _tmpMatrix.compose(_tmpVec3, _identityQuat, _tmpScale);
       mesh.setMatrixAt(i, _tmpMatrix);
 
       // Fade colour brightness as puff ages
-      _tmpColor.copy(puff.color).multiplyScalar(1.0 - t * 0.7);
+      _tmpColor.setHex(puff.colorHex).multiplyScalar(1.0 - t * 0.7);
       mesh.setColorAt(i, _tmpColor);
     }
 
