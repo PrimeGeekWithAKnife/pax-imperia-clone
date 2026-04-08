@@ -634,23 +634,18 @@ export function EngineThrustPlumes({
       const t = Math.min(speed / maxSpeed, 1.0);
 
       const scale = shipScale(ship.maxHull);
-      const speciesId = ship.side === 'attacker' ? attackerSpeciesId : defenderSpeciesId;
       const baseCol = ship.side === 'attacker' ? attackerCol : defenderCol;
 
-      // Get engine hardpoints for this ship
-      const hullClass = ship.hullClass ?? 'destroyer';
-      const buildResult = generateShipBuildResult(speciesId ?? 'teranos', hullClass as any, 6);
-      const engines = buildResult.hardpoints.engines;
+      // Plume length proportional to speed
+      const plumeLen = PLUME_MAX_LENGTH * t * scale;
+      const plumeRadius = 0.12 * scale;
 
-      // Ship world position
+      // Position: behind the ship (opposite facing)
       tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
-      const shipX = _tmpPos.x;
-      const shipZ = _tmpPos.z;
-
-      // Ship facing rotation (Y-axis)
+      const aftDist = scale * 1.5;
       const rotAngle = -(ship.facing - Math.PI / 2);
-      const cosR = Math.cos(rotAngle);
-      const sinR = Math.sin(rotAngle);
+      const aftX = _tmpPos.x - Math.sin(rotAngle) * aftDist;
+      const aftZ = _tmpPos.z - Math.cos(rotAngle) * aftDist;
 
       // Rotation for plume cone: lay flat then yaw to face exhaust direction
       _tmpQuat.setFromAxisAngle(_xAxis, Math.PI / 2);
@@ -658,30 +653,14 @@ export function EngineThrustPlumes({
       _tmpQuat2.setFromAxisAngle(_upAxis, yawAngle);
       _tmpQuat.premultiply(_tmpQuat2);
 
-      for (const eng of engines) {
-        if (count >= MAX_THRUST_PLUMES) break;
-
-        // Rotate engine hardpoint position by ship facing
-        const rx = eng.position.x * cosR - eng.position.z * sinR;
-        const rz = eng.position.x * sinR + eng.position.z * cosR;
-
-        const engWorldX = shipX + rx * scale;
-        const engWorldZ = shipZ + rz * scale;
-        const engWorldY = 0.05 + eng.position.y * scale;
-
-        // Plume size: length proportional to speed, radius from hardpoint data
-        const plumeLen = PLUME_MAX_LENGTH * t * scale;
-        const plumeRadius = Math.max(eng.radius * scale, 0.06 * scale);
-
-        _tmpVec3.set(engWorldX, engWorldY, engWorldZ);
+      // Single plume at aft
+      if (count < MAX_THRUST_PLUMES) {
+        _tmpVec3.set(aftX, 0.05, aftZ);
         _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
         _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
         mesh.setMatrixAt(count, _tmpMatrix);
-
-        // Species engine colour with brightness scaled by speed
         _tmpColor.copy(baseCol).multiplyScalar(0.6 + t * 0.4);
         mesh.setColorAt(count, _tmpColor);
-
         count++;
       }
     }
@@ -694,14 +673,12 @@ export function EngineThrustPlumes({
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, MAX_THRUST_PLUMES]} frustumCulled={false}>
       <coneGeometry args={[1, 1, 6]} />
-      <meshStandardMaterial
+      <meshBasicMaterial
         vertexColors
         toneMapped={false}
         transparent
-        opacity={0.6}
+        opacity={0.7}
         depthWrite={false}
-        emissive={new THREE.Color(0xffffff)}
-        emissiveIntensity={0.5}
       />
     </instancedMesh>
   );
