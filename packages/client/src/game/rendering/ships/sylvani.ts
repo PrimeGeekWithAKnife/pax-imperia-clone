@@ -65,6 +65,24 @@ export function buildSylvani(len: number, cx: number): THREE.BufferGeometry {
   ));
 
   // ═══════════════════════════════════════════════════════════════════════════
+  //  1b. RADIAL BRANCH ARMS — star silhouette from above (all ships)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Organic branch arms extend radially outward from the trunk, creating a
+  // STAR or CROSS shape when viewed from above instead of an elongated oval.
+  const branchCount = 3 + Math.min(cx, 2); // 3-5 branches based on complexity
+  for (let b = 0; b < branchCount; b++) {
+    const angle = (b / branchCount) * PI * 2;
+    const branchLen = w * 1.8;
+    const branchR = w * 0.15;
+    const branchGeo = new THREE.CapsuleGeometry(branchR, branchLen, 4, 8);
+    parts.push(place(
+      branchGeo,
+      Math.cos(angle) * branchLen * 0.5, 0, Math.sin(angle) * branchLen * 0.5 + len * 0.05,
+      0, angle, HALF_PI,
+    ));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   //  2. DORSAL BARK RIDGE — hardened spine, bow to stern (all ships)
   // ═══════════════════════════════════════════════════════════════════════════
   // A raised keel of thickened bark running along the dorsal surface. Even

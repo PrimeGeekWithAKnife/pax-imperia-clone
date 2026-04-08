@@ -95,20 +95,28 @@ export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.17;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── CORE HULL ──────────────────────────────────────────────────────────────
-  // Primary capsule — the reliquary. Seamless, continuous, grown not assembled.
-  // Slightly elongated along Z (the ship's forward axis).
-
-  const hullRad = w * 0.38;
-  const hullLen = len * 0.52;
+  // ── OVERSIZED HALO RING ─────────────────────────────────────────────────────
+  // The defining Kaelenth visual feature: a massive torus ring that dominates
+  // the silhouette. Much larger than the hull it encircles. At combat zoom
+  // the ring reads clearly as the primary shape — no other species has this.
+  const ringRadius = len * 0.35;  // much larger than hull
+  const ringTube = w * 0.2;
   parts.push(place(
-    new THREE.CapsuleGeometry(hullRad, hullLen, 12, 16),
+    new THREE.TorusGeometry(ringRadius, ringTube, 8, 24),
+    0, 0, len * 0.05,
+    HALF_PI, 0, 0,
+  ));
+
+  // ── COMPACT CENTRAL CAPSULE ───────────────────────────────────────────────
+  // Smaller relative to the ring — the ring is the star, the capsule is
+  // the reliquary nestled inside. Seamless, continuous, grown not assembled.
+  parts.push(place(
+    new THREE.CapsuleGeometry(w * 0.3, len * 0.5, 6, 12),
     0, 0, 0,
     HALF_PI, 0, 0,
   ));
 
   // ── DRIVE RING (AFT HALO) ─────────────────────────────────────────────────
-  // Every Kaelenth ship, even the smallest probe, has at least one torus ring.
   // The aftmost ring is the drive ring — propulsion expressed as a glowing halo.
 
   parts.push(place(
@@ -119,7 +127,6 @@ export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
 
   // ── BOW DOME ───────────────────────────────────────────────────────────────
   // Forward sensor/command dome — a smooth hemisphere capping the bow.
-  // Flush with the capsule hull, grown from the same material.
 
   parts.push(place(
     new THREE.SphereGeometry(w * 0.24, 12, 10, 0, PI * 2, 0, HALF_PI),
@@ -128,8 +135,7 @@ export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
   ));
 
   // ── INNER DRIVE RING ──────────────────────────────────────────────────────
-  // Concentric inner ring behind the drive ring — even on the smallest ships
-  // the Kaelenth cannot resist nesting their haloes.
+  // Concentric inner ring behind the drive ring.
 
   parts.push(place(
     new THREE.TorusGeometry(w * 0.20, w * 0.035, 8, 16),
@@ -138,8 +144,7 @@ export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
   ));
 
   // ── VENTRAL KEEL CAPSULE ──────────────────────────────────────────────────
-  // A small secondary capsule running beneath the hull — sensor array or
-  // auxiliary processing core. Gives the underside visual interest.
+  // A small secondary capsule running beneath the hull.
 
   parts.push(place(
     new THREE.CapsuleGeometry(w * 0.08, len * 0.18, 6, 8),

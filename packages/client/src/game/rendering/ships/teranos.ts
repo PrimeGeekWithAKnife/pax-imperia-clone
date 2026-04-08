@@ -126,20 +126,27 @@ export function buildTeranos(len: number, cx: number): THREE.BufferGeometry {
     place(new THREE.BoxGeometry(sx, sy, sz), px, py, pz, rx, ry, rz);
 
   // ── CORE HULL ──────────────────────────────────────────────────────────────
-  // Tapered main body: wider at stern, narrowing to bow. Trapezoidal cross-
-  // section -- slightly narrower top gives a warship profile.
-
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(-w * 0.50, -h * 0.45);
-  hullShape.lineTo(-w * 0.42, h * 0.45);
-  hullShape.lineTo(w * 0.42, h * 0.45);
-  hullShape.lineTo(w * 0.50, -h * 0.45);
-  hullShape.closePath();
-  const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
-    depth: len * 0.6,
-    bevelEnabled: false,
-  });
-  parts.push(place(hullGeo, 0, 0, -len * 0.25));
+  // Tapered wedge hull -- wide and flat at the stern, narrowing to a sharp
+  // pointed prow. Star Destroyer / aircraft carrier silhouette. Cross-section
+  // is a flattened hexagon (6 points); the extrusion tapers from wide to narrow.
+  const aftW = w * 1.0;    // full width at stern
+  const foreW = w * 0.15;  // narrow point at bow
+  const segments = 12;
+  const hullParts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments;
+    const t1 = (i + 1) / segments;
+    const z0 = (0.5 - t0) * len * 0.9;
+    const z1 = (0.5 - t1) * len * 0.9;
+    const w0 = aftW * (1 - t0) + foreW * t0;
+    const w1 = aftW * (1 - t1) + foreW * t1;
+    const h0 = h * (0.8 + 0.2 * (1 - t0));
+    const h1 = h * (0.8 + 0.2 * (1 - t1));
+    // Each segment is a box tapered between two cross-sections
+    const seg = new THREE.BoxGeometry(1, 1, 1);
+    hullParts.push(place(seg, 0, 0, (z0 + z1) / 2, 0, 0, 0, (w0 + w1) / 2, (h0 + h1) / 2, Math.abs(z1 - z0)));
+  }
+  parts.push(merge(hullParts));
 
   // Hull longitudinal seam lines -- thin raised slabs running bow-to-stern.
   // These are where hull plates were welded together during construction.

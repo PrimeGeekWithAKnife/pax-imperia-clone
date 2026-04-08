@@ -44,87 +44,74 @@ export function buildLuminari(len: number, cx: number): THREE.BufferGeometry {
   //  BASE GEOMETRY (cx = 0) — ~12 parts: core + cage rods + rings + nodes
   // ============================================================================
 
-  // ── 1. Central energy core ─────────────────────────────────────────────────
-  // The Luminari itself — a shimmering resonance pattern at the heart
+  // ── 1. Open frame hull — 4 edge rods + 8 corner nodes ──────────────────────
+  // A large open rectangular frame — like scaffolding. The interior is visibly
+  // EMPTY. Four long rods forming the edges, with spheres at the corners.
+  const frameW = w * 0.8;
+  const frameH = h * 0.6;
+  const frameL = len * 0.7;
+  const frameRodR = w * 0.08;
+  // Longitudinal rods (4, one at each corner)
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      parts.push(place(
+        new THREE.CylinderGeometry(frameRodR, frameRodR, frameL, 4),
+        sx * frameW * 0.5, sy * frameH * 0.5, 0,
+        HALF_PI, 0, 0,
+      ));
+    }
+  }
+  // Cross-beams at fore and aft
+  for (const zSign of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      parts.push(place(
+        new THREE.CylinderGeometry(frameRodR * 0.7, frameRodR * 0.7, frameW, 4),
+        0, sy * frameH * 0.5, zSign * frameL * 0.5,
+        0, 0, HALF_PI,
+      ));
+    }
+  }
+  // Vertical cross-beams at fore and aft
+  for (const zSign of [-1, 1]) {
+    for (const sx of [-1, 1]) {
+      parts.push(place(
+        new THREE.CylinderGeometry(frameRodR * 0.7, frameRodR * 0.7, frameH, 4),
+        sx * frameW * 0.5, 0, zSign * frameL * 0.5,
+      ));
+    }
+  }
+  // Corner energy nodes (8)
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        parts.push(place(
+          new THREE.SphereGeometry(frameRodR * 2, 6, 6),
+          sx * frameW * 0.5, sy * frameH * 0.5, sz * frameL * 0.5,
+        ));
+      }
+    }
+  }
+  // Central energy core — the Luminari itself at the heart of the frame
   parts.push(place(
     new THREE.SphereGeometry(w * 0.20, nodeSegs, nodeSegs),
     0, 0, 0,
   ));
 
-  // ── 2. Primary containment lattice — six longitudinal rods ─────────────────
-  // Four cardinal rods plus two diagonal braces — the minimum cage
-  const cageR = w * 0.28;                // cage radius from centreline
+  // Keep references for detail parts that use cageR and cardinals
+  const cageR = w * 0.28;
   const cageLen = len * 0.82;
-  // Cardinal rods: top, bottom, left, right
-  parts.push(place(
-    new THREE.CylinderGeometry(rodR, rodR, cageLen, 4),
-    0, cageR, 0,
-    HALF_PI, 0, 0,
-  ));
-  parts.push(place(
-    new THREE.CylinderGeometry(rodR, rodR, cageLen, 4),
-    0, -cageR, 0,
-    HALF_PI, 0, 0,
-  ));
-  parts.push(...mirrorX(s => place(
-    new THREE.CylinderGeometry(rodR, rodR, cageLen, 4),
-    s * cageR, 0, 0,
-    HALF_PI, 0, 0,
-  )));
-  // Diagonal rods: upper-left, upper-right (gives hex-cage feel)
   const diagR = cageR * 0.72;
-  parts.push(...mirrorX(s => place(
-    new THREE.CylinderGeometry(thinR, thinR, cageLen * 0.9, 4),
-    s * diagR, diagR, 0,
-    HALF_PI, 0, 0,
-  )));
-
-  // ── 3. Containment rings — two torus rings fore and aft ────────────────────
-  // These bind the longitudinal rods into a coherent cage
-  parts.push(place(
-    new THREE.TorusGeometry(cageR, w * 0.022, 6, ringSegs),
-    0, 0, len * 0.22,
-    HALF_PI, 0, 0,
-  ));
-  parts.push(place(
-    new THREE.TorusGeometry(cageR, w * 0.022, 6, ringSegs),
-    0, 0, -len * 0.22,
-    HALF_PI, 0, 0,
-  ));
-
-  // ── 4. Intersection nodes — energy spheres where rods meet rings ───────────
-  // Six nodes at the fore ring
   const cardinals: [number, number][] = [
     [0, cageR], [0, -cageR], [cageR, 0], [-cageR, 0],
     [diagR, diagR], [-diagR, diagR],
   ];
-  for (const [nx, ny] of cardinals) {
-    parts.push(place(
-      new THREE.SphereGeometry(w * 0.045, 5, 5),
-      nx, ny, len * 0.22,
-    ));
-  }
 
-  // ── 5. Bow convergence — rods taper to a forward focus node ────────────────
+  // ── 2. Bow convergence — forward focus node ────────────────────────────────
   const bowZ = len * 0.46;
   parts.push(place(
     new THREE.SphereGeometry(w * 0.10, nodeSegs, nodeSegs),
     0, 0, bowZ,
   ));
-  // Convergence rods from each cardinal rod to the bow node
-  for (const [cx_, cy_] of cardinals.slice(0, 4)) {
-    const dx = -cx_;
-    const dy = -cy_;
-    const dz = bowZ - len * 0.22;
-    const rodLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const pitch = Math.atan2(Math.sqrt(dx * dx + dy * dy), dz);
-    const yaw = Math.atan2(dx, dy);
-    parts.push(place(
-      new THREE.CylinderGeometry(thinR, thinR, rodLen, 4),
-      cx_ * 0.5, cy_ * 0.5, len * 0.22 + dz * 0.5,
-      pitch, yaw, 0,
-    ));
-  }
 
   // ============================================================================
   //  cx >= 1: Cross-bracing lattice

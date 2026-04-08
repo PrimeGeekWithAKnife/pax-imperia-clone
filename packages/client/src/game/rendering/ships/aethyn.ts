@@ -34,42 +34,40 @@ export function buildAethyn(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.30;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── Core cross-section: nested Platonic solids ────────────────────────────
-  // A dodecahedron containing an icosahedron — the innermost projection of
-  // their hyperdimensional core. Even the smallest scout carries this sigil.
+  // ── Three large interlocking rings — the ship IS the rings ─────────────────
+  // The Aethyn vessel is a gyroscope / atomic model of three prominent tori
+  // at different angles. From above, the interlocked ring silhouette is
+  // unmistakable — no other species has anything like this shape.
+  const ringR = len * 0.3;
+  const tubeR = w * 0.2;
+
+  // Ring 1: horizontal (XZ plane)
   parts.push(place(
-    new THREE.DodecahedronGeometry(w * 0.42, 0),
+    new THREE.TorusGeometry(ringR, tubeR, 6, 16),
     0, 0, 0,
+    HALF_PI, 0, 0,
   ));
+
+  // Ring 2: tilted 60 degrees around Z axis
   parts.push(place(
-    new THREE.IcosahedronGeometry(w * 0.26, 0),
+    new THREE.TorusGeometry(ringR * 0.9, tubeR * 0.9, 6, 16),
+    0, 0, 0,
+    HALF_PI, 0, PI / 3,
+  ));
+
+  // Ring 3: tilted -60 degrees around Z axis
+  parts.push(place(
+    new THREE.TorusGeometry(ringR * 0.85, tubeR * 0.85, 6, 16),
+    0, 0, 0,
+    HALF_PI, 0, -PI / 3,
+  ));
+
+  // Central nexus — small icosahedron at the intersection of all three rings,
+  // the hyperdimensional anchor point
+  parts.push(place(
+    new THREE.IcosahedronGeometry(w * 0.22, 0),
     0, 0, 0,
     0.32, 0.55, 0.18,
-  ));
-
-  // ── Borromean ring alpha — primary dimensional aperture ───────────────────
-  // The first of three interlocking tori. Each ring exists mostly in a
-  // different dimensional plane; we see only their 3D cross-sections.
-  parts.push(place(
-    new THREE.TorusGeometry(w * 0.52, w * 0.035, 8, 16),
-    0, 0, -len * 0.06,
-    0.72, 0.38, 0,
-  ));
-
-  // ── Forward projection tetrahedron — primary sensor focus ─────────────────
-  // Disconnected; floats ahead of the hull. The strut connecting it passes
-  // through the fourth spatial dimension.
-  parts.push(place(
-    new THREE.TetrahedronGeometry(w * 0.32, 0),
-    0, 0, len * 0.34,
-    0.62, 0.85, 0.4,
-  ));
-
-  // ── Aft projection tetrahedron — phase-shift resonator ────────────────────
-  parts.push(place(
-    new THREE.TetrahedronGeometry(w * 0.24, 0),
-    0, 0, -len * 0.30,
-    1.05, 0.35, 0.72,
   ));
 
   // ═══════════════════════════════════════════════════════════════════════════

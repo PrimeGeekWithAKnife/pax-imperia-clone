@@ -31,47 +31,41 @@ export function buildThyriaq(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.22;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── cx 0: Base hull — 7 parts ──────────────────────────────────────────
-  // Every Thyriaq ship begins as merged spheroid lobes with trailing
-  // propulsion tendrils. Even the smallest scout is unmistakably alien.
+  // ── cx 0: Base hull — amorphous mercury blob ───────────────────────────
+  // The Thyriaq ARE the ship. A fat, irregular, rounded mass — like mercury
+  // pooling on a surface. Deliberately wider than long, squat, with
+  // pseudopod bulges at asymmetric positions. Instantly reads as BLOB.
 
-  // Primary mass lobe — slightly off-centre, elongated forward
+  // Large central mass — wider than long, squat
   parts.push(place(
-    new THREE.SphereGeometry(w * 0.55, 12, 10),
-    w * 0.02, 0, len * 0.05,
+    new THREE.SphereGeometry(w * 0.8, 10, 8),
     0, 0, 0,
-    0.85, 0.75, 1.6,
+    0, 0, 0,
+    1.2, 0.7, 1.0,  // wider than long, squat
   ));
 
-  // Secondary mass lobe — forward, merging into the primary
+  // Forward pseudopod bulge — offset to starboard
   parts.push(place(
-    new THREE.SphereGeometry(w * 0.38, 10, 8),
-    w * 0.06, w * 0.05, len * 0.28,
+    new THREE.SphereGeometry(w * 0.5, 8, 6),
+    w * 0.2, 0, len * 0.25,
     0, 0, 0,
-    0.80, 0.70, 1.3,
+    0.8, 0.6, 1.1,
   ));
 
-  // Tertiary mass lobe — aft, asymmetric bulge downward-left
+  // Aft pseudopod bulge — offset to port for asymmetry
   parts.push(place(
-    new THREE.SphereGeometry(w * 0.42, 10, 8),
-    -w * 0.04, -w * 0.08, -len * 0.22,
+    new THREE.SphereGeometry(w * 0.45, 8, 6),
+    -w * 0.25, 0, -len * 0.2,
     0, 0, 0,
-    1.1, 0.65, 1.0,
+    0.9, 0.5, 0.8,
   ));
 
-  // Connective bridge — capsule linking primary to forward lobe
+  // Dorsal pseudopod — small bump rising from the top
   parts.push(place(
-    new THREE.CapsuleGeometry(w * 0.18, len * 0.20, 6, 8),
-    w * 0.04, w * 0.02, len * 0.16,
-    HALF_PI, 0, 0.08,
-  ));
-
-  // Ventral keel lobe — flattened, gives the hull a bottom
-  parts.push(place(
-    new THREE.SphereGeometry(w * 0.30, 8, 7),
-    w * 0.01, -w * 0.18, len * 0.0,
+    new THREE.SphereGeometry(w * 0.3, 7, 5),
+    w * 0.08, w * 0.3, len * 0.05,
     0, 0, 0,
-    1.2, 0.50, 1.4,
+    0.7, 0.6, 0.75,
   ));
 
   // ── Propulsion tendrils (base) — trailing pseudopods ───────────────────

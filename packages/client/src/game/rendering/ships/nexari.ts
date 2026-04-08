@@ -48,7 +48,17 @@ export function buildNexari(len: number, cx: number): THREE.BufferGeometry {
   //  Even the smallest probe is a recognisable constellation.
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // ── Primary processing core (central octahedron) ─────────────────────────
+  // ── Primary shape: large torus ring — visible hollow centre from above ──
+  // The Nexari build mobile processing rings — clearly hollow, alien silhouette.
+  const ringR = len * 0.32;   // ring major radius
+  const tubeR = w * 0.35;     // ring tube radius
+  parts.push(place(
+    new THREE.TorusGeometry(ringR, tubeR, 8, 16),
+    0, 0, 0,
+    HALF_PI, 0, 0,   // lay flat
+  ));
+
+  // ── Secondary processing core (central octahedron) ──────────────────────
   // The heart of the node — elongated along Z to suggest forward momentum.
   parts.push(place(
     new THREE.OctahedronGeometry(coreR * 1.2, 0),

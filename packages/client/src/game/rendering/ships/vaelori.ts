@@ -96,31 +96,38 @@ export function buildVaelori(len: number, cx: number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ── 1. OUTER GEODE SHELL ──────────────────────────────────────────────────
+  // ── 1. CRYSTAL OBELISK SPIRE ──────────────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
-  // Primary hull: an icosahedron stretched along Z, giving a rough mineral
-  // silhouette. Detail=0 preserves the faceted geological look.
-  const shellGeo = new THREE.IcosahedronGeometry(w * 0.7, 0);
-  parts.push(place(shellGeo, 0, 0, 0, 0, 0, 0, 0.9, 0.85, len * 0.038));
+  // Primary hull: a tall vertical crystal obelisk — dramatically taller than
+  // wide. Minbari-style vertical needle. From the side it is a tall diamond;
+  // from above it is a small point. Instantly distinguishable silhouette.
+  const spireGeo = new THREE.OctahedronGeometry(h * 1.2, 0);
+  parts.push(place(
+    spireGeo,
+    0, h * 0.3, len * 0.05,
+    0, 0, 0,
+    w * 0.5 / (h * 1.2), 1.8, len * 0.4 / (h * 1.2),  // very tall, narrow
+  ));
 
-  // Forward prow: a dodecahedron wedge, slightly tilted nose-down to
-  // suggest a geode cracked open and peering forward.
-  const prowGeo = new THREE.DodecahedronGeometry(w * 0.35, 0);
-  parts.push(place(prowGeo, 0, -h * 0.1, len * 0.38, 0.15, 0, 0, 0.7, 0.6, 1.3));
+  // Secondary crystal facet — a smaller octahedron tilted slightly,
+  // giving the spire an asymmetric grown-crystal profile
+  const facetGeo = new THREE.OctahedronGeometry(h * 0.6, 0);
+  parts.push(place(
+    facetGeo,
+    w * 0.05, h * 0.8, -len * 0.05,
+    0.1, 0.2, 0,
+    w * 0.35 / (h * 0.6), 1.2, len * 0.25 / (h * 0.6),
+  ));
 
-  // Aft mass: thicker crystal cluster at the stern housing engine lattice
-  const aftGeo = new THREE.IcosahedronGeometry(w * 0.5, 0);
-  parts.push(place(aftGeo, 0, 0, -len * 0.32, 0, PI / 8, 0, 0.8, 0.8, 1.0));
-
-  // Ventral shell plate: a flattened dodecahedron forming the belly —
-  // geodes have thicker rind on one side, giving asymmetric cross-section.
-  const ventralGeo = new THREE.DodecahedronGeometry(w * 0.4, 0);
-  parts.push(place(ventralGeo, 0, -h * 0.35, -len * 0.05, 0.1, PI / 7, 0, 1.1, 0.4, 1.6));
-
-  // Dorsal crest: a smaller icosahedron ridge running along the top,
-  // like a crystal vein protruding from the geode's surface.
-  const crestGeo = new THREE.IcosahedronGeometry(w * 0.22, 0);
-  parts.push(place(crestGeo, 0, h * 0.32, len * 0.12, 0, 0, 0, 0.6, 0.5, 2.0));
+  // Crystal base platform — a flattened octahedron forming the root of
+  // the spire, giving it a stable anchor silhouette from above
+  const baseGeo = new THREE.OctahedronGeometry(w * 0.6, 0);
+  parts.push(place(
+    baseGeo,
+    0, -h * 0.3, 0,
+    0, PI / 4, 0,
+    1.0, 0.25, 1.3,  // very flat, wider footprint
+  ));
 
   // ── 2. RESONANCE SPIRES (dorsal antennae) ─────────────────────────────────
   // Central spire — always present, even on the smallest scout.

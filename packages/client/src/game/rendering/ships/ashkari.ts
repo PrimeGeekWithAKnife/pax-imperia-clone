@@ -37,11 +37,25 @@ export function buildAshkari(len: number, cx: number): THREE.BufferGeometry {
   //  The original salvaged frame: an off-centre box with patchwork plating
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // ── Primary hull block — offset to starboard, slightly yawed ──
+  // ── Asymmetric scrap cluster — 3 mismatched hull sections bolted together ──
+  // Main module (off-centre box, tilted)
   parts.push(place(
-    new THREE.BoxGeometry(w * 0.85, h * 0.7, len * 0.48),
-    w * 0.06, 0, 0,
-    0, 0.035, 0,
+    new THREE.BoxGeometry(w * 0.7, h * 0.6, len * 0.5),
+    w * 0.1, 0, len * 0.05,
+    0, 0, 0.05,
+  ));
+  // Secondary module (sphere, port side)
+  parts.push(place(
+    new THREE.SphereGeometry(w * 0.4, 8, 6),
+    -w * 0.5, h * 0.1, -len * 0.1,
+    0, 0, 0,
+    1.0, 0.7, 1.3,
+  ));
+  // Tertiary module (cylinder, starboard-aft)
+  parts.push(place(
+    new THREE.CylinderGeometry(w * 0.25, w * 0.3, len * 0.4, 6),
+    w * 0.45, -h * 0.1, -len * 0.15,
+    HALF_PI, 0, 0,
   ));
 
   // ── Cockpit — bolted-on cylinder, offset to port, tilted forward ──

@@ -34,53 +34,39 @@ export function buildVethara(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.12;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── LAYER 1: HOST HULL — bone-grey capsule architecture ─────────────
-  // Primary hull capsule — the "borrowed body"
+  // ── LAYER 1: DUAL-BODY SYMBIOTE HULL — catamaran twin-hull ──────────
+  // Two distinct bodies side by side — the host and the parasite as
+  // separate visible masses connected by bridges. From above this reads
+  // as a DOUBLE-HULL / catamaran shape, completely unique among all species.
+
+  // Host hull (port side, larger, pale) — the "borrowed body"
   parts.push(place(
-    new THREE.CapsuleGeometry(w * 0.34, len * 0.42, 8, 12),
-    0, 0, 0,
+    new THREE.CapsuleGeometry(w * 0.35, len * 0.55, 6, 10),
+    -w * 0.4, 0, 0,
     HALF_PI, 0, 0,
   ));
 
-  // Fore bulkhead — slightly flattened dome
+  // Parasite hull (starboard side, smaller) — the living symbiont
   parts.push(place(
-    new THREE.SphereGeometry(w * 0.36, 10, 8),
-    0, 0, len * 0.32,
-    0, 0, 0,
-    1.0, 0.85, 0.65,
+    new THREE.CapsuleGeometry(w * 0.25, len * 0.45, 6, 8),
+    w * 0.35, h * 0.05, len * 0.03,
+    HALF_PI, 0, 0.05,  // slight tilt — it is growing
   ));
 
-  // Aft bulkhead — wider to house engine bay
-  parts.push(place(
-    new THREE.SphereGeometry(w * 0.40, 10, 8),
-    0, 0, -len * 0.32,
-    0, 0, 0,
-    1.0, 0.90, 0.55,
-  ));
+  // Connecting bridges (3 cross-beams between the twin hulls)
+  for (let i = 0; i < 3; i++) {
+    const bz = (i - 1) * len * 0.18;
+    parts.push(place(
+      new THREE.CylinderGeometry(w * 0.04, w * 0.06, w * 0.6, 4),
+      0, 0, bz,
+      0, 0, HALF_PI,
+    ));
+  }
 
-  // Ventral keel ridge — structural spine running below hull
-  parts.push(place(
-    new THREE.CylinderGeometry(w * 0.04, w * 0.03, len * 0.50, 4),
-    0, -w * 0.30, len * 0.02,
-    HALF_PI, 0, 0,
-  ));
-
-  // Dorsal sensor blister — small dome atop the host hull
+  // Dorsal sensor blister — atop the host hull
   parts.push(place(
     new THREE.SphereGeometry(w * 0.10, 6, 5, 0, PI * 2, 0, HALF_PI),
-    0, w * 0.34, len * 0.18,
-  ));
-
-  // Hull reinforcement bands (2 rings around the capsule)
-  parts.push(place(
-    new THREE.TorusGeometry(w * 0.35, w * 0.025, 4, 10),
-    0, 0, len * 0.12,
-    HALF_PI, 0, 0,
-  ));
-  parts.push(place(
-    new THREE.TorusGeometry(w * 0.36, w * 0.025, 4, 10),
-    0, 0, -len * 0.12,
-    HALF_PI, 0, 0,
+    -w * 0.4, w * 0.34, len * 0.18,
   ));
 
   // ── LAYER 2: FILAMENT NETWORK — red symbiont colonisation ───────────
