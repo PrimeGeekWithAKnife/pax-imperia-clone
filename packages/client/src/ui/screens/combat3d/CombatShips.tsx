@@ -23,14 +23,6 @@ const DAMAGE_FLASH_DURATION_MS = 120;
 const SELECTION_RING_COLOR = 0xffffff;
 const ENGINE_EMISSIVE_RADIUS = 0.15;
 
-/** Running lights blink period in ticks (alternates every 17 ticks). */
-const RUNNING_LIGHT_BLINK_TICKS = 17;
-const PORT_LIGHT_COLOR = 0xff2222;       // red — port (left)
-const STARBOARD_LIGHT_COLOR = 0x22ff44;  // green — starboard (right)
-
-/** Tiny emissive sphere radius for running lights. */
-const RUNNING_LIGHT_RADIUS = 0.04;
-
 /** Shield flash duration in milliseconds. */
 const SHIELD_FLASH_DURATION_MS = 150;
 
@@ -70,7 +62,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   hullClass,
   speciesId,
   empireColor: _empireColor,
-  tick,
+  tick: _tick,
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -125,9 +117,6 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
       }),
     [palette.shieldColor],
   );
-
-  // Running lights blink state — alternates port/starboard visibility every N ticks
-  const runningLightsOn = Math.floor(tick / RUNNING_LIGHT_BLINK_TICKS) % 2 === 0;
 
   const isSelected = api.selectedShipIds.includes(ship.id);
   const isDamaged = api.damagedShipIds.has(ship.id);
@@ -246,7 +235,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
           color={palette.engineGlow}
           side={THREE.BackSide}
           transparent
-          opacity={0.25}
+          opacity={0.5}
           depthWrite={false}
         />
       </mesh>
@@ -271,25 +260,16 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         <primitive object={flashMaterial} attach="material" />
       </mesh>
 
-      {/* Engine glow — one emissive sphere per engine hardpoint */}
-      {hardpoints.engines.map((eng, idx) => (
-        <mesh
-          key={`eng-${idx}`}
-          position={[
-            eng.position.x * scale,
-            eng.position.y * scale,
-            eng.position.z * scale,
-          ]}
-        >
-          <sphereGeometry args={[Math.max(eng.radius, ENGINE_EMISSIVE_RADIUS) * scale, 6, 6]} />
-          <meshBasicMaterial
-            color={palette.engineGlow}
-            transparent
-            opacity={0.85}
-            depthWrite={false}
-          />
-        </mesh>
-      ))}
+      {/* Engine glow — positioned at stern using bounding box (always accurate) */}
+      <mesh position={[0, 0, -hardpoints.bounds.length * scale * 0.48]}>
+        <sphereGeometry args={[ENGINE_EMISSIVE_RADIUS * scale * 1.5, 6, 6]} />
+        <meshBasicMaterial
+          color={palette.engineGlow}
+          transparent
+          opacity={0.85}
+          depthWrite={false}
+        />
+      </mesh>
 
       {/* Shield bubble — semi-transparent ellipsoid sized to bounding box */}
       {ship.maxShields > 0 && (
@@ -303,20 +283,6 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         >
           <sphereGeometry args={[1, 12, 8]} />
           <primitive object={shieldMaterial} attach="material" />
-        </mesh>
-      )}
-
-      {/* Running lights — tiny emissive spheres instead of point lights */}
-      {runningLightsOn && (
-        <mesh position={[-scale * 0.9, 0.1, 0]}>
-          <sphereGeometry args={[RUNNING_LIGHT_RADIUS * scale, 4, 4]} />
-          <meshBasicMaterial color={PORT_LIGHT_COLOR} />
-        </mesh>
-      )}
-      {!runningLightsOn && (
-        <mesh position={[scale * 0.9, 0.1, 0]}>
-          <sphereGeometry args={[RUNNING_LIGHT_RADIUS * scale, 4, 4]} />
-          <meshBasicMaterial color={STARBOARD_LIGHT_COLOR} />
         </mesh>
       )}
 
