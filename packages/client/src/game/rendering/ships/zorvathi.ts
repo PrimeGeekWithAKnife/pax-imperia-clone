@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
 import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
-import { registerHardpointProvider } from '../ShipModels3D';
+import { registerHardpointProvider } from '../shipHardpoints';
 
 /**
  * ============================================================================

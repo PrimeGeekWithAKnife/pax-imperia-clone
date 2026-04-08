@@ -36,11 +36,12 @@ import { buildPyrenth } from './ships/pyrenth';
 // Re-export helpers for any external use
 export { place, merge, mirrorX } from './shipModelHelpers';
 
-// Re-export hardpoint types for consumers
+// Re-export hardpoint types and registry for consumers
 export type {
   EngineHardpoint, WeaponHardpoint, ShipBounds,
   ShipHardpoints, ShipBuildResult, HardpointProvider,
 } from './shipHardpoints';
+export { registerHardpointProvider, getHardpointProvider } from './shipHardpoints';
 
 // ─── Hull class scale factors ───────────────────────────────────────────────
 // Length in world units for each hull class — from probe (~1.5) to battle
@@ -89,6 +90,7 @@ import type {
   EngineHardpoint, WeaponHardpoint, ShipBounds,
   ShipHardpoints, ShipBuildResult, HardpointProvider,
 } from './shipHardpoints';
+import { getHardpointProvider } from './shipHardpoints';
 
 const BUILDERS: Record<string, ShipBuilder> = {
   teranos:  buildTeranos,
@@ -120,17 +122,6 @@ export function clearShipGeometryCache(): void {
   for (const geo of _geometryCache.values()) geo.dispose();
   _geometryCache.clear();
   _buildResultCache.clear();
-}
-
-// ─── Hardpoint provider registry ──────────────────────────────────────────
-// Species with custom hardpoint providers are registered here. Species
-// without a provider get reasonable defaults from generateDefaultHardpoints().
-
-const HARDPOINT_PROVIDERS: Record<string, HardpointProvider> = {};
-
-/** Register a species hardpoint provider. Called by species builder modules. */
-export function registerHardpointProvider(speciesId: string, provider: HardpointProvider): void {
-  HARDPOINT_PROVIDERS[speciesId] = provider;
 }
 
 // ─── Build result cache ───────────────────────────────────────────────────
@@ -253,7 +244,7 @@ export function generateShipBuildResult(
   };
 
   // Get species-specific hardpoints or generate defaults
-  const provider = HARDPOINT_PROVIDERS[speciesId];
+  const provider = getHardpointProvider(speciesId);
   const partial = provider
     ? provider(len, cx)
     : generateDefaultHardpoints(len, cx, bounds);
