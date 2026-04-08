@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ============================================================================
@@ -34,8 +36,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildNexari(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;          // lateral spread
-  const h = len * 0.2;           // vertical spread
+  const w = len * 0.20;          // lateral spread
+  const h = len * 0.15;           // vertical spread
   const coreR = len * 0.09;      // processing core radius
   const strutR = len * 0.008;    // data conduit radius
   const strutSeg = 4;            // low-poly strut cross-section
@@ -558,3 +560,109 @@ export function buildNexari(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getNexariHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.20;
+  const h = len * 0.15;
+  const coreR = len * 0.09;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Primary aft field-drive ring ──────────────────────────────────────────
+  // Torus drive at z = -len * 0.35, radius = coreR * 1.0
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.35),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: coreR * 1.0,
+  });
+
+  // ── Secondary aft drive ring (cx >= 3) ────────────────────────────────────
+  if (cx >= 3) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.44),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: coreR * 0.65,
+    });
+  }
+
+  // ── Tertiary drive ring (cx >= 5) ─────────────────────────────────────────
+  if (cx >= 5) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.5),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: coreR * 0.5,
+    });
+  }
+
+  // ── Fourth drive ring (cx >= 7) ───────────────────────────────────────────
+  if (cx >= 7) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.56),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: coreR * 1.3,
+    });
+  }
+
+  // ── Forward weapon emitters — data-beam cones (cx >= 1) ───────────────────
+  if (cx >= 1) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.3, 0, len * 0.42),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Heavy data-beam emitters (cx >= 5) ────────────────────────────────────
+  if (cx >= 5) {
+    // Wide lateral emitters
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.7, 0, len * 0.32),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+    // Dorsal weapon emitters
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.25, h * 0.5, len * 0.35),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+    // Ventral weapon emitter
+    weapons.push({
+      position: new THREE.Vector3(0, -h * 0.6, len * 0.38),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+  }
+
+  // ── Centreline weapon battery (cx >= 7) ───────────────────────────────────
+  if (cx >= 7) {
+    for (let y = -1; y <= 1; y++) {
+      weapons.push({
+        position: new THREE.Vector3(0, y * h * 0.35, len * 0.48),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Grand forward data-beam — station main weapon (cx >= 8) ───────────────
+  if (cx >= 8) {
+    weapons.push({
+      position: new THREE.Vector3(0, 0, len * 0.55),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('nexari', getNexariHardpoints);

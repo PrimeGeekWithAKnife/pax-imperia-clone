@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ============================================================================
@@ -23,8 +25,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildPyrenth(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;
-  const h = len * 0.2;
+  const w = len * 0.35;
+  const h = len * 0.25;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── Monolith core (always present) ──────────────────────────────────
@@ -445,3 +447,119 @@ export function buildPyrenth(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getPyrenthHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.35;
+  const h = len * 0.25;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── cx >= 4: Basalt column engine cluster ─────────────────────────────────
+  // Hexagonal basalt columns at the stern with exhaust cones.
+  if (cx >= 4) {
+    const engineCount = cx >= 6 ? 7 : cx >= 5 ? 5 : 3;
+    const clusterRadius = w * (engineCount > 5 ? 0.3 : engineCount > 3 ? 0.24 : 0.2);
+
+    for (let i = 0; i < engineCount; i++) {
+      const angle = (i / engineCount) * PI * 2;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * clusterRadius,
+          Math.sin(angle) * clusterRadius,
+          -len * 0.52,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.07,
+      });
+    }
+
+    // Central engine hub exhaust
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.54),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.05,
+    });
+  }
+
+  // ── cx >= 4: Crystalline weapon spires ────────────────────────────────────
+  if (cx >= 4) {
+    // Dorsal weapon spires — mid-hull
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.35, h * 0.54, len * 0.18),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+    // Forward weapon spires — closer to prow
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.22, h * 0.44, len * 0.32),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  // ── cx >= 5: Ventral weapon spires ────────────────────────────────────────
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.3, -h * 0.54, len * 0.1),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  // ── cx >= 7: Broadside crystalline battery + prow crest spires ────────────
+  if (cx >= 7) {
+    // Broadside weapon spires amidships
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.52, h * 0.36, len * 0.0),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+
+    // Prow crest spire cluster
+    weapons.push({
+      position: new THREE.Vector3(0, h * 0.22, len * 0.38),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Ventral observation obelisks
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.2, -h * 0.46, len * 0.12),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  // ── cx >= 8: Citadel turret ring + aft caldera ────────────────────────────
+  if (cx >= 8) {
+    // Ring of crystalline spire turrets around the citadel
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * PI * 2;
+      weapons.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * w * 0.5,
+          Math.sin(angle) * w * 0.5 + h * 0.12,
+          len * 0.05,
+        ),
+        facing: 'turret',
+        normal: new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0).normalize(),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('pyrenth', getPyrenthHardpoints);

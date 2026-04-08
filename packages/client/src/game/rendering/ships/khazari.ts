@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -96,8 +98,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildKhazari(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.30;   // wide, heavy — built for 1.8G gravity
-  const h = len * 0.24;   // tall profile to carry the dorsal crest
+  const w = len * 0.45;   // wide, heavy — built for 1.8G gravity
+  const h = len * 0.32;   // tall profile to carry the dorsal crest
   const parts: THREE.BufferGeometry[] = [];
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -625,3 +627,130 @@ export function buildKhazari(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getKhazariHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.45;
+  const h = len * 0.32;
+  const crestH = h * (0.18 + cx * 0.045);
+  const ramLen = len * (0.22 + cx * 0.018);
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Main forge-furnace engines ────────────────────────────────────────────
+  // Paired hexagonal nacelles at stern, matching builder section 5.
+  const engineCount = 2 + Math.floor(cx / 2) * 2;
+  const engineSpacing = w * 0.95 / Math.max(engineCount - 1, 1);
+  for (let i = 0; i < engineCount; i++) {
+    const ex = (i - (engineCount - 1) / 2) * engineSpacing;
+    engines.push({
+      position: new THREE.Vector3(ex, -h * 0.12, -len * 0.535),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: h * 0.18,
+    });
+  }
+
+  // ── Outboard engine nacelle pods (cx >= 6) ────────────────────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.72, -h * 0.08, -len * 0.54),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: h * 0.14,
+      });
+    }
+  }
+
+  // ── Forward dorsal turret (cx >= 2) ───────────────────────────────────────
+  if (cx >= 2) {
+    weapons.push({
+      position: new THREE.Vector3(0, h * 0.32 + crestH * 0.35, len * 0.14),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  // ── Broadside turrets (cx >= 3) ──────────────────────────────────────────
+  if (cx >= 3) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.48, h * 0.18, len * 0.04),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+  }
+
+  // ── Aft turret pair + aft dorsal turret (cx >= 4) ─────────────────────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.36, h * 0.30, -len * 0.16),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+    weapons.push({
+      position: new THREE.Vector3(0, h * 0.34 + crestH * 0.25, -len * 0.12),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  // ── Heavy broadside sponson turrets (cx >= 5) ────────────────────────────
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * (w * 0.56 + w * 0.09), h * 0.10, len * 0.02),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+    // Ventral gun gallery turrets
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.28, -h * 0.54, len * 0.08),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+    // Centre ventral heavy turret
+    weapons.push({
+      position: new THREE.Vector3(0, -h * 0.56, -len * 0.02),
+      facing: 'turret',
+      normal: new THREE.Vector3(0, -1, 0),
+    });
+  }
+
+  // ── Secondary broadside turrets (cx >= 6) ────────────────────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.52, -h * 0.15, -len * 0.10),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+  }
+
+  // ── Forward siege lance + tertiary dorsal turrets (cx >= 7) ───────────────
+  if (cx >= 7) {
+    weapons.push({
+      position: new THREE.Vector3(0, -h * 0.05, len * 0.42 + ramLen * 0.30 + len * 0.125),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.25, h * 0.38, len * 0.20),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('khazari', getKhazariHardpoints);

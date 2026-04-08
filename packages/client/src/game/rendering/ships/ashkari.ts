@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -26,8 +28,8 @@ import { place, merge, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildAshkari(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;
-  const h = len * 0.18;
+  const w = len * 0.32;
+  const h = len * 0.25;
   const parts: THREE.BufferGeometry[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -421,3 +423,83 @@ export function buildAshkari(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getAshkariHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.32;
+  const h = len * 0.25;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── ASYMMETRIC ENGINE PLACEMENT ───────────────────────────────────────────
+  // Ashkari deliberately avoid mirrorX — every position is hand-placed.
+
+  // Starboard engine — cylindrical nacelle with exhaust bell at z = -len * 0.50
+  engines.push({
+    position: new THREE.Vector3(w * 0.44, -h * 0.08, -len * 0.50),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: h * 0.34,
+  });
+
+  // Port engine — boxy thrust block, exhaust at rear face of box
+  engines.push({
+    position: new THREE.Vector3(-w * 0.40, h * 0.10, -len * 0.48),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: h * 0.20,
+  });
+
+  // ── Third engine — underslung on secondary hull (cx >= 5) ─────────────────
+  if (cx >= 5) {
+    engines.push({
+      position: new THREE.Vector3(w * 0.20, -h * 0.58, -len * 0.40),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: h * 0.22,
+    });
+  }
+
+  // ── Starboard dorsal gantry turret (cx >= 4) ─────────────────────────────
+  if (cx >= 4) {
+    weapons.push({
+      position: new THREE.Vector3(w * 0.56, h * 0.48, len * 0.34),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Ventral weapons pod — port side
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.44, -h * 0.42, len * 0.30),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+  }
+
+  // ── Heavy weapon spine — dorsal rail gun (cx >= 7) ────────────────────────
+  if (cx >= 7) {
+    weapons.push({
+      position: new THREE.Vector3(w * 0.04, h * 0.52, len * 0.32),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Salvaged turret dome — starboard aft
+    weapons.push({
+      position: new THREE.Vector3(w * 0.65, h * 0.10, -len * 0.35),
+      facing: 'turret',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  // ── Dorsal point-defence turret (cx >= 8) ─────────────────────────────────
+  if (cx >= 8) {
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.20, h * 0.62, -len * 0.06),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('ashkari', getAshkariHardpoints);

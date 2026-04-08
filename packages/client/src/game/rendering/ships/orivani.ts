@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -23,8 +25,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildOrivani(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.22;
-  const h = len * 0.2;
+  const w = len * 0.30;
+  const h = len * 0.28;
   const parts: THREE.BufferGeometry[] = [];
 
   // ══════════════════════════════════════════════════════════════════════
@@ -498,3 +500,122 @@ export function buildOrivani(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getOrivaniHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.30;
+  const h = len * 0.28;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Spire prow weapon — always present ────────────────────────────────────
+  // The pointed spire prow serves as a forward weapon mount.
+  weapons.push({
+    position: new THREE.Vector3(0, 0, len * 0.47),
+    facing: 'fore',
+    normal: new THREE.Vector3(0, 0, 1),
+  });
+
+  // ── Sanctified flame exhausts (cx >= 3) ───────────────────────────────────
+  // Triple cones at the apse — the Orivani's engine emitters.
+  if (cx >= 3) {
+    for (let i = -1; i <= 1; i++) {
+      engines.push({
+        position: new THREE.Vector3(i * w * 0.14, -h * 0.05, -len * 0.5),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.07,
+      });
+    }
+  }
+
+  // ── Bell tower spire weapons (cx >= 2) ────────────────────────────────────
+  // Twin bell towers flanking the transept serve as weapon platforms.
+  if (cx >= 2) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.44, h * 0.78, len * 0.02),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  // ── Buttress platform weapons + dorsal roof turrets (cx >= 4) ─────────────
+  if (cx >= 4) {
+    // Weapon platforms atop forward buttress arcs
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.58, h * 0.58, len * 0.18),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0.3, 0.5).normalize(),
+      });
+    }
+    // Dorsal roof turrets — forward pair
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.12, h * 0.78, len * 0.15),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  // ── Additional capital engine exhausts (cx >= 5) ──────────────────────────
+  // Five-flame apse — outer pair joins the original three.
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.28, -h * 0.05, -len * 0.52),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.055,
+      });
+    }
+  }
+
+  // ── Gallery weapon mounts + prow lance (cx >= 6) ──────────────────────────
+  if (cx >= 6) {
+    // Nave weapon gallery — dorsal cone turrets
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, h * 0.7, len * 0.18),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, h * 0.68, len * 0.0),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, h * 0.68, -len * 0.12),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+    // Prow lance — forward-facing heavy weapon
+    weapons.push({
+      position: new THREE.Vector3(0, 0, len * 0.58),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+  }
+
+  // ── Broadside weapon bays + western tower weapons (cx >= 7) ───────────────
+  if (cx >= 7) {
+    // Heavy broadside weapon ports
+    for (let i = -1; i <= 1; i++) {
+      for (const s of [-1, 1]) {
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.57, -h * 0.05, len * (0.05 + i * 0.1)),
+          facing: s === -1 ? 'port' : 'starboard',
+          normal: new THREE.Vector3(s, 0, 0).normalize(),
+        });
+      }
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('orivani', getOrivaniHardpoints);

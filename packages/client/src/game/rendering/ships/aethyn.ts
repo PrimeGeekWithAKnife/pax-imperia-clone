@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -28,7 +30,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildAethyn(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;
+  const w = len * 0.20;
+  const h = len * 0.30;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── Core cross-section: nested Platonic solids ────────────────────────────
@@ -461,3 +464,205 @@ export function buildAethyn(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getAethynHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.20;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Aft projection tetrahedron — always present ───────────────────────────
+  // The aft tetrahedron is the phase-shift resonator — serves as the primary
+  // "engine" emitter even though the Aethyn don't have conventional drives.
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.30),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.24,
+  });
+
+  // ── Borromean ring alpha — dimensional aperture emitter ───────────────────
+  // The primary torus ring bleeds phase-shift energy — functions as a
+  // secondary engine point at the ring centre.
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.06),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.52,
+  });
+
+  // ── Forward projection tetrahedron — weapon focus ─────────────────────────
+  // The forward tetrahedron is the primary weapon node on all Aethyn ships.
+  weapons.push({
+    position: new THREE.Vector3(0, 0, len * 0.34),
+    facing: 'fore',
+    normal: new THREE.Vector3(0, 0, 1),
+  });
+
+  // ── cx >= 2: Floating weapon focus tetrahedron ────────────────────────────
+  if (cx >= 2) {
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.42, w * 0.18, len * 0.26),
+      facing: 'fore',
+      normal: new THREE.Vector3(-0.5, 0.3, 0.8).normalize(),
+    });
+  }
+
+  // ── cx >= 3: Ring intersection octahedra — weapon nodes ───────────────────
+  if (cx >= 3) {
+    weapons.push({
+      position: new THREE.Vector3(w * 0.42, -w * 0.15, -len * 0.08),
+      facing: 'starboard',
+      normal: new THREE.Vector3(1, 0, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.35, w * 0.32, len * 0.10),
+      facing: 'port',
+      normal: new THREE.Vector3(-1, 0, 0),
+    });
+  }
+
+  // ── cx >= 4: Phase-shift pulse rings — engine emitters ────────────────────
+  if (cx >= 4) {
+    // Aft pulsing torus — dimensional aperture
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.38),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.28,
+    });
+    // Secondary pulse ring
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.44),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.22,
+    });
+  }
+
+  // ── cx >= 5: Full weapon focus arrays + forward aperture ──────────────────
+  if (cx >= 5) {
+    // Forward weapon focus array — triangular pattern of tetrahedra
+    weapons.push({
+      position: new THREE.Vector3(w * 0.18, w * 0.10, len * 0.44),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.16, w * 0.12, len * 0.42),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+    weapons.push({
+      position: new THREE.Vector3(0, -w * 0.18, len * 0.46),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Floating octahedra weapon focus nodes
+    weapons.push({
+      position: new THREE.Vector3(w * 0.62, -w * 0.35, len * 0.22),
+      facing: 'starboard',
+      normal: new THREE.Vector3(1, 0, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.58, w * 0.40, len * 0.08),
+      facing: 'port',
+      normal: new THREE.Vector3(-1, 0, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(-w * 0.22, -w * 0.52, -len * 0.28),
+      facing: 'port',
+      normal: new THREE.Vector3(0, -1, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(w * 0.48, w * 0.38, -len * 0.20),
+      facing: 'starboard',
+      normal: new THREE.Vector3(1, 0, 0),
+    });
+
+    // Forward aperture ring — engine emitter at the bow
+    engines.push({
+      position: new THREE.Vector3(0, 0, len * 0.44),
+      direction: new THREE.Vector3(0, 0, 1),
+      radius: w * 0.24,
+    });
+  }
+
+  // ── cx >= 6: Flanking weapon tetrahedra + aft pulse ring ──────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.72, 0, len * 0.15),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+    // Dorsal/ventral weapon dodecahedra
+    weapons.push({
+      position: new THREE.Vector3(0, w * 0.62, len * 0.05),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(0, -w * 0.58, -len * 0.08),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, -1, 0),
+    });
+
+    // Aft third pulse ring
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.50),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.34,
+    });
+  }
+
+  // ── cx >= 7: Pentagonal weapon ring at bow ────────────────────────────────
+  if (cx >= 7) {
+    for (let i = 0; i < 5; i++) {
+      const angle = (PI * 2 * i) / 5;
+      const r = w * 0.35;
+      weapons.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * r,
+          Math.sin(angle) * r,
+          len * 0.48,
+        ),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── cx >= 8: Orbital weapon halo + deep aft phase-shift cluster ───────────
+  if (cx >= 8) {
+    // Orbital ring of octahedra — weapon nodes encircling the hull
+    for (let i = 0; i < 6; i++) {
+      const angle = (PI * 2 * i) / 6 + 0.25;
+      const r = w * 0.90;
+      weapons.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * r,
+          Math.sin(angle) * r,
+          len * (-0.05 + 0.08 * Math.sin(angle * 2)),
+        ),
+        facing: 'turret',
+        normal: new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0).normalize(),
+      });
+    }
+
+    // Deep aft phase-shift cluster — four nested pulse rings
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.52),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.40,
+    });
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.56),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.32,
+    });
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('aethyn', getAethynHardpoints);

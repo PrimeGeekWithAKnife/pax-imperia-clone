@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -36,8 +38,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildSylvani(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;
-  const h = len * 0.18;
+  const w = len * 0.38;
+  const h = len * 0.20;
   const parts: THREE.BufferGeometry[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -569,3 +571,87 @@ export function buildSylvani(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getSylvaniHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.38;
+  const h = len * 0.20;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Primary root-cluster engines (always present) ─────────────────────────
+  // Radial root tendrils at the stern, count scales with cx.
+  const rootCount = 3 + cx;
+  const splay = w * (0.22 + 0.06 * cx);
+  for (let i = 0; i < rootCount; i++) {
+    const angle = (i / rootCount) * Math.PI * 2;
+    engines.push({
+      position: new THREE.Vector3(
+        Math.cos(angle) * splay * 0.5,
+        Math.sin(angle) * splay * 0.5,
+        -len * 0.48,
+      ),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.065,
+    });
+  }
+
+  // ── Forward spore pods — primary weapons (cx >= 2) ────────────────────────
+  if (cx >= 2) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.42, h * 0.22, len * 0.26),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Midship spore pods — broadside launchers (cx >= 3) ────────────────────
+  if (cx >= 3) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.58, h * 0.15, -len * 0.04),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+  }
+
+  // ── Branch tip pods (cx >= 4) ─────────────────────────────────────────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 1.05, h * 0.1, len * 0.05),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+
+    // Aft spore pods — defensive clusters
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.48, h * 0.18, -len * 0.24),
+        facing: 'aft',
+        normal: new THREE.Vector3(0, 0, -1),
+      });
+    }
+  }
+
+  // ── Mega-capital ventral spore battery (cx >= 7) ──────────────────────────
+  if (cx >= 7) {
+    for (let i = 0; i < 3; i++) {
+      const zOff = len * (0.15 - i * 0.12);
+      weapons.push({
+        position: new THREE.Vector3(0, -h * 0.38, zOff),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('sylvani', getSylvaniHardpoints);

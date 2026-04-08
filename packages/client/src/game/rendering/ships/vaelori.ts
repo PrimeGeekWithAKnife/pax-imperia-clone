@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -89,8 +91,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildVaelori(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;           // width: slightly wider for geode bulk
-  const h = len * 0.18;           // height
+  const w = len * 0.35;           // width: slightly wider for geode bulk
+  const h = len * 0.35;           // height
   const parts: THREE.BufferGeometry[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -663,3 +665,117 @@ export function buildVaelori(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getVaeloriHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.35;
+  const h = len * 0.35;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Primary aft torus ring drive ──────────────────────────────────────────
+  // Vaelori ships resonate rather than burn fuel. The primary torus at z=-0.42
+  // emits energy in all aft directions. Single central emitter point.
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.42),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.2,
+  });
+
+  // ── Secondary engine ring (cx >= 1) ──────────────────────────────────────
+  if (cx >= 1) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.44),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.28,
+    });
+  }
+
+  // ── Tertiary engine ring (cx >= 3) ───────────────────────────────────────
+  if (cx >= 3) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.46),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.36,
+    });
+  }
+
+  // ── Flanking engine sub-rings (cx >= 5) ──────────────────────────────────
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.4, 0, -len * 0.38),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.14,
+      });
+    }
+  }
+
+  // ── Forward psionic projector weapons (cx >= 2) ──────────────────────────
+  // Octahedra on ventral spar stalks — resonance spire weapons.
+  if (cx >= 2) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.3, -h * 0.38, len * 0.25),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Midship weapon pair (cx >= 3) ────────────────────────────────────────
+  if (cx >= 3) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.45, -h * 0.33, -len * 0.05),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  // ── Ventral weapon stalks (cx >= 4) ──────────────────────────────────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.35, -h * 0.5, len * 0.12),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  // ── Broadside + aft broadside weapon batteries (cx >= 5) ─────────────────
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.55, -h * 0.32, len * 0.1),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.5, -h * 0.28, -len * 0.2),
+        facing: 'aft',
+        normal: new THREE.Vector3(0, 0, -1),
+      });
+    }
+  }
+
+  // ── Dreadnought ventral weapon cluster (cx >= 6) ─────────────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.65, -h * 0.35, len * 0.0),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, -0.3, 0).normalize(),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('vaelori', getVaeloriHardpoints);

@@ -46,9 +46,9 @@ export function tacticalTo3D(
  */
 export function shipYOffset(maxHull: number): number {
   if (maxHull < 60) return 0;
-  if (maxHull < 200) return 0.2;
-  if (maxHull < 400) return 0.4;
-  return 0.6;
+  if (maxHull < 200) return 0.3;
+  if (maxHull < 400) return 0.6;
+  return 1.0;
 }
 
 /**
@@ -56,10 +56,10 @@ export function shipYOffset(maxHull: number): number {
  * Matches the 2D size categories (tiny / small / medium / large).
  */
 export function shipScale(maxHull: number): number {
-  if (maxHull < 60) return 0.6;   // probes, scouts
-  if (maxHull < 200) return 0.8;  // frigates, destroyers
-  if (maxHull < 400) return 1.0;  // cruisers
-  return 1.3;                      // battleships, dreadnoughts
+  if (maxHull < 60) return 1.0;   // probes, scouts
+  if (maxHull < 200) return 1.3;  // frigates, destroyers
+  if (maxHull < 400) return 1.6;  // cruisers
+  return 2.0;                      // battleships, dreadnoughts
 }
 
 // ---------------------------------------------------------------------------

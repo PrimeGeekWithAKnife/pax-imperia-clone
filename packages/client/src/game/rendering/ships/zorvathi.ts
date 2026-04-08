@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ============================================================================
@@ -24,8 +26,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildZorvathi(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;
-  const h = len * 0.13;
+  const w = len * 0.40;
+  const h = len * 0.10;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── 1. Body segments — spheroid cephalon + thorax + abdomen ───────────
@@ -541,3 +543,104 @@ export function buildZorvathi(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getZorvathiHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.40;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Mandible prow weapons — always present ────────────────────────────────
+  // Primary mandibles at the cephalon serve as close-range weapons.
+  for (const s of [-1, 1]) {
+    weapons.push({
+      position: new THREE.Vector3(s * w * 0.17, -w * 0.07, len * 0.47),
+      facing: 'fore',
+      normal: new THREE.Vector3(s * 0.3, -0.2, 1).normalize(),
+    });
+  }
+
+  // ── Ventral vibration-drive plate (cx >= 1) ───────────────────────────────
+  // Arthropod propulsion: vibrating plates at ventral aft.
+  if (cx >= 1) {
+    engines.push({
+      position: new THREE.Vector3(0, -w * 0.36, -len * 0.28),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.275,
+    });
+  }
+
+  // ── Lateral auxiliary drive plates (cx >= 4) ──────────────────────────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.48, -w * 0.33, -len * 0.24),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.10,
+      });
+    }
+  }
+
+  // ── Thorax weapon blisters (cx >= 2) ──────────────────────────────────────
+  // Primary blisters — swollen turret mounts on thorax flanks.
+  if (cx >= 2) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.30, w * 0.28, len * 0.15),
+        facing: 'turret',
+        normal: new THREE.Vector3(s * 0.3, 0.7, 0.3).normalize(),
+      });
+    }
+  }
+
+  // ── Secondary ventral blister pair (cx >= 5) ──────────────────────────────
+  if (cx >= 5) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.25, -w * 0.15, len * 0.12),
+        facing: 'turret',
+        normal: new THREE.Vector3(s * 0.2, -0.8, 0.2).normalize(),
+      });
+    }
+  }
+
+  // ── Tail stinger engine (cx >= 5) ─────────────────────────────────────────
+  // On capitals, the tail stinger also functions as a rear-facing engine.
+  if (cx >= 5) {
+    engines.push({
+      position: new THREE.Vector3(0, w * 0.08, -len * 0.55),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.08,
+    });
+  }
+
+  // ── Dorsal spine turret (cx >= 6) ─────────────────────────────────────────
+  if (cx >= 6) {
+    weapons.push({
+      position: new THREE.Vector3(0, w * 0.55, len * 0.08),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  // ── Drive resonator node engines (cx >= 6) ────────────────────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.25, -w * 0.40, -len * 0.32),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.035,
+      });
+    }
+    engines.push({
+      position: new THREE.Vector3(0, -w * 0.40, -len * 0.36),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.04,
+    });
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('zorvathi', getZorvathiHardpoints);

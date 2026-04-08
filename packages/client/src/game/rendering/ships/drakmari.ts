@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -101,8 +103,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildDrakmari(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;           // beam (width) — narrower than manta, eel-like
-  const h = len * 0.14;           // draught (height) — slightly taller than wide
+  const w = len * 0.18;           // beam (width) — narrower than manta, eel-like
+  const h = len * 0.16;           // draught (height) — slightly taller than wide
   const parts: THREE.BufferGeometry[] = [];
 
   // ── 1. MAIN HULL — Hunched predator body ───────────────────────────────
@@ -774,3 +776,102 @@ export function buildDrakmari(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getDrakmariHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.18;
+  const h = len * 0.16;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Caudal engine cluster — bio-jet fan (always present) ──────────────────
+  // Radial fan of bio-jets at the tail terminus.
+  const engineCount = Math.min(2 + Math.floor(cx * 0.8), 7);
+  const fanSpread = cx >= 5 ? Math.PI * 1.6 : Math.PI * 1.2;
+  for (let i = 0; i < engineCount; i++) {
+    const angle = (i - (engineCount - 1) / 2) * (fanSpread / Math.max(engineCount - 1, 1));
+    const ex = Math.sin(angle) * w * 0.14;
+    const ey = Math.cos(angle) * h * 0.10;
+    engines.push({
+      position: new THREE.Vector3(ex, ey, -len * 0.615),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.04,
+    });
+  }
+
+  // ── Leviathan outer engine ring (cx >= 7) ─────────────────────────────────
+  if (cx >= 7) {
+    const outerCount = 8;
+    const ringR = w * 0.20;
+    for (let i = 0; i < outerCount; i++) {
+      const angle = (i / outerCount) * Math.PI * 2;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * ringR,
+          Math.sin(angle) * ringR,
+          -len * 0.60,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.03,
+      });
+    }
+  }
+
+  // ── Mandible tip emitters — jaw weapons (cx >= 4) ─────────────────────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, -h * 0.12, len * 0.55),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Spine-mounted weapon projectors — dorsal armament (cx >= 3) ───────────
+  if (cx >= 3) {
+    const weaponCount = Math.min(1 + Math.floor(cx / 2), 4);
+    for (let i = 0; i < weaponCount; i++) {
+      const zPos = len * (0.15 - i * 0.14);
+      weapons.push({
+        position: new THREE.Vector3(0, h * 0.72, zPos),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+
+    // Lateral weapon spines — flanking broadside
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.74, h * 0.16, len * 0.12),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+  }
+
+  // ── Ventral launch bays — torpedo slits (cx >= 3) ─────────────────────────
+  if (cx >= 3) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, -h * 0.48, len * 0.04),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Heavy ventral weapon bay (cx >= 5) ────────────────────────────────────
+  if (cx >= 5) {
+    weapons.push({
+      position: new THREE.Vector3(0, -h * 0.55, len * 0.05),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, -1, 0),
+    });
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('drakmari', getDrakmariHardpoints);

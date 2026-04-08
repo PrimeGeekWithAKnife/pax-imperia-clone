@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -113,8 +115,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  *   cx 7 (station-class)    ~70 parts  -- adds habitat ring, forward array, extra rings
  */
 export function buildTeranos(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;   // Utilitarian width -- broad-shouldered, functional
-  const h = len * 0.20;   // Moderate height -- not flat, not tall
+  const w = len * 0.28;   // Utilitarian width -- broad-shouldered, functional
+  const h = len * 0.22;   // Moderate height -- not flat, not tall
   const parts: THREE.BufferGeometry[] = [];
 
   // Thin slab helper for panel seam lines
@@ -818,3 +820,116 @@ export function buildTeranos(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getTeranosHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.28;
+  const h = len * 0.22;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Main engine thrust bells ──────────────────────────────────────────────
+  // Clustered at stern, spread across the engine housing width.
+  const nozzleCount = Math.min(2 + Math.floor(cx * 0.8), 7);
+  const nozzleSpread = w * 1.1;
+  for (let i = 0; i < nozzleCount; i++) {
+    const nx = (i - (nozzleCount - 1) / 2) * (nozzleSpread / Math.max(nozzleCount - 1, 1));
+    engines.push({
+      position: new THREE.Vector3(nx, 0, -len * 0.545),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: h * 0.145,
+    });
+  }
+
+  // ── Flanking nacelle engines (cx >= 6) ────────────────────────────────────
+  if (cx >= 6) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.85, 0, -len * 0.52),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: h * 0.12,
+      });
+    }
+  }
+
+  // ── Dorsal turrets (cx >= 3) ──────────────────────────────────────────────
+  if (cx >= 3) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.30, h * 0.54, len * 0.05),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  // ── Midships turret (cx >= 4) ─────────────────────────────────────────────
+  if (cx >= 4) {
+    weapons.push({
+      position: new THREE.Vector3(0, h * 0.54, -len * 0.05),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+
+    // Ventral weapon pods
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.35, -h * 0.52, len * 0.12),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+  }
+
+  // ── Dorsal spine weapon (cx >= 5) ─────────────────────────────────────────
+  if (cx >= 5) {
+    weapons.push({
+      position: new THREE.Vector3(0, h * 0.58, len * 0.34),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Ventral torpedo tubes
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.20, -h * 0.42, len * 0.30),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+
+    // Broadside turret platforms
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.55, h * 0.46, -len * 0.10),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+  }
+
+  // ── Massive forward weapon array (cx >= 7) ────────────────────────────────
+  if (cx >= 7) {
+    weapons.push({
+      position: new THREE.Vector3(0, 0, len * 0.54),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Additional broadside battery rows
+    for (let z = -0.15; z <= 0.10; z += 0.12) {
+      for (const s of [-1, 1]) {
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.58, h * 0.47, len * z),
+          facing: s === -1 ? 'port' : 'starboard',
+          normal: new THREE.Vector3(s, 0, 0).normalize(),
+        });
+      }
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('teranos', getTeranosHardpoints);

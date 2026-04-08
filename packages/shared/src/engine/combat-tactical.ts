@@ -14,7 +14,7 @@
  *  - Sensor range determines detection radius
  */
 
-import type { Fleet, Ship, ShipDesign, ShipComponent, ComponentType, HullTemplate } from '../types/ships.js';
+import type { Fleet, Ship, ShipDesign, ShipComponent, ComponentType, HullTemplate, HullClass } from '../types/ships.js';
 import { generateId } from '../utils/id.js';
 import { HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
 
@@ -156,6 +156,24 @@ const DEBRIS_DAMAGE_VARIANCE = 0.5; // ±50%
 /** Safe distance from spawn areas where environment features are not placed. */
 const ENVIRONMENT_SPAWN_MARGIN = 250;
 
+// --- Ship collision radii (hard body, per hull class) ----------------------
+const COLLISION_RADII: Partial<Record<HullClass, number>> = {
+  science_probe: 5, spy_probe: 5, drone: 5,
+  fighter: 6, bomber: 7, patrol: 7, yacht: 7,
+  corvette: 8,
+  cargo: 10, transport: 10,
+  frigate: 10, destroyer: 11,
+  large_transport: 14, large_cargo: 14,
+  light_cruiser: 15, heavy_cruiser: 17,
+  large_supplier: 16, carrier: 20,
+  light_battleship: 20, battleship: 22,
+  heavy_battleship: 28, super_carrier: 24,
+  battle_station: 35, small_space_station: 30,
+  space_station: 40, large_space_station: 50, planet_killer: 50,
+  coloniser_gen1: 14, coloniser_gen2: 14, coloniser_gen3: 14,
+  coloniser_gen4: 16, coloniser_gen5: 18,
+};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -247,6 +265,8 @@ export interface TacticalShip {
   sensorJamming: number;
   /** Hull class from template (e.g. 'fighter', 'corvette', 'battleship'). */
   hullClass?: string;
+  /** Collision radius — ships are pushed apart when their radii overlap. */
+  collisionRadius: number;
   /** Fighter AI phase — tracks attack-run state machine. */
   fighterPhase?: 'approach' | 'engage' | 'break' | 'regroup';
   /** Tick when fighter entered the current phase. */
@@ -1892,6 +1912,7 @@ export function initializeTacticalCombat(
         missileDeflection: extracted.missileDeflection,
         sensorJamming: extracted.sensorJamming,
         hullClass: hullTemplate?.class as string | undefined,
+        collisionRadius: COLLISION_RADII[hullTemplate?.class as HullClass] ?? 10,
       };
     });
   }
@@ -1954,6 +1975,7 @@ export function initializeTacticalCombat(
         evasionBonus: 0,
         missileDeflection: 0,
         sensorJamming: 0,
+        collisionRadius: 30,
         crew: {
           morale: 90,
           health: 100,
@@ -2514,7 +2536,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // Ships steer away from nearby allies to avoid splash/AOE and overlap.
   // This is blended into the target position, NOT an early return,
   // so ships still advance while spreading.
-  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 60 : 50;
+  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 65 : 55;
   let spreadX = 0;
   let spreadY = 0;
   const allies = state.ships.filter(
@@ -3143,6 +3165,54 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const newFacing = normaliseAngle(ship.facing + clamp(facingDiff, -maxTurn, maxTurn));
     return newFacing !== ship.facing ? { ...ship, facing: newFacing } : ship;
   });
+
+  // 2c. Hard collision resolution — prevent ships from overlapping.
+  // Run 2 iterations for stability (resolving one pair can push into another).
+  {
+    const COLLISION_ITERATIONS = 2;
+    // Work on mutable position copies, then produce new immutable ship objects.
+    const positions = ships.map(s => ({ x: s.position.x, y: s.position.y }));
+    for (let iter = 0; iter < COLLISION_ITERATIONS; iter++) {
+      for (let i = 0; i < ships.length; i++) {
+        const a = ships[i];
+        if (a.destroyed || a.routed) continue;
+        for (let j = i + 1; j < ships.length; j++) {
+          const b = ships[j];
+          if (b.destroyed || b.routed) continue;
+
+          const dx = positions[j].x - positions[i].x;
+          const dy = positions[j].y - positions[i].y;
+          const distSq = dx * dx + dy * dy;
+          const minDist = (a.collisionRadius ?? 10) + (b.collisionRadius ?? 10);
+
+          if (distSq < minDist * minDist && distSq > 0.01) {
+            const d = Math.sqrt(distSq);
+            const overlap = minDist - d;
+            const nx = dx / d;
+            const ny = dy / d;
+
+            // Mass-weighted push — heavier ships move less
+            const totalMass = a.maxHull + b.maxHull;
+            const aFrac = b.maxHull / totalMass;
+            const bFrac = a.maxHull / totalMass;
+            const pushEach = overlap * 0.5;
+
+            positions[i].x -= nx * pushEach * aFrac;
+            positions[i].y -= ny * pushEach * aFrac;
+            positions[j].x += nx * pushEach * bFrac;
+            positions[j].y += ny * pushEach * bFrac;
+          }
+        }
+      }
+    }
+    // Apply adjusted positions back as new immutable ship objects
+    ships = ships.map((s, idx) => {
+      if (s.position.x !== positions[idx].x || s.position.y !== positions[idx].y) {
+        return { ...s, position: { x: positions[idx].x, y: positions[idx].y } };
+      }
+      return s;
+    });
+  }
 
   // 3. Move projectiles and check for hits (with friendly fire + asteroid intercept)
   const hitRadius = 12;
