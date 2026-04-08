@@ -844,6 +844,8 @@ export function App(): React.ReactElement {
       defenderColor: '#ff6644',
       attackerName: config.playerSpecies.name,
       defenderName: config.aiSpecies.name,
+      attackerSpeciesId: config.playerSpecies.id,
+      defenderSpeciesId: config.aiSpecies.id,
       layout: 'open_space' as const,
       returnScene: 'MainMenuScene',
       isSkirmish: true,
