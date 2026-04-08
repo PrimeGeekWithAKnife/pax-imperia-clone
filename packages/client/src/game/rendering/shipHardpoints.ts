@@ -63,3 +63,21 @@ export interface ShipBuildResult {
  * from the geometry's bounding box by the registry.
  */
 export type HardpointProvider = (len: number, cx: number) => Omit<ShipHardpoints, 'bounds'>;
+
+// ─── Hardpoint provider registry ──────────────────────────────────────────
+// Lives here (not in ShipModels3D) to avoid circular imports — species
+// builder files import registerHardpointProvider from here, and
+// ShipModels3D imports the builders. If the registry lived in ShipModels3D,
+// the circular dependency would cause undefined exports at module init time.
+
+const HARDPOINT_PROVIDERS: Record<string, HardpointProvider> = {};
+
+/** Register a species hardpoint provider. Called at module level by species builders. */
+export function registerHardpointProvider(speciesId: string, provider: HardpointProvider): void {
+  HARDPOINT_PROVIDERS[speciesId] = provider;
+}
+
+/** Look up a registered hardpoint provider (or undefined if none). */
+export function getHardpointProvider(speciesId: string): HardpointProvider | undefined {
+  return HARDPOINT_PROVIDERS[speciesId];
+}
