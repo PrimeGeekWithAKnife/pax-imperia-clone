@@ -30,17 +30,27 @@ export function buildOrivani(len: number, cx: number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
 
   // ══════════════════════════════════════════════════════════════════════
-  // 1. NAVE — the central longitudinal hull, tall and narrow like a
-  //    cathedral's central aisle. Slightly tapered at both ends.
+  // 1. CRUCIFORM HULL — clear cross/plus shape visible from above.
+  //    The nave (longitudinal) and transept (lateral) are both prominent
+  //    so the + shape reads clearly at combat zoom (~45 deg above).
   // ══════════════════════════════════════════════════════════════════════
+
+  // Nave (main longitudinal body) — narrow, tall
   parts.push(place(
-    new THREE.BoxGeometry(w * 0.5, h * 1.0, len * 0.65),
+    new THREE.BoxGeometry(w * 0.4, h * 0.8, len * 0.85),
     0, 0, 0,
+  ));
+
+  // Transept (lateral cross-bar) — nearly as long as the nave is deep,
+  // extending WAY beyond nave width to create a clear + shape
+  parts.push(place(
+    new THREE.BoxGeometry(w * 2.5, h * 0.6, len * 0.25),
+    0, 0, len * 0.08,
   ));
 
   // Nave clerestory — raised upper section with narrower width
   parts.push(place(
-    new THREE.BoxGeometry(w * 0.35, h * 0.25, len * 0.55),
+    new THREE.BoxGeometry(w * 0.3, h * 0.25, len * 0.55),
     0, h * 0.6, 0,
   ));
 
@@ -79,19 +89,10 @@ export function buildOrivani(len: number, cx: number): THREE.BufferGeometry {
     0, h * 1.45, len * 0.02,
   ));
 
-  // ══════════════════════════════════════════════════════════════════════
-  // 4. TRANSEPT — the cross-bar that makes the cruciform plan.
-  //    Wider than the nave, shorter fore-aft.
-  // ══════════════════════════════════════════════════════════════════════
-  parts.push(place(
-    new THREE.BoxGeometry(w * 0.95, h * 0.55, len * 0.15),
-    0, h * 0.05, len * 0.02,
-  ));
-
   // Transept end-caps — slightly thickened outboard
   parts.push(...mirrorX(s => place(
     new THREE.BoxGeometry(w * 0.12, h * 0.65, len * 0.12),
-    s * w * 0.47, h * 0.05, len * 0.02,
+    s * w * 1.25, h * 0.05, len * 0.08,
   )));
 
   // ══════════════════════════════════════════════════════════════════════

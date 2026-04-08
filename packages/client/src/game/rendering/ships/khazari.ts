@@ -106,23 +106,11 @@ export function buildKhazari(len: number, cx: number): THREE.BufferGeometry {
   //  ALWAYS PRESENT — even the smallest Khazari fighter has these (cx >= 0)
   // ════════════════════════════════════════════════════════════════════════════
 
-  // ── 1. MAIN HULL — Trapezoidal forged cross-section ────────────────────
-  // The defining Khazari shape: wide base, narrow top, chamfered edges.
-  // Extruded as a trapezoid running 60% of total length.
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(-w * 0.50, -h * 0.42);   // bottom-left
-  hullShape.lineTo( w * 0.50, -h * 0.42);   // bottom-right
-  hullShape.lineTo( w * 0.34,  h * 0.32);   // top-right (narrower)
-  hullShape.lineTo(-w * 0.34,  h * 0.32);   // top-left (narrower)
-  hullShape.closePath();
-  const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
-    depth: len * 0.58,
-    bevelEnabled: true,
-    bevelThickness: len * 0.018,
-    bevelSize: len * 0.012,
-    bevelSegments: 1,
-  });
-  parts.push(place(hullGeo, 0, 0, -len * 0.28));
+  // ── 1. MAIN HULL — Flat anvil disc, wider than long ─────────────────────
+  // The Khazari forge-fortress: a squat, heavy disc/lozenge shape. Wider
+  // than it is long — an octagonal anvil viewed from above.
+  const hullGeo = new THREE.CylinderGeometry(w * 0.9, w * 1.0, h * 0.5, 8, 1);
+  parts.push(place(hullGeo, 0, 0, 0, HALF_PI, 0, 0, 1.0, len * 0.45 / (w * 0.95), 1.0));
 
   // ── 2. RAM PROW — Four-sided siege pyramid ─────────────────────────────
   // Every Khazari ship, even a fighter, has a ram. The point faces +Z.

@@ -29,59 +29,34 @@ export function buildPyrenth(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.25;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── Monolith core (always present) ──────────────────────────────────
-  // Primary hull: a rough-faceted octahedron stretched along z, the heart
-  // of every Pyrenth vessel from scout to dreadnought.
+  // ── Obsidian shard (always present) ──────────────────────────────────
+  // Primary hull: a sharp angular crystal shard — like a broken piece of
+  // obsidian. Asymmetric, sharp edges. The defining feature is SHARP ANGLES
+  // and ASYMMETRY. Completely different from the old elongated monolith.
+
+  // Main shard — elongated tetrahedron, tilted for asymmetry
+  const shardGeo = new THREE.TetrahedronGeometry(len * 0.35, 0);
   parts.push(place(
-    new THREE.OctahedronGeometry(w * 0.55, 1),
-    0, 0, len * 0.02,
+    shardGeo,
     0, 0, 0,
-    0.85, 0.6, len * 0.042,
+    0.2, 0.15, 0,  // tilted slightly for asymmetry
+    w * 1.2 / (len * 0.35), h * 0.8 / (len * 0.35), 1.3,
   ));
 
-  // Secondary monolith slab — offset slightly aft, gives depth to the hull
+  // Secondary shard — smaller, at a different angle, jutting from the main
   parts.push(place(
-    new THREE.OctahedronGeometry(w * 0.38, 1),
-    0, -h * 0.08, -len * 0.12,
-    0.08, 0.15, 0,
-    0.7, 0.5, len * 0.028,
+    new THREE.TetrahedronGeometry(len * 0.2, 0),
+    w * 0.3, -h * 0.1, -len * 0.15,
+    0.4, -0.3, 0.1,
+    0.8, 0.6, 1.0,
   ));
 
-  // ── Triangular prow blade (always present) ──────────────────────────
-  // Sharp obsidian spear point, triangular cross-section (3 segments)
+  // Tertiary splinter — small jagged piece forward, adds to broken-glass feel
   parts.push(place(
-    new THREE.ConeGeometry(w * 0.2, len * 0.34, 3),
-    0, 0, len * 0.42,
-    HALF_PI, 0, 0,
-  ));
-
-  // Prow tip — narrower, sharper shard
-  parts.push(place(
-    new THREE.ConeGeometry(w * 0.08, len * 0.14, 3),
-    0, h * 0.02, len * 0.56,
-    HALF_PI, 0, 0,
-  ));
-
-  // ── Dorsal keel (always present) ────────────────────────────────────
-  // Blade of obsidian running along the top — the ship's spine
-  parts.push(place(
-    new THREE.BoxGeometry(w * 0.04, h * 0.38, len * 0.26),
-    0, h * 0.18, len * 0.34,
-    0.05, 0, 0,
-  ));
-
-  // Keel tapers aft
-  parts.push(place(
-    new THREE.BoxGeometry(w * 0.035, h * 0.28, len * 0.18),
-    0, h * 0.14, len * 0.12,
-    0.03, 0, 0,
-  ));
-
-  // ── Ventral ridge (always present) ──────────────────────────────────
-  // Keel underside — less pronounced than dorsal
-  parts.push(place(
-    new THREE.BoxGeometry(w * 0.05, h * 0.18, len * 0.3),
-    0, -h * 0.22, len * 0.05,
+    new THREE.TetrahedronGeometry(len * 0.14, 0),
+    -w * 0.15, h * 0.1, len * 0.28,
+    -0.3, 0.5, 0.2,
+    0.6, 0.7, 0.9,
   ));
 
   // ── cx >= 1: Tectonic crag plates + lateral shards ──────────────────

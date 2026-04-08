@@ -30,52 +30,25 @@ export function buildZorvathi(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.10;
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── 1. Body segments — spheroid cephalon + thorax + abdomen ───────────
-  // Even the smallest scout has distinct head/thorax/abdomen silhouette.
-  const segCount = Math.min(3 + cx, 8);
-  const segLen = len * 0.82 / segCount;
+  // ── 1. Flat beetle carapace — very wide, very flat disc ────────────────
+  // A single dominant squashed sphere creates a beetle/disc silhouette
+  // that is RADICALLY different from elongated shapes. Width dominates.
+  const carapaceGeo = new THREE.SphereGeometry(w * 0.9, 12, 8);
+  parts.push(place(
+    carapaceGeo,
+    0, 0, len * 0.05,
+    0, 0, 0,
+    1.0, 0.25, 0.7,  // wide, very flat, slightly shorter than wide
+  ));
 
-  for (let i = 0; i < segCount; i++) {
-    const t = i / (segCount - 1);
-    // Envelope: bulge at thorax (t~0.3), taper at head and abdomen
-    const envelope = Math.sin(Math.max(t, 0.08) * PI) *
-                     (1.0 - 0.22 * t);
-    const segR = w * (0.35 + 0.65 * envelope);
-    const z = (0.5 - t) * len * 0.82;
-
-    // Main segment sphere — squashed laterally, stretched along Z
-    parts.push(place(
-      new THREE.SphereGeometry(segR, 10, 7),
-      0, 0, z,
-      0, 0, 0,
-      0.85, 0.65, segLen / (segR * 2) * 1.15,
-    ));
-
-    // Ventral plate on each segment — flat underside like real arthropods
-    parts.push(place(
-      new THREE.BoxGeometry(segR * 1.2, segR * 0.08, segLen * 0.7),
-      0, -segR * 0.48, z,
-    ));
-  }
-
-  // ── 2. Inter-segment chitin rings ─────────────────────────────────────
-  // Visible joint rings between every body segment, even at cx=0.
-  for (let i = 1; i < segCount; i++) {
-    const t = i / (segCount - 1);
-    const envelope = Math.sin(Math.max(t, 0.08) * PI) * (1.0 - 0.22 * t);
-    const segR = w * (0.35 + 0.65 * envelope);
-    const jointZ = (0.5 - t) * len * 0.82 + segLen * 0.5;
-    const jointR = segR * 0.72;
-    parts.push(place(
-      new THREE.TorusGeometry(jointR * 0.55, jointR * 0.09, 5, 10),
-      0, 0, jointZ,
-      HALF_PI, 0, 0,
-      1.3, 1, 0.55,
-    ));
-  }
+  // ── 2. Ventral plate — flat underside like real arthropods ────────────
+  parts.push(place(
+    new THREE.BoxGeometry(w * 1.4, w * 0.06, len * 0.55),
+    0, -w * 0.20, len * 0.05,
+  ));
 
   // ── 3. Cephalon (head) detailing ──────────────────────────────────────
-  // Slightly flattened forward shield plate over the head segment
+  // Slightly flattened forward shield plate over the head
   parts.push(place(
     new THREE.SphereGeometry(w * 0.38, 8, 6, 0, PI * 2, 0, HALF_PI * 0.8),
     0, w * 0.08, len * 0.42,

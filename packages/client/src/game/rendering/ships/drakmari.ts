@@ -107,15 +107,17 @@ export function buildDrakmari(len: number, cx: number): THREE.BufferGeometry {
   const h = len * 0.16;           // draught (height) — slightly taller than wide
   const parts: THREE.BufferGeometry[] = [];
 
-  // ── 1. MAIN HULL — Hunched predator body ───────────────────────────────
-  // Elongated, slightly dorsally-humped ellipsoid — the body of a deep-sea
-  // ambush predator. Not round like Vethara; angular-organic, pinched at
-  // the flanks, swelling at the dorsal hump.
+  // ── 1. MAIN HULL — Crescent jaw predator body ──────────────────────────
+  // A torus arc creating a C-shape / crescent silhouette from above — the
+  // open maw of an abyssal predator. Concave front, like a boomerang.
+  const jawR = len * 0.35;
+  const jawTube = w * 0.7;
+  const jawGeo = new THREE.TorusGeometry(jawR, jawTube, 8, 12, PI * 0.7);
   parts.push(place(
-    new THREE.SphereGeometry(w * 0.65, 12, 8),
-    0, h * 0.05, len * 0.05,
-    0, 0, 0,
-    0.85, 0.75, 1.6,       // narrow, squat, stretched along Z
+    jawGeo,
+    0, 0, len * 0.1,
+    HALF_PI, 0, 0,   // lay flat
+    1.0, 0.6, 1.0,   // squash vertically
   ));
 
   // ── 2. SPLIT JAW-PROW — Primary mandibles ─────────────────────────────
