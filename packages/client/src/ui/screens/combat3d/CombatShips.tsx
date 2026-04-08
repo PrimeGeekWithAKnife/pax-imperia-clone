@@ -10,7 +10,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TacticalShip, HullClass } from '@nova-imperia/shared';
-import { generateShipGeometry, getShipMaterial } from '../../../game/rendering/ShipModels3D';
+import { generateShipBuildResult, getShipMaterial } from '../../../game/rendering/ShipModels3D';
 import { getSpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
 import type { CombatStateAPI } from './useCombatState';
 import { tacticalTo3D, shipYOffset, shipScale, DAMAGE_FLASH_COLOR } from './constants';
@@ -30,6 +30,9 @@ const STARBOARD_LIGHT_COLOR = 0x22ff44;  // green — starboard (right)
 
 /** Tiny emissive sphere radius for running lights. */
 const RUNNING_LIGHT_RADIUS = 0.04;
+
+/** Shield flash duration in milliseconds. */
+const SHIELD_FLASH_DURATION_MS = 150;
 
 /** Scratch vector for per-ship positioning (avoid per-frame allocation). */
 const _tmpShipPos = new THREE.Vector3();
@@ -71,14 +74,19 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
+  const outlineRef = useRef<THREE.Mesh>(null);
   const flashRef = useRef<THREE.Mesh>(null);
   const flashStartRef = useRef<number>(0);
+  const shieldMeshRef = useRef<THREE.Mesh>(null);
+  const shieldFlashStartRef = useRef<number>(0);
 
-  // Memoise geometry and material per species + hull class (capped at cx=4 for combat)
-  const geometry = useMemo(
-    () => generateShipGeometry(speciesId ?? 'teranos', hullClass, 4),
+  // Memoise build result (geometry + hardpoint metadata) per species + hull class
+  const buildResult = useMemo(
+    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass, 6),
     [speciesId, hullClass],
   );
+  const geometry = buildResult.geometry;
+  const hardpoints = buildResult.hardpoints;
 
   const material = useMemo(
     () => getShipMaterial(speciesId ?? 'teranos'),
@@ -104,11 +112,26 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   // Species-specific palette for engine glow colour
   const palette = useMemo(() => getSpeciesWeaponPalette(speciesId), [speciesId]);
 
+  // Shield bubble material (shared across frames, mutated via ref)
+  const shieldMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: palette.shieldColor,
+        transparent: true,
+        opacity: 0.04,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+      }),
+    [palette.shieldColor],
+  );
+
   // Running lights blink state — alternates port/starboard visibility every N ticks
   const runningLightsOn = Math.floor(tick / RUNNING_LIGHT_BLINK_TICKS) % 2 === 0;
 
   const isSelected = api.selectedShipIds.includes(ship.id);
   const isDamaged = api.damagedShipIds.has(ship.id);
+  const isShieldHit = api.shieldHitShipIds.has(ship.id);
   const isPlayer = api.isPlayerShip(ship);
 
   // Update position and rotation each frame
@@ -123,6 +146,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
     if (meshRef.current) {
       meshRef.current.rotation.y = -(ship.facing - Math.PI / 2);
     }
+    if (outlineRef.current) outlineRef.current.rotation.y = meshRef.current?.rotation.y ?? 0;
 
     // Damage flash — driven entirely via ref, no React state setter
     if (isDamaged && flashStartRef.current === 0) {
@@ -140,6 +164,33 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         flashRef.current.visible = false;
         flashStartRef.current = 0;
       }
+    }
+
+    // Shield hit flash — pulse the shield bubble on shield damage
+    if (isShieldHit && shieldFlashStartRef.current === 0) {
+      shieldFlashStartRef.current = performance.now();
+    }
+
+    if (shieldFlashStartRef.current > 0 && shieldMeshRef.current) {
+      const elapsed = performance.now() - shieldFlashStartRef.current;
+      if (elapsed < SHIELD_FLASH_DURATION_MS) {
+        const t = elapsed / SHIELD_FLASH_DURATION_MS;
+        const pulseScale = 1.0 + 0.15 * Math.sin(t * Math.PI);
+        shieldMeshRef.current.scale.setScalar(pulseScale);
+        shieldMaterial.opacity = 0.5 * (1 - t);
+      } else {
+        shieldMeshRef.current.scale.setScalar(1.0);
+        shieldMaterial.opacity = 0.04 + 0.06 * shieldFraction;
+        shieldFlashStartRef.current = 0;
+      }
+    } else if (shieldMeshRef.current && shieldFlashStartRef.current === 0) {
+      // Idle shield opacity — subtly visible
+      shieldMaterial.opacity = 0.04 + 0.06 * shieldFraction;
+    }
+
+    // Rotate shield bubble with ship
+    if (shieldMeshRef.current && meshRef.current) {
+      shieldMeshRef.current.rotation.y = meshRef.current.rotation.y;
     }
   });
 
@@ -185,6 +236,21 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         onContextMenu={handleContextMenu}
       />
 
+      {/* Species outline glow — BackSide edge creates a coloured silhouette */}
+      <mesh
+        ref={outlineRef}
+        geometry={geometry}
+        scale={[scale * 1.04, scale * 1.04, scale * 1.04]}
+      >
+        <meshBasicMaterial
+          color={palette.engineGlow}
+          side={THREE.BackSide}
+          transparent
+          opacity={0.25}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* Selection ring */}
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
@@ -205,16 +271,40 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         <primitive object={flashMaterial} attach="material" />
       </mesh>
 
-      {/* Engine glow — emissive sphere (no point light, saves GPU cost) */}
-      <mesh position={[0, 0, -scale * 1.5]}>
-        <sphereGeometry args={[ENGINE_EMISSIVE_RADIUS * scale, 6, 6]} />
-        <meshBasicMaterial
-          color={palette.engineGlow}
-          transparent
-          opacity={0.85}
-          depthWrite={false}
-        />
-      </mesh>
+      {/* Engine glow — one emissive sphere per engine hardpoint */}
+      {hardpoints.engines.map((eng, idx) => (
+        <mesh
+          key={`eng-${idx}`}
+          position={[
+            eng.position.x * scale,
+            eng.position.y * scale,
+            eng.position.z * scale,
+          ]}
+        >
+          <sphereGeometry args={[Math.max(eng.radius, ENGINE_EMISSIVE_RADIUS) * scale, 6, 6]} />
+          <meshBasicMaterial
+            color={palette.engineGlow}
+            transparent
+            opacity={0.85}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+
+      {/* Shield bubble — semi-transparent ellipsoid sized to bounding box */}
+      {ship.maxShields > 0 && (
+        <mesh
+          ref={shieldMeshRef}
+          scale={[
+            hardpoints.bounds.width * scale * 0.65,
+            hardpoints.bounds.height * scale * 0.65,
+            hardpoints.bounds.length * scale * 0.55,
+          ]}
+        >
+          <sphereGeometry args={[1, 12, 8]} />
+          <primitive object={shieldMaterial} attach="material" />
+        </mesh>
+      )}
 
       {/* Running lights — tiny emissive spheres instead of point lights */}
       {runningLightsOn && (

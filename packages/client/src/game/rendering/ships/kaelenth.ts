@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -89,7 +91,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  * cathedral spire on capitals. Mirror-chrome liturgical machines.
  */
 export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;
+  const w = len * 0.17;
+  const h = len * 0.17;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── CORE HULL ──────────────────────────────────────────────────────────────
@@ -584,3 +587,199 @@ export function buildKaelenth(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getKaelenthHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.17;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Drive ring (aft halo) — always present ────────────────────────────────
+  // The aftmost torus ring IS the engine — propulsion expressed as a glowing halo.
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.36),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.36,
+  });
+
+  // ── Inner drive ring — always present ─────────────────────────────────────
+  engines.push({
+    position: new THREE.Vector3(0, 0, -len * 0.38),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.20,
+  });
+
+  // ── cx >= 2: Nacelle drive rings ──────────────────────────────────────────
+  if (cx >= 2) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.48, 0, -len * 0.06),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.12,
+      });
+    }
+
+    // Flush fore weapon blisters (dorsal, port/starboard)
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.22, w * 0.32, len * 0.25),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+  }
+
+  // ── cx >= 3: Dorsal + ventral weapon blisters ─────────────────────────────
+  if (cx >= 3) {
+    // Dorsal weapon blisters
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.18, w * 0.36, len * 0.0),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, 1, 0),
+      });
+    }
+    // Ventral weapon blisters
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.20, -w * 0.36, len * 0.10),
+        facing: 'dorsal',
+        normal: new THREE.Vector3(0, -1, 0),
+      });
+    }
+  }
+
+  // ── cx >= 4: Broadside weapon blisters + ventral nacelle engines ──────────
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.38, 0, len * 0.15),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+    // Ventral nacelle drive rings
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.40, -w * 0.28, -len * 0.16),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.10,
+      });
+    }
+  }
+
+  // ── cx >= 5: Bow lance emitter + capital nacelle engines + blister arrays ─
+  if (cx >= 5) {
+    // Forward lance emitter — primary weapon
+    weapons.push({
+      position: new THREE.Vector3(0, 0, len * 0.48),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+
+    // Capital nacelle drive rings
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.56, 0, -len * 0.18),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.16,
+      });
+    }
+
+    // Dorsal blister arrays along hull
+    for (let z = -0.15; z <= 0.20; z += 0.175) {
+      for (const s of [-1, 1]) {
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.36, w * 0.36, len * z),
+          facing: 'dorsal',
+          normal: new THREE.Vector3(0, 1, 0),
+        });
+      }
+    }
+  }
+
+  // ── cx >= 6: Dreadnought drive rings + broadside weapon capsules ──────────
+  if (cx >= 6) {
+    // Double aft drive rings
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.40),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.42,
+    });
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.42),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.28,
+    });
+
+    // Broadside weapon capsules
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.42, 0, -len * 0.20),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+
+    // Nacelle ring procession engines
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.56, 0, -len * 0.10),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.18,
+      });
+    }
+  }
+
+  // ── cx >= 7: Outer nacelle engines ────────────────────────────────────────
+  if (cx >= 7) {
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.74, 0, -len * 0.18),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.10,
+      });
+    }
+  }
+
+  // ── cx >= 8: Grand aft drive cathedral ────────────────────────────────────
+  if (cx >= 8) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.42),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.50,
+    });
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.44),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.36,
+    });
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.46),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.22,
+    });
+
+    // Weapon blister choir — dorsal and ventral arrays
+    for (let i = 0; i < 4; i++) {
+      const zPos = len * (-0.20 + i * 0.12);
+      for (const s of [-1, 1]) {
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.38, w * 0.36, zPos),
+          facing: 'dorsal',
+          normal: new THREE.Vector3(0, 1, 0),
+        });
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.38, -w * 0.36, zPos),
+          facing: 'dorsal',
+          normal: new THREE.Vector3(0, -1, 0),
+        });
+      }
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('kaelenth', getKaelenthHardpoints);

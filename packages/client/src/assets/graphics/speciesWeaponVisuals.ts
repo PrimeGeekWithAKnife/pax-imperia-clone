@@ -31,6 +31,12 @@ export interface SpeciesWeaponPalette {
 
   /** Engine glow colour (used for fighter swarm dots). */
   engineGlow: number;
+
+  /** Engine thrust visual style. */
+  engineStyle: 'cone' | 'ring' | 'tendril' | 'pulse' | 'jet';
+
+  /** Shield bubble colour. */
+  shieldColor: number;
 }
 
 const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
@@ -46,6 +52,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x3366aa,
     pdTracer: 0xffdd44,
     engineGlow: 0x4488cc,
+    engineStyle: 'cone',
+    shieldColor: 0x4488ff,
   },
 
   // ── Khazari — amber forge-fire, hot metal sparks ──────────────────────────
@@ -60,6 +68,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0xff4400,
     pdTracer: 0xff9933,
     engineGlow: 0xff6600,
+    engineStyle: 'cone',
+    shieldColor: 0xff8844,
   },
 
   // ── Vaelori — violet psionic crystal resonance ────────────────────────────
@@ -74,6 +84,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x6633cc,
     pdTracer: 0xbb88ff,
     engineGlow: 0x8855ff,
+    engineStyle: 'pulse',
+    shieldColor: 0x9966ff,
   },
 
   // ── Sylvani — green bioluminescent spore glow ─────────────────────────────
@@ -88,6 +100,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x33aa33,
     pdTracer: 0x88ff88,
     engineGlow: 0x44ff44,
+    engineStyle: 'tendril',
+    shieldColor: 0x44cc44,
   },
 
   // ── Nexari — cyan data-stream precision ───────────────────────────────────
@@ -102,6 +116,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x0066cc,
     pdTracer: 0x44bbff,
     engineGlow: 0x0099ff,
+    engineStyle: 'ring',
+    shieldColor: 0x4488ff,
   },
 
   // ── Drakmari — teal abyssal bioluminescence ──────────────────────────────
@@ -116,6 +132,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x008877,
     pdTracer: 0x44ddcc,
     engineGlow: 0x00ccbb,
+    engineStyle: 'tendril',
+    shieldColor: 0x33ccbb,
   },
 
   // ── Ashkari — warm amber workshop sparks, improvised ─────────────────────
@@ -130,6 +148,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0xaa7722,
     pdTracer: 0xffbb44,
     engineGlow: 0xddaa44,
+    engineStyle: 'cone',
+    shieldColor: 0xddaa44,
   },
 
   // ── Luminari — intense golden-white radiance ─────────────────────────────
@@ -144,6 +164,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0xffaa22,
     pdTracer: 0xffeedd,
     engineGlow: 0xffcc44,
+    engineStyle: 'pulse',
+    shieldColor: 0xffcc44,
   },
 
   // ── Zorvathi — amber chitin acid, bioluminescent ─────────────────────────
@@ -158,6 +180,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x996600,
     pdTracer: 0xffaa44,
     engineGlow: 0xcc8800,
+    engineStyle: 'jet',
+    shieldColor: 0xcc8800,
   },
 
   // ── Orivani — sanctified gold-ivory glow ─────────────────────────────────
@@ -172,6 +196,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0xdd8822,
     pdTracer: 0xffcc66,
     engineGlow: 0xffaa33,
+    engineStyle: 'cone',
+    shieldColor: 0xffcc44,
   },
 
   // ── Kaelenth — cool blue-white precision ─────────────────────────────────
@@ -186,6 +212,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x336699,
     pdTracer: 0x88bbdd,
     engineGlow: 0x4488cc,
+    engineStyle: 'ring',
+    shieldColor: 0x4488cc,
   },
 
   // ── Thyriaq — liquid silver-cyan nanoscale shimmer ────────────────────────
@@ -200,6 +228,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x448899,
     pdTracer: 0x88ccdd,
     engineGlow: 0x66aacc,
+    engineStyle: 'jet',
+    shieldColor: 0x66aacc,
   },
 
   // ── Aethyn — deep purple/magenta phase-shifting ──────────────────────────
@@ -214,6 +244,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x8822cc,
     pdTracer: 0xcc88ff,
     engineGlow: 0xaa44ff,
+    engineStyle: 'pulse',
+    shieldColor: 0xaa55ff,
   },
 
   // ── Vethara — crimson parasitic filament glow ────────────────────────────
@@ -228,6 +260,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0x991111,
     pdTracer: 0xff6666,
     engineGlow: 0xcc2222,
+    engineStyle: 'tendril',
+    shieldColor: 0x44cc44,
   },
 
   // ── Pyrenth — magma-orange volcanic fury ─────────────────────────────────
@@ -242,6 +276,8 @@ const SPECIES_WEAPON_PALETTES: Record<string, SpeciesWeaponPalette> = {
     missileGlow: 0xcc2200,
     pdTracer: 0xff6633,
     engineGlow: 0xff4400,
+    engineStyle: 'jet',
+    shieldColor: 0xff6633,
   },
 };
 

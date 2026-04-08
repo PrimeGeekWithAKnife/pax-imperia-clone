@@ -20,6 +20,7 @@ import {
   DEBRIS_METALLIC_COLORS,
   DEBRIS_HOT_EDGE_COLOR,
 } from './constants';
+import { generateShipBuildResult } from '../../../game/rendering/ShipModels3D';
 
 // ---------------------------------------------------------------------------
 // Shared scratch objects (avoid per-frame allocations)
@@ -569,17 +570,17 @@ export function DebrisEffects({ state }: DebrisEffectsProps): JSX.Element {
 // 6. EngineThrustPlumes
 // ---------------------------------------------------------------------------
 
-/** Maximum number of instanced thrust plume cones. */
-const MAX_THRUST_PLUMES = 200;
+/**
+ * Maximum number of instanced thrust plume cones. Ships average 3-4 engine
+ * hardpoints, so 600 covers ~150 ships with plumes active.
+ */
+const MAX_THRUST_PLUMES = 600;
 
 /** Minimum velocity magnitude (squared) to show a plume. */
 const PLUME_MIN_SPEED_SQ = 0.1;
 
 /** How far behind the ship the plume cone extends at max speed. */
 const PLUME_MAX_LENGTH = 2.0;
-
-/** Base radius of the plume cone at the hull. */
-const PLUME_BASE_RADIUS = 0.12;
 
 interface EngineThrustPlumesProps {
   state: TacticalState;
@@ -588,9 +589,9 @@ interface EngineThrustPlumesProps {
 }
 
 /**
- * Renders engine thrust plumes as instanced cones behind moving ships.
- * The cone points opposite to the ship's facing direction; its length
- * and opacity scale with the ship's speed. Colour uses the species
+ * Renders engine thrust plumes as instanced cones at each ship's engine
+ * hardpoint positions. The cone points along the engine's thrust direction;
+ * its length and opacity scale with the ship's speed. Colour uses the species
  * engine glow from the weapon palette.
  */
 export function EngineThrustPlumes({
@@ -618,7 +619,7 @@ export function EngineThrustPlumes({
     const bfH = state.battlefieldHeight;
     let count = 0;
 
-    for (let i = 0; i < ships.length && count < MAX_THRUST_PLUMES; i++) {
+    for (let i = 0; i < ships.length && count < MAX_THRUST_PLUMES - 10; i++) {
       const ship = ships[i]!;
       if (ship.destroyed || ship.routed) continue;
 
@@ -632,35 +633,57 @@ export function EngineThrustPlumes({
       const maxSpeed = ship.speed > 0 ? ship.speed : 1;
       const t = Math.min(speed / maxSpeed, 1.0);
 
-      // Plume length proportional to speed
       const scale = shipScale(ship.maxHull);
-      const plumeLen = PLUME_MAX_LENGTH * t * scale;
-      const plumeRadius = PLUME_BASE_RADIUS * scale;
+      const speciesId = ship.side === 'attacker' ? attackerSpeciesId : defenderSpeciesId;
+      const baseCol = ship.side === 'attacker' ? attackerCol : defenderCol;
 
-      // Position: behind the ship (opposite facing)
+      // Get engine hardpoints for this ship
+      const hullClass = ship.hullClass ?? 'destroyer';
+      const buildResult = generateShipBuildResult(speciesId ?? 'teranos', hullClass as any, 6);
+      const engines = buildResult.hardpoints.engines;
+
+      // Ship world position
       tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
-      const aftX = _tmpPos.x + Math.cos(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
-      const aftZ = _tmpPos.z - Math.sin(ship.facing + Math.PI) * scale * 1.5 * BF_SCALE * 10;
+      const shipX = _tmpPos.x;
+      const shipZ = _tmpPos.z;
 
-      // The cone geometry has its tip at top (+Y) and base at bottom (-Y).
-      // We rotate it to point opposite to facing direction (engine exhaust).
-      // First lay the cone flat (tip along -Z), then yaw to face the exhaust direction.
+      // Ship facing rotation (Y-axis)
+      const rotAngle = -(ship.facing - Math.PI / 2);
+      const cosR = Math.cos(rotAngle);
+      const sinR = Math.sin(rotAngle);
+
+      // Rotation for plume cone: lay flat then yaw to face exhaust direction
       _tmpQuat.setFromAxisAngle(_xAxis, Math.PI / 2);
-      const yawAngle = -(ship.facing - Math.PI / 2) + Math.PI;
+      const yawAngle = rotAngle + Math.PI;
       _tmpQuat2.setFromAxisAngle(_upAxis, yawAngle);
       _tmpQuat.premultiply(_tmpQuat2);
 
-      _tmpVec3.set(aftX, 0.05, aftZ);
-      _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
-      _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
-      mesh.setMatrixAt(count, _tmpMatrix);
+      for (const eng of engines) {
+        if (count >= MAX_THRUST_PLUMES) break;
 
-      // Species engine colour with brightness scaled by speed
-      const baseCol = ship.side === 'attacker' ? attackerCol : defenderCol;
-      _tmpColor.copy(baseCol).multiplyScalar(0.6 + t * 0.4);
-      mesh.setColorAt(count, _tmpColor);
+        // Rotate engine hardpoint position by ship facing
+        const rx = eng.position.x * cosR - eng.position.z * sinR;
+        const rz = eng.position.x * sinR + eng.position.z * cosR;
 
-      count++;
+        const engWorldX = shipX + rx * scale;
+        const engWorldZ = shipZ + rz * scale;
+        const engWorldY = 0.05 + eng.position.y * scale;
+
+        // Plume size: length proportional to speed, radius from hardpoint data
+        const plumeLen = PLUME_MAX_LENGTH * t * scale;
+        const plumeRadius = Math.max(eng.radius * scale, 0.06 * scale);
+
+        _tmpVec3.set(engWorldX, engWorldY, engWorldZ);
+        _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
+        _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
+        mesh.setMatrixAt(count, _tmpMatrix);
+
+        // Species engine colour with brightness scaled by speed
+        _tmpColor.copy(baseCol).multiplyScalar(0.6 + t * 0.4);
+        mesh.setColorAt(count, _tmpColor);
+
+        count++;
+      }
     }
 
     mesh.count = count;

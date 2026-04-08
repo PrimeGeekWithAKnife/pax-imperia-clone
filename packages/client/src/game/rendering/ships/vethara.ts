@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -28,8 +30,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildVethara(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.24;
-  const h = len * 0.18;
+  const w = len * 0.42;
+  const h = len * 0.12;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── LAYER 1: HOST HULL — bone-grey capsule architecture ─────────────
@@ -474,3 +476,82 @@ export function buildVethara(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getVetharaHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.42;
+  const h = len * 0.12;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Metabolic engine cluster — always present ─────────────────────────────
+  // Biological propulsion orbs at the stern. Layout depends on engineCount.
+  const engineCount = 1 + Math.min(cx, 5);
+  const engineZ = -len * 0.38;
+
+  if (engineCount <= 2) {
+    // 1-2 engine orbs — inline layout
+    for (let i = 0; i < engineCount; i++) {
+      const ex = engineCount === 1 ? 0 : (i === 0 ? -w * 0.15 : w * 0.15);
+      engines.push({
+        position: new THREE.Vector3(ex, 0, engineZ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.13,
+      });
+    }
+  } else {
+    // 3+ engine orbs — radial cluster layout
+    const eR = w * 0.20;
+    for (let i = 0; i < engineCount; i++) {
+      const angle = (i / engineCount) * PI * 2;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * eR,
+          Math.sin(angle) * eR,
+          engineZ,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.10,
+      });
+    }
+  }
+
+  // ── cx >= 3: Dorsal organ pod weapons ─────────────────────────────────────
+  if (cx >= 3) {
+    // Primary dorsal weapon pods — organ sac nozzle tips
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.48, w * 0.08, len * 0.22),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+
+    // ── cx >= 4: Secondary ventral weapon pods ──────────────────────────────
+    if (cx >= 4) {
+      for (const s of [-1, 1]) {
+        weapons.push({
+          position: new THREE.Vector3(s * w * 0.44, -w * 0.12, len * 0.02),
+          facing: 'fore',
+          normal: new THREE.Vector3(0, 0, 1),
+        });
+      }
+    }
+  }
+
+  // ── cx >= 8: Tertiary weapon pods on engulfed hull ────────────────────────
+  if (cx >= 8) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.52, w * 0.15, len * 0.18),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s * 0.4, 0.2, 0.9).normalize(),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('vethara', getVetharaHardpoints);

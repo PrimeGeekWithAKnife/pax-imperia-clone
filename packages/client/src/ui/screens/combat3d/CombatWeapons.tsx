@@ -19,6 +19,7 @@ import {
   BF_SCALE,
   tacticalTo3D,
   shipYOffset,
+  shipScale,
   BEAM_STYLE_MAP,
   MISSILE_STYLE_MAP,
   MISSILE_VISUALS,
@@ -26,6 +27,8 @@ import {
 import type { BeamStyle, MissileStyle } from './constants';
 import { getSpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
 import type { SpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
+import { generateShipBuildResult } from '../../../game/rendering/ShipModels3D';
+import type { WeaponHardpoint } from '../../../game/rendering/shipHardpoints';
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -59,6 +62,56 @@ function shipPalette(
   const speciesId =
     ship?.side === 'attacker' ? attackerSpeciesId : defenderSpeciesId;
   return getSpeciesWeaponPalette(speciesId);
+}
+
+// ---------------------------------------------------------------------------
+// Weapon hardpoint origin resolution
+// ---------------------------------------------------------------------------
+
+const _hpWorld = new THREE.Vector3();
+const _hpBest = new THREE.Vector3();
+
+/**
+ * Offset a ship's centre position to the nearest weapon hardpoint facing the
+ * target. Returns the ship's 3D world position adjusted to the hardpoint.
+ * Falls back to ship centre if no hardpoints are available.
+ */
+function resolveWeaponOrigin(
+  ship: TacticalShip,
+  targetPos3D: THREE.Vector3,
+  shipPos: THREE.Vector3,
+  speciesId: string | undefined,
+  hullClass: string,
+): THREE.Vector3 {
+  const result = generateShipBuildResult(speciesId ?? 'teranos', hullClass as any, 6);
+  const hardpoints = result.hardpoints.weapons;
+  if (hardpoints.length === 0) return shipPos;
+
+  const scale = shipScale(ship.maxHull);
+  const rotAngle = -(ship.facing - Math.PI / 2);
+  const cosR = Math.cos(rotAngle);
+  const sinR = Math.sin(rotAngle);
+
+  let bestDistSq = Infinity;
+  _hpBest.copy(shipPos);
+
+  for (const hp of hardpoints) {
+    // Rotate hardpoint position by ship facing (Y-axis rotation)
+    const rx = hp.position.x * cosR - hp.position.z * sinR;
+    const rz = hp.position.x * sinR + hp.position.z * cosR;
+    _hpWorld.set(
+      shipPos.x + rx * scale,
+      shipPos.y + hp.position.y * scale,
+      shipPos.z + rz * scale,
+    );
+    const dSq = _hpWorld.distanceToSquared(targetPos3D);
+    if (dSq < bestDistSq) {
+      bestDistSq = dSq;
+      _hpBest.copy(_hpWorld);
+    }
+  }
+
+  return _hpBest;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,15 +256,23 @@ function BeamEffects({
     };
 
     for (const beam of beamEffects) {
-      // Copy source position before shipPos3D overwrites the scratch vector
-      const srcPosRaw = shipPos3D(beam.sourceShipId, shipMap, battlefieldWidth, battlefieldHeight);
-      if (!srcPosRaw) continue;
-      _tmpSrc.copy(srcPosRaw);
+      // Resolve target position first (needed for hardpoint selection)
       const tgtPosRaw = shipPos3D(beam.targetShipId, shipMap, battlefieldWidth, battlefieldHeight);
       if (!tgtPosRaw) continue;
       _tmpTgt.copy(tgtPosRaw);
-      const srcPos = _tmpSrc;
       const tgtPos = _tmpTgt;
+
+      // Resolve source position, then offset to nearest weapon hardpoint
+      const srcPosRaw = shipPos3D(beam.sourceShipId, shipMap, battlefieldWidth, battlefieldHeight);
+      if (!srcPosRaw) continue;
+      _tmpSrc.copy(srcPosRaw);
+      const srcShip = shipMap.get(beam.sourceShipId);
+      if (srcShip?.hullClass) {
+        const speciesId = srcShip.side === 'attacker' ? attackerSpeciesId : defenderSpeciesId;
+        const hpOrigin = resolveWeaponOrigin(srcShip, tgtPos, _tmpSrc, speciesId, srcShip.hullClass);
+        _tmpSrc.copy(hpOrigin);
+      }
+      const srcPos = _tmpSrc;
 
       const style: BeamStyle =
         BEAM_STYLE_MAP[beam.componentId ?? ''] ?? 'pulse';

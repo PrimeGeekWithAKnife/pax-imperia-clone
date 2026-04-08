@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ============================================================================
@@ -29,7 +31,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildLuminari(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.25;
+  const w = len * 0.15;
+  const h = len * 0.15;
   const parts: THREE.BufferGeometry[] = [];
   const rodR = w * 0.018;                 // slender containment rods
   const thinR = rodR * 0.6;              // thinner bracing rods
@@ -532,3 +535,110 @@ export function buildLuminari(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getLuminariHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.15;
+  const cageR = w * 0.28;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Bow convergence node — forward energy emission ────────────────────────
+  // The Luminari have no conventional nozzles. Energy emits from lattice nodes.
+  // The bow focus node at z=0.46 emits directionally forward.
+  weapons.push({
+    position: new THREE.Vector3(0, 0, len * 0.46),
+    facing: 'fore',
+    normal: new THREE.Vector3(0, 0, 1),
+  });
+
+  // ── Engine magnetic bottle (cx >= 2) ──────────────────────────────────────
+  // The stern magnetic bottle torus at z=-0.44 acts as the engine emitter.
+  if (cx >= 2) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.44),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.15,
+    });
+  }
+
+  // ── Second magnetic bottle ring (cx >= 4) ─────────────────────────────────
+  if (cx >= 4) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.40),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.20,
+    });
+  }
+
+  // ── Full engine magnetic bottle — nested rings (cx >= 5) ──────────────────
+  if (cx >= 5) {
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.48),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.12,
+    });
+    engines.push({
+      position: new THREE.Vector3(0, 0, -len * 0.43),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.30,
+    });
+  }
+
+  // ── Antenna tip nodes as weapon emitters (cx >= 3) ────────────────────────
+  // The Luminari use energy concentrated at antenna tips as weapons.
+  if (cx >= 3) {
+    // Lateral antenna tips
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.85, 0, len * 0.30),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0.3).normalize(),
+      });
+    }
+    // Dorsal antenna tip
+    weapons.push({
+      position: new THREE.Vector3(0, w * 0.73, len * 0.25),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+  }
+
+  // ── Ring junction nodes as weapons (cx >= 4) ──────────────────────────────
+  // Energy nodes at the midship containment ring junctions.
+  if (cx >= 4) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.42, 0, len * 0.08),
+        facing: 'turret',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+    weapons.push({
+      position: new THREE.Vector3(0, w * 0.42, len * 0.08),
+      facing: 'dorsal',
+      normal: new THREE.Vector3(0, 1, 0),
+    });
+    weapons.push({
+      position: new THREE.Vector3(0, -w * 0.42, len * 0.08),
+      facing: 'turret',
+      normal: new THREE.Vector3(0, -1, 0),
+    });
+  }
+
+  // ── Aft antenna tip nodes as weapons (cx >= 7) ────────────────────────────
+  if (cx >= 7) {
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.66, 0, -len * 0.44),
+        facing: 'aft',
+        normal: new THREE.Vector3(s, 0, -1).normalize(),
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('luminari', getLuminariHardpoints);

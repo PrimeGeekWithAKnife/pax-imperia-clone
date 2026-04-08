@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
+import type { EngineHardpoint, WeaponHardpoint } from '../shipHardpoints';
+import { registerHardpointProvider } from '../ShipModels3D';
 
 /**
  * ============================================================================
@@ -25,7 +27,8 @@ import { place, merge, mirrorX, PI, HALF_PI } from '../shipModelHelpers';
  */
 
 export function buildThyriaq(len: number, cx: number): THREE.BufferGeometry {
-  const w = len * 0.26;
+  const w = len * 0.22;
+  const h = len * 0.22;
   const parts: THREE.BufferGeometry[] = [];
 
   // ── cx 0: Base hull — 7 parts ──────────────────────────────────────────
@@ -514,3 +517,130 @@ export function buildThyriaq(len: number, cx: number): THREE.BufferGeometry {
 
   return merge(parts);
 }
+
+// ─── Hardpoint Provider ─────────────────────────────────────────────────────
+
+function getThyriaqHardpoints(len: number, cx: number): { engines: EngineHardpoint[]; weapons: WeaponHardpoint[] } {
+  const w = len * 0.22;
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // ── Propulsion tendrils (always present) ──────────────────────────────────
+  // The ship IS the engine — nanites stream aft as propulsive tendrils.
+  // Radial tendril cluster at the stern.
+  const thrusterCount = 3 + Math.floor(cx * 0.6);
+  for (let i = 0; i < thrusterCount; i++) {
+    const angle = (i / thrusterCount) * PI * 2 + 0.4;
+    const tLen = len * (0.14 + 0.025 * cx);
+    const spread = w * (0.28 + 0.04 * (i % 2));
+    engines.push({
+      position: new THREE.Vector3(
+        Math.cos(angle) * spread,
+        Math.sin(angle) * spread * 0.7,
+        -len * 0.28 - tLen * 0.3,
+      ),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: w * 0.045,
+    });
+  }
+
+  // Central aft propulsion tendril — always present
+  engines.push({
+    position: new THREE.Vector3(w * 0.02, -w * 0.03, -len * 0.36),
+    direction: new THREE.Vector3(0, 0, -1),
+    radius: w * 0.06,
+  });
+
+  // ── cx >= 3: Weapon pseudopod tips ────────────────────────────────────────
+  if (cx >= 3) {
+    // Dorsal weapon stalk tips (port/starboard)
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.56, w * 0.08, len * 0.30),
+        facing: 'fore',
+        normal: new THREE.Vector3(0, 0, 1),
+      });
+    }
+    // Ventral weapon pair tips
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.35, -w * 0.18, len * 0.10),
+        facing: 'fore',
+        normal: new THREE.Vector3(s * 0.3, -0.3, 0.9).normalize(),
+      });
+    }
+  }
+
+  // ── cx >= 4: Additional propulsion tendrils ───────────────────────────────
+  if (cx >= 4) {
+    for (let i = 0; i < 2; i++) {
+      const angle = PI * 0.3 + i * PI * 1.4;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * w * 0.20,
+          Math.sin(angle) * w * 0.16,
+          -len * 0.40,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.03,
+      });
+    }
+  }
+
+  // ── cx >= 5: Lateral manipulation tendrils + dorsal tendril ───────────────
+  if (cx >= 5) {
+    // Lateral manipulation tendril tips — mid-ship weapons
+    for (const s of [-1, 1]) {
+      weapons.push({
+        position: new THREE.Vector3(s * w * 0.64, -w * 0.12, len * 0.15),
+        facing: s === -1 ? 'port' : 'starboard',
+        normal: new THREE.Vector3(s, 0, 0).normalize(),
+      });
+    }
+
+    // Additional aft propulsion tendrils
+    for (const s of [-1, 1]) {
+      engines.push({
+        position: new THREE.Vector3(s * w * 0.15, w * 0.08, -len * 0.42),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.028,
+      });
+    }
+  }
+
+  // ── cx >= 7: Wide fan propulsion tendrils ─────────────────────────────────
+  if (cx >= 7) {
+    for (let i = 0; i < 4; i++) {
+      const angle = PI * 0.8 + (i / 3) * PI * 0.4;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * w * 0.32,
+          Math.sin(angle) * w * 0.24,
+          -len * 0.44,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.025,
+      });
+    }
+  }
+
+  // ── cx >= 8: Final aft propulsion cluster ─────────────────────────────────
+  if (cx >= 8) {
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * PI * 2;
+      engines.push({
+        position: new THREE.Vector3(
+          Math.cos(angle) * w * 0.18,
+          Math.sin(angle) * w * 0.14,
+          -len * 0.52,
+        ),
+        direction: new THREE.Vector3(0, 0, -1),
+        radius: w * 0.022,
+      });
+    }
+  }
+
+  return { engines, weapons };
+}
+
+registerHardpointProvider('thyriaq', getThyriaqHardpoints);

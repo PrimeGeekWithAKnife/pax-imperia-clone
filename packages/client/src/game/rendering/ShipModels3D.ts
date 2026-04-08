@@ -36,6 +36,12 @@ import { buildPyrenth } from './ships/pyrenth';
 // Re-export helpers for any external use
 export { place, merge, mirrorX } from './shipModelHelpers';
 
+// Re-export hardpoint types for consumers
+export type {
+  EngineHardpoint, WeaponHardpoint, ShipBounds,
+  ShipHardpoints, ShipBuildResult, HardpointProvider,
+} from './shipHardpoints';
+
 // ─── Hull class scale factors ───────────────────────────────────────────────
 // Length in world units for each hull class — from probe (~1.5) to battle
 // station (~24). Width and height are derived per-species.
@@ -79,6 +85,11 @@ const HULL_COMPLEXITY: Partial<Record<HullClass, number>> = {
 
 type ShipBuilder = (len: number, cx: number) => THREE.BufferGeometry;
 
+import type {
+  EngineHardpoint, WeaponHardpoint, ShipBounds,
+  ShipHardpoints, ShipBuildResult, HardpointProvider,
+} from './shipHardpoints';
+
 const BUILDERS: Record<string, ShipBuilder> = {
   teranos:  buildTeranos,
   khazari:  buildKhazari,
@@ -108,32 +119,122 @@ const _geometryCache = new Map<string, THREE.BufferGeometry>();
 export function clearShipGeometryCache(): void {
   for (const geo of _geometryCache.values()) geo.dispose();
   _geometryCache.clear();
+  _buildResultCache.clear();
+}
+
+// ─── Hardpoint provider registry ──────────────────────────────────────────
+// Species with custom hardpoint providers are registered here. Species
+// without a provider get reasonable defaults from generateDefaultHardpoints().
+
+const HARDPOINT_PROVIDERS: Record<string, HardpointProvider> = {};
+
+/** Register a species hardpoint provider. Called by species builder modules. */
+export function registerHardpointProvider(speciesId: string, provider: HardpointProvider): void {
+  HARDPOINT_PROVIDERS[speciesId] = provider;
+}
+
+// ─── Build result cache ───────────────────────────────────────────────────
+// Stores geometry + hardpoint metadata together. The old _geometryCache is
+// populated as a side-effect for backward compatibility.
+
+const _buildResultCache = new Map<string, ShipBuildResult>();
+
+// ─── Default hardpoint generator ──────────────────────────────────────────
+
+function generateDefaultHardpoints(
+  len: number,
+  cx: number,
+  bounds: ShipBounds,
+): Omit<ShipHardpoints, 'bounds'> {
+  const engines: EngineHardpoint[] = [];
+  const weapons: WeaponHardpoint[] = [];
+
+  // Default engines: 2-5 nozzles spread across stern
+  const nozzleCount = Math.min(2 + Math.floor(cx * 0.6), 5);
+  const spread = bounds.width * 0.4;
+  for (let i = 0; i < nozzleCount; i++) {
+    const nx = nozzleCount === 1
+      ? 0
+      : (i - (nozzleCount - 1) / 2) * (spread / Math.max(nozzleCount - 1, 1));
+    engines.push({
+      position: new THREE.Vector3(nx, 0, -len * 0.48),
+      direction: new THREE.Vector3(0, 0, -1),
+      radius: len * 0.04,
+    });
+  }
+
+  // Default weapons: dorsal turrets at hull edges, count scales with complexity
+  if (cx >= 1) {
+    // Fore weapon
+    weapons.push({
+      position: new THREE.Vector3(0, bounds.height * 0.4, len * 0.3),
+      facing: 'fore',
+      normal: new THREE.Vector3(0, 0, 1),
+    });
+  }
+  if (cx >= 2) {
+    // Port/starboard turrets
+    weapons.push(
+      {
+        position: new THREE.Vector3(-bounds.width * 0.4, bounds.height * 0.3, len * 0.05),
+        facing: 'port',
+        normal: new THREE.Vector3(-1, 0.3, 0).normalize(),
+      },
+      {
+        position: new THREE.Vector3(bounds.width * 0.4, bounds.height * 0.3, len * 0.05),
+        facing: 'starboard',
+        normal: new THREE.Vector3(1, 0.3, 0).normalize(),
+      },
+    );
+  }
+  if (cx >= 3) {
+    // Dorsal turrets
+    weapons.push(
+      {
+        position: new THREE.Vector3(-bounds.width * 0.25, bounds.height * 0.45, -len * 0.1),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, 1, 0),
+      },
+      {
+        position: new THREE.Vector3(bounds.width * 0.25, bounds.height * 0.45, -len * 0.1),
+        facing: 'turret',
+        normal: new THREE.Vector3(0, 1, 0),
+      },
+    );
+  }
+  if (cx >= 5) {
+    // Aft weapons
+    weapons.push({
+      position: new THREE.Vector3(0, bounds.height * 0.3, -len * 0.35),
+      facing: 'aft',
+      normal: new THREE.Vector3(0, 0, -1),
+    });
+  }
+
+  return { engines, weapons };
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Generate procedural 3D geometry for a species + hull class combination.
+ * Generate procedural 3D geometry + hardpoint metadata for a species + hull
+ * class combination.
  *
  * Ships face along +Z (bow), centred at origin.
- * Scale ranges from ~1.5 units (probe) to ~24 units (battle station).
+ * Scale ranges from ~1.5 units (probe) to ~40 units (planet killer).
  *
  * Results are cached by speciesId:hullClass:maxComplexity — subsequent calls
- * for the same key return the cached geometry directly (safe because meshes
- * share read-only BufferGeometry in Three.js).
- *
- * @param maxComplexity - Optional cap on the complexity tier. Pass 4 for
- *   combat rendering where ships are small on screen and high detail is
- *   invisible.
+ * for the same key return the cached result directly.
  */
-export function generateShipGeometry(
+export function generateShipBuildResult(
   speciesId: string,
   hullClass: HullClass,
   maxComplexity?: number,
-): THREE.BufferGeometry {
+): ShipBuildResult {
   const cx = Math.min(HULL_COMPLEXITY[hullClass] ?? 2, maxComplexity ?? 8);
   const key = `${speciesId}:${hullClass}:${cx}`;
-  const cached = _geometryCache.get(key);
+
+  const cached = _buildResultCache.get(key);
   if (cached) return cached;
 
   const builder = BUILDERS[speciesId] ?? BUILDERS.teranos;
@@ -141,8 +242,46 @@ export function generateShipGeometry(
   const geo = builder(len, cx);
   geo.computeVertexNormals();
 
+  // Compute bounding dimensions from the geometry
+  geo.computeBoundingBox();
+  const box = geo.boundingBox!;
+  const bounds: ShipBounds = {
+    width:  box.max.x - box.min.x,
+    height: box.max.y - box.min.y,
+    length: box.max.z - box.min.z,
+    radius: Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / 2,
+  };
+
+  // Get species-specific hardpoints or generate defaults
+  const provider = HARDPOINT_PROVIDERS[speciesId];
+  const partial = provider
+    ? provider(len, cx)
+    : generateDefaultHardpoints(len, cx, bounds);
+
+  const hardpoints: ShipHardpoints = { ...partial, bounds };
+  const result: ShipBuildResult = { geometry: geo, hardpoints };
+
+  _buildResultCache.set(key, result);
   _geometryCache.set(key, geo);
-  return geo;
+
+  return result;
+}
+
+/**
+ * Generate procedural 3D geometry for a species + hull class combination.
+ *
+ * Convenience wrapper around generateShipBuildResult() for consumers that
+ * only need geometry. Returns the cached geometry directly.
+ *
+ * @param maxComplexity - Optional cap on the complexity tier. Pass 6 for
+ *   combat rendering to balance detail vs. performance.
+ */
+export function generateShipGeometry(
+  speciesId: string,
+  hullClass: HullClass,
+  maxComplexity?: number,
+): THREE.BufferGeometry {
+  return generateShipBuildResult(speciesId, hullClass, maxComplexity).geometry;
 }
 
 // ─── Materials ──────────────────────────────────────────────────────────────

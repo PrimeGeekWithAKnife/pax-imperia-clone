@@ -200,6 +200,7 @@ export interface UseCombatStateReturn {
   dragBox: { x1: number; y1: number; x2: number; y2: number } | null;
   newlyDestroyed: Set<string>;
   damagedShipIds: Set<string>;
+  shieldHitShipIds: Set<string>;
 
   // Actions
   startBattle: (formation?: FormationType, stance?: CombatStance) => void;
@@ -256,6 +257,7 @@ export function useCombatState(data: CombatSceneData): UseCombatStateReturn {
   const [dragBox, setDragBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [newlyDestroyed, setNewlyDestroyed] = useState<Set<string>>(() => new Set());
   const [damagedShipIds, setDamagedShipIds] = useState<Set<string>>(() => new Set());
+  const [shieldHitShipIds, setShieldHitShipIds] = useState<Set<string>>(() => new Set());
 
   // ── Refs for tracking state that does not trigger re-renders ────────────
   const stateRef = useRef(tacticalState);
@@ -358,9 +360,10 @@ export function useCombatState(data: CombatSceneData): UseCombatStateReturn {
       // -- Trigger audio for this tick --
       _playCombatSounds(next, audioRefs);
 
-      // -- Detect hull damage for flash FX --
+      // -- Detect hull damage and shield hits for flash FX --
       const damaged = new Set<string>();
       const destroyed = new Set<string>();
+      const shieldHit = new Set<string>();
       for (const ship of next.ships) {
         const oldHull = prevHull.current.get(ship.id) ?? ship.hull;
         if (ship.hull < oldHull) {
@@ -370,12 +373,21 @@ export function useCombatState(data: CombatSceneData): UseCombatStateReturn {
           destroyed.add(ship.id);
           prevDestroyed.current.add(ship.id);
         }
+        // Shield hit detection
+        if (ship.maxShields > 0) {
+          const oldShields = prevShields.current.get(ship.id) ?? ship.shields;
+          if (ship.shields < oldShields) {
+            shieldHit.add(ship.id);
+          }
+        }
         prevHull.current.set(ship.id, ship.hull);
       }
 
       // Batch FX state updates (will trigger a single re-render)
       if (damaged.size > 0) setDamagedShipIds(damaged);
       else setDamagedShipIds(new Set());
+      if (shieldHit.size > 0) setShieldHitShipIds(shieldHit);
+      else setShieldHitShipIds(new Set());
       if (destroyed.size > 0) setNewlyDestroyed(destroyed);
       else setNewlyDestroyed(new Set());
 
@@ -690,6 +702,7 @@ export function useCombatState(data: CombatSceneData): UseCombatStateReturn {
     dragBox,
     newlyDestroyed,
     damagedShipIds,
+    shieldHitShipIds,
 
     // Actions
     startBattle,
