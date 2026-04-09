@@ -61,7 +61,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   bfHeight,
   hullClass,
   speciesId,
-  empireColor: _empireColor,
+  empireColor,
   tick: _tick,
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -225,17 +225,17 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         onContextMenu={handleContextMenu}
       />
 
-      {/* Species outline glow — BackSide edge creates a coloured silhouette */}
+      {/* Empire colour outline — bright edge glow shows which side a ship is on */}
       <mesh
         ref={outlineRef}
         geometry={geometry}
-        scale={[scale * 1.04, scale * 1.04, scale * 1.04]}
+        scale={[scale * 1.05, scale * 1.05, scale * 1.05]}
       >
         <meshBasicMaterial
-          color={palette.engineGlow}
+          color={empireColor}
           side={THREE.BackSide}
           transparent
-          opacity={0.5}
+          opacity={0.6}
           depthWrite={false}
         />
       </mesh>
