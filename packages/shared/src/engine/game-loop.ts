@@ -265,7 +265,10 @@ import type {
   Diplomat,
   GalacticOrganisationState,
   GalacticBank,
+  Demand,
+  DemandState,
 } from '../types/diplomacy.js';
+import { initDemandState, createDemand, acceptDemand, rejectDemand, processDemandsTick, evaluateDemandAI, DEMAND_DEADLINE_TICKS } from './demands.js';
 import type { TreatyType } from '../types/species.js';
 import {
   getAvailableChains,
@@ -425,6 +428,8 @@ export interface GameTickState {
   psychStateMap?: Map<string, EmpirePsychologicalState>;
   /** Galaxy-wide reputation tracking per empire. */
   reputationState?: ReputationState;
+  /** Active diplomatic demands between empires. */
+  demandState?: DemandState;
 }
 
 /** The result returned by processGameTick. */
@@ -541,6 +546,31 @@ function replacePlanet(
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Demand asset transfer helper
+// ---------------------------------------------------------------------------
+
+function transferDemandedAsset(state: GameTickState, demand: Demand): GameTickState {
+  if (demand.demandType === 'resources' && demand.resourceType && demand.amount) {
+    // Transfer resources from target to proposer
+    const targetRes = state.empireResourcesMap.get(demand.targetId);
+    const proposerRes = state.empireResourcesMap.get(demand.proposerId);
+    if (targetRes && proposerRes) {
+      const key = demand.resourceType as keyof typeof targetRes;
+      if (typeof targetRes[key] === 'number' && typeof proposerRes[key] === 'number') {
+        const transfer = Math.min(demand.amount, targetRes[key] as number);
+        const newMap = new Map(state.empireResourcesMap);
+        newMap.set(demand.targetId, { ...targetRes, [key]: (targetRes[key] as number) - transfer });
+        newMap.set(demand.proposerId, { ...proposerRes, [key]: (proposerRes[key] as number) + transfer });
+        state = { ...state, empireResourcesMap: newMap };
+      }
+    }
+  }
+  // System and technology transfers are more complex — stub for now
+  // TODO: Implement system cession and tech sharing
+  return state;
+}
 
 // ---------------------------------------------------------------------------
 // Step 0: Process Pending Actions
@@ -924,6 +954,104 @@ function processPlayerActions(
       // ── SetGameSpeed ─────────────────────────────────────────────────────
       } else if (action.type === 'SetGameSpeed') {
         gameSpeed = action.speed;
+
+      // ── ProposeDemand ──────────────────────────────────────────────────
+      } else if (action.type === 'propose_demand') {
+        const { empireId: demandEmpireId, targetEmpireId, demandType, threat, resourceType, amount, systemId: demandSystemId, techId } = action;
+        if (!state.demandState) continue;
+
+        const demandTick = state.gameState.currentTick;
+        const demandId = `demand_${demandEmpireId}_${targetEmpireId}_${demandTick}`;
+        const demandEmpire = state.gameState.empires.find(e => e.id === demandEmpireId);
+        const demandEmpereName = demandEmpire?.name ?? demandEmpireId;
+
+        const demand: Demand = {
+          id: demandId, proposerId: demandEmpireId, targetId: targetEmpireId,
+          createdTick: demandTick, deadline: demandTick + DEMAND_DEADLINE_TICKS,
+          status: 'pending', demandType, threat,
+          resourceType, amount, systemId: demandSystemId, techId,
+          description: `${demandEmpereName} demands ${demandType}`,
+        };
+
+        state = { ...state, demandState: createDemand(state.demandState, demand) };
+
+        // Psychology: threat event for the target
+        if (state.psychStateMap) {
+          recordDiplomaticEvent(state.psychStateMap, demandEmpireId, targetEmpireId, 'threat', demandTick);
+        }
+
+        const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
+        if (targetEmpire?.isAI) {
+          // AI evaluates immediately using psychology
+          const psychMap = state.psychStateMap;
+          const targetPsych = psychMap?.get(targetEmpireId);
+          const rel = targetPsych?.relationships[demandEmpireId];
+
+          let accepted = false;
+          if (rel) {
+            const result = evaluateDemandAI(demand, rel.fear, rel.warmth, rel.trust, rel.respect);
+            accepted = result.accept;
+          }
+
+          if (accepted) {
+            const { state: updatedDemands } = acceptDemand(state.demandState!, demandId);
+            state = { ...state, demandState: updatedDemands };
+            // Transfer the demanded asset
+            state = transferDemandedAsset(state, demand);
+          } else {
+            // AI rejects — create grievance
+            const { state: updatedDemands } = rejectDemand(state.demandState!, demandId);
+            state = { ...state, demandState: updatedDemands };
+            // Grievance for the demander
+            if (state.psychStateMap) {
+              recordDiplomaticEvent(state.psychStateMap, targetEmpireId, demandEmpireId, 'request_denied', demandTick);
+            }
+          }
+        } else {
+          // Human player target — create notification
+          const threatLabel = threat === 'war' ? 'threatens war' : threat === 'sanctions' ? 'threatens sanctions' : 'warns of consequences';
+          rejectionNotifications.push(
+            createNotification(
+              'diplomatic_demand',
+              `${demandEmpereName} makes a demand`,
+              `${demandEmpereName} demands ${demandType === 'resources' ? `${amount} ${resourceType}` : demandType === 'system' ? 'a star system' : 'technology'} and ${threatLabel}.`,
+              tick,
+              [
+                { id: `accept_demand_${demandId}`, label: 'Comply', description: 'Accept the demand' },
+                { id: `reject_demand_${demandId}`, label: 'Refuse', description: 'Reject the demand' },
+              ],
+            ),
+          );
+        }
+
+      // ── AcceptDemand ───────────────────────────────────────────────────
+      } else if (action.type === 'accept_demand') {
+        const { demandId } = action;
+        if (!state.demandState) continue;
+        const { state: updatedDemands, demand } = acceptDemand(state.demandState, demandId);
+        if (!demand) continue;
+        state = { ...state, demandState: updatedDemands };
+        state = transferDemandedAsset(state, demand);
+        // Psychology: dependency increase
+        if (state.psychStateMap) {
+          recordDiplomaticEvent(state.psychStateMap, demand.targetId, demand.proposerId, 'gift_received', state.gameState.currentTick);
+        }
+
+      // ── RejectDemand ───────────────────────────────────────────────────
+      } else if (action.type === 'reject_demand') {
+        const { demandId } = action;
+        if (!state.demandState) continue;
+        const { state: updatedDemands, demand } = rejectDemand(state.demandState, demandId);
+        if (!demand) continue;
+        state = { ...state, demandState: updatedDemands };
+        // Psychology: request_denied
+        if (state.psychStateMap) {
+          recordDiplomaticEvent(state.psychStateMap, demand.targetId, demand.proposerId, 'request_denied', state.gameState.currentTick);
+        }
+        // Attitude penalty
+        if (state.diplomacyState) {
+          state = { ...state, diplomacyState: modifyAttitude(state.diplomacyState, demand.proposerId, demand.targetId, -10, 'demand_rejected', state.gameState.currentTick) };
+        }
 
       } else {
         // Action type recognised but not handled yet — log and continue.
@@ -5536,6 +5664,29 @@ export function processGameTick(
   // 8a. Grievance Processing (decay inter-empire grievances, remove expired)
   s = stepGrievances(s, events);
 
+  // 8a+++. Demand expiration
+  if (s.demandState) {
+    const { state: updatedDemands, expired } = processDemandsTick(s.demandState, s.gameState.currentTick);
+    s = { ...s, demandState: updatedDemands };
+    // Expired demands = ignored, creates grievance for the demander
+    for (const demand of expired) {
+      if (s.diplomacyState) {
+        s = { ...s, diplomacyState: modifyAttitude(s.diplomacyState, demand.proposerId, demand.targetId, -5, 'demand_ignored', s.gameState.currentTick) };
+      }
+      // Psychology: ignored_request event
+      if (s.psychStateMap) {
+        recordDiplomaticEvent(s.psychStateMap, demand.targetId, demand.proposerId, 'ignored_request', s.gameState.currentTick);
+      }
+      // Reputation: minor hit for ignoring (but not as bad as explicit rejection)
+      if (s.reputationState) {
+        s = { ...s, reputationState: recordReputationEvent(s.reputationState, {
+          tick: s.gameState.currentTick, empireId: demand.targetId, type: 'treaty_broken',
+          value: -3, description: 'Ignored diplomatic demand',
+        })};
+      }
+    }
+  }
+
   // 8a+. Diplomat Characters (experience, loyalty drift, skill progression)
   s = stepDiplomatCharacters(s, events);
 
@@ -5747,6 +5898,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     ]).filter((entry): entry is [string, EmpirePsychologicalState] => entry[1] !== undefined)),
     warTerritoryTrackers: new Map(),
     reputationState: initReputationState(gameState.empires.map(e => e.id)),
+    demandState: initDemandState(),
   } as GameTickState;
 }
 
