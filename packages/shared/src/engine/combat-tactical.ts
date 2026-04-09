@@ -77,6 +77,18 @@ const PROJECTILE_BURST_COUNT: Record<string, number> = {
 /** Fallback burst count for weapon types not in PROJECTILE_BURST_COUNT. */
 const DEFAULT_BURST_COUNT = 8;
 
+/** Per-weapon-type projectile muzzle velocity (battlefield units per tick). */
+const PROJECTILE_SPEED_BY_TYPE: Record<string, number> = {
+  kinetic_cannon: 12, scatter_cannon: 10, coilgun_array: 14,
+  mass_driver: 18,    gauss_cannon: 24,   siege_cannon: 8,
+  battering_ram: 6,   fusion_autocannon: 14,
+  antimatter_accelerator: 28, singularity_driver: 30,
+  plasma_slugthrower: 16, hypermass_projector: 22,
+  khazari_forge_breaker: 10,
+};
+/** Fallback speed for weapon types not in PROJECTILE_SPEED_BY_TYPE. */
+const DEFAULT_PROJECTILE_SPEED = 16;
+
 /** Minimum spread half-angle (radians) at accuracy 100. */
 const ACCURACY_TO_SPREAD_MIN = 0.02;
 /** Maximum spread half-angle (radians) at accuracy 0. */
@@ -4839,10 +4851,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           ownSpeed, ship.crew, weaponTarget.sensorJamming ?? 0,
         );
 
+        // Per-weapon muzzle velocity
+        const projSpeed = PROJECTILE_SPEED_BY_TYPE[weapon.componentId] ?? DEFAULT_PROJECTILE_SPEED;
+
         // Compute lead angle (where the target will be)
         const lead = computeLeadAngle(
           ship.position, weaponTarget.position, tgtVel,
-          PROJECTILE_SPEED, ship.crew,
+          projSpeed, ship.crew,
         );
 
         for (let bi = 0; bi < burstCount; bi++) {
@@ -4852,14 +4867,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
           // Pre-compute velocity components (fixed for the lifetime of the projectile)
           const cosPitch = Math.cos(spreadPitch);
-          const pdx = Math.cos(spreadAngle) * cosPitch * PROJECTILE_SPEED;
-          const pdy = Math.sin(spreadAngle) * cosPitch * PROJECTILE_SPEED;
-          const pdz = Math.sin(spreadPitch) * PROJECTILE_SPEED;
+          const pdx = Math.cos(spreadAngle) * cosPitch * projSpeed;
+          const pdy = Math.sin(spreadAngle) * cosPitch * projSpeed;
+          const pdz = Math.sin(spreadPitch) * projSpeed;
 
           newProjectiles.push({
             id: generateId(),
             position: { ...ship.position },
-            speed: PROJECTILE_SPEED,
+            speed: projSpeed,
             damage: perRoundDamage,
             sourceShipId: ship.id,
             componentId: weapon.componentId,

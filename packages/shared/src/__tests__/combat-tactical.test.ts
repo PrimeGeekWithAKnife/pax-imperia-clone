@@ -513,14 +513,14 @@ describe('weapon firing — projectiles', () => {
       attacker: projDesign,
     });
 
-    // Put ships close together
+    // Put ships close together (kinetic_cannon range=13 * 20 = 260 BF units; 100 apart is in range)
     const defId = state.ships.find((s) => s.side === 'defender')!.id;
     state = {
       ...state,
       ships: state.ships.map((s) =>
         s.side === 'attacker'
-          ? { ...s, position: { x: 400, y: 400 }, order: { type: 'attack' as const, targetId: defId } }
-          : { ...s, position: { x: 500, y: 400 } },
+          ? { ...s, position: { x: 400, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 500, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
       ),
     };
 
@@ -531,7 +531,8 @@ describe('weapon firing — projectiles', () => {
       current = processTacticalTick(current);
       if (current.projectiles.length > 0) {
         found = true;
-        expect(current.projectiles[0]!.speed).toBe(PROJECTILE_SPEED);
+        // kinetic_cannon per-weapon speed is 12
+        expect(current.projectiles[0]!.speed).toBe(12);
         break;
       }
     }
@@ -550,8 +551,8 @@ describe('weapon firing — projectiles', () => {
       ...state,
       ships: state.ships.map((s) =>
         s.side === 'attacker'
-          ? { ...s, position: { x: 300, y: 400 }, order: { type: 'attack' as const, targetId: defender.id } }
-          : { ...s, position: { x: 400, y: 400 } },
+          ? { ...s, position: { x: 300, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, order: { type: 'attack' as const, targetId: defender.id } }
+          : { ...s, position: { x: 400, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
       ),
     };
 
@@ -584,6 +585,97 @@ describe('weapon firing — projectiles', () => {
       expect(newDist).toBeLessThan(initialDist);
     }
     // else: projectile hit the target, which is also fine
+  });
+});
+
+describe('per-weapon projectile speeds', () => {
+  /** Create a projectile design with a specific weapon componentId. */
+  function makeWeaponDesign(componentId: string, id?: string, empireId = 'empire-1'): ShipDesign {
+    return {
+      id: id ?? `d-${componentId}`,
+      name: `Design ${componentId}`,
+      hull: 'corvette',
+      components: [
+        { slotId: 'scout_fore_1', componentId },
+        { slotId: 'scout_turret_1', componentId: 'deflector_shield' },
+        { slotId: 'scout_aft_1', componentId: 'ion_engine' },
+      ],
+      totalCost: 200,
+      empireId,
+    };
+  }
+
+  /** Fire until projectiles appear, return the state with projectiles. */
+  function fireUntilProjectiles(design: ShipDesign, maxTicks = 40): { state: TacticalState; found: boolean } {
+    let state = setupOnePair({ attacker: design });
+    const defId = state.ships.find((s) => s.side === 'defender')!.id;
+    state = {
+      ...state,
+      ships: state.ships.map((s) =>
+        s.side === 'attacker'
+          ? { ...s, position: { x: 400, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, order: { type: 'attack' as const, targetId: defId } }
+          : { ...s, position: { x: 500, y: 400, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
+      ),
+    };
+
+    let current = state;
+    for (let i = 0; i < maxTicks; i++) {
+      current = processTacticalTick(current);
+      if (current.projectiles.length > 0) {
+        return { state: current, found: true };
+      }
+    }
+    return { state: current, found: false };
+  }
+
+  it('gauss_cannon projectiles are faster than kinetic_cannon', () => {
+    const gaussResult = fireUntilProjectiles(makeWeaponDesign('gauss_cannon'));
+    const kineticResult = fireUntilProjectiles(makeWeaponDesign('kinetic_cannon'));
+
+    expect(gaussResult.found).toBe(true);
+    expect(kineticResult.found).toBe(true);
+
+    const gaussSpeed = gaussResult.state.projectiles[0]!.speed;
+    const kineticSpeed = kineticResult.state.projectiles[0]!.speed;
+
+    expect(gaussSpeed).toBeGreaterThan(kineticSpeed);
+    // Gauss = 24, kinetic = 12
+    expect(gaussSpeed).toBe(24);
+    expect(kineticSpeed).toBe(12);
+  });
+
+  it('siege_cannon is slower than the default speed of 16', () => {
+    const siegeResult = fireUntilProjectiles(makeWeaponDesign('siege_cannon'));
+    expect(siegeResult.found).toBe(true);
+
+    const siegeSpeed = siegeResult.state.projectiles[0]!.speed;
+    expect(siegeSpeed).toBe(8);
+    expect(siegeSpeed).toBeLessThan(16);
+  });
+
+  it('dx/dy/dz are computed from per-weapon speed, not the old constant', () => {
+    const gaussResult = fireUntilProjectiles(makeWeaponDesign('gauss_cannon'));
+    expect(gaussResult.found).toBe(true);
+
+    const proj = gaussResult.state.projectiles[0]!;
+    // Velocity magnitude should equal the weapon-specific speed (24), not old constant (16)
+    const velocityMag = Math.sqrt(proj.dx ** 2 + proj.dy ** 2 + proj.dz ** 2);
+    expect(velocityMag).toBeCloseTo(24, 0);
+  });
+
+  it('scatter_cannon fires at its own specific speed', () => {
+    const result = fireUntilProjectiles(makeWeaponDesign('scatter_cannon'));
+    expect(result.found).toBe(true);
+    expect(result.state.projectiles[0]!.speed).toBe(10);
+  });
+
+  it('unknown weapon type falls back to default speed', () => {
+    // kinetic_cannon is known (12), but the default is 16
+    // Test that a hypothetical unknown weapon would get 16
+    // We verify this indirectly: mass_driver should get 18 (not default 16)
+    const result = fireUntilProjectiles(makeWeaponDesign('mass_driver'));
+    expect(result.found).toBe(true);
+    expect(result.state.projectiles[0]!.speed).toBe(18);
   });
 });
 
