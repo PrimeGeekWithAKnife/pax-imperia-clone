@@ -17,6 +17,7 @@ import type { Galaxy } from '../types/galaxy.js';
 import type { Fleet } from '../types/ships.js';
 import { ATTITUDE_MIN, ATTITUDE_MAX } from '../constants/game.js';
 import { generateId } from '../utils/id.js';
+import { getReputationModifier } from './reputation.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -641,6 +642,7 @@ export function evaluateTreatyProposal(
   target: Empire,
   relation: DiplomaticRelationFull,
   proposal: TreatyProposal,
+  proposerReputation?: number,
 ): { accept: boolean; reason: string; counterTerms?: Record<string, number> } {
   // Cannot negotiate while at war.
   if (relation.status === 'at_war') {
@@ -670,7 +672,13 @@ export function evaluateTreatyProposal(
   // Treaty-type specific adjustments per personality
   const typeModifier = getTreatyTypeModifier(proposal.treatyType, personality);
 
-  const effectiveThreshold = baseThreshold - diplomacyBonus - trustModifier - typeModifier;
+  let effectiveThreshold = baseThreshold - diplomacyBonus - trustModifier - typeModifier;
+
+  // Reputation modifier: respected empires find treaties easier to negotiate
+  if (proposerReputation !== undefined) {
+    const repMod = getReputationModifier(proposerReputation);
+    effectiveThreshold -= repMod.treatyAcceptanceBonus;
+  }
 
   if (relation.attitude < effectiveThreshold) {
     const gap = effectiveThreshold - relation.attitude;

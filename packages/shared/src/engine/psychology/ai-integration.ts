@@ -31,6 +31,7 @@ import { createRelationship, applyRelationshipEvent, computeOverallSentiment } f
 import type { AffinityMatrix } from '../../types/psychology.js';
 import { determineCopingStrategy } from './stress.js';
 import { criticalNeedOverride, lowestUnmetNeed } from './maslow.js';
+import { getReputationModifier } from '../reputation.js';
 
 // ---------------------------------------------------------------------------
 // Treaty evaluation (replaces evaluateTreatyProposal for AI-to-AI)
@@ -47,6 +48,7 @@ export function evaluateTreatyWithPsychology(
   proposerEmpireId: string,
   treatyType: string,
   rng: () => number = Math.random,
+  proposerReputation?: number,
 ): { accept: boolean; probability: number; reason: string } {
   const { personality, mood, needs, relationships } = targetPsychState;
   const relationship = relationships[proposerEmpireId];
@@ -85,10 +87,21 @@ export function evaluateTreatyWithPsychology(
 
   const { accepted, probability } = evaluateProposal(ctx, rng);
 
+  // Reputation modifier: shift probability by reputation bonus
+  let finalProbability = probability;
+  let finalAccepted = accepted;
+  if (proposerReputation !== undefined) {
+    const repMod = getReputationModifier(proposerReputation);
+    // Shift probability by reputation bonus (scaled to 0-1 range)
+    finalProbability = Math.max(0, Math.min(1, probability + repMod.treatyAcceptanceBonus / 100));
+    // Re-evaluate acceptance with adjusted probability
+    finalAccepted = rng() < finalProbability;
+  }
+
   return {
-    accept: accepted,
-    probability,
-    reason: accepted ? 'psychology_accept' : 'psychology_reject',
+    accept: finalAccepted,
+    probability: finalProbability,
+    reason: finalAccepted ? 'psychology_accept' : 'psychology_reject',
   };
 }
 

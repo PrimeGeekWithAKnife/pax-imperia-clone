@@ -4001,7 +4001,8 @@ function executeAIDiplomacy(
       let accepted = false;
       if (targetPsych && targetPsych.relationships[empireId]) {
         // Psychology-driven probabilistic evaluation
-        const result = evaluateTreatyWithPsychology(targetPsych, empireId, treatyType);
+        const proposerRep = state.reputationState?.scores[empireId] ?? 0;
+        const result = evaluateTreatyWithPsychology(targetPsych, empireId, treatyType, undefined, proposerRep);
         accepted = result.accept;
       } else {
         // Legacy threshold-gated evaluation
@@ -4014,11 +4015,13 @@ function executeAIDiplomacy(
           toEmpireId: targetEmpireId,
           treatyType: treatyType as TreatyType,
         };
+        const proposerRepLegacy = state.reputationState?.scores[empireId] ?? 0;
         const evalResult = evaluateTreatyProposal(
           proposerEmpire,
           targetEmpire,
           relation,
           proposal,
+          proposerRepLegacy,
         );
         accepted = evalResult.accept;
       }
