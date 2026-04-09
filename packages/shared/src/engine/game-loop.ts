@@ -280,6 +280,8 @@ import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
 import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
+import type { ReputationState } from '../types/reputation.js';
+import { initReputationState, processReputationTick } from './reputation.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -420,6 +422,8 @@ export interface GameTickState {
   diplomacyState?: DiplomacyState;
   /** Per-empire psychological state (5-dimensional relationship model). */
   psychStateMap?: Map<string, EmpirePsychologicalState>;
+  /** Galaxy-wide reputation tracking per empire. */
+  reputationState?: ReputationState;
 }
 
 /** The result returned by processGameTick. */
@@ -5493,6 +5497,11 @@ export function processGameTick(
     };
   }
 
+  // 8g. Reputation decay (drift scores toward neutral)
+  if (s.reputationState) {
+    s = { ...s, reputationState: processReputationTick(s.reputationState, s.gameState.currentTick) };
+  }
+
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
 
@@ -5666,6 +5675,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
       e.psychology ? initPsychologicalState(e.psychology) : undefined,
     ]).filter((entry): entry is [string, EmpirePsychologicalState] => entry[1] !== undefined)),
     warTerritoryTrackers: new Map(),
+    reputationState: initReputationState(gameState.empires.map(e => e.id)),
   } as GameTickState;
 }
 
