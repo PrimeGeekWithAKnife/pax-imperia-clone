@@ -534,7 +534,11 @@ function ProjectileEffects({
       // Trail segment (pre-allocated buffer)
       if (trailSegIdx < MAX_PROJ_TRAIL_SEGMENTS) {
         // Tail direction: opposite of travel direction
-        const trailLen = (0.15 + dmgFrac * 0.25) * BF_SCALE * 10;
+        // Scale trail length by muzzle velocity relative to the old default (16).
+        // Fast projectiles (gauss, singularity driver) get longer streaks;
+        // slow ones (siege cannon, battering ram) get stubbier trails.
+        const speedFactor = (proj.speed ?? 16) / 16;
+        const trailLen = (0.15 + dmgFrac * 0.25) * BF_SCALE * 10 * speedFactor;
         const tailX = pos.x - _tmpDir.x * trailLen;
         const tailY = pos.y - _tmpDir.y * trailLen;
         const tailZ = pos.z - _tmpDir.z * trailLen;
