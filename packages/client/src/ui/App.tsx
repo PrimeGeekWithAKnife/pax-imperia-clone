@@ -790,6 +790,7 @@ export function App(): React.ReactElement {
         systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
         position: { systemId: 'skirmish' },
         fleetId: playerFleetId,
+        crewExperience: config.playerCrewExperience,
       };
       return ship;
     });
@@ -806,6 +807,7 @@ export function App(): React.ReactElement {
         systemDamage: { engines: 0, weapons: 0, shields: 0, sensors: 0, warpDrive: 0 },
         position: { systemId: 'skirmish' },
         fleetId: aiFleetId,
+        crewExperience: config.aiCrewExperience,
       };
       return ship;
     });

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Species, HullClass, TechAge, BattlefieldSize } from '@nova-imperia/shared';
+import type { Species, HullClass, TechAge, BattlefieldSize, CrewExperienceLevel } from '@nova-imperia/shared';
 import {
   PREBUILT_SPECIES,
   HULL_TEMPLATES,
@@ -18,6 +18,7 @@ import {
   HULL_TEMPLATE_BY_CLASS,
   TECH_AGES,
   BATTLEFIELD_SIZE_CONFIG,
+  EXPERIENCE_LEVELS,
 } from '@nova-imperia/shared';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ export interface SkirmishConfig {
   aiShips: HullClass[];
   techAge: TechAge;
   battlefieldSize: BattlefieldSize;
+  playerCrewExperience: CrewExperienceLevel;
+  aiCrewExperience: CrewExperienceLevel;
 }
 
 export interface SkirmishSetupScreenProps {
@@ -48,6 +51,11 @@ const MAP_SIZE_OPTIONS: Array<{ key: BattlefieldSize; label: string }> = [
   { key: 'medium', label: 'Medium (18 per side)' },
   { key: 'large', label: 'Large (36 per side)' },
 ];
+
+const CREW_EXP_OPTIONS: Array<{ key: CrewExperienceLevel; label: string }> = EXPERIENCE_LEVELS.map(e => ({
+  key: e,
+  label: e.charAt(0).toUpperCase() + e.slice(1),
+}));
 
 /** Hull classes available at or before the given tech age. */
 function getAvailableHulls(age: TechAge): Array<{ class: HullClass; name: string; hp: number }> {
@@ -81,6 +89,8 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
   const [battlefieldSize, setBattlefieldSize] = useState<BattlefieldSize>('small');
   const [playerShips, setPlayerShips] = useState<HullClass[]>(['patrol', 'destroyer']);
   const [aiShips, setAiShips] = useState<HullClass[]>(['patrol', 'destroyer']);
+  const [playerCrewExp, setPlayerCrewExp] = useState<CrewExperienceLevel>('regular');
+  const [aiCrewExp, setAiCrewExp] = useState<CrewExperienceLevel>('regular');
 
   const maxShips = BATTLEFIELD_SIZE_CONFIG[battlefieldSize].maxShipsPerSide;
 
@@ -107,8 +117,10 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
       aiShips,
       techAge,
       battlefieldSize,
+      playerCrewExperience: playerCrewExp,
+      aiCrewExperience: aiCrewExp,
     });
-  }, [playerSpecies, aiSpecies, playerShips, aiShips, techAge, battlefieldSize, onStartBattle]);
+  }, [playerSpecies, aiSpecies, playerShips, aiShips, techAge, battlefieldSize, playerCrewExp, aiCrewExp, onStartBattle]);
 
   // Reset ships when tech age changes (some hulls may no longer be available)
   const handleAgeChange = useCallback((age: TechAge) => {
@@ -186,6 +198,30 @@ export function SkirmishSetupScreen({ onBack, onStartBattle }: SkirmishSetupScre
                 {m.label}
               </button>
             ))}
+
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 24, marginBottom: 8 }}>PLAYER CREW</div>
+            <select
+              value={playerCrewExp}
+              onChange={(e) => setPlayerCrewExp(e.target.value as CrewExperienceLevel)}
+              className="sc-input sc-input--select"
+              style={{ width: '100%', marginBottom: 8, fontSize: 11 }}
+            >
+              {CREW_EXP_OPTIONS.map(c => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
+
+            <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 12, marginBottom: 8 }}>AI CREW</div>
+            <select
+              value={aiCrewExp}
+              onChange={(e) => setAiCrewExp(e.target.value as CrewExperienceLevel)}
+              className="sc-input sc-input--select"
+              style={{ width: '100%', marginBottom: 8, fontSize: 11 }}
+            >
+              {CREW_EXP_OPTIONS.map(c => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
 
             <div style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--color-text-muted)', marginTop: 24, marginBottom: 8 }}>VS</div>
             <div style={{ fontSize: 48, color: 'var(--color-accent)', opacity: 0.3, fontWeight: 'bold' }}>&#x2694;</div>
