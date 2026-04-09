@@ -503,6 +503,21 @@ export interface DemandState {
   demands: Demand[];
 }
 
+// ---------------------------------------------------------------------------
+// Embargoes
+// ---------------------------------------------------------------------------
+
+export interface EmbargoState {
+  embargoes: Embargo[];
+}
+
+export interface Embargo {
+  initiatorId: string;
+  targetId: string;
+  startTick: number;
+  reason: string;
+}
+
 // Note: DiplomaticStatus and TreatyType are defined in species.ts and
 // re-exported from the barrel (index.ts). Import them from there or
 // directly from species.ts when needed alongside these advanced types.

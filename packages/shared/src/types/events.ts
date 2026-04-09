@@ -115,6 +115,19 @@ export interface RejectDemandAction {
   demandId: string;
 }
 
+export interface DeclareEmbargoAction {
+  type: 'declare_embargo';
+  empireId: string;
+  targetEmpireId: string;
+  reason?: string;
+}
+
+export interface LiftEmbargoAction {
+  type: 'lift_embargo';
+  empireId: string;
+  targetEmpireId: string;
+}
+
 export type GameAction =
   | MoveFleetAction
   | BuildShipAction
@@ -131,7 +144,9 @@ export type GameAction =
   | DesignShipAction
   | ProposeDemandAction
   | AcceptDemandAction
-  | RejectDemandAction;
+  | RejectDemandAction
+  | DeclareEmbargoAction
+  | LiftEmbargoAction;
 
 // ---------------------------------------------------------------------------
 // Game Events (server -> client)
