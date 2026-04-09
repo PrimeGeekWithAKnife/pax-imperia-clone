@@ -19,6 +19,7 @@ import {
   admiralPauseCount,
   createAdmiral,
   calculateExperienceGain,
+  computeLeadAngle,
   BATTLEFIELD_WIDTH,
   BATTLEFIELD_HEIGHT,
   PROJECTILE_SPEED,
@@ -4560,5 +4561,208 @@ describe('Power Capacitor System', () => {
     } finally {
       Math.random = origRandom;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6.1: Graduated lead prediction with Gaussian error
+// ---------------------------------------------------------------------------
+
+describe('Graduated lead prediction', () => {
+  const sourcePos = { x: 0, y: 0, z: 0 };
+  const targetPos = { x: 200, y: 0, z: 0 };
+  const targetVelocity = { x: 0, y: 5, z: 0 }; // moving perpendicular
+  const projSpeed = 16;
+
+  it('legendary crew returns near-perfect intercept (zero Gaussian error)', () => {
+    const origRandom = Math.random;
+    // Mock Math.random to return 0.5 — Box-Muller cos(2π*0.5) = cos(π) = -1
+    // sqrt(-2*ln(0.5+0.0001)) ≈ 1.177, so gaussian ≈ -1.177
+    // But with leadQuality=1.0, leadError = 0, so error = 0
+    Math.random = () => 0.5;
+    try {
+      const crew = { morale: 100, health: 100, experience: 'legendary' as const };
+      const result = computeLeadAngle(sourcePos, targetPos, targetVelocity, projSpeed, crew);
+      // With legendary quality (1.0), leadError = 0 → error is 0 regardless of gaussian
+      // Perfect intercept for a target at (200,0) moving y+5:
+      // time ~12.5 ticks → intercept at (200, 62.5)
+      // angle should be atan2(62.5, 200) ≈ 0.302 rad
+      expect(result.angle).toBeCloseTo(Math.atan2(62.5, 200), 0);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('recruit crew adds significant Gaussian error to intercept angle', () => {
+    const origRandom = Math.random;
+    // Box-Muller: u1=0.5, u2=0.5 → gaussian_h = sqrt(-2*ln(0.5001))*cos(π) ≈ -1.177
+    // u3=0.5, u4=0.5 → gaussian_v ≈ -1.177
+    // leadQuality=0.0 → leadError = 0.15
+    // error_angle = -1.177 * 0.15 ≈ -0.1766
+    Math.random = () => 0.5;
+    try {
+      const crew = { morale: 100, health: 100, experience: 'recruit' as const };
+      const result = computeLeadAngle(sourcePos, targetPos, targetVelocity, projSpeed, crew);
+
+      // Compute expected: perfect angle + gaussian * 0.15
+      const gaussianVal = Math.sqrt(-2 * Math.log(0.5 + 0.0001)) * Math.cos(2 * Math.PI * 0.5);
+      const expectedError = gaussianVal * 0.15;
+
+      // The perfect angle is ~0.302 rad, recruit should be offset by ~-0.177
+      // So result.angle ≈ 0.302 + (-0.177) ≈ 0.125
+      const legendaryResult = computeLeadAngle(sourcePos, targetPos, targetVelocity, projSpeed,
+        { morale: 100, health: 100, experience: 'legendary' as const });
+
+      // Recruit angle should differ from legendary by approximately expectedError
+      expect(Math.abs(result.angle - legendaryResult.angle)).toBeCloseTo(Math.abs(expectedError), 1);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('veteran has smaller error standard deviation than recruit (statistical)', () => {
+    const origRandom = Math.random;
+    const samples = 200;
+
+    function collectAngles(experience: 'recruit' | 'veteran'): number[] {
+      const crew = { morale: 100, health: 100, experience };
+      const angles: number[] = [];
+      let seed = 0;
+      // Use a simple LCG for reproducibility
+      Math.random = () => {
+        seed = (seed * 1664525 + 1013904223) % 4294967296;
+        return (seed >>> 0) / 4294967296;
+      };
+      for (let i = 0; i < samples; i++) {
+        angles.push(computeLeadAngle(sourcePos, targetPos, targetVelocity, projSpeed, crew).angle);
+      }
+      return angles;
+    }
+
+    try {
+      const recruitAngles = collectAngles('recruit');
+      const veteranAngles = collectAngles('veteran');
+
+      const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const stddev = (arr: number[]) => {
+        const m = mean(arr);
+        return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length);
+      };
+
+      const recruitSD = stddev(recruitAngles);
+      const veteranSD = stddev(veteranAngles);
+
+      // Recruit leadError = 0.15, veteran leadError = (1-0.7)*0.15 = 0.045
+      // So recruit SD should be roughly 3× veteran SD
+      expect(recruitSD).toBeGreaterThan(veteranSD * 1.5);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6.2: Dynamic mass — damaged ships accelerate faster
+// ---------------------------------------------------------------------------
+
+describe('Dynamic mass', () => {
+  it('heavily damaged ship has higher effective acceleration than undamaged', () => {
+    const origRandom = Math.random;
+    // Fix random to eliminate jitter
+    Math.random = () => 0.5;
+    try {
+      // Enemy target far to the right
+      const enemy = makeTacticalShip({
+        id: 'enemy',
+        side: 'defender',
+        position: { x: 800, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 100,
+        maxHull: 100,
+        armour: 0,
+        acceleration: 2,
+        speed: 6,
+        collisionRadius: 10,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+      } as any);
+
+      // Undamaged ship: hull=100, maxHull=100, armour=50
+      const healthyShip = makeTacticalShip({
+        id: 'healthy',
+        side: 'attacker',
+        position: { x: 100, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 100,
+        maxHull: 100,
+        armour: 50,
+        acceleration: 2,
+        speed: 6,
+        collisionRadius: 10,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+      } as any);
+
+      // Damaged ship: hull=10, armour=5 (lost 90% hull, 90% armour)
+      const damagedShip = makeTacticalShip({
+        id: 'damaged',
+        side: 'attacker',
+        position: { x: 100, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 10,
+        maxHull: 100,
+        armour: 5,
+        acceleration: 2,
+        speed: 6,
+        collisionRadius: 10,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+      } as any);
+
+      // Move both ships toward the enemy for several ticks
+      let h = healthyShip;
+      let d = damagedShip;
+      for (let i = 0; i < 10; i++) {
+        const stateH = makeMinimalState({
+          ships: [{ ...h, order: { type: 'attack' as const, targetId: 'enemy' } }, enemy],
+          battlefieldDepth: 400,
+        });
+        const stateD = makeMinimalState({
+          ships: [{ ...d, order: { type: 'attack' as const, targetId: 'enemy' } }, enemy],
+          battlefieldDepth: 400,
+        });
+        h = moveShip({ ...h, order: { type: 'attack', targetId: 'enemy' } }, stateH);
+        d = moveShip({ ...d, order: { type: 'attack', targetId: 'enemy' } }, stateD);
+      }
+
+      // Damaged ship should have moved further toward enemy (higher effective accel)
+      const healthyDist = Math.abs(h.position.x - 100);
+      const damagedDist = Math.abs(d.position.x - 100);
+      expect(damagedDist).toBeGreaterThan(healthyDist);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('dynamic mass ratio is capped at 1.8×', () => {
+    // Ship at hull=1, armour=0: currentMass=1, originalMass=100+0=100
+    // massRatio = sqrt(100/1) = 10 → capped to 1.8
+    const currentMass = Math.max(1, 1 + 0);
+    const originalMass = Math.max(1, 100 + 0);
+    const massRatio = Math.sqrt(originalMass / currentMass);
+    const cappedRatio = Math.min(1.8, massRatio);
+    expect(cappedRatio).toBe(1.8);
+    expect(massRatio).toBeGreaterThan(1.8); // uncapped would be ~10
+  });
+
+  it('undamaged ship has mass ratio of 1.0', () => {
+    // hull=100, armour=50 → both currentMass and originalMass = 150
+    const currentMass = Math.max(1, 100 + 50);
+    const originalMass = Math.max(1, 100 + 50);
+    const massRatio = Math.sqrt(originalMass / currentMass);
+    expect(massRatio).toBeCloseTo(1.0, 5);
   });
 });

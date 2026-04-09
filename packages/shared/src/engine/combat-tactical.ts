@@ -952,13 +952,13 @@ function computeAccuracyCone(
 /**
  * Compute the lead angle for firing at a moving target.
  *
- * Uses computeInterceptPoint() to predict where the target will be, then
- * interpolates between "no lead" (aim at current position) and "perfect lead"
- * based on crew experience (EXP_LEAD_QUALITY).
+ * Always computes the perfect intercept point, then adds Gaussian angular
+ * error scaled by crew inexperience. Recruits bracket wildly; veterans
+ * aim precisely with minimal scatter.
  *
  * Returns { angle, pitch } in radians.
  */
-function computeLeadAngle(
+export function computeLeadAngle(
   sourcePos: { x: number; y: number; z: number },
   targetPos: { x: number; y: number; z: number },
   targetVelocity: { x: number; y: number; z: number },
@@ -967,7 +967,7 @@ function computeLeadAngle(
 ): { angle: number; pitch: number } {
   const leadQuality = EXP_LEAD_QUALITY[crew.experience] ?? 0.4;
 
-  // Compute the ideal intercept point (2D, using existing helper)
+  // Always compute the ideal intercept point (2D, using existing helper)
   const intercept = computeInterceptPoint(
     sourcePos,
     targetPos,
@@ -975,24 +975,39 @@ function computeLeadAngle(
     projectileSpeed,
   );
 
-  // Interpolate between current target position and predicted intercept
-  const aimX = targetPos.x + (intercept.x - targetPos.x) * leadQuality;
-  const aimY = targetPos.y + (intercept.y - targetPos.y) * leadQuality;
+  // Aim at the full intercept point — all crew attempt perfect lead
+  const aimX = intercept.x;
+  const aimY = intercept.y;
 
-  // Z-axis lead: predict target's Z movement
+  // Z-axis lead: predict target's Z movement at full quality
   const horizDist = Math.sqrt(
     (aimX - sourcePos.x) ** 2 + (aimY - sourcePos.y) ** 2,
   );
   const travelTime = horizDist > 1 ? horizDist / projectileSpeed : 1;
-  const aimZ = targetPos.z + targetVelocity.z * travelTime * leadQuality;
+  const aimZ = targetPos.z + targetVelocity.z * travelTime;
 
-  const angle = Math.atan2(aimY - sourcePos.y, aimX - sourcePos.x);
+  // Compute the perfect intercept angle and pitch
+  const perfectAngle = Math.atan2(aimY - sourcePos.y, aimX - sourcePos.x);
   const horizDistFinal = Math.sqrt(
     (aimX - sourcePos.x) ** 2 + (aimY - sourcePos.y) ** 2,
   );
-  const pitch = horizDistFinal > 1
+  const perfectPitch = horizDistFinal > 1
     ? Math.atan2(aimZ - sourcePos.z, horizDistFinal)
     : 0;
+
+  // Gaussian error scaled by inexperience — recruits bracket, legends aim true
+  // Max error ~0.15 rad (~8.6°) at leadQuality 0 (recruit)
+  const leadError = (1.0 - leadQuality) * 0.15;
+  // Box-Muller transform for Gaussian noise (two independent samples)
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const gaussianH = Math.sqrt(-2 * Math.log(u1 + 0.0001)) * Math.cos(2 * Math.PI * u2);
+  const u3 = Math.random();
+  const u4 = Math.random();
+  const gaussianV = Math.sqrt(-2 * Math.log(u3 + 0.0001)) * Math.cos(2 * Math.PI * u4);
+
+  const angle = perfectAngle + gaussianH * leadError;
+  const pitch = perfectPitch + gaussianV * leadError;
 
   return { angle, pitch };
 }
@@ -3480,11 +3495,18 @@ function moveToward(
 
   const newFacing = normaliseAngle(ship.facing + newAngVel);
 
+  // ── Dynamic mass: damaged ships shed armour/hull, accelerate faster ──
+  const currentMass = Math.max(1, ship.hull + ship.armour);
+  const originalMass = Math.max(1, ship.maxHull + ship.armour);
+  const massRatio = Math.sqrt(originalMass / currentMass);
+  const baseAccel = (ship.acceleration ?? ship.speed);
+  const effectiveAccel = baseAccel * Math.min(1.8, massRatio); // cap at 1.8×
+
   // ── Thrust calculation ─────────────────────────────────────────────
-  // ship.acceleration = thrust per tick (lighter ships accelerate faster)
+  // effectiveAccel = thrust per tick adjusted for current mass
   // ship.speed = max velocity cap
   const thrustJitter = crewJitterMul(exp);
-  const accel = (ship.acceleration ?? ship.speed) * thrustJitter;
+  const accel = effectiveAccel * thrustJitter;
   let newVx = vx;
   let newVy = vy;
   let newVz = vz;
@@ -3568,9 +3590,9 @@ function moveToward(
           const escapeDir = toZ >= 0 ? -1 : 1; // go opposite vertical direction
           // Same-side ships get full vertical escape; enemies get softer avoidance
           if (other.side === ship.side) {
-            newVz += escapeDir * urgency * (ship.acceleration ?? ship.speed);
+            newVz += escapeDir * urgency * effectiveAccel;
           } else {
-            newVz += escapeDir * urgency * (ship.acceleration ?? ship.speed) * 0.5;
+            newVz += escapeDir * urgency * effectiveAccel * 0.5;
           }
         }
       }
@@ -3583,7 +3605,7 @@ function moveToward(
   const zDampStrength = isUnderFire ? 0.02 : 0.1;
   const zThreshold = isUnderFire ? 120 : 50;
   if (Math.abs(ship.position.z) > zThreshold) {
-    newVz -= Math.sign(ship.position.z) * (ship.acceleration ?? ship.speed) * zDampStrength;
+    newVz -= Math.sign(ship.position.z) * effectiveAccel * zDampStrength;
   }
 
   // Apply drag (simulates micro-thruster corrections / space friction lite)
