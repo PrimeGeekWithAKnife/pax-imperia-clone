@@ -3108,3 +3108,606 @@ describe('Planetary assault layout', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 3: Beam weapon improvements
+// ---------------------------------------------------------------------------
+
+describe('beam collateral damage on miss', () => {
+  it('a missed beam can hit a bystander ship along its path', () => {
+    // Source fires at target; bystander sits between them within FRIENDLY_FIRE_BEAM_RADIUS (10).
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100, z: 0 },
+      velocity: { x: 5, y: 0, z: 0 }, // must be moving for evasion to trigger
+      hull: 100,
+      maxHull: 100,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+    // Bystander right on the beam path, within 10px radius
+    const bystander = makeTacticalShip({
+      id: 'neutral-bystander',
+      side: 'attacker',
+      position: { x: 300, y: 103, z: 0 },
+      hull: 80,
+      maxHull: 100,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    // Sequence: evasion check => 0.01 (moving target, high evasion => miss),
+    // accuracy check skipped because shotHits already false,
+    // collateral chance => 0.01 < 0.15 = yes
+    let callIdx = 0;
+    const sequence = [0.01, 0.01]; // evasion miss, collateral chance pass
+    Math.random = () => {
+      const val = callIdx < sequence.length ? sequence[callIdx]! : 0.01;
+      callIdx++;
+      return val;
+    };
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, bystander, target],
+      });
+
+      const next = processTacticalTick(state);
+      const hit = next.ships.find((s) => s.id === 'neutral-bystander')!;
+      // Bystander should take half the beam damage (20 * 0.5 = 10)
+      expect(hit.hull).toBeLessThan(80);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('bystander beyond FRIENDLY_FIRE_BEAM_RADIUS is not hit', () => {
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 500, y: 100, z: 0 },
+      velocity: { x: 5, y: 0, z: 0 },
+      hull: 100,
+      maxHull: 100,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+    // Bystander FAR from the beam path (50px away, well beyond 10px radius)
+    const farBystander = makeTacticalShip({
+      id: 'far-bystander',
+      side: 'attacker',
+      position: { x: 300, y: 150, z: 0 },
+      hull: 80,
+      maxHull: 100,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.01; // everything passes
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, farBystander, target],
+      });
+
+      const next = processTacticalTick(state);
+      const safe = next.ships.find((s) => s.id === 'far-bystander')!;
+      // Far bystander should NOT be hit (50px >> 10px radius)
+      expect(safe.hull).toBe(80);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('beam inverse-square range falloff', () => {
+  it('beam within 50% range deals full damage', () => {
+    // Ship fires at target at 30% of weapon range
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 100,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    // Target at 300 units away = 30% of 1000 range = within optimal
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 400, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5; // passes evasion (0.5 > ~0.01) and accuracy (50 < 100)
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      // At 30% range (within 50% optimal), full 100 damage should apply
+      const damageTaken = 500 - def.hull;
+      // Some gets absorbed by armour etc., but beam damage should be near 100
+      expect(damageTaken).toBeGreaterThan(50);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('beam at 75% range deals reduced damage', () => {
+    // At 75% range: falloff = (0.5/0.75)^2 = 0.444
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 100,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    // Target at 750 units away = 75% of 1000 range
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 850, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      const damageTaken = 500 - def.hull;
+      // At 75% range, falloff = (0.5/0.75)^2 = 0.444, so ~44 damage from 100 base
+      // Damage should be well under 50% of base
+      expect(damageTaken).toBeLessThan(50);
+      expect(damageTaken).toBeGreaterThan(10); // but not negligible
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('beam at max range deals roughly 25% damage', () => {
+    // At 100% range: falloff = (0.5/1.0)^2 = 0.25
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 100,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    // Target at 1000 units away = max range
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 1100, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      const state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      const next = processTacticalTick(state);
+      const def = next.ships.find((s) => s.id === 'def-1')!;
+      const damageTaken = 500 - def.hull;
+      // At max range, falloff = 0.25, so ~25 damage from 100 base
+      expect(damageTaken).toBeLessThan(35);
+      expect(damageTaken).toBeGreaterThan(5);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('sustained beam mode', () => {
+  it('particle_beam_cannon fires for 4 ticks dealing 25% damage each', () => {
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'particle_beam_cannon',
+        type: 'beam',
+        damage: 40,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5; // passes evasion and accuracy
+
+    try {
+      let state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      // Tick 1: burst starts, first tick fires
+      state = processTacticalTick(state);
+      const afterTick1 = state.ships.find(s => s.id === 'def-1')!;
+      const dmg1 = 500 - afterTick1.hull;
+      // First tick should deal ~10 (40/4)
+      expect(dmg1).toBeGreaterThan(0);
+      expect(dmg1).toBeLessThan(20); // not full 40
+
+      // Check weapon has sustainedTicksLeft set
+      const srcAfter1 = state.ships.find(s => s.id === 'atk-src')!;
+      const weaponAfter1 = srcAfter1.weapons[0]!;
+      expect(weaponAfter1.sustainedTicksLeft).toBe(3); // 4 - 1
+
+      // Tick 2-4: burst continues
+      state = processTacticalTick(state);
+      state = processTacticalTick(state);
+      state = processTacticalTick(state);
+
+      // After 4 ticks, all burst ticks should have fired
+      const afterBurst = state.ships.find(s => s.id === 'def-1')!;
+      const totalDmg = 500 - afterBurst.hull;
+      // Total should be close to 40 (with armour absorption)
+      expect(totalDmg).toBeGreaterThan(20);
+
+      // Weapon should now be on cooldown (sustainedTicksLeft cleared)
+      const srcAfterBurst = state.ships.find(s => s.id === 'atk-src')!;
+      const weaponAfterBurst = srcAfterBurst.weapons[0]!;
+      expect(weaponAfterBurst.sustainedTicksLeft).toBeUndefined();
+      expect(weaponAfterBurst.cooldownLeft).toBeGreaterThan(0);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('sustained beam re-checks evasion each tick', () => {
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'particle_beam_cannon',
+        type: 'beam',
+        damage: 40,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    // Fast-moving target = high evasion
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 100, z: 0 },
+      velocity: { x: 8, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+
+    try {
+      // Tick 1: use 0.5 which passes evasion and accuracy — first burst tick hits
+      Math.random = () => 0.5;
+      let state = makeMinimalState({
+        ships: [source, target],
+      });
+      state = processTacticalTick(state);
+      const dmg1 = 500 - state.ships.find(s => s.id === 'def-1')!.hull;
+      expect(dmg1).toBeGreaterThan(0);
+
+      // Tick 2: switch to 0.001 — below evasion chance (~0.16 for speed=8),
+      // so the sustained tick's evasion check will trigger (miss)
+      const hullBefore = state.ships.find(s => s.id === 'def-1')!.hull;
+      Math.random = () => 0.001;
+      state = processTacticalTick(state);
+      const hullAfter = state.ships.find(s => s.id === 'def-1')!.hull;
+      // Hull should be the same if evasion worked (no new damage)
+      expect(hullAfter).toBe(hullBefore);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('pulse_laser still fires as single-hit (not sustained)', () => {
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'pulse_laser',
+        type: 'beam',
+        damage: 20,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      let state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      state = processTacticalTick(state);
+      // pulse_laser is NOT in SUSTAINED_BEAM_TICKS, so no sustained state
+      const srcAfter = state.ships.find(s => s.id === 'atk-src')!;
+      const weaponAfter = srcAfter.weapons[0]!;
+      expect(weaponAfter.sustainedTicksLeft).toBeUndefined();
+      expect(weaponAfter.cooldownLeft).toBe(10); // full cooldown applied immediately
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('cooldown starts after burst completes, not after first tick', () => {
+    const source = makeTacticalShip({
+      id: 'atk-src',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      facing: 0,
+      velocity: { x: 0, y: 0, z: 0 },
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+      weapons: [{
+        componentId: 'particle_beam_cannon',
+        type: 'beam',
+        damage: 40,
+        range: 1000,
+        accuracy: 100,
+        cooldownMax: 10,
+        cooldownLeft: 0,
+        facing: 'turret',
+      }],
+    });
+    const target = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 5,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      let state = makeMinimalState({
+        ships: [source, target],
+      });
+
+      // Tick 1: burst starts
+      state = processTacticalTick(state);
+      let w = state.ships.find(s => s.id === 'atk-src')!.weapons[0]!;
+      expect(w.cooldownLeft).toBe(0); // no cooldown during burst
+      expect(w.sustainedTicksLeft).toBe(3);
+
+      // Tick 2
+      state = processTacticalTick(state);
+      w = state.ships.find(s => s.id === 'atk-src')!.weapons[0]!;
+      expect(w.cooldownLeft).toBe(0);
+      expect(w.sustainedTicksLeft).toBe(2);
+
+      // Tick 3
+      state = processTacticalTick(state);
+      w = state.ships.find(s => s.id === 'atk-src')!.weapons[0]!;
+      expect(w.cooldownLeft).toBe(0);
+      expect(w.sustainedTicksLeft).toBe(1);
+
+      // Tick 4: burst completes, cooldown starts
+      state = processTacticalTick(state);
+      w = state.ships.find(s => s.id === 'atk-src')!.weapons[0]!;
+      expect(w.cooldownLeft).toBe(10); // cooldown now active
+      expect(w.sustainedTicksLeft).toBeUndefined();
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});

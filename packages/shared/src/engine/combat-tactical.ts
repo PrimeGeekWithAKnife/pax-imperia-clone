@@ -38,6 +38,13 @@ const RANGE_TO_BATTLEFIELD = 20;
 const ENGAGE_RANGE_FRACTION = 0.8;
 /** Duration in ticks that a beam effect persists (visual only). */
 const BEAM_EFFECT_DURATION = 3;
+/** Sustained beam weapons fire over multiple ticks instead of a single hit. */
+const SUSTAINED_BEAM_TICKS: Record<string, number> = {
+  particle_beam_cannon: 4,
+  plasma_lance: 5,
+  radiation_ray: 3,
+  disruptor_beam: 3,
+};
 /** Fraction of max shields recharged per tick. */
 const SHIELD_RECHARGE_FRACTION = 0.005;
 /** Armour absorbs up to this fraction of remaining damage per hit. */
@@ -273,6 +280,8 @@ export interface TacticalWeapon {
   maxAmmo?: number;     // starting ammo capacity
   interceptRate?: number; // PD intercept chance 0-100 (from component stats)
   salvoCount?: number;    // number of missiles fired per volley (missile weapons only)
+  sustainedTicksLeft?: number;  // remaining ticks in sustained beam burst
+  sustainedTargetId?: string;   // locked target during sustained beam burst
 }
 
 export type ShipOrder =
@@ -4725,6 +4734,65 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       const newAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
 
       if (weapon.type === 'beam') {
+        // --- Sustained beam burst continuation ---
+        const burstTicks = SUSTAINED_BEAM_TICKS[weapon.componentId];
+        if (weapon.sustainedTicksLeft != null && weapon.sustainedTicksLeft > 0) {
+          // Find the locked target
+          const sustainedTarget = ships.find(s => s.id === weapon.sustainedTargetId);
+          if (!sustainedTarget || sustainedTarget.destroyed || sustainedTarget.routed) {
+            // Target lost mid-burst — end burst early, start cooldown
+            updatedWeapons.push({
+              ...weapon,
+              sustainedTicksLeft: undefined,
+              sustainedTargetId: undefined,
+              cooldownLeft: weapon.cooldownMax,
+            });
+            continue;
+          }
+          // Re-check evasion each tick of sustained burst
+          let burstHits = true;
+          const stv = sustainedTarget.velocity;
+          const sTargetSpeed = Math.sqrt(stv.x * stv.x + stv.y * stv.y + stv.z * stv.z);
+          if (sTargetSpeed > 0.5) {
+            const sSpeedFactor = sTargetSpeed / 5;
+            const sSizeFactor = sustainedTarget.maxHull < 60 ? 0.3 : sustainedTarget.maxHull < 200 ? 0.15 : sustainedTarget.maxHull < 400 ? 0.05 : 0;
+            const sEcmFactor = (sustainedTarget.evasionBonus ?? 0) / 100;
+            const sEvasionChance = Math.min(0.6, sSpeedFactor * 0.1 + sSizeFactor + sEcmFactor);
+            if (Math.random() < sEvasionChance) burstHits = false;
+          }
+          const perTickDamage = weapon.damage / burstTicks!;
+          if (burstHits) {
+            const sidx = ships.indexOf(sustainedTarget);
+            if (sidx >= 0) {
+              pendingBeamDamage.push({ targetIdx: sidx, damage: perTickDamage, damageType: 'beam' });
+            }
+          }
+          // Visual beam effect for each tick of sustained fire
+          newBeamEffects.push({
+            sourceShipId: ship.id,
+            targetShipId: sustainedTarget.id,
+            damage: perTickDamage,
+            ticksRemaining: BEAM_EFFECT_DURATION,
+            componentId: weapon.componentId,
+          });
+          const remaining = weapon.sustainedTicksLeft - 1;
+          if (remaining <= 0) {
+            // Burst complete — start cooldown
+            updatedWeapons.push({
+              ...weapon,
+              sustainedTicksLeft: undefined,
+              sustainedTargetId: undefined,
+              cooldownLeft: weapon.cooldownMax,
+            });
+          } else {
+            updatedWeapons.push({
+              ...weapon,
+              sustainedTicksLeft: remaining,
+            });
+          }
+          continue;
+        }
+
         // --- Beam accuracy: dice-roll hit/miss (kept for beams only) ---
         let shotHits = true;
         // Fix: use actual velocity magnitude instead of stance/order check
@@ -4764,11 +4832,12 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
         let beamDamage = weapon.damage;
 
-        // Range falloff: damage reduces linearly past 60% of max range (down to 30% at max range)
+        // Inverse-square range falloff: full damage within 50% range, then drops sharply
         const rangeFraction = weaponD / weapon.range;
-        if (rangeFraction > 0.6) {
-          const falloff = 1.0 - (rangeFraction - 0.6) / 0.4 * 0.7; // 1.0 at 60%, 0.3 at 100%
-          beamDamage *= Math.max(0.3, falloff);
+        const optimalFraction = 0.5;
+        if (rangeFraction > optimalFraction) {
+          const falloff = (optimalFraction / rangeFraction) ** 2;
+          beamDamage *= Math.max(0.15, falloff);
         }
 
         // Nebula attenuation: reduce beam damage when firing through nebula
@@ -4781,11 +4850,35 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           beamDamage *= NEBULA_BEAM_DAMAGE_FACTOR;
         }
 
-        // Beams hit precisely — no collateral. Misses still show the beam visually.
         if (shotHits) {
           const idx = ships.indexOf(weaponTarget);
           if (idx >= 0) {
             pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage, damageType: 'beam' });
+          }
+        } else {
+          // Missed beam — chance of collateral damage on bystander ships
+          if (Math.random() < BEAM_COLLATERAL_CHANCE) {
+            const excludeIds = new Set([ship.id, weaponTarget.id]);
+            const collateralShip = checkCollateralDamage(
+              ship.position.x, ship.position.y,
+              weaponTarget.position.x, weaponTarget.position.y,
+              ships, excludeIds, FRIENDLY_FIRE_BEAM_RADIUS,
+              ship.position.z, weaponTarget.position.z,
+            );
+            if (collateralShip) {
+              const cidx = ships.indexOf(collateralShip);
+              if (cidx >= 0) {
+                pendingBeamDamage.push({ targetIdx: cidx, damage: beamDamage * 0.5, damageType: 'beam' });
+                // Visual: add a beam effect to the collateral target
+                newBeamEffects.push({
+                  sourceShipId: ship.id,
+                  targetShipId: collateralShip.id,
+                  damage: beamDamage * 0.5,
+                  ticksRemaining: BEAM_EFFECT_DURATION,
+                  componentId: weapon.componentId,
+                });
+              }
+            }
           }
         }
         newBeamEffects.push({
@@ -4795,6 +4888,36 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           ticksRemaining: BEAM_EFFECT_DURATION,
           componentId: weapon.componentId,
         });
+
+        // Sustained beam: multi-tick burst — first tick already fired above,
+        // now set up remaining ticks. Cooldown starts after burst completes.
+        if (burstTicks != null && burstTicks > 1) {
+          // Re-scale the damage dealt on the first tick to per-tick fraction
+          // (the full beamDamage was already pushed; correct it to per-tick)
+          const lastBeamIdx = pendingBeamDamage.length - 1;
+          if (lastBeamIdx >= 0 && shotHits) {
+            const lastEntry = pendingBeamDamage[lastBeamIdx]!;
+            if (lastEntry.damage === beamDamage) {
+              pendingBeamDamage[lastBeamIdx] = { ...lastEntry, damage: beamDamage / burstTicks };
+            }
+          }
+          // Also fix the beam effect damage
+          const lastEffIdx = newBeamEffects.length - 1;
+          if (lastEffIdx >= 0) {
+            const lastEff = newBeamEffects[lastEffIdx]!;
+            if (lastEff.damage === beamDamage) {
+              newBeamEffects[lastEffIdx] = { ...lastEff, damage: beamDamage / burstTicks };
+            }
+          }
+          updatedWeapons.push({
+            ...weapon,
+            cooldownLeft: 0, // no cooldown during burst
+            ammo: newAmmo,
+            sustainedTicksLeft: burstTicks - 1,
+            sustainedTargetId: weaponTarget.id,
+          });
+          continue;
+        }
       } else if (weapon.type === 'missile') {
         // Use per-type physics from MISSILE_PROFILES; fall back to defaults
         const mProfile = MISSILE_PROFILES[weapon.componentId];
