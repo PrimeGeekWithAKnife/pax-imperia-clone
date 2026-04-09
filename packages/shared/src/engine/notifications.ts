@@ -69,6 +69,12 @@ const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
 
   // Action feedback
   action_rejected:         { priority: 'info', autoPause: false, canSilence: true },
+
+  // War weariness unrest
+  war_desertion:           { priority: 'warning', autoPause: true, canSilence: true },
+  war_strike:              { priority: 'warning', autoPause: true, canSilence: true },
+  war_mass_protest:        { priority: 'critical', autoPause: true, canSilence: true },
+  war_mutiny:              { priority: 'critical', autoPause: true, canSilence: true },
 };
 
 // ---------------------------------------------------------------------------

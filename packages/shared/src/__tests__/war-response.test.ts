@@ -6,6 +6,9 @@ import {
   recordCasualties,
   calculateWarHappinessImpact,
   isWarWearinessCrisis,
+  checkWarWearinessEvents,
+  shouldForceAIPeace,
+  AI_FORCED_PEACE_CHANCE,
   type EmpireWarState,
 } from '../engine/war-response.js';
 import { calculatePlanetHappiness } from '../engine/happiness.js';
@@ -680,5 +683,173 @@ describe('extended simulation — 200 ticks of war', () => {
     // 200 * 0.05 = 10 weariness — well below 80
     expect(isWarWearinessCrisis(state)).toBe(false);
     expect(state.warWeariness).toBeCloseTo(10, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkWarWearinessEvents — unrest events at high weariness
+// ---------------------------------------------------------------------------
+
+describe('checkWarWearinessEvents', () => {
+  const empireId = 'empire-1';
+  const planetIds = ['planet-1', 'planet-2', 'planet-3'];
+  const fleetIds = ['fleet-1', 'fleet-2'];
+
+  it('returns no events when weariness is below 80', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 79 };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, () => 0);
+    expect(events).toHaveLength(0);
+  });
+
+  it('returns no events when weariness is exactly 80', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 80 };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, () => 0);
+    expect(events).toHaveLength(0);
+  });
+
+  it('returns desertion event when weariness >80 and RNG hits (< 0.10)', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 85 };
+    // RNG returns 0.05 for the desertion chance (hit), then values for shipsLost and strike
+    let callIdx = 0;
+    const rng = () => {
+      callIdx++;
+      if (callIdx === 1) return 0.05; // Desertion: hit (< 0.10)
+      if (callIdx === 2) return 0.5;  // shipsLost: 1 + floor(0.5 * 3) = 2
+      if (callIdx === 3) return 0.99; // Strike: miss (>= 0.15)
+      return 0.99;
+    };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const desertions = events.filter(e => e.type === 'desertion');
+    expect(desertions).toHaveLength(1);
+    expect(desertions[0].empireId).toBe(empireId);
+    expect(desertions[0].shipsLost).toBe(2);
+    expect(desertions[0].description).toContain('desert');
+  });
+
+  it('returns production strike event when weariness >80 and RNG hits', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 85 };
+    let callIdx = 0;
+    const rng = () => {
+      callIdx++;
+      if (callIdx === 1) return 0.99; // Desertion: miss
+      if (callIdx === 2) return 0.10; // Strike: hit (< 0.15)
+      if (callIdx === 3) return 0.3;  // Planet pick: planet-1
+      return 0.99;
+    };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const strikes = events.filter(e => e.type === 'production_strike');
+    expect(strikes).toHaveLength(1);
+    expect(strikes[0].targetId).toBe('planet-1');
+    expect(strikes[0].duration).toBe(10);
+    expect(strikes[0].happinessPenalty).toBe(-20);
+    expect(strikes[0].description).toContain('strike');
+  });
+
+  it('returns mass protest event when weariness >90 and RNG hits', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 95 };
+    let callIdx = 0;
+    const rng = () => {
+      callIdx++;
+      if (callIdx === 1) return 0.99; // Desertion: miss
+      if (callIdx === 2) return 0.99; // Strike: miss
+      if (callIdx === 3) return 0.20; // Mass protest: hit (< 0.25)
+      if (callIdx === 4) return 0.99; // Mutiny: miss
+      return 0.99;
+    };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const protests = events.filter(e => e.type === 'mass_protest');
+    expect(protests).toHaveLength(1);
+    expect(protests[0].duration).toBe(5);
+    expect(protests[0].happinessPenalty).toBe(-10);
+    expect(protests[0].description).toContain('protest');
+  });
+
+  it('returns mutiny event when weariness >90 and RNG hits', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 95 };
+    let callIdx = 0;
+    const rng = () => {
+      callIdx++;
+      if (callIdx === 1) return 0.99; // Desertion: miss
+      if (callIdx === 2) return 0.99; // Strike: miss
+      if (callIdx === 3) return 0.99; // Mass protest: miss
+      if (callIdx === 4) return 0.01; // Mutiny: hit (< 0.05)
+      if (callIdx === 5) return 0.5;  // Fleet pick: fleet-2
+      return 0.99;
+    };
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const mutinies = events.filter(e => e.type === 'mutiny');
+    expect(mutinies).toHaveLength(1);
+    expect(mutinies[0].targetId).toBe('fleet-2');
+    expect(mutinies[0].duration).toBe(5);
+    expect(mutinies[0].description).toContain('mutinied');
+  });
+
+  it('does not return mass protest or mutiny when weariness is 81-90', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 85 };
+    // All RNG values hit — but only desertion and strike should trigger
+    const rng = () => 0.01;
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const protests = events.filter(e => e.type === 'mass_protest');
+    const mutinies = events.filter(e => e.type === 'mutiny');
+    expect(protests).toHaveLength(0);
+    expect(mutinies).toHaveLength(0);
+  });
+
+  it('can return multiple event types in a single tick at weariness >90', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 95 };
+    // All RNG values hit — should get all four event types
+    const rng = () => 0.01;
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, fleetIds, rng);
+    const types = new Set(events.map(e => e.type));
+    expect(types.has('desertion')).toBe(true);
+    expect(types.has('production_strike')).toBe(true);
+    expect(types.has('mass_protest')).toBe(true);
+    expect(types.has('mutiny')).toBe(true);
+  });
+
+  it('skips desertion when empire has no fleets', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 85 };
+    const rng = () => 0.01; // All rolls hit
+    const events = checkWarWearinessEvents(state, empireId, 100, planetIds, [], rng);
+    const desertions = events.filter(e => e.type === 'desertion');
+    expect(desertions).toHaveLength(0);
+  });
+
+  it('skips production strike when empire has no planets', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 85 };
+    const rng = () => 0.01;
+    const events = checkWarWearinessEvents(state, empireId, 100, [], fleetIds, rng);
+    const strikes = events.filter(e => e.type === 'production_strike');
+    expect(strikes).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shouldForceAIPeace — AI forced peace at >90 weariness
+// ---------------------------------------------------------------------------
+
+describe('shouldForceAIPeace', () => {
+  it('returns true when weariness exceeds 90', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 91 };
+    expect(shouldForceAIPeace(state)).toBe(true);
+  });
+
+  it('returns false when weariness is at 90', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 90 };
+    expect(shouldForceAIPeace(state)).toBe(false);
+  });
+
+  it('returns false when weariness is below 90', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 50 };
+    expect(shouldForceAIPeace(state)).toBe(false);
+  });
+
+  it('returns true at maximum weariness (100)', () => {
+    const state: EmpireWarState = { ...createEmpireWarState(), warWeariness: 100 };
+    expect(shouldForceAIPeace(state)).toBe(true);
+  });
+
+  it('AI_FORCED_PEACE_CHANCE is 0.20 (20% per tick)', () => {
+    expect(AI_FORCED_PEACE_CHANCE).toBe(0.20);
   });
 });

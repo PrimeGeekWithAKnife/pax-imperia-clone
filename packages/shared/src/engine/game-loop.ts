@@ -230,7 +230,11 @@ import {
   tickWarState,
   recordBattle,
   recordCasualties,
+  checkWarWearinessEvents,
+  shouldForceAIPeace,
+  AI_FORCED_PEACE_CHANCE,
   type EmpireWarState,
+  type WarWearinessEvent,
 } from './war-response.js';
 import {
   processPoliticalTick,
@@ -2664,17 +2668,202 @@ function stepMigrations(
 
 function stepWarState(state: GameTickState): GameTickState {
   const warStateMap = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
-  const diplomacyState: DiplomacyState | undefined = state.diplomacyState;
   const updatedMap = new Map(warStateMap);
+  let notifications = [...(((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[])];
+  let systems = state.gameState.galaxy.systems;
+
+  // Track active weariness effects (strike/protest happiness penalties)
+  let wearinessEffects = ((state as unknown as Record<string, unknown>).wearinessEffects ?? []) as WearinessEffect[];
+  // Decay expired effects
+  wearinessEffects = wearinessEffects.filter(e => state.gameState.currentTick < e.expiryTick);
 
   for (const empire of state.gameState.empires) {
     const isAtWar = empire.diplomacy.some(r => r.status === 'at_war');
     let ws = updatedMap.get(empire.id) ?? createEmpireWarState();
     ws = tickWarState(ws, isAtWar, empire.species, state.gameState.currentTick);
     updatedMap.set(empire.id, ws);
+
+    // Only generate unrest events when at war
+    if (!isAtWar) continue;
+
+    // Gather empire's planet and fleet IDs for event targeting
+    const planetIds: string[] = [];
+    for (const system of state.gameState.galaxy.systems) {
+      for (const planet of system.planets) {
+        if (planet.ownerId === empire.id) planetIds.push(planet.id);
+      }
+    }
+    const fleetIds = state.gameState.fleets
+      .filter(f => f.empireId === empire.id)
+      .map(f => f.id);
+
+    const events = checkWarWearinessEvents(
+      ws, empire.id, state.gameState.currentTick, planetIds, fleetIds,
+    );
+
+    for (const evt of events) {
+      // AI empires: apply effects silently (no notifications)
+      // Player empires: create notifications and apply effects
+      if (!empire.isAI) {
+        switch (evt.type) {
+          case 'desertion':
+            notifications.push(createNotification(
+              'war_desertion',
+              'Crews deserting',
+              evt.description,
+              state.gameState.currentTick,
+              undefined,
+              { empireId: empire.id },
+            ));
+            break;
+
+          case 'production_strike':
+            notifications.push(createNotification(
+              'war_strike',
+              'Production strike',
+              evt.description,
+              state.gameState.currentTick,
+              undefined,
+              { empireId: empire.id, planetId: evt.targetId ?? '' },
+            ));
+            break;
+
+          case 'mass_protest':
+            notifications.push(createNotification(
+              'war_mass_protest',
+              'Mass anti-war protests',
+              evt.description,
+              state.gameState.currentTick,
+              undefined,
+              { empireId: empire.id },
+            ));
+            break;
+
+          case 'mutiny':
+            notifications.push(createNotification(
+              'war_mutiny',
+              'Fleet mutiny!',
+              evt.description,
+              state.gameState.currentTick,
+              undefined,
+              { empireId: empire.id, fleetId: evt.targetId ?? '' },
+            ));
+            break;
+        }
+      }
+
+      // Apply mechanical effects for all empires (AI and player alike)
+      switch (evt.type) {
+        case 'desertion': {
+          // Remove random small ships from empire fleets
+          const shipsToRemove = evt.shipsLost ?? 1;
+          let removed = 0;
+          const allShips = [...state.gameState.ships];
+          const empireShipIds = new Set<string>();
+          for (const fleet of state.gameState.fleets) {
+            if (fleet.empireId === empire.id) {
+              for (const sid of fleet.ships) empireShipIds.add(sid);
+            }
+          }
+          // Sort by hull points ascending (remove smallest ships first)
+          const candidateShips = allShips
+            .filter(s => empireShipIds.has(s.id))
+            .sort((a, b) => a.hullPoints - b.hullPoints);
+          const removedShipIds = new Set<string>();
+          for (const ship of candidateShips) {
+            if (removed >= shipsToRemove) break;
+            removedShipIds.add(ship.id);
+            removed++;
+          }
+          if (removedShipIds.size > 0) {
+            const newShips = state.gameState.ships.filter(s => !removedShipIds.has(s.id));
+            const newFleets = state.gameState.fleets.map(f => {
+              if (f.empireId !== empire.id) return f;
+              const filteredShips = f.ships.filter(sid => !removedShipIds.has(sid));
+              return { ...f, ships: filteredShips };
+            }).filter(f => f.ships.length > 0);
+            state = {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                ships: newShips,
+                fleets: newFleets,
+              },
+            };
+          }
+          break;
+        }
+
+        case 'production_strike': {
+          // Track a temporary happiness penalty on the target planet
+          if (evt.targetId && evt.duration && evt.happinessPenalty) {
+            wearinessEffects.push({
+              type: 'strike',
+              empireId: empire.id,
+              planetId: evt.targetId,
+              happinessPenalty: evt.happinessPenalty,
+              expiryTick: state.gameState.currentTick + evt.duration,
+            });
+          }
+          break;
+        }
+
+        case 'mass_protest': {
+          // Track a temporary happiness penalty on ALL empire planets
+          if (evt.duration && evt.happinessPenalty) {
+            for (const pid of planetIds) {
+              wearinessEffects.push({
+                type: 'protest',
+                empireId: empire.id,
+                planetId: pid,
+                happinessPenalty: evt.happinessPenalty,
+                expiryTick: state.gameState.currentTick + evt.duration,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'mutiny': {
+          // Track a mutiny flag on the target fleet
+          if (evt.targetId && evt.duration) {
+            wearinessEffects.push({
+              type: 'mutiny',
+              empireId: empire.id,
+              fleetId: evt.targetId,
+              happinessPenalty: 0,
+              expiryTick: state.gameState.currentTick + evt.duration,
+            });
+          }
+          break;
+        }
+      }
+    }
   }
 
-  return { ...state, warStateMap: updatedMap } as GameTickState;
+  return {
+    ...state,
+    warStateMap: updatedMap,
+    notifications,
+    wearinessEffects,
+  } as GameTickState;
+}
+
+/**
+ * A temporary effect from war weariness unrest.
+ * Stored on GameTickState and pruned each tick.
+ */
+interface WearinessEffect {
+  type: 'strike' | 'protest' | 'mutiny';
+  empireId: string;
+  /** Affected planet (for strikes and protests). */
+  planetId?: string;
+  /** Affected fleet (for mutinies). */
+  fleetId?: string;
+  /** Happiness penalty to apply (0 for mutinies). */
+  happinessPenalty: number;
+  /** Tick at which this effect expires. */
+  expiryTick: number;
 }
 
 function stepHappiness(state: GameTickState): GameTickState {
@@ -2694,7 +2883,17 @@ function stepHappiness(state: GameTickState): GameTickState {
 
       // Apply government flat happiness modifier.
       const govHappiness = GOVERNMENTS[empire.government]?.modifiers.happiness ?? 0;
-      const adjustedScore = Math.min(100, Math.max(0, happinessBase.score + govHappiness));
+
+      // Apply war weariness unrest penalties (strikes and protests)
+      const wEffects = ((state as unknown as Record<string, unknown>).wearinessEffects ?? []) as WearinessEffect[];
+      let wearinessPenalty = 0;
+      for (const eff of wEffects) {
+        if ((eff.type === 'strike' || eff.type === 'protest') && eff.planetId === planet.id) {
+          wearinessPenalty += eff.happinessPenalty;
+        }
+      }
+
+      const adjustedScore = Math.min(100, Math.max(0, happinessBase.score + govHappiness + wearinessPenalty));
       const revoltThreshold = 10;
       const isRevolt = adjustedScore < revoltThreshold;
       const revoltPopulationLoss = isRevolt && planet.currentPopulation > 0
@@ -4136,6 +4335,31 @@ function stepAIDecisions(
       trackers.get(empire.id),
     );
     state = { ...state, warTerritoryTrackers: trackers };
+
+    // 1b. War weariness forced peace — desperate empires capitulate
+    const warStateMapForAI = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+    const empireWarState = warStateMapForAI.get(empire.id);
+    if (empireWarState && shouldForceAIPeace(empireWarState)) {
+      // For each empire we're at war with, 20% chance per tick to propose peace
+      for (const rel of empire.diplomacy) {
+        if (rel.status !== 'at_war') continue;
+        if (Math.random() < AI_FORCED_PEACE_CHANCE) {
+          // Inject a high-priority peace-seeking decision that bypasses normal evaluation
+          const forcedPeaceDecision: AIDecision = {
+            type: 'diplomacy',
+            priority: 100, // Maximum priority — desperation overrides everything
+            params: {
+              targetEmpireId: rel.empireId,
+              action: 'seek_peace',
+              treatyType: 'peace',
+              confidence: 1.0,
+            },
+            reasoning: `War weariness at ${Math.round(empireWarState.warWeariness)}% — empire is desperate for peace.`,
+          };
+          state = executeAIDecision(state, empire.id, forcedPeaceDecision, allTechs);
+        }
+      }
+    }
 
     // 2. Generate and rank all possible decisions
     // Attach shipDesigns to gameState so AI can check existing ship types

@@ -575,6 +575,142 @@ export function isWarWearinessCrisis(warState: EmpireWarState): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// War weariness unrest events
+// ---------------------------------------------------------------------------
+
+/** An unrest event triggered by high war weariness. */
+export interface WarWearinessEvent {
+  type: 'desertion' | 'production_strike' | 'mass_protest' | 'mutiny';
+  empireId: string;
+  tick: number;
+  description: string;
+  /** For desertion: ship IDs lost. For strike: planet ID. For mutiny: fleet ID. */
+  targetId?: string;
+  /** Ticks the effect lasts (for strikes, protests, mutinies). */
+  duration?: number;
+  /** Happiness penalty to apply (for strikes and protests). */
+  happinessPenalty?: number;
+  /** Number of ships lost (for desertion). */
+  shipsLost?: number;
+}
+
+/** Weariness threshold at which desertion and production strikes begin. */
+const WEARINESS_UNREST_THRESHOLD = 80;
+
+/** Weariness threshold at which mass protests and mutinies begin. */
+const WEARINESS_CRISIS_THRESHOLD = 90;
+
+/** Per-tick chance of a desertion event when weariness >80. */
+const DESERTION_CHANCE = 0.10;
+
+/** Per-tick chance of a production strike when weariness >80. */
+const STRIKE_CHANCE = 0.15;
+
+/** Per-tick chance of a mass protest when weariness >90. */
+const MASS_PROTEST_CHANCE = 0.25;
+
+/** Per-tick chance of a mutiny when weariness >90. */
+const MUTINY_CHANCE = 0.05;
+
+/**
+ * Check for war weariness unrest events for a single empire.
+ *
+ * Called each tick after weariness is updated. Returns an array of events that
+ * the game loop should process (apply happiness penalties, remove ships, etc.).
+ *
+ * @param warState    Current war state for this empire.
+ * @param empireId    The empire's ID.
+ * @param tick        Current game tick.
+ * @param planetIds   IDs of all planets owned by this empire.
+ * @param fleetIds    IDs of all fleets owned by this empire.
+ * @param rng         Random number generator (0–1), defaults to Math.random.
+ * @returns Array of war weariness events to process.
+ */
+export function checkWarWearinessEvents(
+  warState: EmpireWarState,
+  empireId: string,
+  tick: number,
+  planetIds: string[],
+  fleetIds: string[],
+  rng: () => number = Math.random,
+): WarWearinessEvent[] {
+  const events: WarWearinessEvent[] = [];
+  const weariness = warState.warWeariness;
+
+  // No events below the unrest threshold.
+  if (weariness <= WEARINESS_UNREST_THRESHOLD) return events;
+
+  // --- Weariness >80: desertion and production strikes ---
+
+  // Desertion: 10% chance per tick, lose 1–3 ships
+  if (rng() < DESERTION_CHANCE && fleetIds.length > 0) {
+    const shipsLost = 1 + Math.floor(rng() * 3); // 1–3
+    events.push({
+      type: 'desertion',
+      empireId,
+      tick,
+      description: `War weariness has driven ${shipsLost} crew${shipsLost > 1 ? 's' : ''} to desert. Ships abandoned.`,
+      shipsLost,
+    });
+  }
+
+  // Production strike: 15% chance per tick, one random planet gets -20 happiness for 10 ticks
+  if (rng() < STRIKE_CHANCE && planetIds.length > 0) {
+    const targetPlanet = planetIds[Math.floor(rng() * planetIds.length)];
+    events.push({
+      type: 'production_strike',
+      empireId,
+      tick,
+      description: 'Workers strike in protest against the war. Production halted.',
+      targetId: targetPlanet,
+      duration: 10,
+      happinessPenalty: -20,
+    });
+  }
+
+  // --- Weariness >90: mass protests and mutinies ---
+  if (weariness > WEARINESS_CRISIS_THRESHOLD) {
+    // Mass protest: 25% chance per tick, all planets get -10 happiness for 5 ticks
+    if (rng() < MASS_PROTEST_CHANCE) {
+      events.push({
+        type: 'mass_protest',
+        empireId,
+        tick,
+        description: 'Mass anti-war protests erupt across the empire. Public order is collapsing.',
+        duration: 5,
+        happinessPenalty: -10,
+      });
+    }
+
+    // Mutiny: 5% chance per tick, one fleet refuses orders for 5 ticks
+    if (rng() < MUTINY_CHANCE && fleetIds.length > 0) {
+      const targetFleet = fleetIds[Math.floor(rng() * fleetIds.length)];
+      events.push({
+        type: 'mutiny',
+        empireId,
+        tick,
+        description: 'A fleet crew has mutinied, refusing to carry out further combat orders.',
+        targetId: targetFleet,
+        duration: 5,
+      });
+    }
+  }
+
+  return events;
+}
+
+/**
+ * Whether an AI empire's war weariness is high enough to force peace-seeking.
+ * At >90 weariness, AI empires desperately seek peace regardless of strategy.
+ */
+export function shouldForceAIPeace(warState: EmpireWarState): boolean {
+  return warState.warWeariness > WEARINESS_CRISIS_THRESHOLD;
+}
+
+/** Per-tick chance of an AI proposing peace when weariness forces it. */
+export const AI_FORCED_PEACE_CHANCE = 0.20;
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 

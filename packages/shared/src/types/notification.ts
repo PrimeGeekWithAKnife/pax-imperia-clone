@@ -36,7 +36,13 @@ export type NotificationType =
   | 'maintenance_warning'     // Upkeep exceeds income
   | 'ship_attrition'          // Ship taking attrition damage from bankruptcy
   | 'diplomatic_demand'       // Empire received a diplomatic demand
-  | 'action_rejected';        // Player action was rejected
+  | 'action_rejected'         // Player action was rejected
+
+  // War weariness unrest events
+  | 'war_desertion'           // Crews deserting due to war weariness
+  | 'war_strike'              // Production strike on a planet
+  | 'war_mass_protest'        // Empire-wide anti-war protests
+  | 'war_mutiny';             // Fleet mutiny — refuses orders
 
 export interface GameNotification {
   id: string;
