@@ -49,12 +49,20 @@ export function evaluateTreatyWithPsychology(
   treatyType: string,
   rng: () => number = Math.random,
   proposerReputation?: number,
+  targetSpeciesId?: string,
 ): { accept: boolean; probability: number; reason: string } {
   const { personality, mood, needs, relationships } = targetPsychState;
   const relationship = relationships[proposerEmpireId];
 
   if (!relationship) {
     return { accept: false, probability: 0, reason: 'no_relationship' };
+  }
+
+  // -------------------------------------------------------------------------
+  // Vassalism: much higher bar than normal treaties
+  // -------------------------------------------------------------------------
+  if (treatyType === 'vassalism') {
+    return evaluateVassalismProposal(targetPsychState, relationship, rng, targetSpeciesId);
   }
 
   // Check critical need override — survival trumps everything
@@ -251,6 +259,76 @@ export function computePersonalityDrift(
   }
 
   return drift;
+}
+
+// ---------------------------------------------------------------------------
+// Vassalism evaluation — separate from normal treaty flow
+// ---------------------------------------------------------------------------
+
+/** Species that categorically refuse vassalage — honour or faith forbids it. */
+const VASSALISM_SPECIES_REFUSE = new Set(['khazari', 'orivani']);
+
+/**
+ * Evaluate a vassalism proposal outside of wartime surrender.
+ *
+ * The bar is deliberately much higher than normal treaties:
+ *  - Some species (Khazari, Orivani) refuse categorically.
+ *  - Requires extreme fear AND extreme military disadvantage.
+ *  - Pragmatic species (Ashkari, Nexari) accept more readily.
+ *  - Low safety needs make acceptance slightly more likely (desperation).
+ */
+function evaluateVassalismProposal(
+  state: EmpirePsychologicalState,
+  relationship: PsychRelationship,
+  rng: () => number = Math.random,
+  speciesId?: string,
+): { accept: boolean; probability: number; reason: string } {
+  const { personality, mood, needs } = state;
+
+  // Species that never accept vassalage
+  if (speciesId && VASSALISM_SPECIES_REFUSE.has(speciesId)) {
+    return { accept: false, probability: 0, reason: 'species_honour_refusal' };
+  }
+
+  // Start with very low base acceptance — nobody wants to be a vassal
+  let score = -50;
+
+  // Fear is the primary driver: only extreme fear moves the needle
+  // fear range 0-100; only values above 60 meaningfully contribute
+  score += Math.max(0, relationship.fear - 40) * 0.8; // 0 to +48
+
+  // Low warmth makes it harder (resentment), high warmth slightly easier
+  score += relationship.warmth * 0.1; // -10 to +10
+
+  // Survival desperation: low safety need = more willing to submit
+  if (needs.safety < 25) score += 15;
+  else if (needs.safety < 40) score += 8;
+
+  // Mood: high anxiety + low dominance = more submissive
+  score += (mood.anxiety / 100) * 10; // 0 to +10
+  score -= ((mood.dominance - 50) / 100) * 15; // -7.5 to +7.5
+
+  // Personality: pragmatic species accept more readily
+  // High pragmatism + low loyalty = willing to bend the knee for survival
+  const pragmatismBonus = (personality.traits.openness - 50) * 0.1
+    + (50 - personality.traits.conscientiousness) * 0.05;
+  score += pragmatismBonus; // roughly -5 to +5
+
+  // Dark Triad: narcissists refuse subjugation
+  score -= personality.darkTriad.narcissism * 0.1; // 0 to -10
+
+  // Convert to probability via sigmoid — centred much lower than normal treaties
+  const probability = 1 / (1 + Math.exp(-score / 12));
+
+  // Vassalage requires a high threshold — only accept above 55%
+  const roll = rng();
+  const accepted = probability > 0.55 && roll < probability;
+
+  return {
+    accept: accepted,
+    probability: Math.round(probability * 100) / 100,
+    reason: accepted ? 'fear_driven_submission' : probability > 0.3 ? 'reluctant_refusal' : 'defiant_refusal',
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -214,6 +214,7 @@ import {
 import {
   processDiplomacyTick,
   proposeTreaty,
+  breakTreaty,
   declareWar,
   makePeace,
   evaluateTreatyProposal,
@@ -297,7 +298,7 @@ import { initReputationState, processReputationTick, recordReputationEvent, REPU
 import type { CouncilStateV2, SanctionPenalties } from '../types/council-v2.js';
 import type { EmbargoState } from '../types/diplomacy.js';
 import { initEmbargoState, declareEmbargo, liftEmbargo, isEmbargoed } from './embargo.js';
-import { findVassalRelationships, calculateTribute, applyTribute, isVassalActionRestricted, getOverlord, getVassals, VASSAL_TRIBUTE_RATE } from './vassalage.js';
+import { findVassalRelationships, calculateTribute, applyTribute, isVassalActionRestricted, getOverlord, getVassals, isVassal, VASSAL_TRIBUTE_RATE } from './vassalage.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -4605,6 +4606,240 @@ function stepAIDemands(state: GameTickState): GameTickState {
 }
 
 // ---------------------------------------------------------------------------
+// AI vassalage demands — AI empires demand subjugation from much weaker neighbours
+// ---------------------------------------------------------------------------
+
+/** How often (in ticks) the AI considers demanding vassalage. */
+const AI_VASSALAGE_DEMAND_INTERVAL = 50;
+
+/** Species that will NEVER accept vassalage — honour/faith forbids it. */
+const SPECIES_REFUSE_VASSALAGE = new Set(['khazari', 'orivani']);
+
+/**
+ * AI empires with high ambition consider demanding vassalage from much weaker
+ * neighbours that are not already vassals. This runs less frequently than
+ * resource demands (every 50 ticks) and requires a 3:1 military advantage.
+ */
+function stepAIVassalageDemands(
+  state: GameTickState,
+  allTechs: import('../types/technology.js').Technology[] = [],
+): GameTickState {
+  const tick = state.gameState.currentTick;
+  if (tick % AI_VASSALAGE_DEMAND_INTERVAL !== 0) return state;
+  if (!state.diplomacyState) return state;
+
+  let s = state;
+  const vassalRels = findVassalRelationships(s.diplomacyState!);
+
+  for (const empire of s.gameState.empires) {
+    if (!empire.isAI) continue;
+    if (isEmpireEliminated(empire, s.gameState.galaxy, s.gameState.fleets)) continue;
+
+    const profile = SPECIES_DEFAULT_PROFILES[empire.species.id];
+    if (!profile) continue;
+
+    // Only ambitious empires demand vassalage (ambition > 7)
+    if (profile.ambition <= 7) continue;
+
+    // Calculate our military power
+    let ourMilitary = 0;
+    for (const fleet of s.gameState.fleets) {
+      if (fleet.empireId === empire.id) ourMilitary += fleet.ships.length * 10;
+    }
+    if (ourMilitary === 0) continue;
+
+    // Consider each known empire as a potential subjugation target
+    const opponentIds = new Set<string>();
+    for (const rel of empire.diplomacy) {
+      if (rel.empireId !== empire.id) opponentIds.add(rel.empireId);
+    }
+    for (const system of s.gameState.galaxy.systems) {
+      if (system.ownerId && system.ownerId !== empire.id) {
+        opponentIds.add(system.ownerId);
+      }
+    }
+
+    for (const targetId of opponentIds) {
+      // Skip if target is already a vassal (of anyone)
+      if (isVassal(targetId, vassalRels)) continue;
+
+      // Skip if WE are a vassal — vassals don't demand vassals
+      if (isVassal(empire.id, vassalRels)) continue;
+
+      // Skip allies and friends
+      const relation = empire.diplomacy.find(d => d.empireId === targetId);
+      if (relation?.status === 'allied' || relation?.status === 'friendly') continue;
+
+      // Skip if at war — wartime vassalage is handled by the surrender path
+      if (relation?.status === 'at_war') continue;
+
+      // Skip if we already have a vassalism treaty with this target
+      const dipRel = getRelation(s.diplomacyState!, empire.id, targetId);
+      if (dipRel?.treaties.some(t => t.type === 'vassalism')) continue;
+
+      // Skip if warmth is positive — we like them
+      if (s.psychStateMap) {
+        const ourPsych = s.psychStateMap.get(empire.id);
+        if (ourPsych) {
+          const rel = ourPsych.relationships[targetId];
+          if (rel && rel.warmth > 20) continue;
+        }
+      }
+
+      // Check military advantage: need >3x to demand vassalage
+      let targetMilitary = 0;
+      for (const fleet of s.gameState.fleets) {
+        if (fleet.empireId === targetId) targetMilitary += fleet.ships.length * 10;
+      }
+      const militaryRatio = targetMilitary > 0 ? ourMilitary / targetMilitary : 10;
+      if (militaryRatio < 3.0) continue;
+
+      // Random chance gate: ambition-scaled probability (ambition 8-10 = 20-40%)
+      const hash = (empire.id.length * 37 + targetId.length * 13 + tick) % 100;
+      const chance = (profile.ambition - 5) * 10; // 8→30, 9→40, 10→50
+      if (hash >= chance) continue;
+
+      // Propose vassalage via the diplomacy decision executor
+      const vassalageDemand: AIDecision = {
+        type: 'diplomacy',
+        priority: 90,
+        params: {
+          targetEmpireId: targetId,
+          action: 'propose_treaty',
+          treatyType: 'vassalism',
+          confidence: 0.8,
+        },
+        reasoning: `Military advantage ${Math.round(militaryRatio)}:1 over ${targetId} — demanding vassalage.`,
+      };
+      s = executeAIDecision(s, empire.id, vassalageDemand, allTechs);
+
+      // Only one vassalage demand per empire per cycle
+      break;
+    }
+  }
+
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// AI vassal rebellion — vassals whose military grows strong enough may rebel
+// ---------------------------------------------------------------------------
+
+/** How often (in ticks) vassals evaluate rebellion. */
+const AI_REBELLION_CHECK_INTERVAL = 30;
+
+/**
+ * Each tick (at interval), AI vassals check whether their military power has
+ * grown to >=80% of the overlord's. If so, personality-driven probability
+ * determines whether they break the vassalism treaty and declare war.
+ */
+function stepAIVassalRebellion(
+  state: GameTickState,
+  allTechs: import('../types/technology.js').Technology[] = [],
+): GameTickState {
+  const tick = state.gameState.currentTick;
+  if (tick % AI_REBELLION_CHECK_INTERVAL !== 0) return state;
+  if (!state.diplomacyState) return state;
+
+  let s = state;
+  const vassalRels = findVassalRelationships(s.diplomacyState!);
+
+  for (const rel of vassalRels) {
+    const vassalEmpire = s.gameState.empires.find(e => e.id === rel.vassalId);
+    if (!vassalEmpire?.isAI) continue;
+    if (isEmpireEliminated(vassalEmpire, s.gameState.galaxy, s.gameState.fleets)) continue;
+
+    const profile = SPECIES_DEFAULT_PROFILES[vassalEmpire.species.id];
+    if (!profile) continue;
+
+    // Calculate military powers
+    let vassalMilitary = 0;
+    let overlordMilitary = 0;
+    for (const fleet of s.gameState.fleets) {
+      if (fleet.empireId === rel.vassalId) vassalMilitary += fleet.ships.length * 10;
+      if (fleet.empireId === rel.overlordId) overlordMilitary += fleet.ships.length * 10;
+    }
+
+    // Need >=80% of overlord's military to consider rebellion
+    const powerRatio = overlordMilitary > 0 ? vassalMilitary / overlordMilitary : 2.0;
+    if (powerRatio < 0.8) continue;
+
+    // Personality-driven rebellion probability:
+    // Ambitious + brave = more likely to rebel; patient + loyal = less likely
+    const rebellionScore = (profile.ambition * 0.35 + profile.bravery * 0.3)
+      - (profile.loyalty * 0.2 + profile.patience * 0.15);
+    // Map to 0-100 chance: score range roughly -3 to +7 → map to 5-70%
+    const rebellionChance = Math.max(5, Math.min(70, Math.round((rebellionScore + 3) * 7)));
+
+    const hash = (rel.vassalId.length * 41 + rel.overlordId.length * 19 + tick) % 100;
+    if (hash >= rebellionChance) continue;
+
+    // REBELLION: break the vassalism treaty, then declare war
+    const dipRel = getRelation(s.diplomacyState!, rel.vassalId, rel.overlordId);
+    if (!dipRel) continue;
+
+    const vassalismTreaty = dipRel.treaties.find(t => t.type === 'vassalism');
+    if (!vassalismTreaty) continue;
+
+    // Break the vassalism treaty
+    let updatedDiplomacy = breakTreaty(
+      s.diplomacyState!, rel.vassalId, rel.overlordId, vassalismTreaty.id, tick,
+    );
+
+    // Declare war on the overlord
+    updatedDiplomacy = declareWar(updatedDiplomacy, rel.vassalId, rel.overlordId, tick);
+    s = { ...s, diplomacyState: updatedDiplomacy };
+
+    // Psychology events: treaty broken + war declared
+    if (s.psychStateMap) {
+      recordDiplomaticEvent(s.psychStateMap, rel.vassalId, rel.overlordId, 'treaty_broken', tick);
+      recordDiplomaticEvent(s.psychStateMap, rel.overlordId, rel.vassalId, 'treaty_broken', tick);
+      recordDiplomaticEvent(s.psychStateMap, rel.vassalId, rel.overlordId, 'war_declared', tick);
+      recordDiplomaticEvent(s.psychStateMap, rel.overlordId, rel.vassalId, 'war_declared_on_us', tick);
+    }
+
+    // Reputation: rebellion is viewed differently by different empires.
+    // Treaty-breaking penalty for the rebel, but lighter than normal since
+    // it's rebellion against subjugation.
+    if (s.reputationState) {
+      let repState = recordReputationEvent(s.reputationState, {
+        tick,
+        empireId: rel.vassalId,
+        type: 'treaty_broken',
+        value: Math.round(REPUTATION_EVENT_VALUES.treaty_broken * 0.5), // Half penalty — rebellion against tyranny
+        description: 'Vassal rebellion — broke vassalage treaty',
+      });
+      repState = recordReputationEvent(repState, {
+        tick,
+        empireId: rel.vassalId,
+        type: 'unjust_war',
+        value: Math.round(REPUTATION_EVENT_VALUES.unjust_war * 0.3), // Light penalty — war of liberation
+        description: 'Declared war of independence against overlord',
+      });
+      s = { ...s, reputationState: repState };
+    }
+
+    // Notify player if the overlord is the player
+    const overlordEmpire = s.gameState.empires.find(e => e.id === rel.overlordId);
+    if (overlordEmpire && !overlordEmpire.isAI) {
+      const vassalName = vassalEmpire.name ?? rel.vassalId;
+      const notification = createNotification(
+        'under_attack',
+        `${vassalName} has rebelled!`,
+        `Your vassal, the ${vassalName}, have grown strong enough to challenge your authority. They have broken the vassalage treaty and declared war.`,
+        tick,
+        undefined,
+        { empireId: rel.vassalId },
+      );
+      const existingNotifs = ((s as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[];
+      s = { ...s, notifications: [...existingNotifs, notification] } as typeof s;
+    }
+  }
+
+  return s;
+}
+
+// ---------------------------------------------------------------------------
 // AI decision executor — converts an AIDecision into state mutations
 // ---------------------------------------------------------------------------
 
@@ -4810,7 +5045,8 @@ function executeAIDiplomacy(
       if (targetPsych && targetPsych.relationships[empireId]) {
         // Psychology-driven probabilistic evaluation
         const proposerRep = state.reputationState?.scores[empireId] ?? 0;
-        const result = evaluateTreatyWithPsychology(targetPsych, empireId, treatyType, undefined, proposerRep);
+        const targetSpeciesId = targetEmpire.species?.id;
+        const result = evaluateTreatyWithPsychology(targetPsych, empireId, treatyType, undefined, proposerRep, targetSpeciesId);
         accepted = result.accept;
       } else {
         // Legacy threshold-gated evaluation
@@ -4836,11 +5072,30 @@ function executeAIDiplomacy(
       if (!accepted) return state;
 
       // Accept: sign the treaty
-      const updatedDiplomacy = proposeTreaty(diplomacyState, {
+      let updatedDiplomacy = proposeTreaty(diplomacyState, {
         fromEmpireId: empireId,
         toEmpireId: targetEmpireId,
         treatyType: treatyType as TreatyType,
       }, tick);
+
+      // Peacetime vassalism: proposer is the overlord (they demanded subjugation),
+      // target is the vassal (they submitted). Patch the asymmetric terms.
+      if (treatyType === 'vassalism') {
+        const overlordRels = updatedDiplomacy.relations.get(empireId);
+        const vassalRels = updatedDiplomacy.relations.get(targetEmpireId);
+        if (overlordRels && vassalRels) {
+          const overlordRel = overlordRels.get(targetEmpireId);
+          const vassalRel = vassalRels.get(empireId);
+          if (overlordRel) {
+            const t = overlordRel.treaties.find(t => t.type === 'vassalism');
+            if (t) t.terms = { ...t.terms, isOverlord: 1 };
+          }
+          if (vassalRel) {
+            const t = vassalRel.treaties.find(t => t.type === 'vassalism');
+            if (t) t.terms = { ...t.terms, isOverlord: 0 };
+          }
+        }
+      }
 
       // Fire psychology relationship events for both sides of the treaty
       const relEventType = mapTreatyToRelationshipEvent(treatyType);
@@ -4871,13 +5126,27 @@ function executeAIDiplomacy(
     // AI-to-player: create a notification for the player to accept/reject
     const empireObj = state.gameState.empires.find(e => e.id === empireId);
     const empireName = empireObj?.name ?? empireId;
+
+    // Vassalism demands get a distinct, more threatening notification
+    const isVassalageDemand = treatyType === 'vassalism';
+    const notifTitle = isVassalageDemand
+      ? `${empireName} demands your subjugation`
+      : `${empireName} proposes ${treatyType.replace('_', ' ')}`;
+    const notifBody = isVassalageDemand
+      ? `The ${empireName} consider your empire too weak to stand alone. They demand you submit as a vassal state, paying tribute in exchange for their protection.`
+      : `The ${empireName} would like to establish a ${treatyType.replace('_', ' ')} agreement with your empire.`;
+    const acceptLabel = isVassalageDemand ? 'Submit' : 'Accept';
+    const acceptDesc = isVassalageDemand
+      ? 'Become their vassal — pay tribute and serve'
+      : `Sign the ${treatyType.replace('_', ' ')} treaty`;
+
     const notification = createNotification(
       'diplomatic_proposal',
-      `${empireName} proposes ${treatyType.replace('_', ' ')}`,
-      `The ${empireName} would like to establish a ${treatyType.replace('_', ' ')} agreement with your empire.`,
+      notifTitle,
+      notifBody,
       tick,
       [
-        { id: `accept_${treatyType}_${empireId}`, label: 'Accept', description: `Sign the ${treatyType.replace('_', ' ')} treaty` },
+        { id: `accept_${treatyType}_${empireId}`, label: acceptLabel, description: acceptDesc },
         { id: `reject_${treatyType}_${empireId}`, label: 'Decline', description: 'Refuse the proposal' },
       ],
       { systemId: '', empireId, treatyType },
@@ -6417,6 +6686,12 @@ export function processGameTick(
 
   // 9a. AI Demand Generation (AI considers demanding from weaker neighbours)
   s = stepAIDemands(s);
+
+  // 9a+. AI Vassalage Demands (ambitious empires demand subjugation from the weak)
+  s = stepAIVassalageDemands(s, allTechs);
+
+  // 9a++. AI Vassal Rebellion (vassals grown strong enough may rebel)
+  s = stepAIVassalRebellion(s, allTechs);
 
   // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
   s = stepWaste(s);
