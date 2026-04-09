@@ -30,6 +30,8 @@ const _tmpMatrix = new THREE.Matrix4();
 const _tmpColor = new THREE.Color();
 const _tmpQuat = new THREE.Quaternion();
 const _tmpQuat2 = new THREE.Quaternion();
+const _tmpQuat3 = new THREE.Quaternion();
+const _zAxis = new THREE.Vector3(0, 0, 1);
 const _tmpVec3 = new THREE.Vector3();
 const _tmpVec3b = new THREE.Vector3();
 const _tmpScale = new THREE.Vector3();
@@ -625,13 +627,16 @@ export function EngineThrustPlumes({
       const ship = ships[i]!;
       if (ship.destroyed || ship.routed) continue;
 
-      // Compute velocity magnitude
+      // Compute velocity magnitude (horizontal + vertical)
       const vx = ship.velocity.x;
       const vy = ship.velocity.y;
-      const speedSq = vx * vx + vy * vy;
+      const vz = ship.velocity.z;
+      const horizSpeedSq = vx * vx + vy * vy;
+      const speedSq = horizSpeedSq + vz * vz;
       if (speedSq < PLUME_MIN_SPEED_SQ) continue;
 
       const speed = Math.sqrt(speedSq);
+      const horizSpeed = Math.sqrt(horizSpeedSq);
       const maxSpeed = ship.speed > 0 ? ship.speed : 1;
       const t = Math.min(speed / maxSpeed, 1.0);
 
@@ -642,22 +647,31 @@ export function EngineThrustPlumes({
       const plumeLen = PLUME_MAX_LENGTH * t * scale;
       const plumeRadius = 0.12 * scale;
 
-      // Position: behind the ship (opposite facing)
+      // Compute ship pitch from vertical velocity (tactical Z -> Three.js Y)
+      const shipPitch = horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0;
+
+      // Position: behind the ship (opposite facing), offset by pitch
       tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos, ship.position.z);
       const aftDist = scale * 1.5;
       const rotAngle = -(ship.facing - Math.PI / 2);
-      const aftX = _tmpPos.x - Math.sin(rotAngle) * aftDist;
-      const aftZ = _tmpPos.z - Math.cos(rotAngle) * aftDist;
+      const cosPitch = Math.cos(shipPitch);
+      const aftX = _tmpPos.x - Math.sin(rotAngle) * aftDist * cosPitch;
+      const aftY = _tmpPos.y - Math.sin(shipPitch) * aftDist;
+      const aftZ = _tmpPos.z - Math.cos(rotAngle) * aftDist * cosPitch;
 
-      // Rotation for plume cone: lay flat then yaw to face exhaust direction
+      // Rotation for plume cone: lay flat, yaw to face exhaust direction,
+      // then pitch so plume trails behind a climbing/diving ship
       _tmpQuat.setFromAxisAngle(_xAxis, Math.PI / 2);
       const yawAngle = rotAngle + Math.PI;
       _tmpQuat2.setFromAxisAngle(_upAxis, yawAngle);
       _tmpQuat.premultiply(_tmpQuat2);
+      // Add pitch: negate because plume points opposite to ship nose
+      _tmpQuat3.setFromAxisAngle(_zAxis, shipPitch);
+      _tmpQuat.premultiply(_tmpQuat3);
 
       // Single plume at aft
       if (count < MAX_THRUST_PLUMES) {
-        _tmpVec3.set(aftX, _tmpPos.y + 0.05, aftZ);
+        _tmpVec3.set(aftX, aftY + 0.05, aftZ);
         _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
         _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
         mesh.setMatrixAt(count, _tmpMatrix);

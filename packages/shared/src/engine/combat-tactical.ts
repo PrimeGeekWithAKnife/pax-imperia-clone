@@ -70,10 +70,12 @@ const POINT_DEFENSE_DEFAULT_AMMO = 300;
 /** Number of projectile rounds per weapon cooldown cycle (burst salvo). */
 const PROJECTILE_BURST_COUNT: Record<string, number> = {
   kinetic_cannon: 8, battering_ram: 3, mass_driver: 5, gauss_cannon: 6,
-  antimatter_accelerator: 5, singularity_driver: 4, fusion_autocannon: 10,
+  antimatter_accelerator: 5, singularity_driver: 4, fusion_autocannon: 12,
+  scatter_cannon: 15, coilgun_array: 10, siege_cannon: 2,
+  plasma_slugthrower: 8, hypermass_projector: 3, khazari_forge_breaker: 3,
 };
 /** Fallback burst count for weapon types not in PROJECTILE_BURST_COUNT. */
-const DEFAULT_BURST_COUNT = 6;
+const DEFAULT_BURST_COUNT = 8;
 
 /** Minimum spread half-angle (radians) at accuracy 100. */
 const ACCURACY_TO_SPREAD_MIN = 0.02;
@@ -1584,6 +1586,11 @@ function fighterCombatAI(
     updated = { ...updated, order: { type: 'attack', targetId: target.id } };
   }
 
+  // Fighters in the same wing stagger at different altitudes to prevent
+  // same-plane clustering and mutual collisions during approach
+  const _idHash = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+  const wingZOffset = ((_idHash % 5) - 2) * 25; // -50, -25, 0, +25, +50
+
   // ── Desperation check — relative, not absolute ──
   // Desperate when outnumbered 2:1 or more, OR when ≤2 allies remain total.
   const alliesAlive = state.ships.filter(
@@ -1736,7 +1743,7 @@ function fighterCombatAI(
     goalY = clamp(goalY, 40, state.battlefieldHeight - 40);
 
     updated = { ...updated, fighterPhase: 'engage' as const, fighterPhaseTick: state.tick };
-    const result = moveToward(updated, { x: goalX, y: goalY }, 0, state.environment, state.ships);
+    const result = moveToward(updated, { x: goalX, y: goalY, z: wingZOffset }, 0, state.environment, state.ships);
     result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
     result.position.y = clamp(result.position.y, -20, state.battlefieldHeight + 20);
 
@@ -1899,7 +1906,7 @@ function fighterCombatAI(
 
   // During engage phase, don't use minDist — fly through. Otherwise, stop near goal.
   const minDist = phase === 'engage' ? 0 : 5;
-  const result = moveToward(updated, { x: goalX, y: goalY }, minDist, state.environment, state.ships);
+  const result = moveToward(updated, { x: goalX, y: goalY, z: wingZOffset }, minDist, state.environment, state.ships);
 
   // Hard clamp position — prevent drifting off the battlefield
   result.position.x = clamp(result.position.x, -20, state.battlefieldWidth + 20);
@@ -2274,17 +2281,22 @@ export function initializeTacticalCombat(
 
     return ships.map((ship, index) => {
       // Line formation: ships spread perpendicular to the enemy (vertical spread)
-      // so all ships face the enemy and can fire simultaneously
-      const lineSpacing = 50;
-      const totalHeight = (ships.length - 1) * lineSpacing;
+      // so all ships face the enemy and can fire simultaneously.
+      // Row spacing scales with collision extent so large ships don't overlap.
+      const design = designs.get(ship.designId);
+      const hullTemplate = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
+      const shipExtents = COLLISION_EXTENTS[hullTemplate?.class as HullClass] ?? DEFAULT_COLLISION_EXTENTS;
+      const lineSpacing = Math.max(50, shipExtents.halfLength * 3);
+      const colSpacing = Math.max(80, shipExtents.halfLength * 3);
+      const totalHeight = (Math.min(ships.length, 8) - 1) * lineSpacing;
       const startY = baseY - totalHeight / 2;
       const col = Math.floor(index / 8); // stagger overflow into depth
       const row = index % 8;
-      const x = baseX + col * 60;
+      const x = baseX + col * colSpacing;
       const y = startY + row * lineSpacing;
+      // Stagger spawn Z across 3 altitude layers to prevent same-plane clustering
+      const zLayer = (index % 3 - 1) * 40; // -40, 0, +40
 
-      const design = designs.get(ship.designId);
-      const hullTemplate = design ? HULL_TEMPLATE_BY_CLASS[design.hull] : undefined;
       const extracted = extractShipStats(design, componentById, ship.magazineLevel ?? 1.0, hullTemplate);
 
       return {
@@ -2292,7 +2304,7 @@ export function initializeTacticalCombat(
         sourceShipId: ship.id,
         name: ship.name,
         side,
-        position: { x, y, z: 0 },
+        position: { x, y, z: zLayer },
         velocity: { x: 0, y: 0, z: 0 },
         facing,
         // Max speed comes from the hull — engines don't make you faster,
@@ -3051,7 +3063,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength;
       // Vertical escape: push up/down to avoid bunching in z-axis
       // Small ships get much stronger Z-push since they cluster tightly
-      const zMultiplier = ship.maxHull < 80 ? 4.0 : ship.maxHull < 200 ? 2.5 : 1.5;
+      const zMultiplier = ship.maxHull < 80 ? 6.0 : ship.maxHull < 200 ? 3.5 : 2.0;
       const allyDz = ship.position.z - ally.position.z;
       if (Math.abs(allyDz) < 10) {
         // Same altitude — escape vertically based on deterministic ID comparison
@@ -3426,11 +3438,46 @@ function moveToward(
     }
   }
 
+  // ── Forward collision prediction: steer to avoid ships in our path ──
+  if (allShips) {
+    const velMag = Math.sqrt(newVx * newVx + newVy * newVy + newVz * newVz);
+    const lookAheadDist = Math.max(40, velMag * 12);
+    if (velMag > 0.1) {
+      for (const other of allShips) {
+        if (other.id === ship.id || other.destroyed || other.routed) continue;
+        const otherDist = dist(ship.position, other.position);
+        if (otherDist > lookAheadDist || otherDist < 1) continue;
+
+        // Are we heading toward this ship?
+        const toX = other.position.x - ship.position.x;
+        const toY = other.position.y - ship.position.y;
+        const toZ = other.position.z - ship.position.z;
+        const dotVel = (newVx * toX + newVy * toY + newVz * toZ) / (otherDist * velMag);
+        if (dotVel < 0.3) continue; // not heading toward them
+
+        // Check perpendicular clearance
+        const minSep = (ship.collisionRadius + (other.collisionRadius ?? 10)) * 2.5;
+        const perpDistSq = otherDist * otherDist * (1 - dotVel * dotVel);
+        if (perpDistSq < minSep * minSep) {
+          // Collision course — apply evasive Z-thrust
+          const urgency = (1 - otherDist / lookAheadDist) * 3.0;
+          const escapeDir = toZ >= 0 ? -1 : 1; // go opposite vertical direction
+          // Same-side ships get full vertical escape; enemies get softer avoidance
+          if (other.side === ship.side) {
+            newVz += escapeDir * urgency * (ship.acceleration ?? ship.speed);
+          } else {
+            newVz += escapeDir * urgency * (ship.acceleration ?? ship.speed) * 0.5;
+          }
+        }
+      }
+    }
+  }
+
   // ── Altitude damping: gentle return toward z=0, weakened when under fire ──
   // Ships taking damage maintain altitude for evasion; undamaged ships settle.
   const isUnderFire = ship.damageTakenThisTick > 0;
   const zDampStrength = isUnderFire ? 0.02 : 0.1;
-  const zThreshold = isUnderFire ? 80 : 20;
+  const zThreshold = isUnderFire ? 120 : 50;
   if (Math.abs(ship.position.z) > zThreshold) {
     newVz -= Math.sign(ship.position.z) * (ship.acceleration ?? ship.speed) * zDampStrength;
   }
