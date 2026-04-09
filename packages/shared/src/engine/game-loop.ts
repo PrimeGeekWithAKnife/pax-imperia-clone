@@ -289,6 +289,8 @@ import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDi
 import type { ReputationState } from '../types/reputation.js';
 import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES, getReputationModifier } from './reputation.js';
 import type { CouncilStateV2, SanctionPenalties } from '../types/council-v2.js';
+import type { EmbargoState } from '../types/diplomacy.js';
+import { initEmbargoState, declareEmbargo, liftEmbargo, isEmbargoed } from './embargo.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -433,6 +435,8 @@ export interface GameTickState {
   reputationState?: ReputationState;
   /** Active diplomatic demands between empires. */
   demandState?: DemandState;
+  /** Active bilateral embargoes between empires. */
+  embargoState?: EmbargoState;
 }
 
 /** The result returned by processGameTick. */
@@ -1054,6 +1058,57 @@ function processPlayerActions(
         // Attitude penalty
         if (state.diplomacyState) {
           state = { ...state, diplomacyState: modifyAttitude(state.diplomacyState, demand.proposerId, demand.targetId, -10, 'demand_rejected', state.gameState.currentTick) };
+        }
+
+      // ── DeclareEmbargo ──────────────────────────────────────────────────
+      } else if (action.type === 'declare_embargo') {
+        const { targetEmpireId, reason } = action;
+        if (state.embargoState) {
+          state = { ...state, embargoState: declareEmbargo(state.embargoState, empireId, targetEmpireId, tick, reason ?? 'Diplomatic embargo') };
+
+          // Cancel trade routes between the two empires.
+          // BasicTradeRoute lacks a partnerEmpireId so resolve via destination
+          // system ownership.
+          state = {
+            ...state,
+            tradeRoutes: state.tradeRoutes.filter(route => {
+              const destSystem = systems.find(sys => sys.id === route.destinationSystemId);
+              if (!destSystem) return true;
+              const destOwner = destSystem.planets.find(p => p.ownerId && p.ownerId !== route.empireId)?.ownerId;
+              if (!destOwner) return true;
+              // Remove routes in both directions between the two empires
+              return !(
+                (route.empireId === empireId && destOwner === targetEmpireId) ||
+                (route.empireId === targetEmpireId && destOwner === empireId)
+              );
+            }),
+          };
+
+          // Psychology: insult event
+          if (state.psychStateMap) {
+            recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'insult', tick);
+          }
+          // Attitude penalty
+          if (state.diplomacyState) {
+            state = { ...state, diplomacyState: modifyAttitude(state.diplomacyState, empireId, targetEmpireId, -10, 'embargo_declared', tick) };
+          }
+          // Reputation hit for initiator
+          if (state.reputationState) {
+            state = { ...state, reputationState: recordReputationEvent(state.reputationState, {
+              tick, empireId, type: 'treaty_broken', value: -3, description: 'Declared trade embargo',
+            })};
+          }
+        }
+
+      // ── LiftEmbargo ───────────────────────────────────────────────────
+      } else if (action.type === 'lift_embargo') {
+        const { targetEmpireId } = action;
+        if (state.embargoState) {
+          state = { ...state, embargoState: liftEmbargo(state.embargoState, empireId, targetEmpireId) };
+          // Small attitude boost
+          if (state.diplomacyState) {
+            state = { ...state, diplomacyState: modifyAttitude(state.diplomacyState, empireId, targetEmpireId, 5, 'embargo_lifted', tick) };
+          }
         }
 
       } else {
@@ -2791,9 +2846,23 @@ function getActiveSanctionPenalties(
 // ---------------------------------------------------------------------------
 
 function stepResourceProduction(state: GameTickState): GameTickState {
+  // Enforce embargoes on trade routes — embargoed routes produce zero income.
+  // BasicTradeRoute has no status field, so we filter them out before income
+  // calculation.  The route data itself is preserved; only income is blocked.
+  let activeTradeRoutes = state.tradeRoutes;
+  if (state.embargoState && state.embargoState.embargoes.length > 0) {
+    activeTradeRoutes = state.tradeRoutes.filter(route => {
+      const destSystem = state.gameState.galaxy.systems.find(s => s.id === route.destinationSystemId);
+      if (!destSystem) return true;
+      const destOwner = destSystem.planets.find(p => p.ownerId && p.ownerId !== route.empireId)?.ownerId;
+      if (!destOwner) return true;
+      return !isEmbargoed(state.embargoState!, route.empireId, destOwner);
+    });
+  }
+
   // Process trade routes once per tick to get per-empire income totals.
   const { income: tradeIncome } = processTradeRoutes(
-    state.tradeRoutes,
+    activeTradeRoutes,
     state.gameState.galaxy,
   );
 
@@ -6145,6 +6214,7 @@ export function initializeTickState(gameState: GameState, allTechCount?: number)
     warTerritoryTrackers: new Map(),
     reputationState: initReputationState(gameState.empires.map(e => e.id)),
     demandState: initDemandState(),
+    embargoState: initEmbargoState(),
   } as GameTickState;
 }
 
