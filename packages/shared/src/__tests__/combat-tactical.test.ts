@@ -4375,3 +4375,190 @@ describe('Stance-aware formation spacing (4.3)', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 5: Power Capacitor System
+// ---------------------------------------------------------------------------
+
+describe('Power Capacitor System', () => {
+  it('ships start with full capacitor', () => {
+    const state = setupOnePair();
+    const atk = state.ships.find(s => s.side === 'attacker')!;
+    // Ships without a power_reactor component get default 80/4
+    expect(atk.capacitor).toBe(80);
+    expect(atk.maxCapacitor).toBe(80);
+    expect(atk.capacitorRecharge).toBe(4);
+    // Capacitor should start full (capacitor === maxCapacitor)
+    expect(atk.capacitor).toBe(atk.maxCapacitor);
+  });
+
+  it('capacitor recharges per tick up to max', () => {
+    const state = setupOnePair();
+    // Drain the attacker's capacitor artificially
+    const drained = {
+      ...state,
+      ships: state.ships.map(s => {
+        if (s.side === 'attacker') {
+          return { ...s, capacitor: 10 };
+        }
+        return s;
+      }),
+    };
+    const afterTick = processTacticalTick(drained);
+    const atkAfter = afterTick.ships.find(s => s.side === 'attacker')!;
+    // Should have recharged by capacitorRecharge (4) from 10 -> 14
+    expect(atkAfter.capacitor).toBeGreaterThanOrEqual(14);
+  });
+
+  it('capacitor does not exceed maxCapacitor', () => {
+    const state = setupOnePair();
+    // Set capacitor just below max
+    const almostFull = {
+      ...state,
+      ships: state.ships.map(s => {
+        if (s.side === 'attacker') {
+          return { ...s, capacitor: s.maxCapacitor - 1 };
+        }
+        return s;
+      }),
+    };
+    const afterTick = processTacticalTick(almostFull);
+    const atkAfter = afterTick.ships.find(s => s.side === 'attacker')!;
+    expect(atkAfter.capacitor).toBe(atkAfter.maxCapacitor);
+  });
+
+  it('beam weapons drain more capacitor than projectile weapons', () => {
+    // Set up beam attacker and projectile attacker
+    const beamDesign = makeArmedDesign('d-beam', 'empire-1');
+    const projDesign = makeProjectileDesign('d-proj', 'empire-1');
+
+    const beamState = setupOnePair({ attacker: beamDesign });
+    const projState = setupOnePair({ attacker: projDesign });
+
+    // Place ships close enough to fire, disable recharge to isolate drain,
+    // and seed random for deterministic hits
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+    try {
+      const placeCloseNoRecharge = (state: TacticalState): TacticalState => ({
+        ...state,
+        ships: state.ships.map(s => {
+          if (s.side === 'attacker') return { ...s, position: { x: 500, y: 500, z: 0 }, capacitorRecharge: 0 };
+          if (s.side === 'defender') return { ...s, position: { x: 600, y: 500, z: 0 } };
+          return s;
+        }),
+      });
+
+      let beamCurrent = placeCloseNoRecharge(beamState);
+      let projCurrent = placeCloseNoRecharge(projState);
+
+      // Run enough ticks to allow weapons to fire (cooldown 10 for beams, 15 for projectiles)
+      for (let i = 0; i < 20; i++) {
+        beamCurrent = processTacticalTick(beamCurrent);
+        projCurrent = processTacticalTick(projCurrent);
+      }
+
+      const beamAtk = beamCurrent.ships.find(s => s.side === 'attacker')!;
+      const projAtk = projCurrent.ships.find(s => s.side === 'attacker')!;
+
+      // Beam costs 12 per fire, projectile costs 4 — beam ship should have less capacitor
+      // With 0 recharge: beam fires twice (ticks 0, 10) = 24 drain; proj fires once (tick 0) = 4 drain
+      expect(beamAtk.capacitor).toBeLessThan(projAtk.capacitor);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('weapon cannot fire when capacitor is below energy cost', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+    try {
+      const state = setupOnePair();
+      // Place ships close and drain capacitor to 0
+      const drained = {
+        ...state,
+        ships: state.ships.map(s => {
+          if (s.side === 'attacker') {
+            return {
+              ...s,
+              capacitor: 0,
+              capacitorRecharge: 0, // no recharge to keep it at 0
+              position: { x: 500, y: 500, z: 0 },
+            };
+          }
+          if (s.side === 'defender') {
+            return { ...s, position: { x: 600, y: 500, z: 0 } };
+          }
+          return s;
+        }),
+      };
+
+      // Record defender's hull before ticks
+      const defBefore = drained.ships.find(s => s.side === 'defender')!;
+      const hullBefore = defBefore.hull + defBefore.shields;
+
+      let current = drained;
+      for (let i = 0; i < 15; i++) {
+        current = processTacticalTick(current);
+      }
+
+      // Attacker has a beam weapon (cost 12) but 0 capacitor — no beam effects should occur
+      const atkAfter = current.ships.find(s => s.side === 'attacker')!;
+      expect(atkAfter.capacitor).toBe(0);
+
+      // Verify no beam effects were generated from the drained attacker
+      const beamFromAtk = current.beamEffects.filter(b => b.sourceShipId === atkAfter.id);
+      expect(beamFromAtk).toHaveLength(0);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('alpha-striking multiple weapons drains capacitor rapidly', () => {
+    // Create a ship design with multiple weapons to drain more per tick
+    const multiWeaponDesign: ShipDesign = {
+      id: 'd-alpha',
+      name: 'Alpha Strike Design',
+      hull: 'destroyer',
+      components: [
+        { slotId: 'destroyer_fore_1', componentId: 'pulse_laser' },
+        { slotId: 'destroyer_fore_2', componentId: 'pulse_laser' },
+        { slotId: 'destroyer_turret_1', componentId: 'kinetic_cannon' },
+        { slotId: 'destroyer_aft_1', componentId: 'ion_engine' },
+      ],
+      totalCost: 300,
+      empireId: 'empire-1',
+    };
+
+    const state = setupOnePair({ attacker: multiWeaponDesign });
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+    try {
+      // Place ships close enough for all weapons to fire
+      const close = {
+        ...state,
+        ships: state.ships.map(s => {
+          if (s.side === 'attacker') return { ...s, position: { x: 500, y: 500, z: 0 } };
+          if (s.side === 'defender') return { ...s, position: { x: 600, y: 500, z: 0 } };
+          return s;
+        }),
+      };
+
+      const atkBefore = close.ships.find(s => s.side === 'attacker')!;
+      const capBefore = atkBefore.capacitor;
+
+      // Run one tick — all weapons should try to fire on tick 0 (cooldown starts at 0)
+      const afterOne = processTacticalTick(close);
+      const atkAfter = afterOne.ships.find(s => s.side === 'attacker')!;
+
+      // Multiple weapons firing should drain more than a single weapon
+      // 2 beams (12 each) + 1 projectile (4) = 28 drain, minus 4 recharge = net -24
+      // But recharge happens before firing, so on first tick if already full, no recharge
+      expect(atkAfter.capacitor).toBeLessThan(capBefore);
+      // Should have drained at least 20 energy (2 beams + 1 projectile)
+      expect(capBefore - atkAfter.capacitor).toBeGreaterThanOrEqual(20);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});

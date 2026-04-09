@@ -72,6 +72,15 @@ const PROJECTILE_DEFAULT_AMMO = 400;
 /** Default ammo for point defence weapons. */
 const POINT_DEFENSE_DEFAULT_AMMO = 300;
 
+/** Energy cost per weapon firing (capacitor drain). */
+const WEAPON_ENERGY_COST: Record<string, number> = {
+  beam: 12,
+  projectile: 4,
+  missile: 8,
+  point_defense: 3,
+  fighter_bay: 6,
+};
+
 // --- Ballistic projectile accuracy + burst constants -------------------------
 
 /** Number of projectile rounds per weapon cooldown cycle (burst salvo). */
@@ -430,6 +439,12 @@ export interface TacticalShip {
   damageDealtWindow?: number[];
   /** ID of the target this ship is currently engaged with. */
   engagedTargetId?: string;
+  /** Current power capacitor charge. Weapons drain this; reactors recharge it. */
+  capacitor: number;
+  /** Maximum capacitor capacity — determined by power_reactor components. */
+  maxCapacitor: number;
+  /** Capacitor recharge rate per tick — determined by power_reactor output. */
+  capacitorRecharge: number;
   /** Current pitch angle in radians (positive = nose-up). Rate-limited per tick. */
   currentPitch: number;
   /** Maximum pitch change per tick (radians). Derived from turnRate * 0.6. */
@@ -2399,6 +2414,9 @@ export function initializeTacticalCombat(
           ),
         repairRate: extracted.repairRate ?? 0,
         moraleRecovery: extracted.moraleRecovery ?? 0,
+        capacitor: extracted.maxCapacitor || 80,
+        maxCapacitor: extracted.maxCapacitor || 80,
+        capacitorRecharge: extracted.capacitorRecharge || 4,
         currentPitch: 0,
         pitchRate: ((hullTemplate?.manned === false ? 0.20 : 0.10)
           / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100))
@@ -2473,6 +2491,9 @@ export function initializeTacticalCombat(
           health: 100,
           experience: 'veteran' as CrewExperience,
         },
+        capacitor: 200,
+        maxCapacitor: 200,
+        capacitorRecharge: 10,
         currentPitch: 0,
         pitchRate: 0.1,
         angularVelocity: 0,
@@ -2530,6 +2551,10 @@ interface ExtractedStats {
   repairRate: number;
   /** Morale recovery bonus from life support systems. */
   moraleRecovery: number;
+  /** Maximum capacitor capacity from power_reactor components. */
+  maxCapacitor: number;
+  /** Capacitor recharge rate per tick from power_reactor output. */
+  capacitorRecharge: number;
 }
 
 /**
@@ -2563,6 +2588,8 @@ function extractShipStats(
   let shieldAge = 'nano_atomic';
   let repairRate = 0;
   let moraleRecovery = 0;
+  let maxCapacitor = 0;
+  let capacitorRecharge = 0;
 
   if (design != null) {
     for (const assignment of design.components) {
@@ -2679,6 +2706,10 @@ function extractShipStats(
         case 'life_support':
           moraleRecovery += comp.stats['moraleRecovery'] ?? 0;
           break;
+        case 'power_reactor':
+          maxCapacitor += comp.stats['capacity'] ?? 50;
+          capacitorRecharge += comp.stats['rechargeRate'] ?? 3;
+          break;
         default:
           break;
       }
@@ -2708,6 +2739,8 @@ function extractShipStats(
     shieldAge,
     repairRate,
     moraleRecovery,
+    maxCapacitor,
+    capacitorRecharge,
   };
 }
 
@@ -4086,6 +4119,15 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return { ...ship, hull: Math.min(ship.maxHull, ship.hull + repairAmount) };
   });
 
+  // 1c3b. Capacitor recharge — power reactors restore energy each tick
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed) return ship;
+    if (ship.capacitor < ship.maxCapacitor) {
+      return { ...ship, capacitor: Math.min(ship.maxCapacitor, ship.capacitor + ship.capacitorRecharge) };
+    }
+    return ship;
+  });
+
   // 1c4. Commander threat assessment (every 5 ticks)
   if (state.tick % 5 === 0) {
     ships = ships.map((ship) => {
@@ -4646,6 +4688,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
     const d = dist(ship.position, target.position);
     const updatedWeapons: TacticalWeapon[] = [];
+    let currentCapacitor = ship.capacitor;
 
     for (const weapon of ship.weapons) {
       // Point defence fires independently in step 3c — just tick cooldown here
@@ -4737,6 +4780,18 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       if (weapon.ammo !== undefined && weapon.ammo <= 0) {
         updatedWeapons.push(weapon);
         continue;
+      }
+
+      // Capacitor drain — sustained beam continuation ticks don't cost extra energy
+      const energyCost = WEAPON_ENERGY_COST[weapon.type] ?? 5;
+      const isSustainedContinuation = weapon.sustainedTicksLeft != null && weapon.sustainedTicksLeft > 0;
+      if (!isSustainedContinuation && currentCapacitor < energyCost) {
+        // Not enough energy — skip firing, don't reset cooldown
+        updatedWeapons.push(weapon);
+        continue;
+      }
+      if (!isSustainedContinuation) {
+        currentCapacitor -= energyCost;
       }
 
       // Fire! Weapon type determines firing behaviour.
@@ -5055,7 +5110,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       updatedWeapons.push({ ...weapon, cooldownLeft: weapon.cooldownMax, ammo: newAmmo });
     }
 
-    return { ...ship, weapons: updatedWeapons };
+    return { ...ship, weapons: updatedWeapons, capacitor: currentCapacitor };
   });
 
   // 4b. Apply deferred beam damage (must happen AFTER .map() so changes aren't lost)
