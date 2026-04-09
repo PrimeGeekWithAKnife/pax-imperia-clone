@@ -2279,6 +2279,18 @@ export function initializeTacticalCombat(
     const baseY = side === 'attacker' ? BH * 0.5 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 
+    // Pre-compute the Z layer gap from the tallest ship in this fleet.
+    // Two ships on adjacent layers must not overlap vertically:
+    // gap >= 2 * max(halfHeight) + margin
+    let maxHalfHeight = 10;
+    for (const s of ships) {
+      const d = designs.get(s.designId);
+      const ht = d ? HULL_TEMPLATE_BY_CLASS[d.hull] : undefined;
+      const ext = COLLISION_EXTENTS[ht?.class as HullClass] ?? DEFAULT_COLLISION_EXTENTS;
+      if (ext.halfHeight > maxHalfHeight) maxHalfHeight = ext.halfHeight;
+    }
+    const zLayerGap = maxHalfHeight * 2 + 20; // full height clearance + 20 unit margin
+
     return ships.map((ship, index) => {
       // Line formation: ships spread perpendicular to the enemy (vertical spread)
       // so all ships face the enemy and can fire simultaneously.
@@ -2294,8 +2306,8 @@ export function initializeTacticalCombat(
       const row = index % 8;
       const x = baseX + col * colSpacing;
       const y = startY + row * lineSpacing;
-      // Stagger spawn Z across 3 altitude layers to prevent same-plane clustering
-      const zLayer = (index % 3 - 1) * 40; // -40, 0, +40
+      // Stagger spawn Z across 3 altitude layers, gap scaled to tallest ship
+      const zLayer = (index % 3 - 1) * zLayerGap;
 
       const extracted = extractShipStats(design, componentById, ship.magazineLevel ?? 1.0, hullTemplate);
 
