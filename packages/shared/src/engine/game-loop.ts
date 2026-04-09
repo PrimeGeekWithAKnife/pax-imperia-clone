@@ -288,6 +288,7 @@ import type { DemandThreat } from '../types/diplomacy.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
 import type { ReputationState } from '../types/reputation.js';
 import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES, getReputationModifier } from './reputation.js';
+import type { CouncilStateV2, SanctionPenalties } from '../types/council-v2.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -2729,6 +2730,63 @@ function stepLeaders(
 }
 
 // ---------------------------------------------------------------------------
+// Council Sanctions — trade income penalty helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge all active council sanctions targeting an empire into a single set of
+ * penalties.  If multiple sanctions overlap, the most punitive value for each
+ * penalty field wins (max confiscation, max taxation, any route-loss flag).
+ *
+ * Returns null if the empire has no active sanctions.
+ */
+function getActiveSanctionPenalties(
+  state: GameTickState,
+  empireId: string,
+): SanctionPenalties | null {
+  // CouncilStateV2 is stored as a dynamic property (not yet a formal field).
+  const councilV2 = (state as unknown as Record<string, unknown>).councilV2State as
+    | CouncilStateV2
+    | undefined;
+  if (!councilV2 || !councilV2.activeSanctions || councilV2.activeSanctions.length === 0) {
+    return null;
+  }
+
+  const sanctions = councilV2.activeSanctions.filter(s => s.targetEmpireId === empireId);
+  if (sanctions.length === 0) return null;
+
+  // Merge: most punitive value per field across all active sanctions.
+  const merged: SanctionPenalties = {
+    reputationPenalty: 0,
+    tradeRevenueConfiscation: 0,
+    intelligenceCutoff: false,
+    creditPenalty: 0,
+    loseVotingRights: false,
+    loseTradeRoutes: false,
+    additionalTaxation: 0,
+    benefitsSuspended: false,
+    expelled: false,
+    shunDuration: 0,
+  };
+
+  for (const s of sanctions) {
+    const p = s.penalties;
+    merged.reputationPenalty = Math.min(merged.reputationPenalty, p.reputationPenalty);
+    merged.tradeRevenueConfiscation = Math.max(merged.tradeRevenueConfiscation, p.tradeRevenueConfiscation);
+    merged.intelligenceCutoff = merged.intelligenceCutoff || p.intelligenceCutoff;
+    merged.creditPenalty = Math.max(merged.creditPenalty, p.creditPenalty);
+    merged.loseVotingRights = merged.loseVotingRights || p.loseVotingRights;
+    merged.loseTradeRoutes = merged.loseTradeRoutes || p.loseTradeRoutes;
+    merged.additionalTaxation = Math.max(merged.additionalTaxation, p.additionalTaxation);
+    merged.benefitsSuspended = merged.benefitsSuspended || p.benefitsSuspended;
+    merged.expelled = merged.expelled || p.expelled;
+    merged.shunDuration = Math.max(merged.shunDuration, p.shunDuration);
+  }
+
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
 // Step 4: Resource Production
 // ---------------------------------------------------------------------------
 
@@ -2853,7 +2911,28 @@ function stepResourceProduction(state: GameTickState): GameTickState {
     }
 
     // Add trade route income to this empire's credit production.
-    const tradeCredits = tradeIncome.get(empire.id) ?? 0;
+    let tradeCredits = tradeIncome.get(empire.id) ?? 0;
+
+    // ── Council sanctions: reduce or eliminate trade income ─────────────
+    // Sanctions are imposed via the CouncilStateV2 bill system.  If the
+    // empire is under active sanctions, apply confiscation, additional
+    // taxation, or full trade route loss before credits are accumulated.
+    const sanctionPenalties = getActiveSanctionPenalties(state, empire.id);
+    if (sanctionPenalties) {
+      if (sanctionPenalties.loseTradeRoutes) {
+        // Total trade route loss — zero trade income.
+        tradeCredits = 0;
+      } else {
+        if (sanctionPenalties.tradeRevenueConfiscation > 0) {
+          tradeCredits *= (1 - sanctionPenalties.tradeRevenueConfiscation / 100);
+        }
+        if (sanctionPenalties.additionalTaxation > 0) {
+          tradeCredits *= (1 - sanctionPenalties.additionalTaxation / 100);
+        }
+        tradeCredits = Math.round(tradeCredits);
+      }
+    }
+
     production.credits += tradeCredits;
 
     // ── Corruption penalty: reduce credit income ────────────────────────
