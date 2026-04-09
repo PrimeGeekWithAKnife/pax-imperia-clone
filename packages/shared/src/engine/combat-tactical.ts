@@ -197,14 +197,14 @@ const ENVIRONMENT_SPAWN_MARGIN = 250;
 // species' geometry pokes through the collision boundary.
 interface CollisionExtents { halfWidth: number; halfHeight: number; halfLength: number }
 const COLLISION_EXTENTS: Partial<Record<HullClass, CollisionExtents>> = {
-  science_probe:      { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
-  spy_probe:          { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
-  drone:              { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
-  fighter:            { halfWidth: 6,   halfHeight: 5,   halfLength: 10  },
-  bomber:             { halfWidth: 7,   halfHeight: 5,   halfLength: 12  },
-  patrol:             { halfWidth: 7,   halfHeight: 5,   halfLength: 12  },
-  yacht:              { halfWidth: 8,   halfHeight: 6,   halfLength: 14  },
-  corvette:           { halfWidth: 10,  halfHeight: 7,   halfLength: 18  },
+  science_probe:      { halfWidth: 2,   halfHeight: 2,   halfLength: 3   },
+  spy_probe:          { halfWidth: 2,   halfHeight: 2,   halfLength: 3   },
+  drone:              { halfWidth: 2,   halfHeight: 2,   halfLength: 3   },
+  fighter:            { halfWidth: 3,   halfHeight: 2,   halfLength: 4   },
+  bomber:             { halfWidth: 3,   halfHeight: 2,   halfLength: 5   },
+  patrol:             { halfWidth: 3,   halfHeight: 2,   halfLength: 5   },
+  yacht:              { halfWidth: 4,   halfHeight: 3,   halfLength: 6   },
+  corvette:           { halfWidth: 5,   halfHeight: 3,   halfLength: 8   },
   cargo:              { halfWidth: 14,  halfHeight: 10,  halfLength: 24  },
   transport:          { halfWidth: 16,  halfHeight: 12,  halfLength: 30  },
   frigate:            { halfWidth: 12,  halfHeight: 8,   halfLength: 22  },
@@ -3050,13 +3050,15 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength;
       spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength;
       // Vertical escape: push up/down to avoid bunching in z-axis
+      // Small ships get much stronger Z-push since they cluster tightly
+      const zMultiplier = ship.maxHull < 80 ? 4.0 : ship.maxHull < 200 ? 2.5 : 1.5;
       const allyDz = ship.position.z - ally.position.z;
-      if (Math.abs(allyDz) < 5) {
+      if (Math.abs(allyDz) < 10) {
         // Same altitude — escape vertically based on deterministic ID comparison
         const zDir = ship.id > ally.id ? 1 : -1;
-        spreadZ += zDir * pushStrength * 1.5;  // prefer vertical escape
+        spreadZ += zDir * pushStrength * zMultiplier;
       } else {
-        spreadZ += (allyDz / Math.abs(allyDz)) * pushStrength;
+        spreadZ += (allyDz / Math.abs(allyDz)) * pushStrength * (zMultiplier * 0.5);
       }
     }
   }
@@ -4088,9 +4090,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
               const relVy = b.velocity.y - a.velocity.y;
               const relVz = b.velocity.z - a.velocity.z;
               const closingSpd = Math.abs(relVx * nx + relVy * ny + relVz * nz);
-              if (closingSpd > 0.5) {
+              // Only significant collisions deal damage (not gentle bumps)
+              if (closingSpd > 2.0) {
                 const totalMassForDmg = a.maxHull + b.maxHull;
-                const impactEnergy = closingSpd * closingSpd * 0.8;
+                // Reduced multiplier — collisions hurt but shouldn't instakill small ships
+                const impactEnergy = closingSpd * closingSpd * 0.15;
                 const aDmg = Math.floor(impactEnergy * (b.maxHull / totalMassForDmg));
                 const bDmg = Math.floor(impactEnergy * (a.maxHull / totalMassForDmg));
                 if (aDmg > 0) collisionDamage.push({ shipIdx: i, damage: aDmg });
