@@ -190,21 +190,24 @@ const DEBRIS_DAMAGE_VARIANCE = 0.5; // ±50%
 const ENVIRONMENT_SPAWN_MARGIN = 250;
 
 // --- Ship collision radii (hard body, per hull class) ----------------------
+// Collision radii in battlefield units. Derived from HULL_SCALE (world units)
+// × shipScale (display multiplier) / BF_SCALE (0.1), halved for radius.
+// Must match visual ship size so ships don't visually overlap before colliding.
 const COLLISION_RADII: Partial<Record<HullClass, number>> = {
-  science_probe: 5, spy_probe: 5, drone: 5,
-  fighter: 6, bomber: 7, patrol: 7, yacht: 7,
-  corvette: 8,
-  cargo: 10, transport: 10,
-  frigate: 10, destroyer: 11,
-  large_transport: 14, large_cargo: 14,
-  light_cruiser: 15, heavy_cruiser: 17,
-  large_supplier: 16, carrier: 20,
-  light_battleship: 20, battleship: 22,
-  heavy_battleship: 28, super_carrier: 24,
-  battle_station: 35, small_space_station: 30,
-  space_station: 40, large_space_station: 50, planet_killer: 50,
-  coloniser_gen1: 14, coloniser_gen2: 14, coloniser_gen3: 14,
-  coloniser_gen4: 16, coloniser_gen5: 18,
+  science_probe: 8, spy_probe: 8, drone: 8,
+  fighter: 10, bomber: 12, patrol: 12, yacht: 14,
+  corvette: 18,
+  cargo: 25, transport: 30,
+  frigate: 24, destroyer: 28,
+  large_transport: 38, large_cargo: 38,
+  light_cruiser: 52, heavy_cruiser: 60,
+  large_supplier: 45, carrier: 65,
+  light_battleship: 80, battleship: 95,
+  heavy_battleship: 135, super_carrier: 110,
+  battle_station: 165, small_space_station: 125,
+  space_station: 195, large_space_station: 250, planet_killer: 275,
+  coloniser_gen1: 38, coloniser_gen2: 42, coloniser_gen3: 48,
+  coloniser_gen4: 60, coloniser_gen5: 72,
 };
 
 // ---------------------------------------------------------------------------
@@ -3002,7 +3005,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // Ships steer away from nearby allies to avoid splash/AOE and overlap.
   // This is blended into the target position, NOT an early return,
   // so ships still advance while spreading.
-  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 65 : 55;
+  // Ally spacing must exceed collision radii so ships don't constantly bump
+  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 40
+    : ship.maxHull < 200 ? 70
+    : ship.maxHull < 400 ? 120
+    : 180;
   let spreadX = 0;
   let spreadY = 0;
   let spreadZ = 0;  // Vertical escape vector for 3D anti-bunching
