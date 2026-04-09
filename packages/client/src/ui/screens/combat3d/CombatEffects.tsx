@@ -80,7 +80,7 @@ export function FighterEffects({ state, attackerColor, defenderColor }: FighterE
       // Position with jitter
       const jitterX = (Math.random() - 0.5) * 0.4 * BF_SCALE;
       const jitterZ = (Math.random() - 0.5) * 0.4 * BF_SCALE;
-      tacticalTo3D(f.x, f.y, bfW, bfH, _tmpPos);
+      tacticalTo3D(f.x, f.y, bfW, bfH, _tmpPos, f.z);
       _tmpPos.x += jitterX;
       _tmpPos.z += jitterZ;
 
@@ -190,17 +190,17 @@ export function PointDefenceEffects({ state }: PointDefenceEffectsProps): JSX.El
       const ship = shipMap.get(pd.shipId);
       if (!ship) continue;
 
-      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpVec3);
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpVec3, ship.position.z);
       const shipPos = _tmpVec3;
-      tacticalTo3D(pd.missileX, pd.missileY, bfW, bfH, _tmpVec3b);
+      tacticalTo3D(pd.missileX, pd.missileY, bfW, bfH, _tmpVec3b, 0);
       const interceptPos = _tmpVec3b;
 
       const opacity = (pd.ticksRemaining / 2) * 0.85 * 0.5;
       if (opacity <= 0) continue;
 
       const base = segIdx * 6;
-      posArr[base] = shipPos.x;       posArr[base + 1] = 0.1;  posArr[base + 2] = shipPos.z;
-      posArr[base + 3] = interceptPos.x; posArr[base + 4] = 0.1;  posArr[base + 5] = interceptPos.z;
+      posArr[base] = shipPos.x;       posArr[base + 1] = shipPos.y;  posArr[base + 2] = shipPos.z;
+      posArr[base + 3] = interceptPos.x; posArr[base + 4] = interceptPos.y;  posArr[base + 5] = interceptPos.z;
 
       // Apply opacity by scaling colour brightness
       const r = pdColor.r * opacity;
@@ -250,7 +250,7 @@ export function EscapePodEffects({ state }: EscapePodEffectsProps): JSX.Element 
 
     for (let i = 0; i < pods.length && i < MAX_ESCAPE_PODS; i++) {
       const pod = pods[i]!;
-      tacticalTo3D(pod.x, pod.y, bfW, bfH, _tmpPos);
+      tacticalTo3D(pod.x, pod.y, bfW, bfH, _tmpPos, pod.z);
 
       _tmpScale.set(scale, scale, scale);
       _tmpMatrix.compose(
@@ -287,6 +287,7 @@ export function EscapePodEffects({ state }: EscapePodEffectsProps): JSX.Element 
 interface ExplosionEntry {
   id: string;
   x: number;
+  y: number;
   z: number;
   startTime: number;
 }
@@ -316,10 +317,11 @@ export function ExplosionEffects({ api }: ExplosionEffectsProps): JSX.Element {
       const ship = api.state.ships.find(s => s.id === shipId);
       if (!ship) continue;
 
-      const pos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH);
+      const pos = tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, undefined, ship.position.z);
       newExplosions.push({
         id: `explosion-${nextIdRef.current++}`,
         x: pos.x,
+        y: pos.y,
         z: pos.z,
         startTime: now,
       });
@@ -376,7 +378,7 @@ export function ExplosionEffects({ api }: ExplosionEffectsProps): JSX.Element {
   return (
     <group ref={groupRef}>
       {explosions.map(exp => (
-        <mesh key={exp.id} position={[exp.x, 0, exp.z]}>
+        <mesh key={exp.id} position={[exp.x, exp.y, exp.z]}>
           <sphereGeometry args={[1, 12, 12]} />
           <meshStandardMaterial
             color={EXPLOSION_COLOR}
@@ -514,7 +516,7 @@ export function DebrisEffects({ state }: DebrisEffectsProps): JSX.Element {
   return (
     <group>
       {debrisData.map(({ feat, primary, secondary, color, secColor, rotation, secOffset, hasSecondary, hotEdge, r }) => {
-        const pos = tacticalTo3D(feat.x, feat.y, bfW, bfH);
+        const pos = tacticalTo3D(feat.x, feat.y, bfW, bfH, undefined, 0);
 
         return (
           <group key={feat.id} position={[pos.x, 0, pos.z]} rotation={rotation}>
@@ -641,7 +643,7 @@ export function EngineThrustPlumes({
       const plumeRadius = 0.12 * scale;
 
       // Position: behind the ship (opposite facing)
-      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos, ship.position.z);
       const aftDist = scale * 1.5;
       const rotAngle = -(ship.facing - Math.PI / 2);
       const aftX = _tmpPos.x - Math.sin(rotAngle) * aftDist;
@@ -655,7 +657,7 @@ export function EngineThrustPlumes({
 
       // Single plume at aft
       if (count < MAX_THRUST_PLUMES) {
-        _tmpVec3.set(aftX, 0.05, aftZ);
+        _tmpVec3.set(aftX, _tmpPos.y + 0.05, aftZ);
         _tmpScale.set(plumeRadius, plumeLen, plumeRadius);
         _tmpMatrix.compose(_tmpVec3, _tmpQuat, _tmpScale);
         mesh.setMatrixAt(count, _tmpMatrix);
@@ -759,7 +761,7 @@ export function RcsPuffEffects({
 
       if (Math.abs(dFacing) < RCS_TURN_THRESHOLD) continue;
 
-      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos);
+      tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _tmpPos, ship.position.z);
       const scale = shipScale(ship.maxHull);
       const palette = ship.side === 'attacker' ? attackerPalette : defenderPalette;
 
@@ -777,7 +779,7 @@ export function RcsPuffEffects({
 
       puffsRef.current.push({
         x: puffX,
-        y: 0.1,
+        y: _tmpPos.y + 0.1,
         z: puffZ,
         startTime: now,
         colorHex: puffColorHex,
@@ -790,7 +792,7 @@ export function RcsPuffEffects({
 
       puffsRef.current.push({
         x: aftPuffX,
-        y: 0.1,
+        y: _tmpPos.y + 0.1,
         z: aftPuffZ,
         startTime: now,
         colorHex: puffColorHex,

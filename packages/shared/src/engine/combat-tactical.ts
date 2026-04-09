@@ -232,8 +232,8 @@ export interface TacticalShip {
   sourceShipId: string;  // links back to the canonical Ship
   name: string;
   side: 'attacker' | 'defender';
-  position: { x: number; y: number };
-  velocity: { x: number; y: number }; // current drift (Newtonian momentum)
+  position: { x: number; y: number; z: number };
+  velocity: { x: number; y: number; z: number }; // current drift (Newtonian momentum)
   facing: number;        // radians (0 = +x direction)
   speed: number;         // max speed (pixels per tick)
   acceleration: number;  // main engine thrust per tick (lighter = faster accel)
@@ -277,12 +277,14 @@ export interface TacticalShip {
 
 export interface Projectile {
   id: string;
-  position: { x: number; y: number };
+  position: { x: number; y: number; z: number };
   speed: number;
   damage: number;
   sourceShipId: string;
   targetShipId: string;
   componentId?: string;
+  /** Vertical angle — 0 = level, positive = climbing. */
+  pitch: number;
 }
 
 export interface Missile {
@@ -292,6 +294,7 @@ export interface Missile {
   componentId: string;
   x: number;
   y: number;
+  z: number;
   speed: number;
   maxSpeed: number;
   acceleration: number;
@@ -301,6 +304,8 @@ export interface Missile {
   fuel: number;
   /** Current heading in radians — missiles turn toward target, not teleport. */
   heading: number;
+  /** Vertical angle — 0 = level, positive = climbing. */
+  pitch: number;
   /** Max turn rate in radians/tick — limits how sharply the missile can steer. */
   turnRate: number;
 }
@@ -318,6 +323,7 @@ export interface Fighter {
   side: 'attacker' | 'defender';
   x: number;
   y: number;
+  z: number;
   speed: number;           // fast — 6 units/tick
   damage: number;
   health: number;          // fighters are fragile — 5-15 HP
@@ -352,13 +358,13 @@ export type CombatLayout = 'open_space' | 'planetary_assault';
 export type BattlefieldSize = 'small' | 'medium' | 'large';
 
 export const BATTLEFIELD_SIZE_CONFIG: Record<BattlefieldSize, {
-  width: number; height: number; maxShipsPerSide: number;
+  width: number; height: number; depth: number; maxShipsPerSide: number;
   asteroidMin: number; asteroidMax: number;
   nebulaMin: number; nebulaMax: number;
 }> = {
-  small:  { width: 1600, height: 1000, maxShipsPerSide: 9,  asteroidMin: 3,  asteroidMax: 8,  nebulaMin: 0, nebulaMax: 2 },
-  medium: { width: 2800, height: 1750, maxShipsPerSide: 18, asteroidMin: 5,  asteroidMax: 12, nebulaMin: 1, nebulaMax: 3 },
-  large:  { width: 4800, height: 3000, maxShipsPerSide: 36, asteroidMin: 8,  asteroidMax: 20, nebulaMin: 2, nebulaMax: 5 },
+  small:  { width: 1600, height: 1000, depth: 400, maxShipsPerSide: 9,  asteroidMin: 3,  asteroidMax: 8,  nebulaMin: 0, nebulaMax: 2 },
+  medium: { width: 2800, height: 1750, depth: 600, maxShipsPerSide: 18, asteroidMin: 5,  asteroidMax: 12, nebulaMin: 1, nebulaMax: 3 },
+  large:  { width: 4800, height: 3000, depth: 800, maxShipsPerSide: 36, asteroidMin: 8,  asteroidMax: 20, nebulaMin: 2, nebulaMax: 5 },
 };
 
 export interface PlanetData {
@@ -392,8 +398,10 @@ export interface EscapePod {
   id: string;
   x: number;
   y: number;
+  z: number;
   vx: number;
   vy: number;
+  vz: number;
   side: 'attacker' | 'defender';
   ttl: number; // ticks remaining before pod exits map
 }
@@ -410,6 +418,7 @@ export interface TacticalState {
   environment: EnvironmentFeature[];
   battlefieldWidth: number;
   battlefieldHeight: number;
+  battlefieldDepth: number;
   outcome: TacticalOutcome;
   attackerFormation: FormationType;
   defenderFormation: FormationType;
@@ -491,10 +500,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
+function dist(a: { x: number; y: number; z?: number }, b: { x: number; y: number; z?: number }): number {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
+  const dz = (a.z ?? 0) - (b.z ?? 0);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 /** Normalise an angle to the range (-PI, PI]. */
@@ -511,29 +521,30 @@ function angleTo(a: { x: number; y: number }, b: { x: number; y: number }): numb
 }
 
 /**
- * Compute the shortest distance from point (px, py) to the line segment
- * from (ax, ay) to (bx, by).
+ * Compute the shortest distance from point (px, py, pz) to the line segment
+ * from (ax, ay, az) to (bx, by, bz). Full 3D distance.
  */
 export function pointToSegmentDistance(
-  px: number, py: number,
-  ax: number, ay: number,
-  bx: number, by: number,
+  px: number, py: number, pz: number,
+  ax: number, ay: number, az: number,
+  bx: number, by: number, bz: number,
 ): number {
   const abx = bx - ax;
   const aby = by - ay;
+  const abz = bz - az;
   const apx = px - ax;
   const apy = py - ay;
-  const abLenSq = abx * abx + aby * aby;
-  if (abLenSq === 0) {
+  const apz = pz - az;
+  const abLenSq = abx * abx + aby * aby + abz * abz;
+  if (abLenSq < 0.001) {
     // Degenerate segment (zero length)
-    return Math.sqrt(apx * apx + apy * apy);
+    return Math.sqrt(apx * apx + apy * apy + apz * apz);
   }
-  const t = clamp((apx * abx + apy * aby) / abLenSq, 0, 1);
-  const closestX = ax + t * abx;
-  const closestY = ay + t * aby;
-  const dx = px - closestX;
-  const dy = py - closestY;
-  return Math.sqrt(dx * dx + dy * dy);
+  const t = clamp((apx * abx + apy * aby + apz * abz) / abLenSq, 0, 1);
+  const cx = ax + t * abx - px;
+  const cy = ay + t * aby - py;
+  const cz = az + t * abz - pz;
+  return Math.sqrt(cx * cx + cy * cy + cz * cz);
 }
 
 /**
@@ -549,13 +560,15 @@ export function checkCollateralDamage(
   allShips: TacticalShip[],
   excludeIds: Set<string>,
   radius: number,
+  sourceZ: number = 0,
+  targetZ: number = 0,
 ): TacticalShip | null {
   for (const ship of allShips) {
     if (excludeIds.has(ship.id) || ship.destroyed || ship.routed) continue;
     const d = pointToSegmentDistance(
-      ship.position.x, ship.position.y,
-      sourceX, sourceY,
-      targetX, targetY,
+      ship.position.x, ship.position.y, ship.position.z,
+      sourceX, sourceY, sourceZ,
+      targetX, targetY, targetZ,
     );
     if (d < radius) return ship;
   }
@@ -574,7 +587,8 @@ export function segmentPassesThroughFeature(
 ): EnvironmentFeature | null {
   for (const f of features) {
     if (f.type !== featureType) continue;
-    const d = pointToSegmentDistance(f.x, f.y, ax, ay, bx, by);
+    // Environment features are on the z=0 plane
+    const d = pointToSegmentDistance(f.x, f.y, 0, ax, ay, 0, bx, by, 0);
     if (d < f.radius) return f;
   }
   return null;
@@ -802,6 +816,7 @@ function smallCraftFlank(
   state: TacticalState,
   spreadX: number,
   spreadY: number,
+  _spreadZ: number = 0,
 ): TacticalShip {
   const d = dist(ship.position, target.position);
 
@@ -1025,13 +1040,13 @@ function smallCraftFlank(
   if (!hasPD) {
     const incomingMissiles = (state.missiles ?? []).filter(
       m => m.targetShipId === ship.id &&
-        dist(ship.position, { x: m.x, y: m.y }) < 150,
+        dist(ship.position, { x: m.x, y: m.y, z: m.z }) < 150,
     );
     if (incomingMissiles.length > 0) {
       // Dodge perpendicular to the nearest incoming missile
       const nearest = incomingMissiles.reduce((best, m) => {
-        const md = dist(ship.position, { x: m.x, y: m.y });
-        const bd = dist(ship.position, { x: best.x, y: best.y });
+        const md = dist(ship.position, { x: m.x, y: m.y, z: m.z });
+        const bd = dist(ship.position, { x: best.x, y: best.y, z: best.z });
         return md < bd ? m : best;
       });
       const missileAngle = angleTo({ x: nearest.x, y: nearest.y }, ship.position);
@@ -1159,6 +1174,7 @@ function fighterCombatAI(
   state: TacticalState,
   spreadX: number,
   spreadY: number,
+  _spreadZ: number = 0,
 ): TacticalShip {
   // Set explicit attack order so wing target diversity in findTarget works
   if (updated.order.type !== 'attack' || updated.order.targetId !== target.id) {
@@ -1258,6 +1274,7 @@ function fighterCombatAI(
         velocity: {
           x: vx + sepForceX,
           y: vy + sepForceY,
+          z: updated.velocity.z,
         },
       };
     }
@@ -1270,6 +1287,7 @@ function fighterCombatAI(
         velocity: {
           x: Math.cos(escapeAngle) * ship.speed * 0.8,
           y: Math.sin(escapeAngle) * ship.speed * 0.8,
+          z: updated.velocity.z,
         },
       };
     }
@@ -1452,12 +1470,12 @@ function fighterCombatAI(
   if (!hasPD) {
     const incomingMissiles = (state.missiles ?? []).filter(
       m => m.targetShipId === ship.id &&
-        dist(ship.position, { x: m.x, y: m.y }) < 150,
+        dist(ship.position, { x: m.x, y: m.y, z: m.z }) < 150,
     );
     if (incomingMissiles.length > 0) {
       const nearest = incomingMissiles.reduce((best, m) => {
-        const md = dist(ship.position, { x: m.x, y: m.y });
-        const bd = dist(ship.position, { x: best.x, y: best.y });
+        const md = dist(ship.position, { x: m.x, y: m.y, z: m.z });
+        const bd = dist(ship.position, { x: best.x, y: best.y, z: best.z });
         return md < bd ? m : best;
       });
       const missileAngle = angleTo({ x: nearest.x, y: nearest.y }, ship.position);
@@ -1695,7 +1713,7 @@ export function setFormation(
       // Ships hold position (idle) — player commands them when ready
       return {
         ...s,
-        position: { x: targetX, y: targetY },
+        position: { x: targetX, y: targetY, z: s.position.z },
         order: { type: 'idle' as const },
       };
     }
@@ -1871,8 +1889,8 @@ export function initializeTacticalCombat(
         sourceShipId: ship.id,
         name: ship.name,
         side,
-        position: { x, y },
-        velocity: { x: 0, y: 0 },
+        position: { x, y, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
         facing,
         // Max speed comes from the hull — engines don't make you faster,
         // they make you accelerate faster (more thrust).
@@ -1942,8 +1960,9 @@ export function initializeTacticalCombat(
         position: {
           x: planetCX + Math.cos(angle) * 120,
           y: planetCY + Math.sin(angle) * 120,
+          z: 0,
         },
-        velocity: { x: 0, y: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
         facing: angle + Math.PI, // face outward
         speed: 0,
         acceleration: 0,
@@ -1997,6 +2016,7 @@ export function initializeTacticalCombat(
     environment: generateEnvironment(Math.random, battlefieldSize),
     battlefieldWidth: BW,
     battlefieldHeight: BH,
+    battlefieldDepth: bfCfg.depth,
     outcome: null,
     attackerFormation: 'line',
     defenderFormation: 'line',
@@ -2426,9 +2446,11 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         ? { x: -50, y: -50 }
         : { x: state.battlefieldWidth + 50, y: state.battlefieldHeight + 50 };
       const result = moveToward(updated, fleeTarget, 2, state.environment, state.ships);
+      const fleeHalfDepth = (state.battlefieldDepth ?? 400) / 2;
       if (
         result.position.x < -20 || result.position.x > state.battlefieldWidth + 20 ||
-        result.position.y < -20 || result.position.y > state.battlefieldHeight + 20
+        result.position.y < -20 || result.position.y > state.battlefieldHeight + 20 ||
+        result.position.z < -fleeHalfDepth - 20 || result.position.z > fleeHalfDepth + 20
       ) {
         result.routed = true;
       }
@@ -2539,6 +2561,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 65 : 55;
   let spreadX = 0;
   let spreadY = 0;
+  let spreadZ = 0;  // Vertical escape vector for 3D anti-bunching
   const allies = state.ships.filter(
     (s) => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed,
   );
@@ -2549,6 +2572,15 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       const pushStrength = t * t * 8;
       spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength;
       spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength;
+      // Vertical escape: push up/down to avoid bunching in z-axis
+      const allyDz = ship.position.z - ally.position.z;
+      if (Math.abs(allyDz) < 5) {
+        // Same altitude — escape vertically based on deterministic ID comparison
+        const zDir = ship.id > ally.id ? 1 : -1;
+        spreadZ += zDir * pushStrength * 1.5;  // prefer vertical escape
+      } else {
+        spreadZ += (allyDz / Math.abs(allyDz)) * pushStrength;
+      }
     }
   }
 
@@ -2557,7 +2589,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // (Except flee, which is handled above.)
   const isFighter = ship.hullClass === 'fighter';
   if (isFighter) {
-    return fighterCombatAI(updated, ship, target, state, spreadX, spreadY);
+    return fighterCombatAI(updated, ship, target, state, spreadX, spreadY, spreadZ);
   }
 
   // Small craft threshold — drones, bombers flank instead of charging
@@ -2566,12 +2598,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   switch (ship.stance) {
     case 'aggressive': {
       if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
-        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
+        return smallCraftFlank(updated, ship, target, state, spreadX, spreadY, spreadZ);
       }
       // Regular ships: close to engagement distance with spread
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
+        z: target.position.z + spreadZ,
       }, engageDistance(ship), state.environment, state.ships);
     }
 
@@ -2684,6 +2717,7 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       return moveToward(updated, {
         x: target.position.x + spreadX,
         y: target.position.y + spreadY,
+        z: target.position.z + spreadZ,
       }, smartEngageDist, state.environment, state.ships);
     }
 
@@ -2752,7 +2786,8 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
 
   let vx = (ship.velocity?.x ?? 0) * SPACE_DRAG;
   let vy = (ship.velocity?.y ?? 0) * SPACE_DRAG;
-  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+  let nvz = (ship.velocity?.z ?? 0) * SPACE_DRAG;
+  const currentSpeed = Math.sqrt(vx * vx + vy * vy + nvz * nvz);
 
   // Braking in space — two options:
   // 1. Main engine: effective only when facing roughly retrograde
@@ -2773,15 +2808,23 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
       vx += Math.cos(retroAngle) * rcsBrake;
       vy += Math.sin(retroAngle) * rcsBrake;
     }
+
+    // RCS z-axis braking — brake vertical drift via omnidirectional thrusters
+    if (Math.abs(nvz) > 0.01) {
+      const rcsThrust = (ship.rcsThrust ?? 0) * crewJitterMul(exp);
+      const zBrake = Math.min(Math.abs(nvz), rcsThrust > 0 ? rcsThrust : (ship.acceleration ?? ship.speed) * 0.1);
+      nvz -= Math.sign(nvz) * zBrake;
+    }
   }
 
   return {
     ...ship,
     facing: newFacing,
-    velocity: { x: vx, y: vy },
+    velocity: { x: vx, y: vy, z: nvz },
     position: {
       x: ship.position.x + vx,
       y: ship.position.y + vy,
+      z: ship.position.z + nvz,
     },
   };
 }
@@ -2794,7 +2837,7 @@ function holdAndFace(ship: TacticalShip, faceAngle: number): TacticalShip {
  */
 function moveToward(
   ship: TacticalShip,
-  target: { x: number; y: number },
+  target: { x: number; y: number; z?: number },
   minDist: number,
   environment?: EnvironmentFeature[],
   allShips?: TacticalShip[],
@@ -2802,7 +2845,8 @@ function moveToward(
   const d = dist(ship.position, target);
   const vx = ship.velocity?.x ?? 0;
   const vy = ship.velocity?.y ?? 0;
-  const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+  const vz = ship.velocity?.z ?? 0;
+  const currentSpeed = Math.sqrt(vx * vx + vy * vy + vz * vz);
 
   // Threat-aware facing: if enemies are nearby, factor them into our
   // facing decision so we naturally circle to deny flanks
@@ -2843,22 +2887,33 @@ function moveToward(
   const accel = (ship.acceleration ?? ship.speed) * thrustJitter;
   let newVx = vx;
   let newVy = vy;
+  let newVz = vz;
+
+  // ── 3D pitch: compute desired vertical angle to target ──
+  const targetZ = (target as { z?: number }).z ?? 0;
+  const dz = targetZ - ship.position.z;
+  const horizDist = Math.sqrt(
+    (target.x - ship.position.x) ** 2 + (target.y - ship.position.y) ** 2,
+  );
+  const desiredPitch = horizDist > 1 ? Math.atan2(dz, horizDist) : 0;
 
   // Anticipatory braking: start slowing down when stopping distance
   // exceeds remaining distance. Prevents overshoot at engagement range.
   const closingSpeed = d > 0.1
-    ? -(vx * (target.x - ship.position.x) + vy * (target.y - ship.position.y)) / d
+    ? -(vx * (target.x - ship.position.x) + vy * (target.y - ship.position.y) + vz * dz) / d
     : 0; // negative = closing
   const brakeAccel = accel * 0.3 + (ship.rcsThrust ?? 0);
   const stoppingDist = brakeAccel > 0.01 ? (Math.max(0, -closingSpeed) ** 2) / (2 * brakeAccel) : 0;
   const needsBraking = d > minDist && (d - minDist) < stoppingDist * 1.2;
 
   if (d > minDist && !needsBraking) {
-    // Thrust toward target — small random angle deviation from helmsman
+    // Thrust toward target — project main engine in 3D (yaw + pitch)
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
     const thrustAngle = newFacing + jitterAngle;
-    newVx += Math.cos(thrustAngle) * accel * 0.3;
-    newVy += Math.sin(thrustAngle) * accel * 0.3;
+    const cosPitch = Math.cos(desiredPitch);
+    newVx += Math.cos(thrustAngle) * cosPitch * accel * 0.3;
+    newVy += Math.sin(thrustAngle) * cosPitch * accel * 0.3;
+    newVz += Math.sin(desiredPitch) * accel * 0.3;
   } else if (currentSpeed > 0.3) {
     // Within minDist — need to slow down.
     const retroAngle = Math.atan2(-vy, -vx);
@@ -2876,30 +2931,44 @@ function moveToward(
       newVx += Math.cos(retroAngle) * rcsBrake;
       newVy += Math.sin(retroAngle) * rcsBrake;
     }
+
+    // RCS z-axis braking — slow vertical drift when stopping
+    if (Math.abs(newVz) > 0.01) {
+      const zBrake = Math.min(Math.abs(newVz), rcsBrake > 0 ? rcsBrake : accel * 0.1);
+      newVz -= Math.sign(newVz) * zBrake;
+    }
+  }
+
+  // ── Altitude damping: gentle return toward z=0 when not actively evading ──
+  if (Math.abs(ship.position.z) > 20) {
+    newVz -= Math.sign(ship.position.z) * (ship.acceleration ?? ship.speed) * 0.1;
   }
 
   // Apply drag (simulates micro-thruster corrections / space friction lite)
   newVx *= SPACE_DRAG;
   newVy *= SPACE_DRAG;
+  newVz *= SPACE_DRAG;
 
-  // Clamp to max velocity (ship.speed is the speed cap)
+  // Clamp to max velocity — includes z component (ship.speed is the speed cap)
   const maxV = ship.speed ?? MAX_VELOCITY;
-  const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy);
+  const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy + newVz * newVz);
   if (newSpeed > maxV) {
     const scale = maxV / newSpeed;
     newVx *= scale;
     newVy *= scale;
+    newVz *= scale;
   }
 
   // Apply velocity to position
   const nx = ship.position.x + newVx;
   const ny = ship.position.y + newVy;
+  const nz = ship.position.z + newVz;
 
   return {
     ...ship,
     facing: newFacing,
-    velocity: { x: newVx, y: newVy },
-    position: { x: nx, y: ny },
+    velocity: { x: newVx, y: newVy, z: newVz },
+    position: { x: nx, y: ny, z: nz },
   };
 }
 
@@ -2983,7 +3052,7 @@ export function findNearestMissile(
 
     if (!isTargetingSelf && !isTargetingNearbyAlly) continue;
 
-    const d = dist(ship.position, { x: missile.x, y: missile.y });
+    const d = dist(ship.position, { x: missile.x, y: missile.y, z: missile.z });
     if (d < bestDist) {
       bestDist = d;
       best = missile;
@@ -3011,7 +3080,7 @@ export function findNearestEnemyFighter(
   for (const fighter of fighters) {
     if (fighter.side === ship.side) continue;
     if (fighter.health <= 0) continue;
-    const d = dist(ship.position, { x: fighter.x, y: fighter.y });
+    const d = dist(ship.position, { x: fighter.x, y: fighter.y, z: fighter.z });
     if (d < bestDist) {
       bestDist = d;
       best = fighter;
@@ -3033,7 +3102,7 @@ function findClosestEnemyForFighter(
 
   for (const ship of ships) {
     if (ship.side === fighter.side || ship.destroyed || ship.routed) continue;
-    const d = dist({ x: fighter.x, y: fighter.y }, ship.position);
+    const d = dist({ x: fighter.x, y: fighter.y, z: fighter.z }, ship.position);
     if (d < bestDist) {
       bestDist = d;
       best = ship;
@@ -3168,10 +3237,12 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   // 2c. Hard collision resolution — prevent ships from overlapping.
   // Run 2 iterations for stability (resolving one pair can push into another).
+  // Also applies collision damage based on closing speed and mass ratio.
   {
     const COLLISION_ITERATIONS = 2;
+    const collisionDamage: Array<{ shipIdx: number; damage: number }> = [];
     // Work on mutable position copies, then produce new immutable ship objects.
-    const positions = ships.map(s => ({ x: s.position.x, y: s.position.y }));
+    const positions = ships.map(s => ({ x: s.position.x, y: s.position.y, z: s.position.z }));
     for (let iter = 0; iter < COLLISION_ITERATIONS; iter++) {
       for (let i = 0; i < ships.length; i++) {
         const a = ships[i];
@@ -3182,7 +3253,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
           const dx = positions[j].x - positions[i].x;
           const dy = positions[j].y - positions[i].y;
-          const distSq = dx * dx + dy * dy;
+          const cdz = positions[j].z - positions[i].z;
+          const distSq = dx * dx + dy * dy + cdz * cdz;
           const minDist = (a.collisionRadius ?? 10) + (b.collisionRadius ?? 10);
 
           if (distSq < minDist * minDist && distSq > 0.01) {
@@ -3190,6 +3262,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             const overlap = minDist - d;
             const nx = dx / d;
             const ny = dy / d;
+            const nz = cdz / d;
+
+            // Collision damage — based on closing speed and mass ratio (first iteration only)
+            if (iter === 0) {
+              const relVx = b.velocity.x - a.velocity.x;
+              const relVy = b.velocity.y - a.velocity.y;
+              const relVz = b.velocity.z - a.velocity.z;
+              const closingSpd = Math.abs(relVx * nx + relVy * ny + relVz * nz);
+              if (closingSpd > 0.5) {
+                const totalMassForDmg = a.maxHull + b.maxHull;
+                const impactEnergy = closingSpd * closingSpd * 0.8;
+                const aDmg = Math.floor(impactEnergy * (b.maxHull / totalMassForDmg));
+                const bDmg = Math.floor(impactEnergy * (a.maxHull / totalMassForDmg));
+                if (aDmg > 0) collisionDamage.push({ shipIdx: i, damage: aDmg });
+                if (bDmg > 0) collisionDamage.push({ shipIdx: j, damage: bDmg });
+              }
+            }
 
             // Mass-weighted push — heavier ships move less
             const totalMass = a.maxHull + b.maxHull;
@@ -3199,16 +3288,30 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
             positions[i].x -= nx * pushEach * aFrac;
             positions[i].y -= ny * pushEach * aFrac;
+            positions[i].z -= nz * pushEach * aFrac;
             positions[j].x += nx * pushEach * bFrac;
             positions[j].y += ny * pushEach * bFrac;
+            positions[j].z += nz * pushEach * bFrac;
           }
         }
       }
     }
+    // Apply collision damage
+    for (const cd of collisionDamage) {
+      const s = ships[cd.shipIdx];
+      if (!s || s.destroyed) continue;
+      const newHull = Math.max(0, s.hull - cd.damage);
+      ships[cd.shipIdx] = {
+        ...s,
+        hull: newHull,
+        destroyed: newHull <= 0 ? true : s.destroyed,
+        damageTakenThisTick: s.damageTakenThisTick + cd.damage,
+      };
+    }
     // Apply adjusted positions back as new immutable ship objects
     ships = ships.map((s, idx) => {
-      if (s.position.x !== positions[idx].x || s.position.y !== positions[idx].y) {
-        return { ...s, position: { x: positions[idx].x, y: positions[idx].y } };
+      if (s.position.x !== positions[idx].x || s.position.y !== positions[idx].y || s.position.z !== positions[idx].z) {
+        return { ...s, position: { x: positions[idx].x, y: positions[idx].y, z: positions[idx].z } };
       }
       return s;
     });
@@ -3224,19 +3327,21 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // If target is gone, projectile continues in its direction (pool ball)
     // and hits the first ship in its path
     if (target == null || target.destroyed || target.routed) {
-      // Continue moving in current direction
+      // Continue moving in current direction (3D: use pitch for z-axis)
       const facing = Math.atan2(
         (proj as unknown as Record<string, number>).prevDy ?? 0,
         (proj as unknown as Record<string, number>).prevDx ?? 1,
       );
-      const newX = proj.position.x + Math.cos(facing) * proj.speed;
-      const newY = proj.position.y + Math.sin(facing) * proj.speed;
+      const cosPitchP = Math.cos(proj.pitch);
+      const newX = proj.position.x + Math.cos(facing) * cosPitchP * proj.speed;
+      const newY = proj.position.y + Math.sin(facing) * cosPitchP * proj.speed;
+      const newZ = proj.position.z + Math.sin(proj.pitch) * proj.speed;
 
       // Check if it hits any ship in its path
       let hitSomeone = false;
       for (const s of ships) {
         if (s.id === proj.sourceShipId || s.destroyed || s.routed) continue;
-        const d = dist({ x: newX, y: newY }, s.position);
+        const d = dist({ x: newX, y: newY, z: newZ }, s.position);
         if (d < hitRadius + proj.speed) {
           ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
           hitSomeone = true;
@@ -3244,9 +3349,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         }
       }
 
-      // If off the battlefield, discard
-      if (!hitSomeone && newX >= -50 && newX <= state.battlefieldWidth + 50 && newY >= -50 && newY <= state.battlefieldHeight + 50) {
-        survivingProjectiles.push({ ...proj, position: { x: newX, y: newY } });
+      // If off the battlefield, discard (check all 3 axes)
+      const halfDepth = (state.battlefieldDepth ?? 400) / 2;
+      if (!hitSomeone &&
+          newX >= -50 && newX <= state.battlefieldWidth + 50 &&
+          newY >= -50 && newY <= state.battlefieldHeight + 50 &&
+          newZ >= -halfDepth - 50 && newZ <= halfDepth + 50) {
+        survivingProjectiles.push({ ...proj, position: { x: newX, y: newY, z: newZ } });
       }
       continue;
     }
@@ -3267,33 +3376,38 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       });
     } else {
       const angle = angleTo(proj.position, target.position);
+      // 3D projectile tracking: compute pitch toward target
+      const projHorizDist = Math.sqrt(
+        (target.position.x - proj.position.x) ** 2 + (target.position.y - proj.position.y) ** 2,
+      );
+      const projPitch = projHorizDist > 1
+        ? Math.atan2(target.position.z - proj.position.z, projHorizDist)
+        : proj.pitch;
+      const cosPitchT = Math.cos(projPitch);
       const newPos = {
-        x: proj.position.x + Math.cos(angle) * proj.speed,
-        y: proj.position.y + Math.sin(angle) * proj.speed,
+        x: proj.position.x + Math.cos(angle) * cosPitchT * proj.speed,
+        y: proj.position.y + Math.sin(angle) * cosPitchT * proj.speed,
+        z: proj.position.z + Math.sin(projPitch) * proj.speed,
       };
 
       // Collateral damage — any non-target ship in the projectile's path
       // gets hit. A stream of bullets doesn't care who walks into it.
+      // Uses 3D pointToSegmentDistance for accurate detection.
+      let collateralConsumed = false;
       for (const s of ships) {
         if (s.id === proj.sourceShipId || s.id === target.id || s.destroyed || s.routed) continue;
-        // Check if the ship is close to the projectile's flight path
-        const toShipX = s.position.x - proj.position.x;
-        const toShipY = s.position.y - proj.position.y;
-        const projDx = newPos.x - proj.position.x;
-        const projDy = newPos.y - proj.position.y;
-        const projLen = Math.sqrt(projDx * projDx + projDy * projDy);
-        if (projLen < 1) continue;
-        // Project ship position onto the flight path
-        const t = (toShipX * projDx + toShipY * projDy) / (projLen * projLen);
-        if (t < 0 || t > 1) continue; // behind or beyond the segment
-        const closestX = proj.position.x + projDx * t;
-        const closestY = proj.position.y + projDy * t;
-        const perpDist = dist({ x: closestX, y: closestY }, s.position);
+        const perpDist = pointToSegmentDistance(
+          s.position.x, s.position.y, s.position.z,
+          proj.position.x, proj.position.y, proj.position.z,
+          newPos.x, newPos.y, newPos.z,
+        );
         if (perpDist < hitRadius) {
           ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
+          collateralConsumed = true;
           break; // projectile consumed by collateral hit
         }
       }
+      if (collateralConsumed) continue;
 
       // Asteroid intercept: projectile passes through asteroid field
       const asteroidHit = segmentPassesThroughFeature(
@@ -3308,6 +3422,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       survivingProjectiles.push({
         ...proj,
         position: newPos,
+        pitch: projPitch,
       });
     }
   }
@@ -3327,13 +3442,17 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // A deflected missile loses guidance and drifts inert (removed next tick).
     if (target && (target.missileDeflection ?? 0) > 0) {
       if (Math.random() * 100 < target.missileDeflection) {
-        // Lock broken — missile continues on current heading but loses tracking
-        const driftMX = missile.x + Math.cos(missile.heading ?? 0) * (missile.speed ?? 10);
-        const driftMY = missile.y + Math.sin(missile.heading ?? 0) * (missile.speed ?? 10);
+        // Lock broken — missile continues on current heading but loses tracking (3D)
+        const driftCosPitch = Math.cos(missile.pitch);
+        const driftMX = missile.x + Math.cos(missile.heading ?? 0) * driftCosPitch * (missile.speed ?? 10);
+        const driftMY = missile.y + Math.sin(missile.heading ?? 0) * driftCosPitch * (missile.speed ?? 10);
+        const driftMZ = missile.z + Math.sin(missile.pitch) * (missile.speed ?? 10);
+        const mHalfDepth = (state.battlefieldDepth ?? 400) / 2;
         if (driftMX > -50 && driftMX < state.battlefieldWidth + 50 &&
-            driftMY > -50 && driftMY < state.battlefieldHeight + 50) {
+            driftMY > -50 && driftMY < state.battlefieldHeight + 50 &&
+            driftMZ > -mHalfDepth - 50 && driftMZ < mHalfDepth + 50) {
           survivingMissiles.push({
-            ...missile, x: driftMX, y: driftMY, fuel: 0, // will be removed next tick
+            ...missile, x: driftMX, y: driftMY, z: driftMZ, fuel: 0, // will be removed next tick
           });
         }
         continue;
@@ -3345,7 +3464,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       const sourceSide = ships.find(s => s.id === missile.sourceShipId)?.side;
       const newTarget = ships
         .filter(s => s.side !== sourceSide && !s.destroyed && !s.routed)
-        .sort((a, b) => dist({ x: missile.x, y: missile.y }, a.position) - dist({ x: missile.x, y: missile.y }, b.position))[0];
+        .sort((a, b) => dist({ x: missile.x, y: missile.y, z: missile.z }, a.position) - dist({ x: missile.x, y: missile.y, z: missile.z }, b.position))[0];
       if (newTarget) {
         const retargetSpeed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
         survivingMissiles.push({ ...missile, targetShipId: newTarget.id, speed: retargetSpeed, fuel: remainingFuel });
@@ -3378,12 +3497,20 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const maxTurn = missile.turnRate ?? 0.06;
     const newHeading = currentHeading + clamp(headingDiff, -maxTurn, maxTurn);
 
-    // Movement is along the missile's ACTUAL heading, not the desired heading
-    const dx = Math.cos(newHeading);
-    const dy = Math.sin(newHeading);
-    const d = Math.sqrt(
+    // ── Pitch tracking toward target (3D) ──────────────────────────────
+    const mHorizDist = Math.sqrt(
       (target.position.x - missile.x) ** 2 + (target.position.y - missile.y) ** 2,
     );
+    const desiredMPitch = Math.atan2(target.position.z - missile.z, Math.max(mHorizDist, 1));
+    const pitchDiff = desiredMPitch - missile.pitch;
+    const newMPitch = missile.pitch + clamp(pitchDiff, -maxTurn, maxTurn);
+
+    // Movement is along the missile's ACTUAL heading and pitch (3D)
+    const mCosPitch = Math.cos(newMPitch);
+    const dx = Math.cos(newHeading) * mCosPitch;
+    const dy = Math.sin(newHeading) * mCosPitch;
+    const mdz = Math.sin(newMPitch);
+    const d = dist({ x: missile.x, y: missile.y, z: missile.z }, target.position);
 
     if (d < MISSILE_HIT_RADIUS + speed) {
       // Asteroid cover: dodge bonus
@@ -3406,7 +3533,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         const s = ships[si]!;
         if (s.id === missile.targetShipId || s.id === missile.sourceShipId) continue;
         if (s.destroyed || s.routed) continue;
-        const splashD = dist({ x: missile.x, y: missile.y }, s.position);
+        const splashD = dist({ x: missile.x, y: missile.y, z: missile.z }, s.position);
         if (splashD < MISSILE_AOE_RADIUS) {
           ships[si] = applyDamage(s, missile.damage * MISSILE_AOE_FRACTION, 'explosive');
         }
@@ -3414,9 +3541,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       continue; // missile consumed
     }
 
-    // Move along the missile's current heading (turn-rate limited)
+    // Move along the missile's current heading and pitch (3D, turn-rate limited)
     const newMX = missile.x + dx * speed;
     const newMY = missile.y + dy * speed;
+    const newMZ = missile.z + mdz * speed;
 
     // Asteroid intercept for missiles in flight
     const asteroidHit = segmentPassesThroughFeature(
@@ -3427,13 +3555,23 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       continue; // absorbed by asteroid
     }
 
+    // Boundary check — including z-axis
+    const missileHalfDepth = (state.battlefieldDepth ?? 400) / 2;
+    if (newMX < -50 || newMX > state.battlefieldWidth + 50 ||
+        newMY < -50 || newMY > state.battlefieldHeight + 50 ||
+        newMZ < -missileHalfDepth - 50 || newMZ > missileHalfDepth + 50) {
+      continue; // out of bounds
+    }
+
     survivingMissiles.push({
       ...missile,
       speed,
       x: newMX,
       y: newMY,
+      z: newMZ,
       fuel: remainingFuel,
       heading: newHeading,
+      pitch: newMPitch,
     });
   }
 
@@ -3453,7 +3591,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // Prefer targeting missiles over fighters
       const nearestMissile = findNearestMissile(ship, survivingMissiles, ships);
       if (nearestMissile != null) {
-        const d = dist(ship.position, { x: nearestMissile.x, y: nearestMissile.y });
+        const d = dist(ship.position, { x: nearestMissile.x, y: nearestMissile.y, z: nearestMissile.z });
         if (d <= weapon.range) {
           weaponsChanged = true;
           const updated = {
@@ -3480,7 +3618,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       // No missile in range — try targeting enemy fighters
       const nearestFighter = findNearestEnemyFighter(ship, fighters);
       if (nearestFighter != null) {
-        const d = dist(ship.position, { x: nearestFighter.x, y: nearestFighter.y });
+        const d = dist(ship.position, { x: nearestFighter.x, y: nearestFighter.y, z: nearestFighter.z });
         if (d <= weapon.range) {
           weaponsChanged = true;
           const updated = {
@@ -3513,7 +3651,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   // Remove dead fighters after PD phase
   fighters = fighters.filter((f) => f.health > 0);
 
-  // 3d. Move fighters, deal strafing damage
+  // 3d. Move fighters, deal strafing damage (3D-aware)
   for (const fighter of fighters) {
     if (fighter.order === 'return') {
       // Move back to carrier
@@ -3523,7 +3661,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       } else {
         const dx = carrier.position.x - fighter.x;
         const dy = carrier.position.y - fighter.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
+        const fdz = carrier.position.z - fighter.z;
+        const d = Math.sqrt(dx * dx + dy * dy + fdz * fdz);
         if (d < FIGHTER_DOCK_RANGE) {
           // Docked — heal and remove from battlefield
           fighter.health = 0; // will be filtered out; ammo is not restored
@@ -3532,6 +3671,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         if (d > fighter.speed) {
           fighter.x += (dx / d) * fighter.speed;
           fighter.y += (dy / d) * fighter.speed;
+          fighter.z += (fdz / d) * fighter.speed;
         }
         continue;
       }
@@ -3548,10 +3688,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const currentTarget = ships.find((s) => s.id === fighter.targetId && !s.destroyed && !s.routed);
     if (!currentTarget) continue;
 
-    // Move toward target
+    // Move toward target (3D)
     const dx = currentTarget.position.x - fighter.x;
     const dy = currentTarget.position.y - fighter.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
+    const fdz = currentTarget.position.z - fighter.z;
+    const d = Math.sqrt(dx * dx + dy * dy + fdz * fdz);
 
     if (d < FIGHTER_STRAFE_RANGE) {
       // Strafing run — deal damage
@@ -3564,6 +3705,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     if (d > fighter.speed) {
       fighter.x += (dx / d) * fighter.speed;
       fighter.y += (dy / d) * fighter.speed;
+      fighter.z += (fdz / d) * fighter.speed;
     }
   }
 
@@ -3702,6 +3844,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             side: ship.side,
             x: ship.position.x + (Math.random() - 0.5) * 20,
             y: ship.position.y + (Math.random() - 0.5) * 20,
+            z: 0,
             speed: FIGHTER_SPEED,
             damage: weapon.damage,
             health: FIGHTER_DEFAULT_HEALTH,
@@ -3776,6 +3919,8 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             componentId: weapon.componentId,
             x: ship.position.x + posOffset * Math.cos(angleOffset),
             y: ship.position.y + posOffset * Math.sin(angleOffset),
+            z: 0,
+            pitch: 0,
             speed: mProfile?.initSpeed ?? MISSILE_INITIAL_SPEED,
             maxSpeed: mProfile?.maxSpeed ?? MISSILE_MAX_SPEED,
             acceleration: mProfile?.accel ?? MISSILE_ACCELERATION,
@@ -3791,6 +3936,14 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         // They travel in the fired direction and can hit bystanders.
         const fireAngle = angleTo(ship.position, weaponTarget.position);
         const scatter = shotHits ? 0 : (Math.random() - 0.5) * 0.3; // ±~9° scatter on miss
+        // Compute initial pitch toward target for 3D projectile flight
+        const projHoriz = Math.sqrt(
+          (weaponTarget.position.x - ship.position.x) ** 2 +
+          (weaponTarget.position.y - ship.position.y) ** 2,
+        );
+        const initPitch = projHoriz > 1
+          ? Math.atan2(weaponTarget.position.z - ship.position.z, projHoriz)
+          : 0;
         newProjectiles.push({
           id: generateId(),
           position: { ...ship.position },
@@ -3800,6 +3953,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           // Missed shots get a dummy target so they fly straight (not tracking)
           targetShipId: shotHits ? weaponTarget.id : '__stray__',
           componentId: weapon.componentId,
+          pitch: initPitch,
           // Store the fired direction for stray projectile movement
           ...(shotHits ? {} : { prevDx: Math.cos(fireAngle + scatter), prevDy: Math.sin(fireAngle + scatter) }),
         } as Projectile);
@@ -4028,27 +4182,32 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         for (let i = 0; i < podCount; i++) {
           const angle = Math.random() * Math.PI * 2;
           const speed = 2 + Math.random() * 2;
+          const podPitch = (Math.random() - 0.5) * Math.PI * 0.3; // slight z scatter
           newPods.push({
             id: generateId(),
             x: ship.position.x + (Math.random() - 0.5) * 10,
             y: ship.position.y + (Math.random() - 0.5) * 10,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
+            z: ship.position.z,
+            vx: Math.cos(angle) * Math.cos(podPitch) * speed,
+            vy: Math.sin(angle) * Math.cos(podPitch) * speed,
+            vz: Math.sin(podPitch) * speed,
             side: ship.side,
             ttl: 80 + Math.floor(Math.random() * 40),
           });
         }
       }
     }
+    const podHalfDepth = (state.battlefieldDepth ?? 400) / 2;
     activePods = [...(state.escapePods ?? []), ...newPods]
-      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, ttl: pod.ttl - 1 }))
+      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, z: pod.z + pod.vz, ttl: pod.ttl - 1 }))
       .filter(pod => pod.ttl > 0 &&
         pod.x > -50 && pod.x < state.battlefieldWidth + 50 &&
-        pod.y > -50 && pod.y < state.battlefieldHeight + 50);
+        pod.y > -50 && pod.y < state.battlefieldHeight + 50 &&
+        pod.z > -podHalfDepth - 50 && pod.z < podHalfDepth + 50);
   } catch {
     // Escape pods are cosmetic — never crash the simulation
     activePods = (state.escapePods ?? [])
-      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, ttl: pod.ttl - 1 }))
+      .map(pod => ({ ...pod, x: pod.x + pod.vx, y: pod.y + pod.vy, z: pod.z + pod.vz, ttl: pod.ttl - 1 }))
       .filter(pod => pod.ttl > 0);
   }
 
@@ -4064,6 +4223,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     environment: newEnvironment,
     battlefieldWidth: state.battlefieldWidth,
     battlefieldHeight: state.battlefieldHeight,
+    battlefieldDepth: state.battlefieldDepth,
     outcome,
     attackerFormation: state.attackerFormation,
     defenderFormation: state.defenderFormation,

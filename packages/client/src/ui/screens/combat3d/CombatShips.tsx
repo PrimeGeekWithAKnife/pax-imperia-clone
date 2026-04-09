@@ -13,7 +13,7 @@ import type { TacticalShip, HullClass } from '@nova-imperia/shared';
 import { generateShipBuildResult, getShipMaterial } from '../../../game/rendering/ShipModels3D';
 import { getSpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
 import type { CombatStateAPI } from './useCombatState';
-import { tacticalTo3D, shipYOffset, shipScale, DAMAGE_FLASH_COLOR } from './constants';
+import { tacticalTo3D, shipScale, DAMAGE_FLASH_COLOR } from './constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -99,7 +99,6 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   );
 
   const scale = useMemo(() => shipScale(ship.maxHull), [ship.maxHull]);
-  const yOff = useMemo(() => shipYOffset(ship.maxHull), [ship.maxHull]);
 
   // Species-specific palette for engine glow colour
   const palette = useMemo(() => getSpeciesWeaponPalette(speciesId), [speciesId]);
@@ -128,8 +127,8 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
     if (!groupRef.current) return;
 
     // Position the group (reuse scratch vector, avoid allocation)
-    tacticalTo3D(ship.position.x, ship.position.y, bfWidth, bfHeight, _tmpShipPos);
-    groupRef.current.position.set(_tmpShipPos.x, yOff, _tmpShipPos.z);
+    tacticalTo3D(ship.position.x, ship.position.y, bfWidth, bfHeight, _tmpShipPos, ship.position.z);
+    groupRef.current.position.set(_tmpShipPos.x, _tmpShipPos.y, _tmpShipPos.z);
 
     // Rotate the ship mesh (ShipModels3D faces +Z, engine uses 0 = +x)
     if (meshRef.current) {
