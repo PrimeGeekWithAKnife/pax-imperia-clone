@@ -283,6 +283,8 @@ import type { EmpireStateSnapshot } from './psychology/maslow.js';
 import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
 import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
+import { SPECIES_DEFAULT_PROFILES } from './ai/personality.js';
+import type { DemandThreat } from '../types/diplomacy.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
 import type { ReputationState } from '../types/reputation.js';
 import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES, getReputationModifier } from './reputation.js';
@@ -4030,6 +4032,168 @@ function stepAIDecisions(
 }
 
 // ---------------------------------------------------------------------------
+// AI demand generation — AI empires consider making demands from weaker neighbours
+// ---------------------------------------------------------------------------
+
+/** How often (in ticks) the AI considers making demands. */
+const AI_DEMAND_CONSIDERATION_INTERVAL = 20;
+
+/**
+ * AI empires evaluate whether to demand resources from weaker neighbours.
+ * Criteria: significant military advantage, not allies/friends, high fear + low
+ * warmth in psychology, and personality traits (high ambition, low empathy).
+ * Only resource (credit) demands for v1.
+ */
+function stepAIDemands(state: GameTickState): GameTickState {
+  const tick = state.gameState.currentTick;
+  if (tick % AI_DEMAND_CONSIDERATION_INTERVAL !== 0) return state;
+  if (!state.demandState) return state;
+
+  let s = state;
+
+  for (const empire of s.gameState.empires) {
+    if (!empire.isAI) continue;
+    if (isEmpireEliminated(empire, s.gameState.galaxy, s.gameState.fleets)) continue;
+
+    // Get personality profile for demand propensity check
+    const profile = SPECIES_DEFAULT_PROFILES[empire.species.id];
+    if (!profile) continue;
+
+    // High ambition + low empathy = more likely to demand
+    // Threshold: ambition >= 6 AND empathy <= 5 (skip peaceful/empathetic empires)
+    const demandPropensity = profile.ambition - profile.empathy;
+    if (demandPropensity < 1) continue;
+
+    // Calculate our military power
+    let ourMilitary = 0;
+    for (const fleet of s.gameState.fleets) {
+      if (fleet.empireId === empire.id) {
+        ourMilitary += fleet.ships.length * 10;
+      }
+    }
+    if (ourMilitary === 0) continue; // No military = no demands
+
+    // Consider each known empire as a potential demand target
+    const opponentIds = new Set<string>();
+    for (const rel of empire.diplomacy) {
+      if (rel.empireId !== empire.id) opponentIds.add(rel.empireId);
+    }
+    for (const system of s.gameState.galaxy.systems) {
+      if (system.ownerId && system.ownerId !== empire.id) {
+        opponentIds.add(system.ownerId);
+      }
+    }
+
+    for (const targetId of opponentIds) {
+      // Skip allies and friends (diplomacy status)
+      const relation = empire.diplomacy.find(d => d.empireId === targetId);
+      if (relation?.status === 'allied' || relation?.status === 'friendly') continue;
+
+      // Skip if already have a pending demand to this target
+      if (s.demandState!.demands.some(d =>
+        d.proposerId === empire.id && d.targetId === targetId && d.status === 'pending'
+      )) continue;
+
+      // Psychology check: only demand when we have high fear + low warmth with target
+      if (s.psychStateMap) {
+        const ourPsych = s.psychStateMap.get(empire.id);
+        if (ourPsych) {
+          const rel = ourPsych.relationships[targetId];
+          // If warmth is positive or trust is high, skip — we like them
+          if (rel && (rel.warmth > 20 || rel.trust > 60)) continue;
+        }
+      }
+
+      // Check military advantage over target
+      let targetMilitary = 0;
+      for (const fleet of s.gameState.fleets) {
+        if (fleet.empireId === targetId) {
+          targetMilitary += fleet.ships.length * 10;
+        }
+      }
+
+      // Need at least 1.5x military advantage to consider a demand
+      const militaryRatio = targetMilitary > 0 ? ourMilitary / targetMilitary : 10;
+      if (militaryRatio < 1.5) continue;
+
+      // Determine threat level based on power gap
+      let threat: DemandThreat;
+      if (militaryRatio >= 3.0) {
+        threat = 'war';
+      } else if (militaryRatio >= 2.0) {
+        threat = 'sanctions';
+      } else {
+        threat = 'reputation';
+      }
+
+      // Demand amount proportional to power gap (100–500 credits)
+      const demandAmount = Math.min(500, Math.round(100 * militaryRatio));
+
+      // Random chance gate: demandPropensity (1–9) maps to ~10–90% chance
+      // Use a deterministic pseudo-random based on tick + empire id hash
+      const hash = (empire.id.length * 31 + targetId.length * 17 + tick) % 100;
+      const chance = demandPropensity * 10;
+      if (hash >= chance) continue;
+
+      // Create the demand via the same mechanism as player propose_demand
+      const demandId = `demand_${empire.id}_${targetId}_${tick}`;
+      const demandEmpireName = empire.name ?? empire.id;
+
+      const demand: Demand = {
+        id: demandId,
+        proposerId: empire.id,
+        targetId,
+        createdTick: tick,
+        deadline: tick + DEMAND_DEADLINE_TICKS,
+        status: 'pending',
+        demandType: 'resources',
+        threat,
+        resourceType: 'credits',
+        amount: demandAmount,
+        description: `${demandEmpireName} demands ${demandAmount} credits`,
+      };
+
+      s = { ...s, demandState: createDemand(s.demandState!, demand) };
+
+      // Psychology: threat event for the target
+      if (s.psychStateMap) {
+        recordDiplomaticEvent(s.psychStateMap, empire.id, targetId, 'threat', tick);
+      }
+
+      // If target is AI, evaluate immediately
+      const targetEmpire = s.gameState.empires.find(e => e.id === targetId);
+      if (targetEmpire?.isAI) {
+        const targetPsych = s.psychStateMap?.get(targetId);
+        const targetRel = targetPsych?.relationships[empire.id];
+
+        let accepted = false;
+        if (targetRel) {
+          const result = evaluateDemandAI(demand, targetRel.fear, targetRel.warmth, targetRel.trust, targetRel.respect);
+          accepted = result.accept;
+        }
+
+        if (accepted) {
+          const { state: updatedDemands } = acceptDemand(s.demandState!, demandId);
+          s = { ...s, demandState: updatedDemands };
+          s = transferDemandedAsset(s, demand);
+        } else {
+          const { state: updatedDemands } = rejectDemand(s.demandState!, demandId);
+          s = { ...s, demandState: updatedDemands };
+          if (s.psychStateMap) {
+            recordDiplomaticEvent(s.psychStateMap, targetId, empire.id, 'request_denied', tick);
+          }
+        }
+      }
+
+      // Only one demand per empire per consideration cycle
+      break;
+    }
+  }
+
+  return s;
+}
+
+// ---------------------------------------------------------------------------
 // AI decision executor — converts an AIDecision into state mutations
 // ---------------------------------------------------------------------------
 
@@ -5726,6 +5890,9 @@ export function processGameTick(
 
   // 9. AI Decisions
   s = stepAIDecisions(s, allTechs);
+
+  // 9a. AI Demand Generation (AI considers demanding from weaker neighbours)
+  s = stepAIDemands(s);
 
   // 9b. Waste Processing (accumulate waste, apply reduction, flag overflow)
   s = stepWaste(s);
