@@ -219,6 +219,7 @@ import {
   getRelation,
   initializeDiplomacy,
   makeFirstContact,
+  modifyAttitude,
   isEmpireEliminated,
   type DiplomacyState,
 } from './diplomacy.js';
@@ -281,7 +282,7 @@ import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
 import type { ReputationState } from '../types/reputation.js';
-import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES } from './reputation.js';
+import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES, getReputationModifier } from './reputation.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -1075,6 +1076,31 @@ function stepFleetMovement(
                   theirPsych.relationships[fleet.empireId] = createRelationship(
                     fleet.empireId, theirPsych.personality, ourPsych.personality, AFFINITY_MATRIX, tick,
                   );
+                }
+              }
+
+              // Apply reputation-based first contact attitude bonus
+              if (state.reputationState) {
+                const discoveredRep = state.reputationState.scores[foreignId] ?? 0;
+                const ourRep = state.reputationState.scores[fleet.empireId] ?? 0;
+
+                // Each empire's first impression is coloured by the other's galactic reputation
+                const foreignRepBonus = getReputationModifier(discoveredRep).firstContactBonus;
+                const ourRepBonus = getReputationModifier(ourRep).firstContactBonus;
+
+                if (foreignRepBonus !== 0) {
+                  // We've heard of them — adjust our attitude
+                  dipState = modifyAttitude(
+                    dipState, fleet.empireId, foreignId, foreignRepBonus, 'reputation_first_contact', tick
+                  );
+                  (state as { diplomacyState: DiplomacyState }).diplomacyState = dipState;
+                }
+                if (ourRepBonus !== 0) {
+                  // They've heard of us — adjust their attitude
+                  dipState = modifyAttitude(
+                    dipState, foreignId, fleet.empireId, ourRepBonus, 'reputation_first_contact', tick
+                  );
+                  (state as { diplomacyState: DiplomacyState }).diplomacyState = dipState;
                 }
               }
             }
