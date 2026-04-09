@@ -281,7 +281,7 @@ import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
 import type { ReputationState } from '../types/reputation.js';
-import { initReputationState, processReputationTick } from './reputation.js';
+import { initReputationState, processReputationTick, recordReputationEvent, REPUTATION_EVENT_VALUES } from './reputation.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -3556,6 +3556,14 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
         recordDiplomaticEvent(state.psychStateMap, evt.empireId, evt.targetEmpireId, 'espionage_detected', state.gameState.currentTick);
       }
 
+      // Record espionage exposure in the reputation system
+      if (state.reputationState) {
+        state = { ...state, reputationState: recordReputationEvent(state.reputationState, {
+          tick: state.gameState.currentTick, empireId: evt.empireId, type: 'espionage_exposed', value: REPUTATION_EVENT_VALUES.espionage_exposed,
+          description: 'Espionage operation exposed',
+        })};
+      }
+
       // Apply diplomatic attitude penalty:
       // The target empire (who caught the spy) dislikes the spy's owner.
       empires = empires.map(e => {
@@ -4030,6 +4038,19 @@ function executeAIDiplomacy(
         recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, relEventType, tick);
       }
 
+      // Record treaty signing in the reputation system
+      if (state.reputationState) {
+        let repState = recordReputationEvent(state.reputationState, {
+          tick, empireId, type: 'treaty_honoured', value: REPUTATION_EVENT_VALUES.treaty_honoured,
+          description: `Signed ${treatyType} treaty`,
+        });
+        repState = recordReputationEvent(repState, {
+          tick, empireId: targetEmpireId, type: 'treaty_honoured', value: REPUTATION_EVENT_VALUES.treaty_honoured,
+          description: `Signed ${treatyType} treaty`,
+        });
+        state = { ...state, reputationState: repState };
+      }
+
       return {
         ...state,
         diplomacyState: updatedDiplomacy,
@@ -4075,6 +4096,19 @@ function executeAIDiplomacy(
       if (state.psychStateMap) {
         recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'peace_made', tick);
         recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, 'peace_made', tick);
+      }
+
+      // Record peace in the reputation system
+      if (state.reputationState) {
+        let repState = recordReputationEvent(state.reputationState, {
+          tick, empireId, type: 'peace_brokered', value: REPUTATION_EVENT_VALUES.peace_brokered,
+          description: 'Made peace',
+        });
+        repState = recordReputationEvent(repState, {
+          tick, empireId: targetEmpireId, type: 'peace_brokered', value: REPUTATION_EVENT_VALUES.peace_brokered,
+          description: 'Made peace',
+        });
+        state = { ...state, reputationState: repState };
       }
 
       return { ...state, diplomacyState: updatedDiplomacy };
@@ -4130,6 +4164,14 @@ function executeAIWar(
   if (state.psychStateMap) {
     recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'war_declared', tick);
     recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, 'war_declared_on_us', tick);
+  }
+
+  // Record war declaration in the reputation system (default to unjust war — no casus belli check yet)
+  if (state.reputationState) {
+    state = { ...state, reputationState: recordReputationEvent(state.reputationState, {
+      tick, empireId, type: 'unjust_war', value: REPUTATION_EVENT_VALUES.unjust_war,
+      description: 'Declared war',
+    })};
   }
 
   // Notify the target empire (if it's the player)
