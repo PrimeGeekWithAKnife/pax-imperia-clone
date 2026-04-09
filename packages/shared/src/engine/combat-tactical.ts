@@ -190,25 +190,48 @@ const DEBRIS_DAMAGE_VARIANCE = 0.5; // ±50%
 const ENVIRONMENT_SPAWN_MARGIN = 250;
 
 // --- Ship collision radii (hard body, per hull class) ----------------------
-// Collision radii in battlefield units. Derived from HULL_SCALE (world units)
-// × shipScale (display multiplier) / BF_SCALE (0.1), halved for radius.
-// Must match visual ship size so ships don't visually overlap before colliding.
-const COLLISION_RADII: Partial<Record<HullClass, number>> = {
-  science_probe: 8, spy_probe: 8, drone: 8,
-  fighter: 10, bomber: 12, patrol: 12, yacht: 14,
-  corvette: 18,
-  cargo: 25, transport: 30,
-  frigate: 24, destroyer: 28,
-  large_transport: 38, large_cargo: 38,
-  light_cruiser: 52, heavy_cruiser: 60,
-  large_supplier: 45, carrier: 65,
-  light_battleship: 80, battleship: 95,
-  heavy_battleship: 135, super_carrier: 110,
-  battle_station: 165, small_space_station: 125,
-  space_station: 195, large_space_station: 250, planet_killer: 275,
-  coloniser_gen1: 38, coloniser_gen2: 42, coloniser_gen3: 48,
-  coloniser_gen4: 60, coloniser_gen5: 72,
+// Collision half-extents in battlefield units per hull class.
+// Three axes: halfWidth (port-starboard), halfHeight (vertical), halfLength (fore-aft).
+// Derived from HULL_SCALE × max species proportion × shipScale / BF_SCALE / 2.
+// Using the widest species proportions (w=0.45, h=0.35) as worst case so no
+// species' geometry pokes through the collision boundary.
+interface CollisionExtents { halfWidth: number; halfHeight: number; halfLength: number }
+const COLLISION_EXTENTS: Partial<Record<HullClass, CollisionExtents>> = {
+  science_probe:      { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
+  spy_probe:          { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
+  drone:              { halfWidth: 5,   halfHeight: 4,   halfLength: 8   },
+  fighter:            { halfWidth: 6,   halfHeight: 5,   halfLength: 10  },
+  bomber:             { halfWidth: 7,   halfHeight: 5,   halfLength: 12  },
+  patrol:             { halfWidth: 7,   halfHeight: 5,   halfLength: 12  },
+  yacht:              { halfWidth: 8,   halfHeight: 6,   halfLength: 14  },
+  corvette:           { halfWidth: 10,  halfHeight: 7,   halfLength: 18  },
+  cargo:              { halfWidth: 14,  halfHeight: 10,  halfLength: 24  },
+  transport:          { halfWidth: 16,  halfHeight: 12,  halfLength: 30  },
+  frigate:            { halfWidth: 12,  halfHeight: 8,   halfLength: 22  },
+  destroyer:          { halfWidth: 14,  halfHeight: 10,  halfLength: 26  },
+  large_transport:    { halfWidth: 22,  halfHeight: 16,  halfLength: 38  },
+  large_cargo:        { halfWidth: 22,  halfHeight: 16,  halfLength: 38  },
+  light_cruiser:      { halfWidth: 30,  halfHeight: 22,  halfLength: 52  },
+  heavy_cruiser:      { halfWidth: 35,  halfHeight: 25,  halfLength: 60  },
+  large_supplier:     { halfWidth: 26,  halfHeight: 18,  halfLength: 44  },
+  carrier:            { halfWidth: 38,  halfHeight: 28,  halfLength: 65  },
+  light_battleship:   { halfWidth: 48,  halfHeight: 35,  halfLength: 80  },
+  battleship:         { halfWidth: 56,  halfHeight: 42,  halfLength: 95  },
+  heavy_battleship:   { halfWidth: 80,  halfHeight: 58,  halfLength: 135 },
+  super_carrier:      { halfWidth: 65,  halfHeight: 48,  halfLength: 110 },
+  battle_station:     { halfWidth: 100, halfHeight: 72,  halfLength: 165 },
+  small_space_station:{ halfWidth: 75,  halfHeight: 55,  halfLength: 125 },
+  space_station:      { halfWidth: 115, halfHeight: 85,  halfLength: 195 },
+  large_space_station:{ halfWidth: 150, halfHeight: 110, halfLength: 250 },
+  planet_killer:      { halfWidth: 165, halfHeight: 120, halfLength: 275 },
+  coloniser_gen1:     { halfWidth: 22,  halfHeight: 16,  halfLength: 38  },
+  coloniser_gen2:     { halfWidth: 24,  halfHeight: 18,  halfLength: 42  },
+  coloniser_gen3:     { halfWidth: 28,  halfHeight: 20,  halfLength: 48  },
+  coloniser_gen4:     { halfWidth: 35,  halfHeight: 26,  halfLength: 60  },
+  coloniser_gen5:     { halfWidth: 42,  halfHeight: 32,  halfLength: 72  },
 };
+
+const DEFAULT_COLLISION_EXTENTS: CollisionExtents = { halfWidth: 12, halfHeight: 8, halfLength: 20 };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -356,8 +379,10 @@ export interface TacticalShip {
   sensorJamming: number;
   /** Hull class from template (e.g. 'fighter', 'corvette', 'battleship'). */
   hullClass?: string;
-  /** Collision radius — ships are pushed apart when their radii overlap. */
+  /** Collision radius — sphere approximation for simple distance checks. */
   collisionRadius: number;
+  /** Axis-aligned collision half-extents (battlefield units): width=port-starboard, height=vertical, length=fore-aft. */
+  collisionExtents?: CollisionExtents;
   /** Fighter AI phase — tracks attack-run state machine. */
   fighterPhase?: 'approach' | 'engage' | 'break' | 'regroup';
   /** Tick when fighter entered the current phase. */
@@ -2308,7 +2333,8 @@ export function initializeTacticalCombat(
         missileDeflection: extracted.missileDeflection,
         sensorJamming: extracted.sensorJamming,
         hullClass: hullTemplate?.class as string | undefined,
-        collisionRadius: COLLISION_RADII[hullTemplate?.class as HullClass] ?? 10,
+        collisionRadius: (COLLISION_EXTENTS[hullTemplate?.class as HullClass] ?? DEFAULT_COLLISION_EXTENTS).halfLength,
+        collisionExtents: COLLISION_EXTENTS[hullTemplate?.class as HullClass] ?? DEFAULT_COLLISION_EXTENTS,
         stations: hullTemplate?.manned === false
           ? undefined
           : deriveCrewStations(
@@ -4028,11 +4054,29 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           const dx = positions[j].x - positions[i].x;
           const dy = positions[j].y - positions[i].y;
           const cdz = positions[j].z - positions[i].z;
-          const distSq = dx * dx + dy * dy + cdz * cdz;
-          const minDist = (a.collisionRadius ?? 10) + (b.collisionRadius ?? 10);
 
-          if (distSq < minDist * minDist && distSq > 0.01) {
+          // Ellipsoid collision: check per-axis overlap using hull extents.
+          // Ships are not spheres — a flat disc has wide X but thin Z.
+          const ae = a.collisionExtents ?? DEFAULT_COLLISION_EXTENTS;
+          const be = b.collisionExtents ?? DEFAULT_COLLISION_EXTENTS;
+
+          // Sum of half-extents per axis (horizontal uses max of width/length
+          // since ships rotate — we approximate with the larger horizontal axis)
+          const horizA = Math.max(ae.halfWidth, ae.halfLength);
+          const horizB = Math.max(be.halfWidth, be.halfLength);
+          const minDistH = horizA + horizB;  // horizontal collision threshold
+          const minDistV = ae.halfHeight + be.halfHeight;  // vertical collision threshold
+
+          // Horizontal distance (XY plane in tactical coords)
+          const horizDistSq = dx * dx + dy * dy;
+          // Check both horizontal AND vertical overlap for a true collision
+          const horizOverlap = horizDistSq < minDistH * minDistH;
+          const vertOverlap = Math.abs(cdz) < minDistV;
+
+          const distSq = dx * dx + dy * dy + cdz * cdz;
+          if (horizOverlap && vertOverlap && distSq > 0.01) {
             const d = Math.sqrt(distSq);
+            const minDist = Math.sqrt(minDistH * minDistH + minDistV * minDistV);  // for overlap calc
             const overlap = minDist - d;
             const nx = dx / d;
             const ny = dy / d;
