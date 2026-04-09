@@ -207,6 +207,8 @@ export const NEBULA_SENSOR_FACTOR = 0.50;
 const DEBRIS_HIT_CHANCE = 0.15;
 /** Damage multiplier applied to the debris field's damage rating. */
 const DEBRIS_DAMAGE_VARIANCE = 0.5; // ±50%
+/** Base lifetime in ticks for wreckage debris — larger pieces linger longer. */
+const WRECKAGE_BASE_LIFETIME = 40;
 /** Safe distance from spawn areas where environment features are not placed. */
 const ENVIRONMENT_SPAWN_MARGIN = 250;
 
@@ -501,6 +503,7 @@ export interface EnvironmentFeature {
   vx?: number;      // velocity — debris drifts at the destroyed ship's velocity
   vy?: number;
   damage?: number;   // debris damage rating — larger wreckage hits harder
+  ticksRemaining?: number;  // time-based expiry — debris dissipates when 0
 }
 
 export interface BeamEffect {
@@ -3076,11 +3079,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // Ships steer away from nearby allies to avoid splash/AOE and overlap.
   // This is blended into the target position, NOT an early return,
   // so ships still advance while spreading.
-  // Ally spacing must exceed collision radii so ships don't constantly bump
-  const MINIMUM_ALLY_SPACING = ship.maxHull < 80 ? 40
-    : ship.maxHull < 200 ? 70
-    : ship.maxHull < 400 ? 120
-    : 180;
+  // Ally spacing scaled by hull size, combat stance, and defend order
+  const STANCE_SPACING_MULT: Record<CombatStance, number> = {
+    aggressive: 1.3, defensive: 0.7, at_ease: 1.0, evasive: 1.5, flee: 1.0,
+  };
+  const baseSpacing = ship.maxHull < 80 ? 40 : ship.maxHull < 200 ? 70 : ship.maxHull < 400 ? 120 : 180;
+  let effectiveSpacing = baseSpacing * (STANCE_SPACING_MULT[ship.stance] ?? 1.0);
+  if (ship.order.type === 'defend') { effectiveSpacing *= 0.6; }
   let spreadX = 0;
   let spreadY = 0;
   let spreadZ = 0;  // Vertical escape vector for 3D anti-bunching
@@ -3089,8 +3094,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   );
   for (const ally of allies) {
     const allyDist = dist(ship.position, ally.position);
-    if (allyDist < MINIMUM_ALLY_SPACING && allyDist > 1) {
-      const t = (MINIMUM_ALLY_SPACING - allyDist) / MINIMUM_ALLY_SPACING;
+    if (allyDist < effectiveSpacing && allyDist > 1) {
+      const t = (effectiveSpacing - allyDist) / effectiveSpacing;
       const pushStrength = t * t * 8;
       spreadX += (ship.position.x - ally.position.x) / allyDist * pushStrength;
       spreadY += (ship.position.y - ally.position.y) / allyDist * pushStrength;
@@ -3968,12 +3973,19 @@ export function processTacticalTick(state: TacticalState): TacticalState {
 
   const env = state.environment ?? [];
   // Move drifting debris — debris inherits the destroyed ship's velocity
-  const newEnvironment = env.map(f => {
+  // Also decrement ticksRemaining for time-based wreckage dissipation
+  let newEnvironment = env.map(f => {
+    let updated = f;
     if (f.type === 'debris' && (f.vx || f.vy)) {
-      return { ...f, x: f.x + (f.vx ?? 0), y: f.y + (f.vy ?? 0) };
+      updated = { ...updated, x: updated.x + (f.vx ?? 0), y: updated.y + (f.vy ?? 0) };
     }
-    return f;
+    if (updated.ticksRemaining != null) {
+      updated = { ...updated, ticksRemaining: updated.ticksRemaining - 1 };
+    }
+    return updated;
   }).filter(f => {
+    // Remove debris that expired via time-based dissipation
+    if (f.ticksRemaining != null && f.ticksRemaining <= 0) return false;
     // Remove debris that drifted off the battlefield
     if (f.type !== 'debris') return true;
     return f.x > -200 && f.x < state.battlefieldWidth + 200 &&
@@ -4198,17 +4210,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         }
       }
     }
-    // Apply collision damage
+    // Apply collision damage — routed through shields/armour as kinetic impact
     for (const cd of collisionDamage) {
       const s = ships[cd.shipIdx];
       if (!s || s.destroyed) continue;
-      const newHull = Math.max(0, s.hull - cd.damage);
-      ships[cd.shipIdx] = {
-        ...s,
-        hull: newHull,
-        destroyed: newHull <= 0 ? true : s.destroyed,
-        damageTakenThisTick: s.damageTakenThisTick + cd.damage,
-      };
+      ships[cd.shipIdx] = applyDamage(s, cd.damage, 'kinetic');
     }
     // Apply adjusted positions back as new immutable ship objects
     ships = ships.map((s, idx) => {
@@ -5082,6 +5088,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           vx: sv.x * 0.8 + Math.cos(scatterAngle) * explodeSpeed,
           vy: sv.y * 0.8 + Math.sin(scatterAngle) * explodeSpeed,
           damage: Math.max(0.5, baseDamage * sizeVar),
+          ticksRemaining: WRECKAGE_BASE_LIFETIME + Math.floor(r * 2),
         });
       }
 

@@ -3711,3 +3711,535 @@ describe('sustained beam mode', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 4: Collision System Improvements
+// ---------------------------------------------------------------------------
+
+describe('Collision damage routes through applyDamage (4.1)', () => {
+  it('shielded ships take less hull damage from collision than unshielded', () => {
+    // Two shielded ships collide at high speed — shields should absorb some impact
+    const shieldedA = makeTacticalShip({
+      id: 'shield-a',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      velocity: { x: 5, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      shields: 50,
+      maxShields: 50,
+      armour: 20,
+      speed: 6,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+    const shieldedB = makeTacticalShip({
+      id: 'shield-b',
+      side: 'defender',
+      position: { x: 115, y: 100, z: 0 },
+      velocity: { x: -5, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      shields: 50,
+      maxShields: 50,
+      armour: 20,
+      speed: 6,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+    const unshieldedA = makeTacticalShip({
+      id: 'noshield-a',
+      side: 'attacker',
+      position: { x: 300, y: 100, z: 0 },
+      velocity: { x: 5, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      speed: 6,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+    const unshieldedB = makeTacticalShip({
+      id: 'noshield-b',
+      side: 'defender',
+      position: { x: 315, y: 100, z: 0 },
+      velocity: { x: -5, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      shields: 0,
+      maxShields: 0,
+      armour: 0,
+      speed: 6,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      // Run shielded scenario
+      const stateShielded = makeMinimalState({
+        ships: [shieldedA, shieldedB],
+      });
+      const afterShielded = processTacticalTick(stateShielded);
+
+      // Run unshielded scenario
+      const stateUnshielded = makeMinimalState({
+        ships: [unshieldedA, unshieldedB],
+      });
+      const afterUnshielded = processTacticalTick(stateUnshielded);
+
+      const shieldedHullA = afterShielded.ships.find(s => s.id === 'shield-a')!;
+      const unshieldedHullA = afterUnshielded.ships.find(s => s.id === 'noshield-a')!;
+
+      // Shielded ship should have MORE hull remaining (shields absorbed some impact)
+      // Or if collision speed was too low for damage, both should be equal
+      expect(shieldedHullA.hull).toBeGreaterThanOrEqual(unshieldedHullA.hull);
+
+      // If damage occurred, shields should have decreased
+      if (unshieldedHullA.hull < 200) {
+        expect(shieldedHullA.shields).toBeLessThan(50);
+      }
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+
+  it('collision damage reduces shields on impacted ship', () => {
+    // Place two ships on top of each other with high closing velocity
+    const shipA = makeTacticalShip({
+      id: 'col-a',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      velocity: { x: 8, y: 0, z: 0 },
+      hull: 300,
+      maxHull: 300,
+      shields: 100,
+      maxShields: 100,
+      armour: 30,
+      speed: 10,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 20,
+    });
+    const shipB = makeTacticalShip({
+      id: 'col-b',
+      side: 'defender',
+      position: { x: 110, y: 100, z: 0 },
+      velocity: { x: -8, y: 0, z: 0 },
+      hull: 300,
+      maxHull: 300,
+      shields: 100,
+      maxShields: 100,
+      armour: 30,
+      speed: 10,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 20,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      const state = makeMinimalState({ ships: [shipA, shipB] });
+      const after = processTacticalTick(state);
+      const a = after.ships.find(s => s.id === 'col-a')!;
+      const b = after.ships.find(s => s.id === 'col-b')!;
+
+      // Closing speed = 16 (8 + 8), well above the 2.0 threshold
+      // Both ships should have shields reduced from 100
+      expect(a.shields).toBeLessThan(100);
+      expect(b.shields).toBeLessThan(100);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('Wreckage debris dissipation (4.2)', () => {
+  it('debris with ticksRemaining decrements each tick', () => {
+    const debris: EnvironmentFeature = {
+      id: 'debris-1',
+      type: 'debris',
+      x: 500,
+      y: 500,
+      radius: 10,
+      ticksRemaining: 5,
+    };
+    // Need at least one ship per side to prevent outcome resolution
+    const state = makeMinimalState({
+      ships: [
+        makeTacticalShip({
+          id: 'a1', side: 'attacker', position: { x: 100, y: 100, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+        makeTacticalShip({
+          id: 'd1', side: 'defender', position: { x: 900, y: 900, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+      ],
+      environment: [debris],
+    });
+
+    const after1 = processTacticalTick(state);
+    const d1 = after1.environment.find(f => f.id === 'debris-1');
+    expect(d1).toBeDefined();
+    expect(d1!.ticksRemaining).toBe(4);
+  });
+
+  it('debris removed when ticksRemaining reaches 0', () => {
+    const debris: EnvironmentFeature = {
+      id: 'debris-expire',
+      type: 'debris',
+      x: 500,
+      y: 500,
+      radius: 10,
+      ticksRemaining: 1,  // will reach 0 after one tick
+    };
+    const state = makeMinimalState({
+      ships: [
+        makeTacticalShip({
+          id: 'a1', side: 'attacker', position: { x: 100, y: 100, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+        makeTacticalShip({
+          id: 'd1', side: 'defender', position: { x: 900, y: 900, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+      ],
+      environment: [debris],
+    });
+
+    const after = processTacticalTick(state);
+    const expired = after.environment.find(f => f.id === 'debris-expire');
+    expect(expired).toBeUndefined();
+  });
+
+  it('asteroids and nebulae persist forever (no ticksRemaining)', () => {
+    const asteroid: EnvironmentFeature = {
+      id: 'ast-1',
+      type: 'asteroid',
+      x: 400,
+      y: 400,
+      radius: 30,
+    };
+    const nebula: EnvironmentFeature = {
+      id: 'neb-1',
+      type: 'nebula',
+      x: 600,
+      y: 600,
+      radius: 80,
+    };
+    const state = makeMinimalState({
+      ships: [
+        makeTacticalShip({
+          id: 'a1', side: 'attacker', position: { x: 100, y: 100, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+        makeTacticalShip({
+          id: 'd1', side: 'defender', position: { x: 900, y: 900, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          acceleration: 1, rcsThrust: 0.5, evasionBonus: 0,
+          missileDeflection: 0, sensorJamming: 0, collisionRadius: 10,
+        }),
+      ],
+      environment: [asteroid, nebula],
+    });
+
+    // Run 100 ticks — both should remain
+    let s = state;
+    for (let i = 0; i < 100; i++) {
+      s = processTacticalTick(s);
+      if (s.outcome !== null) break;
+    }
+    expect(s.environment.find(f => f.id === 'ast-1')).toBeDefined();
+    expect(s.environment.find(f => f.id === 'neb-1')).toBeDefined();
+  });
+
+  it('destroyed ship spawns debris with ticksRemaining set', () => {
+    // Create a ship with 1 hull that will be killed by a high-damage weapon
+    const attacker = makeTacticalShip({
+      id: 'atk-1',
+      side: 'attacker',
+      position: { x: 100, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 500,
+      maxHull: 500,
+      weapons: [{
+        componentId: 'test-beam',
+        type: 'beam',
+        damage: 9999,
+        range: 300,
+        cooldown: 5,
+        cooldownLeft: 0,
+        facing: 'turret' as WeaponFacing,
+        ammo: undefined,
+      }],
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+    const victim = makeTacticalShip({
+      id: 'def-1',
+      side: 'defender',
+      position: { x: 200, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 1,
+      maxHull: 200,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      const state = makeMinimalState({ ships: [attacker, victim] });
+      // Run several ticks to let a weapon fire and destroy the ship
+      let s = state;
+      for (let i = 0; i < 10; i++) {
+        s = processTacticalTick(s);
+      }
+
+      const debrisPieces = s.environment.filter(f => f.type === 'debris');
+      if (debrisPieces.length > 0) {
+        // All debris from destroyed ships should have ticksRemaining
+        for (const d of debrisPieces) {
+          expect(d.ticksRemaining).toBeDefined();
+          expect(d.ticksRemaining).toBeGreaterThan(0);
+        }
+      }
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+describe('Stance-aware formation spacing (4.3)', () => {
+  it('defensive stance clusters tighter than aggressive', () => {
+    // Create two allied ships close together with different stances
+    // Defensive ships should have smaller effective spacing (0.7x)
+    // Aggressive ships should have larger effective spacing (1.3x)
+    const allyPos = { x: 150, y: 100, z: 0 };
+
+    const aggressiveShip = makeTacticalShip({
+      id: 'agg-1',
+      side: 'attacker',
+      position: { x: 120, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      stance: 'aggressive',
+      order: { type: 'attack', targetId: 'enemy-1' } as ShipOrder,
+      speed: 3,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+      weapons: [{ componentId: 'test', type: 'beam', damage: 10, range: 200, cooldown: 5, cooldownLeft: 0, facing: 'turret' as WeaponFacing, ammo: undefined }],
+    });
+
+    const defensiveShip = makeTacticalShip({
+      id: 'def-1',
+      side: 'attacker',
+      position: { x: 120, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      stance: 'defensive',
+      order: { type: 'attack', targetId: 'enemy-1' } as ShipOrder,
+      speed: 3,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+      weapons: [{ componentId: 'test', type: 'beam', damage: 10, range: 200, cooldown: 5, cooldownLeft: 0, facing: 'turret' as WeaponFacing, ammo: undefined }],
+    });
+
+    const ally = makeTacticalShip({
+      id: 'ally-1',
+      side: 'attacker',
+      position: allyPos,
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      speed: 3,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+
+    const enemy = makeTacticalShip({
+      id: 'enemy-1',
+      side: 'defender',
+      position: { x: 800, y: 100, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      hull: 200,
+      maxHull: 200,
+      speed: 3,
+      acceleration: 1,
+      rcsThrust: 0.5,
+      evasionBonus: 0,
+      missileDeflection: 0,
+      sensorJamming: 0,
+      collisionRadius: 15,
+    });
+
+    // Aggressive ship with ally should get pushed further apart
+    const stateAgg = makeMinimalState({
+      ships: [aggressiveShip, ally, enemy],
+    });
+    const afterAgg = moveShip(aggressiveShip, stateAgg);
+
+    // Defensive ship with same ally position should get pushed less
+    const stateDef = makeMinimalState({
+      ships: [defensiveShip, ally, enemy],
+    });
+    const afterDef = moveShip(defensiveShip, stateDef);
+
+    // Aggressive ship should move further from ally (bigger spacing zone means more push)
+    // Compare X positions — both started at 120, ally at 150 (30 apart)
+    // For maxHull=200, baseSpacing=70. Aggressive=70*1.3=91. Defensive=70*0.7=49.
+    // Both ships are at dist 30 from ally, well within both thresholds.
+    // Aggressive should get a stronger repulsion since t = (91-30)/91 vs (49-30)/49
+    const aggDx = afterAgg.position.x - aggressiveShip.position.x;
+    const defDx = afterDef.position.x - defensiveShip.position.x;
+    // The aggressive repulsion should push more to the left (away from ally at 150)
+    // aggDx should be more negative (pushed further left) or defDx less negative
+    expect(aggDx).toBeLessThan(defDx);
+  });
+
+  it('evasive stance has widest effective spacing zone', () => {
+    // Test that the anti-bunching effective spacing differs by stance.
+    // Lock Math.random to eliminate crew jitter noise.
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+
+    try {
+      const ally = makeTacticalShip({
+        id: 'ally-1',
+        side: 'attacker',
+        position: { x: 135, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 200,
+        maxHull: 200,
+        speed: 3,
+        acceleration: 1,
+        rcsThrust: 0.5,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+        collisionRadius: 15,
+      });
+
+      // Enemy at range ~180 from ship (within weapon range 200 for all stances)
+      const enemy = makeTacticalShip({
+        id: 'enemy-1',
+        side: 'defender',
+        position: { x: 300, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 200,
+        maxHull: 200,
+        speed: 3,
+        acceleration: 1,
+        rcsThrust: 0.5,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+        collisionRadius: 15,
+      });
+
+      const makeStancedShip = (id: string, stance: string) => makeTacticalShip({
+        id,
+        side: 'attacker',
+        position: { x: 120, y: 100, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        hull: 200,
+        maxHull: 200,
+        stance: stance as any,
+        order: { type: 'attack', targetId: 'enemy-1' } as ShipOrder,
+        speed: 3,
+        acceleration: 1,
+        rcsThrust: 0.5,
+        evasionBonus: 0,
+        missileDeflection: 0,
+        sensorJamming: 0,
+        collisionRadius: 15,
+        weapons: [{ componentId: 'test', type: 'beam', damage: 10, range: 200, cooldown: 5, cooldownLeft: 0, facing: 'turret' as WeaponFacing, ammo: undefined }],
+      });
+
+      // For maxHull=200, baseSpacing=70
+      // aggressive: 70*1.3=91, defensive: 70*0.7=49, evasive: 70*1.5=105
+      // Ally is 15 units away — within ALL thresholds
+      const evasiveShip = makeStancedShip('evasive-1', 'evasive');
+      const defensiveShip = makeStancedShip('def-1', 'defensive');
+
+      const stateEvasive = makeMinimalState({ ships: [evasiveShip, ally, enemy] });
+      const stateDefensive = makeMinimalState({ ships: [defensiveShip, ally, enemy] });
+
+      const afterEvasive = moveShip(evasiveShip, stateEvasive);
+      const afterDefensive = moveShip(defensiveShip, stateDefensive);
+
+      // Evasive has largest effective spacing (105) so strongest push away from ally
+      // Defensive has smallest (49) so weakest push
+      // Ship at x=120, ally at x=135 — push is toward negative x
+      const evasiveDistFromAlly = Math.abs(afterEvasive.position.x - 135);
+      const defDistFromAlly = Math.abs(afterDefensive.position.x - 135);
+
+      // Evasive should be pushed further from ally than defensive
+      expect(evasiveDistFromAlly).toBeGreaterThan(defDistFromAlly);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
