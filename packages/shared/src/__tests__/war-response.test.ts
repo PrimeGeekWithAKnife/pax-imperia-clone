@@ -9,6 +9,8 @@ import {
   checkWarWearinessEvents,
   shouldForceAIPeace,
   AI_FORCED_PEACE_CHANCE,
+  getWarWearinessCombatPenalty,
+  getWarUpkeepMultiplier,
   type EmpireWarState,
 } from '../engine/war-response.js';
 import { calculatePlanetHappiness } from '../engine/happiness.js';
@@ -851,5 +853,81 @@ describe('shouldForceAIPeace', () => {
 
   it('AI_FORCED_PEACE_CHANCE is 0.20 (20% per tick)', () => {
     expect(AI_FORCED_PEACE_CHANCE).toBe(0.20);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWarWearinessCombatPenalty — combat effectiveness degradation
+// ---------------------------------------------------------------------------
+
+describe('getWarWearinessCombatPenalty', () => {
+  it('returns 1.0 at weariness 0 (no penalty)', () => {
+    expect(getWarWearinessCombatPenalty(0)).toBe(1.0);
+  });
+
+  it('returns 1.0 at weariness 50 (threshold, no penalty yet)', () => {
+    expect(getWarWearinessCombatPenalty(50)).toBe(1.0);
+  });
+
+  it('returns ~0.95 at weariness 65 (midpoint of 50–80 range)', () => {
+    expect(getWarWearinessCombatPenalty(65)).toBeCloseTo(0.95, 5);
+  });
+
+  it('returns 0.90 at weariness 80 (boundary between ranges)', () => {
+    expect(getWarWearinessCombatPenalty(80)).toBeCloseTo(0.90, 5);
+  });
+
+  it('returns 0.75 at weariness 100 (maximum penalty)', () => {
+    expect(getWarWearinessCombatPenalty(100)).toBeCloseTo(0.75, 5);
+  });
+
+  it('scales linearly within the 50–80 range', () => {
+    const at55 = getWarWearinessCombatPenalty(55);
+    const at65 = getWarWearinessCombatPenalty(65);
+    const at75 = getWarWearinessCombatPenalty(75);
+    // Equal steps should produce equal decrements.
+    const step1 = at55 - at65;
+    const step2 = at65 - at75;
+    expect(step1).toBeCloseTo(step2, 5);
+  });
+
+  it('scales linearly within the 80–100 range', () => {
+    const at85 = getWarWearinessCombatPenalty(85);
+    const at90 = getWarWearinessCombatPenalty(90);
+    const at95 = getWarWearinessCombatPenalty(95);
+    const step1 = at85 - at90;
+    const step2 = at90 - at95;
+    expect(step1).toBeCloseTo(step2, 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWarUpkeepMultiplier — fleet maintenance increase during war
+// ---------------------------------------------------------------------------
+
+describe('getWarUpkeepMultiplier', () => {
+  it('returns 1.0 at weariness 0 (no increase)', () => {
+    expect(getWarUpkeepMultiplier(0)).toBe(1.0);
+  });
+
+  it('returns 1.0 at weariness 50 (threshold, no increase yet)', () => {
+    expect(getWarUpkeepMultiplier(50)).toBe(1.0);
+  });
+
+  it('returns 1.30 at weariness 100 (maximum +30% increase)', () => {
+    expect(getWarUpkeepMultiplier(100)).toBeCloseTo(1.30, 5);
+  });
+
+  it('returns ~1.15 at weariness 75 (midpoint of 50–100 range)', () => {
+    expect(getWarUpkeepMultiplier(75)).toBeCloseTo(1.15, 5);
+  });
+
+  it('scales linearly within the 50–100 range', () => {
+    const at60 = getWarUpkeepMultiplier(60);
+    const at70 = getWarUpkeepMultiplier(70);
+    const at80 = getWarUpkeepMultiplier(80);
+    const step1 = at70 - at60;
+    const step2 = at80 - at70;
+    expect(step1).toBeCloseTo(step2, 5);
   });
 });

@@ -711,6 +711,43 @@ export function shouldForceAIPeace(warState: EmpireWarState): boolean {
 export const AI_FORCED_PEACE_CHANCE = 0.20;
 
 // ---------------------------------------------------------------------------
+// Combat effectiveness and fleet maintenance penalties
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate a combat effectiveness multiplier based on war weariness.
+ *
+ * Tired crews fight worse — prolonged war degrades fleet combat power.
+ *
+ * - Weariness 0–50:  no penalty (returns 1.0)
+ * - Weariness 50–80: linear penalty from 0% to -10%
+ * - Weariness 80–100: linear penalty from -10% to -25%
+ *
+ * Returns a multiplier in the range [0.75, 1.0].
+ */
+export function getWarWearinessCombatPenalty(warWeariness: number): number {
+  if (warWeariness <= 50) return 1.0;
+  if (warWeariness <= 80) return 1.0 - ((warWeariness - 50) / 30) * 0.10;
+  return 0.90 - ((warWeariness - 80) / 20) * 0.15;
+}
+
+/**
+ * Calculate a fleet upkeep multiplier based on war weariness.
+ *
+ * Prolonged war increases fleet maintenance costs — war-weary crews
+ * require more supplies, repairs take longer, and logistics degrade.
+ *
+ * - Weariness 0–50:  no increase (returns 1.0)
+ * - Weariness 50–100: linear increase from 0% to +30%
+ *
+ * Returns a multiplier in the range [1.0, 1.3].
+ */
+export function getWarUpkeepMultiplier(warWeariness: number): number {
+  if (warWeariness <= 50) return 1.0;
+  return 1.0 + ((warWeariness - 50) / 50) * 0.30;
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 

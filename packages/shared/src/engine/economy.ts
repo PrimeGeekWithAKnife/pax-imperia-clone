@@ -330,19 +330,22 @@ export function calculateEmpireProduction(
  * @param fleetCount   - Total number of individual ships (not fleets).
  * @param buildingCount - Total number of buildings across all planets.
  * @param planets      - Optional list of empire-owned planets for zone-aware maintenance.
+ * @param warWearinessMultiplier - War weariness fleet upkeep multiplier (default 1.0).
  */
 export function calculateUpkeep(
   _empire: Empire,
   fleetCount: number,
   buildingCount: number,
   planets?: Planet[],
+  warWearinessMultiplier = 1.0,
 ): ResourceProduction {
   const upkeep = zeroProduction();
 
   // Ship upkeep — scales when over naval capacity
   const navalCap = planets ? calculateNavalCapacity(planets) : fleetCount;
   const overCapRatio = fleetCount > navalCap ? fleetCount / navalCap : 1;
-  const upkeepMultiplier = overCapRatio > 1 ? 1 + (overCapRatio - 1) * 2 : 1; // 2x penalty per 100% over cap
+  const overCapPenalty = overCapRatio > 1 ? 1 + (overCapRatio - 1) * 2 : 1; // 2x penalty per 100% over cap
+  const upkeepMultiplier = overCapPenalty * warWearinessMultiplier;
   const shipUpkeepCredits = (FLEET_UPKEEP_PER_SHIP.credits ?? 0) * fleetCount * upkeepMultiplier;
   const shipUpkeepEnergy = (FLEET_UPKEEP_PER_SHIP.energy ?? 0) * fleetCount * upkeepMultiplier;
   upkeep.credits -= shipUpkeepCredits;

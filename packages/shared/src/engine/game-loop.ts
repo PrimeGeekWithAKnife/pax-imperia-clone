@@ -233,6 +233,7 @@ import {
   checkWarWearinessEvents,
   shouldForceAIPeace,
   AI_FORCED_PEACE_CHANCE,
+  getWarUpkeepMultiplier,
   type EmpireWarState,
   type WarWearinessEvent,
 } from './war-response.js';
@@ -3221,7 +3222,11 @@ function stepResourceProduction(state: GameTickState): GameTickState {
       empire.id,
     );
     const buildingCount = countBuildings(ownedPlanets);
-    const upkeep = calculateUpkeep(empire, shipCount, buildingCount, ownedPlanets);
+    // War weariness increases fleet maintenance costs.
+    const wsMapUpkeep = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
+    const empireWarWeariness = wsMapUpkeep.get(empire.id)?.warWeariness ?? 0;
+    const wearinessUpkeepMult = getWarUpkeepMultiplier(empireWarWeariness);
+    const upkeep = calculateUpkeep(empire, shipCount, buildingCount, ownedPlanets, wearinessUpkeepMult);
 
     let newResources = applyResourceTick(currentResources, production, upkeep);
 
