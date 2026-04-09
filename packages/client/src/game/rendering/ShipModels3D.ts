@@ -288,131 +288,131 @@ interface SpeciesMaterialDef {
 }
 
 const SPECIES_MATERIALS: Record<string, SpeciesMaterialDef> = {
-  // Teranos — steel blue, clearly military
+  // Teranos — dark grey-blue utilitarian steel
   teranos: {
-    color: 0x8899bb,
-    emissive: 0x3366aa,
-    emissiveIntensity: 0.45,
+    color: 0x556677,
+    emissive: 0x1a2d44,
+    emissiveIntensity: 0.15,
     metalness: 0.65,
-    roughness: 0.45,
+    roughness: 0.50,
   },
-  // Khazari — bright amber/orange, forged metal
+  // Khazari — dark iron, subtle amber forge-glow
   khazari: {
-    color: 0xcc8844,
-    emissive: 0xff7700,
-    emissiveIntensity: 0.6,
-    metalness: 0.8,
-    roughness: 0.55,
+    color: 0x443322,
+    emissive: 0x663300,
+    emissiveIntensity: 0.2,
+    metalness: 0.85,
+    roughness: 0.65,
   },
-  // Vaelori — vivid purple crystal
+  // Vaelori — dark violet crystal, faint psychic shimmer
   vaelori: {
-    color: 0xbb88ff,
-    emissive: 0x8844ff,
-    emissiveIntensity: 0.7,
+    color: 0x443366,
+    emissive: 0x332255,
+    emissiveIntensity: 0.25,
     metalness: 0.3,
-    roughness: 0.1,
+    roughness: 0.12,
     opacity: 0.85,
     transparent: true,
   },
-  // Sylvani — bright living green
+  // Sylvani — deep heartwood green
   sylvani: {
-    color: 0x44aa44,
-    emissive: 0x44dd33,
-    emissiveIntensity: 0.55,
+    color: 0x1a3a1a,
+    emissive: 0x224411,
+    emissiveIntensity: 0.2,
     metalness: 0.05,
-    roughness: 0.8,
-  },
-  // Nexari — electric cyan
-  nexari: {
-    color: 0x5588aa,
-    emissive: 0x00bbff,
-    emissiveIntensity: 0.6,
-    metalness: 0.7,
-    roughness: 0.15,
-  },
-  // Drakmari — deep teal, bioluminescent
-  drakmari: {
-    color: 0x226655,
-    emissive: 0x00ddbb,
-    emissiveIntensity: 0.55,
-    metalness: 0.25,
-    roughness: 0.45,
-  },
-  // Ashkari — warm rust brown, visible patchwork
-  ashkari: {
-    color: 0xbb7744,
-    emissive: 0xcc8833,
-    emissiveIntensity: 0.35,
-    metalness: 0.45,
     roughness: 0.85,
   },
-  // Luminari — brilliant golden white
+  // Nexari — dark gunmetal, subtle blue data-glow
+  nexari: {
+    color: 0x3a4555,
+    emissive: 0x003366,
+    emissiveIntensity: 0.2,
+    metalness: 0.75,
+    roughness: 0.2,
+  },
+  // Drakmari — deep ocean dark, faint teal bioluminescence
+  drakmari: {
+    color: 0x152530,
+    emissive: 0x003333,
+    emissiveIntensity: 0.2,
+    metalness: 0.25,
+    roughness: 0.5,
+  },
+  // Ashkari — dark rust brown, scrapyard
+  ashkari: {
+    color: 0x553322,
+    emissive: 0x331a00,
+    emissiveIntensity: 0.1,
+    metalness: 0.5,
+    roughness: 0.9,
+  },
+  // Luminari — pale but muted, faint golden glow
   luminari: {
-    color: 0xffeedd,
-    emissive: 0xffcc44,
-    emissiveIntensity: 1.0,
+    color: 0x665544,
+    emissive: 0x443311,
+    emissiveIntensity: 0.3,
     metalness: 0.2,
     roughness: 0.1,
     opacity: 0.75,
     transparent: true,
   },
-  // Zorvathi — amber chitin
+  // Zorvathi — dark chitin brown
   zorvathi: {
-    color: 0x886633,
-    emissive: 0xddaa22,
-    emissiveIntensity: 0.45,
+    color: 0x332211,
+    emissive: 0x332200,
+    emissiveIntensity: 0.15,
     metalness: 0.3,
-    roughness: 0.7,
+    roughness: 0.75,
   },
-  // Orivani — ivory and warm gold
+  // Orivani — dark ivory, muted warm tone
   orivani: {
-    color: 0xeeddbb,
-    emissive: 0xffbb44,
-    emissiveIntensity: 0.5,
+    color: 0x554433,
+    emissive: 0x332211,
+    emissiveIntensity: 0.15,
     metalness: 0.45,
-    roughness: 0.35,
+    roughness: 0.4,
   },
-  // Kaelenth — bright chrome silver
+  // Kaelenth — dark polished metal
   kaelenth: {
-    color: 0xccccdd,
-    emissive: 0x5599dd,
-    emissiveIntensity: 0.4,
+    color: 0x556666,
+    emissive: 0x223344,
+    emissiveIntensity: 0.12,
     metalness: 0.95,
     roughness: 0.05,
   },
-  // Thyriaq — liquid silver-cyan
+  // Thyriaq — dark silver
   thyriaq: {
-    color: 0x99bbcc,
-    emissive: 0x44ccdd,
-    emissiveIntensity: 0.55,
-    metalness: 0.8,
+    color: 0x445566,
+    emissive: 0x223344,
+    emissiveIntensity: 0.2,
+    metalness: 0.85,
     roughness: 0.08,
   },
-  // Aethyn — vivid deep purple
+  // Aethyn — deep dark purple
   aethyn: {
-    color: 0x7733cc,
-    emissive: 0xcc55ff,
-    emissiveIntensity: 0.7,
+    color: 0x221144,
+    emissive: 0x110033,
+    emissiveIntensity: 0.2,
     metalness: 0.35,
     roughness: 0.2,
     opacity: 0.8,
     transparent: true,
   },
-  // Vethara — bone white with bright red glow
+  // Vethara — dark bone-grey, faint red undertone
   vethara: {
-    color: 0xccbbaa,
-    emissive: 0xee3333,
-    emissiveIntensity: 0.55,
+    color: 0x443333,
+    emissive: 0x220000,
+    emissiveIntensity: 0.15,
     metalness: 0.2,
     roughness: 0.55,
   },
-  // Pyrenth — obsidian with bright magma glow
+  // Pyrenth — dark obsidian, faint magma undertone
   pyrenth: {
-    color: 0x332211,
-    emissive: 0xff4400,
-    emissiveIntensity: 0.7,
+    color: 0x1a1210,
+    emissive: 0x331100,
+    emissiveIntensity: 0.2,
     metalness: 0.55,
-    roughness: 0.7,
+    roughness: 0.75,
   },
 };
 
