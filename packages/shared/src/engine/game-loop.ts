@@ -32,6 +32,7 @@
  *  8c.  Minor Species        (integration, uplift, revolt, natural advancement)
  *  8d.  Anomaly Investigations (progress active excavation sites)
  *  8e.  Narrative Chains     (trigger and progress multi-step stories)
+ *  8h.  Vassalage Tribute    (collect tribute from vassals, transfer to overlords)
  *  9.   AI Decisions
  *  9b.  Waste Processing     (accumulation, reduction, overflow penalties)
  *  9d.  Marketplace          (commodity prices, trade orders, sanctions)
@@ -296,6 +297,7 @@ import { initReputationState, processReputationTick, recordReputationEvent, REPU
 import type { CouncilStateV2, SanctionPenalties } from '../types/council-v2.js';
 import type { EmbargoState } from '../types/diplomacy.js';
 import { initEmbargoState, declareEmbargo, liftEmbargo, isEmbargoed } from './embargo.js';
+import { findVassalRelationships, calculateTribute, applyTribute, isVassalActionRestricted, getOverlord, getVassals, VASSAL_TRIBUTE_RATE } from './vassalage.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -4342,6 +4344,8 @@ function stepAIDecisions(
     state = { ...state, warTerritoryTrackers: trackers };
 
     // 1b. War weariness forced peace — desperate empires capitulate
+    // If severely outgunned (military <30% of enemy) and weariness >70,
+    // propose vassalage instead of simple peace (surrender terms).
     const warStateMapForAI = ((state as unknown as Record<string, unknown>).warStateMap ?? new Map()) as Map<string, EmpireWarState>;
     const empireWarState = warStateMapForAI.get(empire.id);
     if (empireWarState && shouldForceAIPeace(empireWarState)) {
@@ -4349,19 +4353,49 @@ function stepAIDecisions(
       for (const rel of empire.diplomacy) {
         if (rel.status !== 'at_war') continue;
         if (Math.random() < AI_FORCED_PEACE_CHANCE) {
-          // Inject a high-priority peace-seeking decision that bypasses normal evaluation
-          const forcedPeaceDecision: AIDecision = {
-            type: 'diplomacy',
-            priority: 100, // Maximum priority — desperation overrides everything
-            params: {
-              targetEmpireId: rel.empireId,
-              action: 'seek_peace',
-              treatyType: 'peace',
-              confidence: 1.0,
-            },
-            reasoning: `War weariness at ${Math.round(empireWarState.warWeariness)}% — empire is desperate for peace.`,
-          };
-          state = executeAIDecision(state, empire.id, forcedPeaceDecision, allTechs);
+          // Compare military power to decide between peace and vassalage surrender
+          let ourMilitaryPower = 0;
+          let enemyMilitaryPower = 0;
+          for (const fleet of state.gameState.fleets) {
+            if (fleet.empireId === empire.id) ourMilitaryPower += fleet.ships.length * 10;
+            if (fleet.empireId === rel.empireId) enemyMilitaryPower += fleet.ships.length * 10;
+          }
+
+          const severelyOutgunned = enemyMilitaryPower > 0
+            && ourMilitaryPower / enemyMilitaryPower < 0.3;
+          const highWeariness = empireWarState.warWeariness > 70;
+
+          if (severelyOutgunned && highWeariness) {
+            // Propose vassalage — surrender as a vassal to the enemy.
+            // The proposer sets isOverlord=0 on their side (they become the vassal);
+            // the enemy gets isOverlord=1 (they become the overlord).
+            const vassalageSurrender: AIDecision = {
+              type: 'diplomacy',
+              priority: 100,
+              params: {
+                targetEmpireId: rel.empireId,
+                action: 'propose_treaty',
+                treatyType: 'vassalism',
+                confidence: 1.0,
+              },
+              reasoning: `Military at ${Math.round(ourMilitaryPower)}/${Math.round(enemyMilitaryPower)} (${Math.round((ourMilitaryPower / Math.max(1, enemyMilitaryPower)) * 100)}%) and weariness at ${Math.round(empireWarState.warWeariness)}% — offering surrender as vassal.`,
+            };
+            state = executeAIDecision(state, empire.id, vassalageSurrender, allTechs);
+          } else {
+            // Standard peace-seeking — not outgunned enough to surrender
+            const forcedPeaceDecision: AIDecision = {
+              type: 'diplomacy',
+              priority: 100, // Maximum priority — desperation overrides everything
+              params: {
+                targetEmpireId: rel.empireId,
+                action: 'seek_peace',
+                treatyType: 'peace',
+                confidence: 1.0,
+              },
+              reasoning: `War weariness at ${Math.round(empireWarState.warWeariness)}% — empire is desperate for peace.`,
+            };
+            state = executeAIDecision(state, empire.id, forcedPeaceDecision, allTechs);
+          }
         }
       }
     }
@@ -4678,11 +4712,90 @@ function executeAIDiplomacy(
     if (!relation) return state;
 
     // Don't propose treaties to empires we're at war with
-    if (relation.status === 'at_war') return state;
+    // Exception: vassalism is a war-ending surrender term
+    if (relation.status === 'at_war' && treatyType !== 'vassalism') return state;
 
     // Don't duplicate existing treaties
     const hasTreatyType = relation.treaties.some(t => t.type === treatyType);
     if (hasTreatyType) return state;
+
+    // Vassalism surrender: special handling — make peace first, then create
+    // the asymmetric treaty (proposer becomes vassal, target becomes overlord).
+    if (treatyType === 'vassalism' && relation.status === 'at_war') {
+      const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
+      if (!targetEmpire) return state;
+
+      // Winning empires always accept a surrender — auto-accept for AI targets
+      if (targetEmpire.isAI) {
+        // End the war first
+        let updatedDiplomacy = makePeace(diplomacyState, empireId, targetEmpireId, tick);
+
+        // Create the vassalism treaty with symmetric terms initially
+        updatedDiplomacy = proposeTreaty(updatedDiplomacy, {
+          fromEmpireId: empireId,
+          toEmpireId: targetEmpireId,
+          treatyType: 'vassalism' as TreatyType,
+        }, tick);
+
+        // Patch treaty terms: overlord side gets isOverlord=1, vassal side gets isOverlord=0.
+        // The target is the overlord (they won), the proposer is the vassal (they surrendered).
+        const overlordRels = updatedDiplomacy.relations.get(targetEmpireId);
+        const vassalRels = updatedDiplomacy.relations.get(empireId);
+        if (overlordRels && vassalRels) {
+          const overlordRel = overlordRels.get(empireId);
+          const vassalRel = vassalRels.get(targetEmpireId);
+          if (overlordRel) {
+            const overlordTreaty = overlordRel.treaties.find(t => t.type === 'vassalism');
+            if (overlordTreaty) overlordTreaty.terms = { ...overlordTreaty.terms, isOverlord: 1 };
+          }
+          if (vassalRel) {
+            const vassalTreaty = vassalRel.treaties.find(t => t.type === 'vassalism');
+            if (vassalTreaty) vassalTreaty.terms = { ...vassalTreaty.terms, isOverlord: 0 };
+          }
+        }
+
+        // Psychology: relief + subjugation
+        if (state.psychStateMap) {
+          recordDiplomaticEvent(state.psychStateMap, empireId, targetEmpireId, 'peace_made', tick);
+          recordDiplomaticEvent(state.psychStateMap, targetEmpireId, empireId, 'peace_made', tick);
+        }
+
+        // Reputation: surrender is neutral (neither honoured nor dishonoured)
+        if (state.reputationState) {
+          let repState = recordReputationEvent(state.reputationState, {
+            tick, empireId, type: 'peace_brokered', value: REPUTATION_EVENT_VALUES.peace_brokered,
+            description: 'Surrendered as vassal',
+          });
+          repState = recordReputationEvent(repState, {
+            tick, empireId: targetEmpireId, type: 'peace_brokered', value: REPUTATION_EVENT_VALUES.peace_brokered,
+            description: 'Accepted vassal surrender',
+          });
+          state = { ...state, reputationState: repState };
+        }
+
+        return { ...state, diplomacyState: updatedDiplomacy };
+      }
+
+      // AI-to-player: offer vassalage surrender via notification
+      const empireObj = state.gameState.empires.find(e => e.id === empireId);
+      const empireName = empireObj?.name ?? empireId;
+      const notification = createNotification(
+        'diplomatic_proposal',
+        `${empireName} offers to become your vassal`,
+        `The ${empireName} are severely weakened and offer unconditional surrender. They will pay tribute and serve as your vassal state.`,
+        tick,
+        [
+          { id: `accept_vassalism_${empireId}`, label: 'Accept Surrender', description: 'End the war — they become your vassal and pay tribute' },
+          { id: `reject_vassalism_${empireId}`, label: 'Refuse', description: 'Continue the war — demand total annihilation' },
+        ],
+        { empireId, treatyType: 'vassalism' },
+      );
+      const existingNotifs = ((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[];
+      return {
+        ...state,
+        notifications: [...existingNotifs, notification],
+      } as typeof state;
+    }
 
     // AI-to-AI: auto-accept if attitude > threshold
     const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
@@ -4848,6 +4961,18 @@ function executeAIWar(
 
   const diplomacyState = state.diplomacyState;
   if (!diplomacyState) return state;
+
+  // Vassal action restriction: vassals cannot declare war on their overlord
+  // or on the overlord's other vassals (allied network).
+  const vassalRels = findVassalRelationships(diplomacyState);
+  const overlord = getOverlord(empireId, vassalRels);
+  if (overlord) {
+    const overlordAllies = getVassals(overlord, vassalRels);
+    if (isVassalActionRestricted('declare_war', empireId, targetEmpireId, overlord, overlordAllies)) {
+      // Blocked — vassal cannot declare war on overlord or overlord's allies
+      return state;
+    }
+  }
 
   const tick = state.gameState.currentTick;
 
@@ -6263,6 +6388,28 @@ export function processGameTick(
   // 8g. Reputation decay (drift scores toward neutral)
   if (s.reputationState) {
     s = { ...s, reputationState: processReputationTick(s.reputationState, s.gameState.currentTick) };
+  }
+
+  // 8h. Vassalage tribute collection
+  if (s.diplomacyState) {
+    const vassalRels = findVassalRelationships(s.diplomacyState);
+    for (const { overlordId, vassalId } of vassalRels) {
+      const vassalRes = s.empireResourcesMap.get(vassalId);
+      const overlordRes = s.empireResourcesMap.get(overlordId);
+      if (vassalRes && overlordRes) {
+        // Use 1% of stockpile as income proxy for v1 (per-tick income is not
+        // stored separately — it's computed inside stepResourceProduction).
+        const estimatedIncome = vassalRes.credits * 0.01;
+        const tribute = calculateTribute(estimatedIncome, VASSAL_TRIBUTE_RATE);
+        if (tribute > 0) {
+          const { vassal, overlord } = applyTribute(vassalRes, overlordRes, tribute);
+          const updatedMap = new Map(s.empireResourcesMap);
+          updatedMap.set(vassalId, vassal);
+          updatedMap.set(overlordId, overlord);
+          s = { ...s, empireResourcesMap: updatedMap };
+        }
+      }
+    }
   }
 
   // 9. AI Decisions
