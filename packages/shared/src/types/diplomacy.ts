@@ -471,6 +471,38 @@ export interface GalacticBank {
   loans: BankLoan[];
 }
 
+// ---------------------------------------------------------------------------
+// Diplomatic Demands
+// ---------------------------------------------------------------------------
+
+export type DemandType = 'resources' | 'system' | 'technology';
+export type DemandThreat = 'war' | 'sanctions' | 'reputation';
+export type DemandStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
+
+export interface Demand {
+  id: string;
+  proposerId: string;
+  targetId: string;
+  createdTick: number;
+  /** Tick when demand expires if not responded to. */
+  deadline: number;
+  status: DemandStatus;
+  demandType: DemandType;
+  threat: DemandThreat;
+  /** For resource demands: which resource and how much. */
+  resourceType?: string;
+  amount?: number;
+  /** For system demands: which system to cede. */
+  systemId?: string;
+  /** For technology demands: which tech to share. */
+  techId?: string;
+  description: string;
+}
+
+export interface DemandState {
+  demands: Demand[];
+}
+
 // Note: DiplomaticStatus and TreatyType are defined in species.ts and
 // re-exported from the barrel (index.ts). Import them from there or
 // directly from species.ts when needed alongside these advanced types.

@@ -2,6 +2,7 @@
 
 import type { FleetStance } from './ships.js';
 import type { TreatyType } from './species.js';
+import type { DemandType, DemandThreat } from './diplomacy.js';
 import type { GameSpeedName } from '../constants/game.js';
 import type { EspionageEvent } from '../engine/espionage.js';
 
@@ -90,6 +91,30 @@ export interface DesignShipAction {
   components: { slotId: string; componentId: string }[];
 }
 
+export interface ProposeDemandAction {
+  type: 'propose_demand';
+  empireId: string;
+  targetEmpireId: string;
+  demandType: DemandType;
+  threat: DemandThreat;
+  resourceType?: string;
+  amount?: number;
+  systemId?: string;
+  techId?: string;
+}
+
+export interface AcceptDemandAction {
+  type: 'accept_demand';
+  empireId: string;
+  demandId: string;
+}
+
+export interface RejectDemandAction {
+  type: 'reject_demand';
+  empireId: string;
+  demandId: string;
+}
+
 export type GameAction =
   | MoveFleetAction
   | BuildShipAction
@@ -103,7 +128,10 @@ export type GameAction =
   | AcceptTreatyAction
   | RejectTreatyAction
   | SetGameSpeedAction
-  | DesignShipAction;
+  | DesignShipAction
+  | ProposeDemandAction
+  | AcceptDemandAction
+  | RejectDemandAction;
 
 // ---------------------------------------------------------------------------
 // Game Events (server -> client)

@@ -35,6 +35,7 @@ export type NotificationType =
   | 'over_naval_capacity'     // Fleet count exceeds naval capacity
   | 'maintenance_warning'     // Upkeep exceeds income
   | 'ship_attrition'          // Ship taking attrition damage from bankruptcy
+  | 'diplomatic_demand'       // Empire received a diplomatic demand
   | 'action_rejected';        // Player action was rejected
 
 export interface GameNotification {

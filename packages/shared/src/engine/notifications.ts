@@ -64,6 +64,9 @@ const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   maintenance_warning:     { priority: 'warning', autoPause: true, canSilence: true },
   ship_attrition:          { priority: 'warning', autoPause: false, canSilence: true },
 
+  // Diplomatic demands
+  diplomatic_demand:       { priority: 'warning', autoPause: true, canSilence: true },
+
   // Action feedback
   action_rejected:         { priority: 'info', autoPause: false, canSilence: true },
 };
