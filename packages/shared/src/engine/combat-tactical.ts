@@ -61,9 +61,42 @@ const MISSILE_FUEL_TICKS = 60;
 /** Default ammo for missile weapons. */
 const MISSILE_DEFAULT_AMMO = 8;
 /** Default ammo for projectile weapons. */
-const PROJECTILE_DEFAULT_AMMO = 200;
+const PROJECTILE_DEFAULT_AMMO = 400;
 /** Default ammo for point defence weapons. */
 const POINT_DEFENSE_DEFAULT_AMMO = 300;
+
+// --- Ballistic projectile accuracy + burst constants -------------------------
+
+/** Number of projectile rounds per weapon cooldown cycle (burst salvo). */
+const PROJECTILE_BURST_COUNT: Record<string, number> = {
+  kinetic_cannon: 8, battering_ram: 3, mass_driver: 5, gauss_cannon: 6,
+  antimatter_accelerator: 5, singularity_driver: 4, fusion_autocannon: 10,
+};
+/** Fallback burst count for weapon types not in PROJECTILE_BURST_COUNT. */
+const DEFAULT_BURST_COUNT = 6;
+
+/** Minimum spread half-angle (radians) at accuracy 100. */
+const ACCURACY_TO_SPREAD_MIN = 0.02;
+/** Maximum spread half-angle (radians) at accuracy 0. */
+const ACCURACY_TO_SPREAD_MAX = 0.12;
+/** Extra spread per (distance / maxRange) ratio. */
+const RANGE_SPREAD_FACTOR = 0.04;
+/** Extra spread per unit of target speed (battlefield units/tick). */
+const TARGET_SPEED_SPREAD_FACTOR = 0.003;
+/** Extra spread per unit of own movement speed. */
+const OWN_MOVEMENT_SPREAD_FACTOR = 0.002;
+
+/** Crew experience modifiers for accuracy cone spread (lower = tighter). */
+const EXP_SPREAD_MOD: Record<string, number> = {
+  recruit: 1.40, trained: 1.20, regular: 1.00, seasoned: 0.92,
+  veteran: 0.85, hardened: 0.78, elite: 0.70, ace: 0.62, legendary: 0.55,
+};
+
+/** Crew experience quality for lead prediction (0 = no lead, 1 = perfect). */
+const EXP_LEAD_QUALITY: Record<string, number> = {
+  recruit: 0.0, trained: 0.2, regular: 0.4, seasoned: 0.55,
+  veteran: 0.70, hardened: 0.82, elite: 0.90, ace: 0.95, legendary: 1.0,
+};
 
 /** Per-missile-type physics and ammo profiles.
  *  turnRate = max radians/tick. Early missiles fly wide arcs (~2°/tick),
@@ -227,6 +260,61 @@ export interface Crew {
   experience: CrewExperience;
 }
 
+// ---------------------------------------------------------------------------
+// Crew stations — bridge officers with quality-based effectiveness
+// ---------------------------------------------------------------------------
+
+export type CrewStationType = 'commander' | 'navigator' | 'weapons_officer' | 'shield_operator' | 'damage_control';
+
+export interface CrewStation {
+  type: CrewStationType;
+  quality: number;       // 0-100
+  effectiveness: number; // 0-1, degrades with morale + hull damage
+}
+
+export interface CrewStations {
+  commander: CrewStation;
+  navigator: CrewStation;
+  weaponsOfficer?: CrewStation;
+  shieldOperator?: CrewStation;
+  damageControl?: CrewStation;
+}
+
+export interface ThreatAssessment {
+  primaryThreatId: string | null;
+  outnumbered: boolean;
+  outgunned: boolean;
+  hopeless: boolean;
+  shouldRetreat: boolean;
+  shouldIncreaseRange: boolean;
+  incomingDpsEstimate: number;
+  outgoingDpsEstimate: number;
+  tickComputed: number;
+}
+
+/** Fleet coordination assessment — computed per side every 5 ticks. */
+interface FleetCoordination {
+  side: 'attacker' | 'defender';
+  /** Target ID -> priority bonus (enemies that should be focus-fired). */
+  focusTargets: Map<string, number>;
+  /** Allied ship IDs that need help (under heavy fire from 3+ enemies). */
+  supportRequests: Set<string>;
+  /** Overall strategic assessment of this side's situation. */
+  situation: 'outnumbered' | 'outgunned' | 'winning' | 'losing' | 'even';
+}
+
+/** Module-level fleet coordination state, updated each tick. */
+let _currentCoordination: {
+  attacker: FleetCoordination | null;
+  defender: FleetCoordination | null;
+} = { attacker: null, defender: null };
+
+/** Experience level to numeric index (0-8) for quality calculations. */
+const EXP_INDEX: Record<CrewExperience, number> = {
+  recruit: 0, trained: 1, regular: 2, seasoned: 3, veteran: 4,
+  hardened: 5, elite: 6, ace: 7, legendary: 8,
+};
+
 export interface TacticalShip {
   id: string;
   sourceShipId: string;  // links back to the canonical Ship
@@ -273,6 +361,22 @@ export interface TacticalShip {
   fighterPhaseTick?: number;
   /** Wing group ID — fighters in the same wing act as a unit. */
   wingId?: string;
+  /** Crew stations — bridge officer simulation (populated for manned ships). */
+  stations?: CrewStations;
+  /** Commander's threat assessment — updated every 5 ticks. */
+  threatAssessment?: ThreatAssessment;
+  /** Hull repair rate from damage control components. */
+  repairRate?: number;
+  /** Morale recovery rate from morale-boosting components. */
+  moraleRecovery?: number;
+  /** Tick when ship last performed an evasive jink. */
+  lastJinkTick?: number;
+  /** Current orbit phase angle (radians) for capital ship orbiting. */
+  orbitPhase?: number;
+  /** Rolling window of damage dealt per tick (for target re-evaluation). */
+  damageDealtWindow?: number[];
+  /** ID of the target this ship is currently engaged with. */
+  engagedTargetId?: string;
 }
 
 export interface Projectile {
@@ -281,10 +385,15 @@ export interface Projectile {
   speed: number;
   damage: number;
   sourceShipId: string;
-  targetShipId: string;
   componentId?: string;
-  /** Vertical angle — 0 = level, positive = climbing. */
+  /** Horizontal angle (radians) — fixed at creation, projectile flies straight. */
+  angle: number;
+  /** Vertical angle (radians) — 0 = level, positive = climbing. Fixed at creation. */
   pitch: number;
+  /** Pre-computed velocity components (battlefield units per tick). Fixed at creation. */
+  dx: number;
+  dy: number;
+  dz: number;
 }
 
 export interface Missile {
@@ -428,6 +537,178 @@ export interface TacticalState {
 }
 
 // ---------------------------------------------------------------------------
+// Crew station helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Create crew stations from crew experience with random quality variation.
+ * Quality = base (20) + experience factor (0-60) + random jitter (-10 to +10).
+ * Optional stations only exist on ships with the relevant capabilities.
+ */
+function deriveCrewStations(
+  experience: CrewExperience,
+  hasWeapons: boolean,
+  hasShields: boolean,
+  isMediumPlus: boolean,
+): CrewStations {
+  const expIdx = EXP_INDEX[experience] ?? 2;
+  const baseQuality = (): number => {
+    const raw = 20 + (expIdx / 8) * 60 + (Math.random() * 20 - 10);
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  };
+
+  const stations: CrewStations = {
+    commander: { type: 'commander', quality: baseQuality(), effectiveness: 1.0 },
+    navigator: { type: 'navigator', quality: baseQuality(), effectiveness: 1.0 },
+  };
+
+  if (hasWeapons) {
+    stations.weaponsOfficer = { type: 'weapons_officer', quality: baseQuality(), effectiveness: 1.0 };
+  }
+  if (hasShields && isMediumPlus) {
+    stations.shieldOperator = { type: 'shield_operator', quality: baseQuality(), effectiveness: 1.0 };
+  }
+  if (isMediumPlus) {
+    stations.damageControl = { type: 'damage_control', quality: baseQuality(), effectiveness: 1.0 };
+  }
+
+  return stations;
+}
+
+/**
+ * Update all station effectiveness values based on current morale and hull.
+ * moraleFactor: 1.0 above 50 morale, linear 0.5-1.0 below.
+ * hullFactor: max(0.3, hull / maxHull).
+ */
+function updateStationEffectiveness(ship: TacticalShip): TacticalShip {
+  if (!ship.stations || ship.destroyed || ship.routed) return ship;
+
+  const moraleFactor = ship.crew.morale >= 50
+    ? 1.0
+    : 0.5 + (ship.crew.morale / 50) * 0.5;
+  const hullFactor = Math.max(0.3, ship.hull / ship.maxHull);
+  const eff = moraleFactor * hullFactor;
+
+  const updateStation = (s: CrewStation): CrewStation =>
+    s.effectiveness === eff ? s : { ...s, effectiveness: eff };
+
+  const updated: CrewStations = {
+    commander: updateStation(ship.stations.commander),
+    navigator: updateStation(ship.stations.navigator),
+  };
+  if (ship.stations.weaponsOfficer) {
+    updated.weaponsOfficer = updateStation(ship.stations.weaponsOfficer);
+  }
+  if (ship.stations.shieldOperator) {
+    updated.shieldOperator = updateStation(ship.stations.shieldOperator);
+  }
+  if (ship.stations.damageControl) {
+    updated.damageControl = updateStation(ship.stations.damageControl);
+  }
+
+  return { ...ship, stations: updated };
+}
+
+/**
+ * Commander threat assessment — evaluates the tactical situation around a ship.
+ * Computes incoming and outgoing DPS estimates, sets flags for outnumbered,
+ * outgunned, hopeless, and retreat recommendations.
+ */
+function assessThreats(
+  ship: TacticalShip,
+  allShips: TacticalShip[],
+  tick: number,
+): ThreatAssessment {
+  const enemies = allShips.filter(
+    s => s.side !== ship.side && !s.destroyed && !s.routed,
+  );
+  const allies = allShips.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed && s.id !== ship.id,
+  );
+
+  // Estimate incoming DPS: enemies targeting this ship or close enough to threaten.
+  let incomingDps = 0;
+  let primaryThreatId: string | null = null;
+  let primaryThreatDps = 0;
+
+  for (const enemy of enemies) {
+    const edx = enemy.position.x - ship.position.x;
+    const edy = enemy.position.y - ship.position.y;
+    const edz = (enemy.position.z ?? 0) - (ship.position.z ?? 0);
+    const dist = Math.sqrt(edx * edx + edy * edy + edz * edz);
+
+    const isTargetingUs = enemy.order.type === 'attack'
+      && (enemy.order as { targetId: string }).targetId === ship.id;
+
+    let enemyDps = 0;
+    for (const w of enemy.weapons) {
+      if (dist <= w.range * 1.2) {
+        enemyDps += w.damage / Math.max(1, w.cooldownMax);
+      }
+    }
+
+    if (isTargetingUs || dist < 300) {
+      incomingDps += enemyDps;
+    }
+
+    if (enemyDps > primaryThreatDps) {
+      primaryThreatDps = enemyDps;
+      primaryThreatId = enemy.id;
+    }
+  }
+
+  // Estimate outgoing DPS against current target.
+  let outgoingDps = 0;
+  if (ship.order.type === 'attack') {
+    const targetId = (ship.order as { targetId: string }).targetId;
+    const target = allShips.find(s => s.id === targetId);
+    if (target && !target.destroyed && !target.routed) {
+      const tdx = target.position.x - ship.position.x;
+      const tdy = target.position.y - ship.position.y;
+      const tdz = (target.position.z ?? 0) - (ship.position.z ?? 0);
+      const dist = Math.sqrt(tdx * tdx + tdy * tdy + tdz * tdz);
+
+      for (const w of ship.weapons) {
+        if (dist <= w.range) {
+          let dps = w.damage / Math.max(1, w.cooldownMax);
+          // Rough shield reduction: if target has shields, halve expected DPS
+          if (target.shields > 0) dps *= 0.5;
+          outgoingDps += dps;
+        }
+      }
+    }
+  }
+
+  // Fleet power comparison
+  const allyPower = allies.reduce((n, s) => n + s.maxHull, 0) + ship.maxHull;
+  const enemyPower = enemies.reduce((n, s) => n + s.maxHull, 0);
+
+  const outnumbered = enemies.length > (allies.length + 1) * 1.5;
+  const outgunned = enemyPower > allyPower * 1.5;
+  const hopeless = outgoingDps < 0.1 && incomingDps > 1.0;
+
+  // Commander quality affects retreat threshold — inexperienced commanders
+  // panic earlier, experienced ones hold their nerve.
+  const cmdQuality = ship.stations?.commander?.quality ?? 50;
+  const retreatThreshold = 0.15 + (cmdQuality / 100) * 0.35; // 0.15-0.50
+  const hpFrac = ship.hull / ship.maxHull;
+  const shouldRetreat = hopeless || (hpFrac < retreatThreshold && outgunned);
+  const shouldIncreaseRange = incomingDps > outgoingDps * 2 && hpFrac < 0.6;
+
+  return {
+    primaryThreatId,
+    outnumbered,
+    outgunned,
+    hopeless,
+    shouldRetreat,
+    shouldIncreaseRange,
+    incomingDpsEstimate: incomingDps,
+    outgoingDpsEstimate: outgoingDps,
+    tickComputed: tick,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -545,6 +826,100 @@ export function pointToSegmentDistance(
   const cy = ay + t * aby - py;
   const cz = az + t * abz - pz;
   return Math.sqrt(cx * cx + cy * cy + cz * cz);
+}
+
+/**
+ * Compute the accuracy cone half-angle (radians) for a projectile weapon.
+ *
+ * Factors: base weapon accuracy, range to target, target speed and size,
+ * own movement speed, crew experience, morale, and ECM sensor jamming.
+ *
+ * A smaller return value means a tighter cone (more accurate fire).
+ */
+function computeAccuracyCone(
+  weapon: TacticalWeapon,
+  rangeToTarget: number,
+  targetSpeed: number,
+  targetMaxHull: number,
+  ownSpeed: number,
+  crew: Crew,
+  targetSensorJamming: number,
+): number {
+  // Base spread: linear interpolation between min (accuracy 100) and max (accuracy 0)
+  const accuracyNorm = clamp(weapon.accuracy, 0, 100) / 100;
+  const baseSpread = ACCURACY_TO_SPREAD_MAX - accuracyNorm * (ACCURACY_TO_SPREAD_MAX - ACCURACY_TO_SPREAD_MIN);
+
+  // Range modifier: wider at distance
+  const rangeFrac = weapon.range > 0 ? clamp(rangeToTarget / weapon.range, 0, 1.5) : 0;
+  const rangeSpread = rangeFrac * RANGE_SPREAD_FACTOR;
+
+  // Target speed modifier: faster targets are harder to hit
+  const speedSpread = targetSpeed * TARGET_SPEED_SPREAD_FACTOR;
+
+  // Target size modifier: smaller ships are harder to hit (hull < 60 = small)
+  const sizeMod = targetMaxHull < 60 ? 1.3 : targetMaxHull < 200 ? 1.0 : targetMaxHull < 400 ? 0.85 : 0.70;
+
+  // Own movement modifier: firing while manoeuvring widens cone
+  const ownMoveSpread = ownSpeed * OWN_MOVEMENT_SPREAD_FACTOR;
+
+  // Crew experience modifier
+  const expMod = EXP_SPREAD_MOD[crew.experience] ?? 1.0;
+
+  // Morale modifier: low morale degrades aim
+  const moraleMod = crew.morale < 30 ? 1.4 : crew.morale < 50 ? 1.15 : 1.0;
+
+  // ECM sensor jamming: target's jamming widens our cone
+  const jammingMod = 1.0 + clamp(targetSensorJamming, 0, 100) / 200;
+
+  return (baseSpread + rangeSpread + speedSpread + ownMoveSpread) * sizeMod * expMod * moraleMod * jammingMod;
+}
+
+/**
+ * Compute the lead angle for firing at a moving target.
+ *
+ * Uses computeInterceptPoint() to predict where the target will be, then
+ * interpolates between "no lead" (aim at current position) and "perfect lead"
+ * based on crew experience (EXP_LEAD_QUALITY).
+ *
+ * Returns { angle, pitch } in radians.
+ */
+function computeLeadAngle(
+  sourcePos: { x: number; y: number; z: number },
+  targetPos: { x: number; y: number; z: number },
+  targetVelocity: { x: number; y: number; z: number },
+  projectileSpeed: number,
+  crew: Crew,
+): { angle: number; pitch: number } {
+  const leadQuality = EXP_LEAD_QUALITY[crew.experience] ?? 0.4;
+
+  // Compute the ideal intercept point (2D, using existing helper)
+  const intercept = computeInterceptPoint(
+    sourcePos,
+    targetPos,
+    { x: targetVelocity.x, y: targetVelocity.y },
+    projectileSpeed,
+  );
+
+  // Interpolate between current target position and predicted intercept
+  const aimX = targetPos.x + (intercept.x - targetPos.x) * leadQuality;
+  const aimY = targetPos.y + (intercept.y - targetPos.y) * leadQuality;
+
+  // Z-axis lead: predict target's Z movement
+  const horizDist = Math.sqrt(
+    (aimX - sourcePos.x) ** 2 + (aimY - sourcePos.y) ** 2,
+  );
+  const travelTime = horizDist > 1 ? horizDist / projectileSpeed : 1;
+  const aimZ = targetPos.z + targetVelocity.z * travelTime * leadQuality;
+
+  const angle = Math.atan2(aimY - sourcePos.y, aimX - sourcePos.x);
+  const horizDistFinal = Math.sqrt(
+    (aimX - sourcePos.x) ** 2 + (aimY - sourcePos.y) ** 2,
+  );
+  const pitch = horizDistFinal > 1
+    ? Math.atan2(aimZ - sourcePos.z, horizDistFinal)
+    : 0;
+
+  return { angle, pitch };
 }
 
 /**
@@ -1931,6 +2306,16 @@ export function initializeTacticalCombat(
         sensorJamming: extracted.sensorJamming,
         hullClass: hullTemplate?.class as string | undefined,
         collisionRadius: COLLISION_RADII[hullTemplate?.class as HullClass] ?? 10,
+        stations: hullTemplate?.manned === false
+          ? undefined
+          : deriveCrewStations(
+            (ship.crewExperience ?? 'regular') as CrewExperience,
+            extracted.weapons.length > 0,
+            extracted.maxShields > 0,
+            ship.maxHullPoints >= 150,
+          ),
+        repairRate: extracted.repairRate ?? 0,
+        moraleRecovery: extracted.moraleRecovery ?? 0,
       };
     });
   }
@@ -2331,6 +2716,24 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
     }
   }
 
+  // Pre-compute how many allies are attacking each enemy (for focus fire scoring)
+  const attackTargetCounts = new Map<string, number>();
+  const allies = allShips.filter(
+    s => s.side === ship.side && !s.destroyed && !s.routed && s.id !== ship.id,
+  );
+  for (const ally of allies) {
+    if (ally.order.type === 'attack') {
+      const tid = ally.order.targetId;
+      attackTargetCounts.set(tid, (attackTargetCounts.get(tid) ?? 0) + 1);
+    }
+  }
+
+  // Check if we have missile weapons (for PD ship targeting priority)
+  const hasMissiles = ship.weapons.some(w => w.type === 'missile');
+
+  // Get fleet coordination for our side
+  const coord = _currentCoordination[ship.side];
+
   // Score each enemy
   const maxRange = ship.weapons.length > 0 ? Math.max(...ship.weapons.map(w => w.range)) : 200;
   let bestEnemy: TacticalShip | null = null;
@@ -2340,26 +2743,65 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
     const d = dist(ship.position, enemy.position);
     let score = 0;
 
+    // --- Damage potential gate: can we meaningfully damage this target? ---
+    const dmgAssessment = canMeaningfullyDamage(ship, enemy);
+    score += dmgAssessment.score;
+
     // --- Range factor: prefer enemies within weapon range ---
     if (d <= maxRange) {
-      score += 40; // in range bonus
+      score += 40;
     } else {
-      score -= (d - maxRange) * 0.05; // distance penalty
+      score -= (d - maxRange) * 0.05;
     }
 
-    // --- Opportunity: damaged targets are tempting ---
+    // --- Vulnerability: damaged targets with weakened defences ---
     const hpFraction = enemy.hull / enemy.maxHull;
-    score += (1 - hpFraction) * 30; // low HP = high opportunity
+    score += (1 - hpFraction) * 25; // low HP = high opportunity
     if (enemy.shields <= 0) score += 15; // shields down = vulnerable
+    if (enemy.armour <= 0) score += 10; // armour gone = critical
 
-    // --- Threat: is this enemy shooting at us? ---
+    // --- Threat: is this enemy shooting at us or our carrier? ---
     const isTargetingUs = enemy.order.type === 'attack' &&
       (enemy.order.targetId === ship.id || enemy.order.targetId === ship.sourceShipId);
     if (isTargetingUs) score += 25;
 
-    // --- Size matching: large ships prefer large targets, small prefer small ---
-    // A destroyer shooting at a fighter is wasteful; it should target the cruiser.
-    // A fighter picking on a battleship is brave but ineffective.
+    // Is the enemy targeting a carrier on our side?
+    if (enemy.order.type === 'attack') {
+      const enemyTargetId = enemy.order.targetId;
+      const enemyTarget = allShips.find(s => s.id === enemyTargetId);
+      if (enemyTarget && enemyTarget.side === ship.side &&
+          enemyTarget.weapons.some(w => w.type === 'fighter_bay')) {
+        score += 15; // defending our carrier
+      }
+    }
+
+    // DPS threat estimate: how dangerous is this enemy to us?
+    const enemyThreatDps = estimateDPS(enemy, ship);
+    score += Math.min(20, enemyThreatDps * 3);
+
+    // --- Strategic value: high-value targets ---
+    // Carriers are priority targets (they spawn fighters)
+    if (enemy.weapons.some(w => w.type === 'fighter_bay')) score += 15;
+    // PD ships are priority IF we have missiles
+    if (hasMissiles && enemy.weapons.some(w => w.type === 'point_defense')) score += 10;
+    // ECM ships degrade our accuracy — worth focusing
+    if ((enemy.sensorJamming ?? 0) > 10 || (enemy.evasionBonus ?? 0) > 10) score += 10;
+
+    // --- Focus fire: coordinated attacks on the same target ---
+    const alliesOnTarget = attackTargetCounts.get(enemy.id) ?? 0;
+    if (alliesOnTarget >= 2 && alliesOnTarget <= 3) {
+      score += 20; // good focus fire — pile on
+    } else if (alliesOnTarget >= 4) {
+      score -= 15; // overkill — spread out
+    }
+
+    // --- Fleet coordination bonus from assessFleetSituation ---
+    if (coord) {
+      const focusBonus = coord.focusTargets.get(enemy.id) ?? 0;
+      score += focusBonus;
+    }
+
+    // --- Size matching: ships should fight appropriately-sized targets ---
     const sizeRatio = enemy.maxHull / Math.max(ship.maxHull, 1);
     if (sizeRatio > 0.5 && sizeRatio < 2.0) {
       score += 15; // similar size = ideal matchup
@@ -2369,6 +2811,10 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
       score += 10; // small craft dogfight — appropriate
     } else if (ship.maxHull > 150 && enemy.maxHull < 60) {
       score -= 15; // capital ship wasting firepower on a fighter
+      if (!dmgAssessment.can) score -= 20; // and we can't even damage it efficiently
+    } else if (ship.maxHull < 80 && enemy.maxHull > 300) {
+      // Small ship vs capital — penalise if we cannot damage it
+      if (!dmgAssessment.can) score -= 20;
     }
 
     // --- Stance-specific weighting ---
@@ -2394,14 +2840,12 @@ export function findTarget(ship: TacticalShip, allShips: TacticalShip[]): Tactic
 
     // --- Wing target diversity: fighters in different wings prefer different targets ---
     if (ship.wingId && ship.hullClass === 'fighter') {
-      // Count how many OTHER wings are already attacking this enemy
       const otherWingsOnTarget = allShips.filter(
         s => s.side === ship.side && s.wingId && s.wingId !== ship.wingId &&
              !s.destroyed && !s.routed && s.hullClass === 'fighter' &&
              s.order.type === 'attack' &&
              (s.order.targetId === enemy.id || s.order.targetId === enemy.sourceShipId),
       ).length;
-      // Penalise targets that already have a full wing on them
       if (otherWingsOnTarget >= 3) score -= 25;
       else if (otherWingsOnTarget >= 1) score -= 10;
     }
@@ -2595,26 +3039,25 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   // Small craft threshold — drones, bombers flank instead of charging
   const isSmallCraft = ship.maxHull < 80;
 
+  // Compute engagement range bands for regular ships
+  const range = computeEngagementRange(ship, target);
+
   switch (ship.stance) {
     case 'aggressive': {
       if (isSmallCraft && target.maxHull > ship.maxHull * 2) {
         return smallCraftFlank(updated, ship, target, state, spreadX, spreadY, spreadZ);
       }
-      // Regular ships: close to engagement distance with spread
-      return moveToward(updated, {
-        x: target.position.x + spreadX,
-        y: target.position.y + spreadY,
-        z: target.position.z + spreadZ,
-      }, engageDistance(ship), state.environment, state.ships);
+      // Regular ships: orbit at close range, press attack
+      return orbitTarget(updated, target, range.optimal, state, spreadX, spreadY, spreadZ);
     }
 
     case 'defensive': {
-      // Hold position — only advance if no enemies are in range
       if (d <= maxRange) {
-        // In range — hold and face target
-        return holdAndFace(updated, angleTo(ship.position, target.position));
+        // In range — slow orbit at current distance (maintain spacing, don't charge)
+        const defOrbitRadius = Math.max(range.min, Math.min(d, range.max));
+        return orbitTarget(updated, target, defOrbitRadius, state, 0, 0, 0);
       }
-      // Out of range with explicit attack order — slowly close
+      // Out of range with explicit attack order — close to max range edge
       if (ship.order.type === 'attack') {
         return moveToward(updated, target.position, maxRange * 0.9, state.environment, state.ships);
       }
@@ -2622,12 +3065,28 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
     }
 
     case 'at_ease': {
-      // Captain's judgement — assess the situation before acting.
+      // Captain's judgement — commander threat assessment drives overrides.
       //
-      // Priority 1: Is someone shooting at us? Engage the threat.
-      // Priority 2: Is an ally nearby under fire? Move to assist.
-      // Priority 3: Enemy closing into our range? Face them, weapons ready.
-      // Priority 4: Nothing pressing? Hold position, face nearest enemy.
+      // Commander override: hopeless engagement — disengage
+      if (ship.threatAssessment?.hopeless) {
+        const fleeTarget = ship.side === 'attacker'
+          ? { x: -50, y: -50 }
+          : { x: state.battlefieldWidth + 50, y: state.battlefieldHeight + 50 };
+        return moveToward(updated, fleeTarget, 0, state.environment, state.ships);
+      }
+
+      // Commander override: retreat to allies when situation is dire
+      if (ship.threatAssessment?.shouldRetreat) {
+        const allyForRetreat = state.ships
+          .filter(s => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed)
+          .reduce<TacticalShip | null>((best, s) => {
+            const sd = dist(ship.position, s.position);
+            return (!best || sd < dist(ship.position, best.position)) ? s : best;
+          }, null);
+        if (allyForRetreat) {
+          return moveToward(updated, allyForRetreat.position, 40, state.environment, state.ships);
+        }
+      }
 
       // Check if any enemy is actively targeting us
       const threatToUs = state.ships.find(
@@ -2639,8 +3098,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
       if (threatToUs) {
         const threatDist = dist(ship.position, threatToUs.position);
         if (threatDist <= smartEngageDist * 1.1) {
-          // Threat within engagement range — hold and face them
-          return holdAndFace(updated, angleTo(ship.position, threatToUs.position));
+          // Threat within engagement range — orbit them
+          return orbitTarget(updated, threatToUs, range.optimal, state, spreadX, spreadY, spreadZ);
         }
         // Threat beyond engagement range — close
         return moveToward(updated, threatToUs.position, smartEngageDist, state.environment, state.ships);
@@ -2652,7 +3111,6 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           (s.hull / s.maxHull < 0.4 || s.order.type === 'flee' || s.stance === 'flee'),
       );
       if (weakAllies.length > 0) {
-        // Find the closest weak ally within 2x weapon range
         let wardAlly: TacticalShip | null = null;
         let wardDist = maxRange * 2;
         for (const ally of weakAllies) {
@@ -2660,7 +3118,6 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           if (ad < wardDist) { wardAlly = ally; wardDist = ad; }
         }
         if (wardAlly) {
-          // Find the nearest enemy to that ally
           const enemyToAlly = state.ships
             .filter(s => s.side !== ship.side && !s.destroyed && !s.routed)
             .reduce<TacticalShip | null>((best, e) => {
@@ -2668,7 +3125,6 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
               return (!best || ed < dist(wardAlly!.position, best.position)) ? e : best;
             }, null);
           if (enemyToAlly) {
-            // Position ourselves between the ally and the enemy
             const midX = (wardAlly.position.x + enemyToAlly.position.x) / 2;
             const midY = (wardAlly.position.y + enemyToAlly.position.y) / 2;
             return moveToward(updated, { x: midX, y: midY }, 20, state.environment, state.ships);
@@ -2689,7 +3145,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
           if (ad < closestAllyDist) { closestAlly = ally; closestAllyDist = ad; }
         }
         if (closestAllyDist < maxRange * 2) {
-          return moveToward(updated, closestAlly.position, engageDistance(ship), state.environment, state.ships);
+          // Orbit near ally under fire to provide cover
+          return orbitTarget(updated, closestAlly, range.optimal * 0.5, state, spreadX, spreadY, spreadZ);
         }
       }
 
@@ -2698,14 +3155,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         return smallCraftFlank(updated, ship, target, state, spreadX, spreadY);
       }
 
-      // No immediate threats — if within comfortable engagement range, hold and face
-      // Use smartEngageDist (not maxRange) so we close to where MOST weapons fire
+      // Within engagement range — orbit at smart distance
       if (d <= smartEngageDist * 1.1) {
-        return holdAndFace(updated, angleTo(ship.position, target.position));
+        return orbitTarget(updated, target, range.optimal, state, spreadX, spreadY, spreadZ);
       }
 
-      // Out of comfortable range — close to engagement distance
-      // With an explicit attack order: flank approach
+      // Out of range — close to engagement distance
+      // With an explicit attack order: flank approach then orbit
       if (ship.order.type === 'attack') {
         const angleToTarget = angleTo(ship.position, target.position);
         const flankOffset = ship.id.charCodeAt(0) % 2 === 0 ? 0.4 : -0.4;
@@ -2714,17 +3170,13 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         const flankY = target.position.y - Math.sin(flankAngle) * smartEngageDist;
         return moveToward(updated, { x: flankX, y: flankY }, 10, state.environment, state.ships);
       }
-      return moveToward(updated, {
-        x: target.position.x + spreadX,
-        y: target.position.y + spreadY,
-        z: target.position.z + spreadZ,
-      }, smartEngageDist, state.environment, state.ships);
+      return orbitTarget(updated, target, range.optimal, state, spreadX, spreadY, spreadZ);
     }
 
     case 'evasive': {
-      // Kite — maintain maximum weapon range, stay as far as possible while firing
+      // Kite — orbit at near-max range, retreat if enemies close inside 70%
       if (d < maxRange * 0.7) {
-        // Too close — retreat
+        // Too close — retreat away from target
         const awayX = ship.position.x + (ship.position.x - target.position.x);
         const awayY = ship.position.y + (ship.position.y - target.position.y);
         return moveToward(updated, { x: awayX, y: awayY }, 0, state.environment, state.ships);
@@ -2733,8 +3185,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
         // Too far — close to max range edge
         return moveToward(updated, target.position, maxRange * 0.9, state.environment, state.ships);
       }
-      // In the sweet spot — face target
-      return holdAndFace(updated, angleTo(ship.position, target.position));
+      // In firing band — orbit at near-max range
+      return orbitTarget(updated, target, maxRange * 0.9, state, spreadX, spreadY, spreadZ);
     }
 
     default:
@@ -2939,9 +3391,13 @@ function moveToward(
     }
   }
 
-  // ── Altitude damping: gentle return toward z=0 when not actively evading ──
-  if (Math.abs(ship.position.z) > 20) {
-    newVz -= Math.sign(ship.position.z) * (ship.acceleration ?? ship.speed) * 0.1;
+  // ── Altitude damping: gentle return toward z=0, weakened when under fire ──
+  // Ships taking damage maintain altitude for evasion; undamaged ships settle.
+  const isUnderFire = ship.damageTakenThisTick > 0;
+  const zDampStrength = isUnderFire ? 0.02 : 0.1;
+  const zThreshold = isUnderFire ? 80 : 20;
+  if (Math.abs(ship.position.z) > zThreshold) {
+    newVz -= Math.sign(ship.position.z) * (ship.acceleration ?? ship.speed) * zDampStrength;
   }
 
   // Apply drag (simulates micro-thruster corrections / space friction lite)
@@ -2972,17 +3428,279 @@ function moveToward(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Engagement range bands — replaces single-distance engage logic
+// ---------------------------------------------------------------------------
+
+interface EngagementRange {
+  /** Absolute minimum — never orbit closer than this. */
+  min: number;
+  /** Stance-adjusted sweet spot for orbiting. */
+  optimal: number;
+  /** Longest weapon range — furthest the ship can meaningfully fire. */
+  max: number;
+}
+
+/**
+ * Compute min / optimal / max engagement ranges for a ship against a target.
+ * Stance determines the optimal fraction:
+ *   aggressive=0.6x, defensive=0.85x, at_ease=0.75x, evasive=0.95x.
+ * If the ship outranges the enemy by 20%+, optimal is pushed outside enemy range.
+ */
+function computeEngagementRange(ship: TacticalShip, target: TacticalShip): EngagementRange {
+  const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
+  if (nonPD.length === 0) return { min: 60, optimal: 100, max: 200 };
+
+  const shortestRange = Math.min(...nonPD.map(w => w.range));
+  const longestRange = Math.max(...nonPD.map(w => w.range));
+
+  const min = Math.max(30, shortestRange * 0.3);
+
+  // Stance-based optimal fraction of shortest weapon range
+  const stanceFraction: Record<CombatStance, number> = {
+    aggressive: 0.6,
+    defensive: 0.85,
+    at_ease: 0.75,
+    evasive: 0.95,
+    flee: 0.95,
+  };
+  const fraction = stanceFraction[ship.stance] ?? 0.75;
+  let optimal = shortestRange * fraction;
+
+  // Kite advantage: if we outrange the enemy by 20%+, stay outside their range
+  const enemyNonPD = target.weapons.filter(w => w.type !== 'point_defense');
+  const enemyMaxRange = enemyNonPD.length > 0 ? Math.max(...enemyNonPD.map(w => w.range)) : 0;
+  if (longestRange > enemyMaxRange * 1.2 && enemyMaxRange > 0) {
+    optimal = Math.max(min * fraction, enemyMaxRange * 1.1);
+  }
+
+  // Clamp optimal within [min, longestRange]
+  optimal = Math.max(min, Math.min(longestRange, optimal));
+
+  return { min, optimal, max: longestRange };
+}
+
 /**
  * The distance at which a ship stops approaching its target.
- * 80% of max weapon range, or 100 if the ship has no weapons.
+ * Backward-compatible wrapper — returns the optimal engagement distance.
  */
 function engageDistance(ship: TacticalShip): number {
   if (ship.weapons.length === 0) return 100;
-  // Use the SHORTEST weapon range so ALL weapons can fire, not just the longest-ranged
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
   if (nonPD.length === 0) return 100;
   const minRange = Math.min(...nonPD.map((w) => w.range));
   return minRange * ENGAGE_RANGE_FRACTION;
+}
+
+// ---------------------------------------------------------------------------
+// Orbit direction — biased toward allies, away from flankers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns +1 (counter-clockwise) or -1 (clockwise) orbit direction.
+ * Biases toward allies (orbit brings the ship closer to friendlies) and
+ * away from flanking enemies. Deterministic tiebreak from ship ID.
+ */
+function computeOrbitDirection(
+  ship: TacticalShip,
+  target: TacticalShip,
+  allShips: TacticalShip[],
+): number {
+  const currentAngle = angleTo(target.position, ship.position);
+  let ccwScore = 0; // positive = counter-clockwise is better
+
+  // Bias toward allies: check which direction brings us closer to friendlies
+  const allies = allShips.filter(
+    s => s.side === ship.side && s.id !== ship.id && !s.destroyed && !s.routed,
+  );
+  for (const ally of allies) {
+    const allyAngle = angleTo(target.position, ally.position);
+    const delta = normaliseAngle(allyAngle - currentAngle);
+    // Positive delta = ally is in the CCW direction
+    ccwScore += delta > 0 ? 1 : -1;
+  }
+
+  // Bias away from flanking enemies: enemies in our orbit direction are dangerous
+  const enemies = allShips.filter(
+    s => s.side !== ship.side && s.id !== target.id && !s.destroyed && !s.routed,
+  );
+  for (const enemy of enemies) {
+    const enemyAngle = angleTo(target.position, enemy.position);
+    const delta = normaliseAngle(enemyAngle - currentAngle);
+    // If enemy is CCW from us, orbiting CCW takes us toward them — penalty
+    ccwScore -= delta > 0 ? 1.5 : -1.5;
+  }
+
+  // Deterministic tiebreak from ship ID
+  if (Math.abs(ccwScore) < 0.5) {
+    const idByte = ship.id.charCodeAt(0) + ship.id.charCodeAt(ship.id.length - 1);
+    return idByte % 2 === 0 ? 1 : -1;
+  }
+
+  return ccwScore > 0 ? 1 : -1;
+}
+
+// ---------------------------------------------------------------------------
+// Evasive jink — lateral + vertical displacement under fire
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply evasive jink displacement when a ship is taking damage.
+ * Intensity scales with navigator quality, ship size (smaller = more agile),
+ * and morale. Uses tick-based deterministic seed for consistent per-tick behaviour.
+ *
+ * Returns adjusted goal position offsets { jinkX, jinkY, jinkZ }.
+ */
+function applyJink(
+  ship: TacticalShip,
+  tick: number,
+): { jinkX: number; jinkY: number; jinkZ: number } {
+  if (ship.damageTakenThisTick <= 0) return { jinkX: 0, jinkY: 0, jinkZ: 0 };
+
+  // Navigator quality determines jink effectiveness (0-1 range)
+  const navQuality = ship.stations?.navigator?.quality ?? 50;
+  const navEff = ship.stations?.navigator?.effectiveness ?? 1.0;
+  const navFactor = (navQuality / 100) * navEff;
+
+  // Ship size factor: smaller ships jink more aggressively
+  // maxHull < 80 = small, < 300 = medium, >= 300 = capital
+  const sizeFactor = ship.maxHull < 80
+    ? 1.5
+    : ship.maxHull < 300
+      ? 1.0
+      : Math.max(0.3, 1.0 - (ship.maxHull - 300) / 1000);
+
+  // Morale factor: panicking crews jink erratically (less effective)
+  const moraleFactor = ship.crew.morale > 50
+    ? 1.0
+    : 0.5 + (ship.crew.morale / 50) * 0.5;
+
+  // Base intensity: 15-40 units of displacement
+  const intensity = (15 + navFactor * 25) * sizeFactor * moraleFactor;
+
+  // Deterministic per-tick seed from ship ID + tick
+  // Changes every 3-5 ticks for smoother jinking, not per-frame
+  const jinkPeriod = 3 + (ship.id.charCodeAt(0) % 3); // 3, 4, or 5 ticks per jink
+  const jinkSeed = Math.floor(tick / jinkPeriod);
+  const idHash = ship.id.charCodeAt(0) * 31 + ship.id.charCodeAt(ship.id.length - 1) * 17;
+
+  // Pseudo-random from seed (deterministic, not Math.random)
+  const hash1 = ((jinkSeed * 1103515245 + idHash + 12345) & 0x7fffffff) / 0x7fffffff;
+  const hash2 = ((jinkSeed * 214013 + idHash + 2531011) & 0x7fffffff) / 0x7fffffff;
+  const hash3 = ((jinkSeed * 16807 + idHash + 127773) & 0x7fffffff) / 0x7fffffff;
+
+  const jinkX = (hash1 * 2 - 1) * intensity;
+  const jinkY = (hash2 * 2 - 1) * intensity;
+  // Z-axis jink is smaller but still meaningful for vertical escape
+  const jinkZ = (hash3 * 2 - 1) * intensity * 0.6;
+
+  return { jinkX, jinkY, jinkZ };
+}
+
+// ---------------------------------------------------------------------------
+// orbitTarget — capital ship orbiting manoeuvre (ships NEVER stop)
+// ---------------------------------------------------------------------------
+
+/**
+ * Core manoeuvring function: ships orbit their target at engagement distance.
+ * Capital ships never stop — they maintain 30-50% speed while circling.
+ *
+ * Behaviour:
+ * - Computes orbit point ahead on a circle around the target
+ * - Orbit direction biased toward allies, away from flankers
+ * - Navigator quality affects orbit smoothness
+ * - Too far (> 1.5x radius): spiral approach inward
+ * - Too close (< 0.6x radius): push outward
+ * - Taking damage: apply jink (random lateral + vertical perturbation)
+ */
+function orbitTarget(
+  ship: TacticalShip,
+  target: TacticalShip,
+  orbitRadius: number,
+  state: TacticalState,
+  spreadX: number,
+  spreadY: number,
+  spreadZ: number,
+): TacticalShip {
+  const d = dist(ship.position, target.position);
+
+  // Navigator quality affects orbit smoothness
+  const navQuality = ship.stations?.navigator?.quality ?? 50;
+  const navEff = ship.stations?.navigator?.effectiveness ?? 1.0;
+  const navSmooth = 0.5 + (navQuality / 100) * navEff * 0.5; // 0.5-1.0
+
+  // Current angle from target to ship
+  const currentAngle = angleTo(target.position, ship.position);
+
+  // Orbit direction: toward allies, away from flankers
+  const orbitDir = computeOrbitDirection(ship, target, state.ships);
+
+  // Advance rate: base + speed-scaled + navigator effectiveness
+  const advanceRate = 0.03 + (ship.speed / 80) * navEff;
+
+  // Store / update orbit phase for continuity between ticks
+  const prevPhase = ship.orbitPhase ?? currentAngle;
+  const newPhase = prevPhase + orbitDir * advanceRate;
+
+  // Lead angle: look ahead on the orbit circle
+  const leadTicks = 8 * navSmooth;
+  const leadAngle = newPhase + orbitDir * advanceRate * leadTicks;
+
+  let goalX: number;
+  let goalY: number;
+  let goalZ: number;
+
+  if (d > orbitRadius * 1.5) {
+    // ── Spiral approach: closing + orbiting simultaneously ──
+    // Blend between direct approach and orbit lead angle
+    const directAngle = angleTo(ship.position, target.position);
+    // Higher blend toward orbit as we get closer
+    const orbitBlend = Math.max(0.2, 1 - (d - orbitRadius) / (orbitRadius * 2));
+    const blendedAngle = Math.atan2(
+      Math.sin(directAngle) * (1 - orbitBlend) + Math.sin(leadAngle + Math.PI) * orbitBlend,
+      Math.cos(directAngle) * (1 - orbitBlend) + Math.cos(leadAngle + Math.PI) * orbitBlend,
+    );
+    // Goal is partway between current position and orbit point
+    const closingRadius = d * 0.7; // close 30% of remaining distance per cycle
+    goalX = ship.position.x + Math.cos(blendedAngle) * Math.min(closingRadius, ship.speed * 3);
+    goalY = ship.position.y + Math.sin(blendedAngle) * Math.min(closingRadius, ship.speed * 3);
+    goalZ = target.position.z;
+  } else if (d < orbitRadius * 0.6) {
+    // ── Too close: push outward ──
+    // Move away from target to reach orbit band
+    const awayAngle = angleTo(target.position, ship.position);
+    const pushAngle = awayAngle + orbitDir * 0.3; // slight orbit while pushing out
+    goalX = target.position.x + Math.cos(pushAngle) * orbitRadius;
+    goalY = target.position.y + Math.sin(pushAngle) * orbitRadius;
+    goalZ = target.position.z;
+  } else {
+    // ── In orbit band: continue circling ──
+    goalX = target.position.x + Math.cos(leadAngle) * orbitRadius;
+    goalY = target.position.y + Math.sin(leadAngle) * orbitRadius;
+    goalZ = target.position.z;
+  }
+
+  // Apply anti-bunching spread
+  goalX += spreadX;
+  goalY += spreadY;
+  goalZ += spreadZ;
+
+  // Apply jink if taking damage
+  const jink = applyJink(ship, state.tick);
+  goalX += jink.jinkX;
+  goalY += jink.jinkY;
+  goalZ += jink.jinkZ;
+
+  // Move toward the orbit goal — minDist=0 so the ship never stops
+  const moved = moveToward(
+    { ...ship, orbitPhase: newPhase },
+    { x: goalX, y: goalY, z: goalZ },
+    0,
+    state.environment,
+    state.ships,
+  );
+
+  return { ...moved, orbitPhase: newPhase };
 }
 
 // ---------------------------------------------------------------------------
@@ -3183,12 +3901,61 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     // Reset per-tick damage counter (used by defensive stance)
     const reset = { ...ship, damageTakenThisTick: 0 };
     if (reset.destroyed || reset.routed || reset.maxShields <= 0) return reset;
+    // Shield operator quality modulates recharge rate (0.8x-1.2x).
+    const soQuality = ship.stations?.shieldOperator?.quality ?? 50;
+    const soEff = ship.stations?.shieldOperator?.effectiveness ?? 1.0;
+    const rechargeBonus = (0.8 + (soQuality / 100) * 0.4) * soEff;
     const recharged = Math.min(
       ship.maxShields,
-      ship.shields + ship.maxShields * SHIELD_RECHARGE_FRACTION,
+      ship.shields + ship.maxShields * SHIELD_RECHARGE_FRACTION * rechargeBonus,
     );
-    return recharged !== ship.shields ? { ...ship, shields: recharged } : ship;
+    return recharged !== ship.shields ? { ...ship, shields: recharged, damageTakenThisTick: 0 } : reset;
   });
+
+  // 1c2. Update crew station effectiveness
+  ships = ships.map(s => updateStationEffectiveness(s));
+
+  // 1c3. Damage control — passive hull repair from DC station
+  ships = ships.map((ship) => {
+    if (ship.destroyed || ship.routed || !ship.stations?.damageControl) return ship;
+    const dc = ship.stations.damageControl;
+    const repairAmount = ((ship.repairRate ?? 0) + (dc.quality / 100) * 2) * dc.effectiveness;
+    if (repairAmount <= 0 || ship.hull >= ship.maxHull) return ship;
+    return { ...ship, hull: Math.min(ship.maxHull, ship.hull + repairAmount) };
+  });
+
+  // 1c4. Commander threat assessment (every 5 ticks)
+  if (state.tick % 5 === 0) {
+    ships = ships.map((ship) => {
+      if (ship.destroyed || ship.routed || ship.unmanned) return ship;
+      return { ...ship, threatAssessment: assessThreats(ship, ships, state.tick) };
+    });
+  }
+
+  // 1c5. Fleet coordination assessment (once per side, every 5 ticks)
+  if (state.tick % 5 === 0) {
+    _currentCoordination = {
+      attacker: assessFleetSituation(ships, 'attacker'),
+      defender: assessFleetSituation(ships, 'defender'),
+    };
+  }
+
+  // 1c6. Target re-evaluation (every 10 ticks)
+  if (state.tick % 10 === 0 && state.tick > 0) {
+    ships = ships.map(ship => {
+      if (ship.destroyed || ship.routed || !ship.engagedTargetId) return ship;
+      const window = ship.damageDealtWindow ?? [];
+      const totalDealt = window.reduce((s, v) => s + v, 0);
+      const target = ships.find(s => s.id === ship.engagedTargetId && !s.destroyed);
+      if (!target) return { ...ship, engagedTargetId: undefined, damageDealtWindow: [] };
+      const targetHP = target.hull + target.shields + target.armour;
+      // If dealing less than 2% of the target's HP over a 20-tick window, disengage
+      if (targetHP > 0 && totalDealt / targetHP < 0.02 && window.length >= 20) {
+        return { ...ship, engagedTargetId: undefined, damageDealtWindow: [], order: { type: 'idle' as const } };
+      }
+      return ship;
+    });
+  }
 
   // 1d. Debris damage — ships inside debris fields take tick damage
   ships = ships.map((ship) => {
@@ -3317,114 +4084,62 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     });
   }
 
-  // 3. Move projectiles and check for hits (with friendly fire + asteroid intercept)
+  // 3. Move projectiles — ballistic flight (straight line, no tracking)
+  //    Hit detection checks ALL non-source ships along the flight path.
   const hitRadius = 12;
   const survivingProjectiles: Projectile[] = [];
+  const halfDepth = (state.battlefieldDepth ?? 400) / 2;
 
   for (const proj of state.projectiles) {
-    const target = ships.find((s) => s.id === proj.targetShipId || s.sourceShipId === proj.targetShipId);
+    // All projectiles fly straight using pre-computed dx/dy/dz — no target tracking
+    const newPos = {
+      x: proj.position.x + proj.dx,
+      y: proj.position.y + proj.dy,
+      z: proj.position.z + proj.dz,
+    };
 
-    // If target is gone, projectile continues in its direction (pool ball)
-    // and hits the first ship in its path
-    if (target == null || target.destroyed || target.routed) {
-      // Continue moving in current direction (3D: use pitch for z-axis)
-      const facing = Math.atan2(
-        (proj as unknown as Record<string, number>).prevDy ?? 0,
-        (proj as unknown as Record<string, number>).prevDx ?? 1,
-      );
-      const cosPitchP = Math.cos(proj.pitch);
-      const newX = proj.position.x + Math.cos(facing) * cosPitchP * proj.speed;
-      const newY = proj.position.y + Math.sin(facing) * cosPitchP * proj.speed;
-      const newZ = proj.position.z + Math.sin(proj.pitch) * proj.speed;
-
-      // Check if it hits any ship in its path
-      let hitSomeone = false;
-      for (const s of ships) {
-        if (s.id === proj.sourceShipId || s.destroyed || s.routed) continue;
-        const d = dist({ x: newX, y: newY, z: newZ }, s.position);
-        if (d < hitRadius + proj.speed) {
-          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
-          hitSomeone = true;
-          break;
-        }
-      }
-
-      // If off the battlefield, discard (check all 3 axes)
-      const halfDepth = (state.battlefieldDepth ?? 400) / 2;
-      if (!hitSomeone &&
-          newX >= -50 && newX <= state.battlefieldWidth + 50 &&
-          newY >= -50 && newY <= state.battlefieldHeight + 50 &&
-          newZ >= -halfDepth - 50 && newZ <= halfDepth + 50) {
-        survivingProjectiles.push({ ...proj, position: { x: newX, y: newY, z: newZ } });
-      }
+    // Off-battlefield check (all 3 axes) — discard if out of bounds
+    if (newPos.x < -50 || newPos.x > state.battlefieldWidth + 50 ||
+        newPos.y < -50 || newPos.y > state.battlefieldHeight + 50 ||
+        newPos.z < -halfDepth - 50 || newPos.z > halfDepth + 50) {
       continue;
     }
 
-    const d = dist(proj.position, target.position);
-    if (d <= hitRadius + proj.speed) {
-      // Asteroid cover: target inside asteroid gets dodge bonus
-      const inAsteroid = isInsideFeature(
-        target.position.x, target.position.y, newEnvironment, 'asteroid',
+    // Hit detection: check ALL non-source ships using segment distance
+    let hitShip = false;
+    for (const s of ships) {
+      if (s.id === proj.sourceShipId || s.destroyed || s.routed) continue;
+      const perpDist = pointToSegmentDistance(
+        s.position.x, s.position.y, s.position.z,
+        proj.position.x, proj.position.y, proj.position.z,
+        newPos.x, newPos.y, newPos.z,
       );
-      if (inAsteroid && Math.random() < ASTEROID_DODGE_BONUS) {
-        continue; // dodged — projectile consumed but no damage
-      }
-
-      ships = ships.map((s) => {
-        if (s !== target) return s;
-        return applyDamage(s, proj.damage, 'kinetic');
-      });
-    } else {
-      const angle = angleTo(proj.position, target.position);
-      // 3D projectile tracking: compute pitch toward target
-      const projHorizDist = Math.sqrt(
-        (target.position.x - proj.position.x) ** 2 + (target.position.y - proj.position.y) ** 2,
-      );
-      const projPitch = projHorizDist > 1
-        ? Math.atan2(target.position.z - proj.position.z, projHorizDist)
-        : proj.pitch;
-      const cosPitchT = Math.cos(projPitch);
-      const newPos = {
-        x: proj.position.x + Math.cos(angle) * cosPitchT * proj.speed,
-        y: proj.position.y + Math.sin(angle) * cosPitchT * proj.speed,
-        z: proj.position.z + Math.sin(projPitch) * proj.speed,
-      };
-
-      // Collateral damage — any non-target ship in the projectile's path
-      // gets hit. A stream of bullets doesn't care who walks into it.
-      // Uses 3D pointToSegmentDistance for accurate detection.
-      let collateralConsumed = false;
-      for (const s of ships) {
-        if (s.id === proj.sourceShipId || s.id === target.id || s.destroyed || s.routed) continue;
-        const perpDist = pointToSegmentDistance(
-          s.position.x, s.position.y, s.position.z,
-          proj.position.x, proj.position.y, proj.position.z,
-          newPos.x, newPos.y, newPos.z,
+      if (perpDist < hitRadius) {
+        // Asteroid cover: target inside asteroid gets dodge bonus
+        const inAsteroid = isInsideFeature(
+          s.position.x, s.position.y, newEnvironment, 'asteroid',
         );
-        if (perpDist < hitRadius) {
-          ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
-          collateralConsumed = true;
-          break; // projectile consumed by collateral hit
+        if (inAsteroid && Math.random() < ASTEROID_DODGE_BONUS) {
+          continue; // dodged — projectile still consumed
         }
+        ships = ships.map((sh) => (sh.id === s.id ? applyDamage(sh, proj.damage, 'kinetic') : sh));
+        hitShip = true;
+        break; // projectile consumed by hit
       }
-      if (collateralConsumed) continue;
-
-      // Asteroid intercept: projectile passes through asteroid field
-      const asteroidHit = segmentPassesThroughFeature(
-        proj.position.x, proj.position.y,
-        newPos.x, newPos.y,
-        newEnvironment, 'asteroid',
-      );
-      if (asteroidHit != null && Math.random() < ASTEROID_INTERCEPT_CHANCE) {
-        continue; // absorbed by asteroid
-      }
-
-      survivingProjectiles.push({
-        ...proj,
-        position: newPos,
-        pitch: projPitch,
-      });
     }
+    if (hitShip) continue;
+
+    // Asteroid intercept: projectile passing through asteroid field
+    const asteroidHit = segmentPassesThroughFeature(
+      proj.position.x, proj.position.y,
+      newPos.x, newPos.y,
+      newEnvironment, 'asteroid',
+    );
+    if (asteroidHit != null && Math.random() < ASTEROID_INTERCEPT_CHANCE) {
+      continue; // absorbed by asteroid
+    }
+
+    survivingProjectiles.push({ ...proj, position: newPos });
   }
 
   // 3b. Move missiles — accelerate, track target, check hits, friendly fire
@@ -3772,21 +4487,71 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       }
 
       // Each weapon independently picks the best available target in its
-      // arc and range. The primary target gets a bonus but a closer target
-      // passing through the arc is always preferred over waiting.
+      // arc and range, using weapon-type-specific scoring.
       let weaponTarget: TacticalShip | null = null;
       let weaponD = Infinity;
-      let bestScore = -Infinity;
+      let bestWeaponScore = -Infinity;
+      const wDmgType = weaponDamageType(weapon.type);
+      const ammoFraction = (weapon.ammo !== undefined && weapon.maxAmmo !== undefined && weapon.maxAmmo > 0)
+        ? weapon.ammo / weapon.maxAmmo
+        : 1.0;
+
       for (const enemy of ships) {
         if (enemy.side === ship.side || enemy.destroyed || enemy.routed) continue;
         const ed = dist(ship.position, enemy.position);
         if (ed > weapon.range) continue;
         if (!isInWeaponArc(ship, enemy, weapon)) continue;
-        // Score: proximity + damage opportunity + primary target bonus
-        let score = (weapon.range - ed) + (1 - enemy.hull / enemy.maxHull) * 20;
-        if (enemy.id === target.id) score += 15; // prefer the ship's primary target
-        if (score > bestScore) { bestScore = score; weaponTarget = enemy; weaponD = ed; }
+
+        let wScore = 0;
+
+        // Proximity: closer targets are more attractive
+        wScore += ((weapon.range - ed) / weapon.range) * 15;
+
+        // Opportunity: damaged targets are easier to finish
+        wScore += (1 - enemy.hull / enemy.maxHull) * 20;
+
+        // Primary target bonus
+        if (enemy.id === target.id) wScore += 15;
+
+        // Weapon type effectiveness vs shield — prefer targets our weapon is good against
+        const enemyShieldAge = enemy.shieldAge ?? 'nano_atomic';
+        const shieldEff = SHIELD_EFFECTIVENESS[enemyShieldAge]?.[wDmgType] ?? 0.5;
+        // Lower shield effectiveness = our damage type is stronger vs this shield
+        if (enemy.shields > 0) {
+          wScore += (1 - shieldEff) * 15; // up to +15 for shields weak to our type
+        }
+
+        // Overkill avoidance: if target is nearly dead and taking heavy fire, don't waste shots
+        if (enemy.damageTakenThisTick > 0 && enemy.id !== target.id) {
+          const projectedHP = enemy.hull - enemy.damageTakenThisTick * weapon.cooldownMax;
+          if (projectedHP <= 0) wScore -= 20;
+        }
+
+        // Missile-specific: PD ships and high missile deflection are bad targets
+        if (weapon.type === 'missile') {
+          const targetHasPD = enemy.weapons.some(w => w.type === 'point_defense');
+          if (targetHasPD) wScore -= 15;
+          if ((enemy.missileDeflection ?? 0) > 30) wScore -= 10;
+        }
+
+        // Ammo conservation: save scarce ammo for the primary target
+        if (ammoFraction < 0.2 && enemy.id !== target.id) {
+          wScore -= 15;
+        }
+
+        if (wScore > bestWeaponScore) {
+          bestWeaponScore = wScore;
+          weaponTarget = enemy;
+          weaponD = ed;
+        }
       }
+
+      // Hold fire: if best score is poor and ammo is limited, save it
+      if (bestWeaponScore < -10 && ammoFraction < 0.5) {
+        updatedWeapons.push({ ...weapon, cooldownLeft: Math.max(0, weapon.cooldownLeft - 1) });
+        continue;
+      }
+
       if (weaponTarget == null) {
         updatedWeapons.push(weapon);
         continue;
@@ -3798,37 +4563,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
-      // Determine if the shot hits or misses — but ALWAYS fire the weapon.
-      // Misses create physical projectiles that fly off-target and can hit bystanders.
-      let shotHits = true;
-      if (weapon.type !== 'fighter_bay') {
-        // Evasion check — speed, size, AND ECM evasionBonus
-        const isMoving = weaponTarget.order.type !== 'idle' || weaponTarget.stance === 'at_ease' || weaponTarget.stance === 'evasive';
-        if (isMoving) {
-          const speedFactor = weaponTarget.speed / 5;
-          const sizeFactor = weaponTarget.maxHull < 60 ? 0.3 : weaponTarget.maxHull < 200 ? 0.15 : weaponTarget.maxHull < 400 ? 0.05 : 0;
-          // ECM evasionBonus adds directly to evasion chance (10 bonus = +10%)
-          const ecmFactor = (weaponTarget.evasionBonus ?? 0) / 100;
-          const evasionChance = Math.min(0.6, speedFactor * 0.1 + sizeFactor + ecmFactor);
-          if (Math.random() < evasionChance) shotHits = false;
-        }
-        // Accuracy roll — ECM sensorJamming reduces effective accuracy
-        if (shotHits) {
-          const EXP_ACCURACY: Record<CrewExperience, number> = {
-            recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
-            veteran: 1.10, hardened: 1.15, elite: 1.20, ace: 1.25, legendary: 1.30,
-          };
-          const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
-          const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
-          // Target's sensor jamming degrades the attacker's targeting solution
-          const jammingPenalty = Math.max(0, 1 - (weaponTarget.sensorJamming ?? 0) / 200);
-          const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod * jammingPenalty;
-          if (Math.random() * 100 > effectiveAccuracy) shotHits = false;
-        }
-      }
-
-      // Fire! Missed shots still create projectiles — they fly off-target
-      // and can hit anyone in their path (stray bullets are dangerous).
+      // Fire! Weapon type determines firing behaviour.
       if (weapon.type === 'fighter_bay') {
         // Launch fighters — ammo is fighter count
         const fighterCount = weapon.ammo ?? 0;
@@ -3864,6 +4599,43 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       const newAmmo = weapon.ammo !== undefined ? weapon.ammo - 1 : undefined;
 
       if (weapon.type === 'beam') {
+        // --- Beam accuracy: dice-roll hit/miss (kept for beams only) ---
+        let shotHits = true;
+        // Fix: use actual velocity magnitude instead of stance/order check
+        const tv = weaponTarget.velocity;
+        const targetSpeed = Math.sqrt(tv.x * tv.x + tv.y * tv.y + tv.z * tv.z);
+        const isMoving = targetSpeed > 0.5;
+        if (isMoving) {
+          const speedFactor = targetSpeed / 5;
+          const sizeFactor = weaponTarget.maxHull < 60 ? 0.3 : weaponTarget.maxHull < 200 ? 0.15 : weaponTarget.maxHull < 400 ? 0.05 : 0;
+          // ECM evasionBonus adds directly to evasion chance (10 bonus = +10%)
+          const ecmFactor = (weaponTarget.evasionBonus ?? 0) / 100;
+          // Lateral movement bonus: perpendicular motion to attacker is harder to hit
+          const toTargetAngle = angleTo(ship.position, weaponTarget.position);
+          const targetMoveAngle = Math.atan2(tv.y, tv.x);
+          const angleDiff = Math.abs(normaliseAngle(targetMoveAngle - toTargetAngle));
+          const lateralFraction = Math.sin(angleDiff); // 0 = head-on, 1 = perpendicular
+          const lateralBonus = lateralFraction * 0.10;
+          // Z-axis evasion bonus: vertical displacement is harder to track
+          const zSpeed = Math.abs(tv.z);
+          const zBonus = Math.min(0.08, zSpeed * 0.02);
+          const evasionChance = Math.min(0.6, speedFactor * 0.1 + sizeFactor + ecmFactor + lateralBonus + zBonus);
+          if (Math.random() < evasionChance) shotHits = false;
+        }
+        // Accuracy roll — ECM sensorJamming reduces effective accuracy
+        if (shotHits) {
+          const EXP_ACCURACY: Record<CrewExperience, number> = {
+            recruit: 0.80, trained: 0.90, regular: 1.0, seasoned: 1.05,
+            veteran: 1.10, hardened: 1.15, elite: 1.20, ace: 1.25, legendary: 1.30,
+          };
+          const expAccuracyMod = EXP_ACCURACY[ship.crew.experience] ?? 1.0;
+          const moraleMod = ship.crew.morale < 30 ? 0.7 : 1.0;
+          // Target's sensor jamming degrades the attacker's targeting solution
+          const jammingPenalty = Math.max(0, 1 - (weaponTarget.sensorJamming ?? 0) / 200);
+          const effectiveAccuracy = weapon.accuracy * expAccuracyMod * moraleMod * jammingPenalty;
+          if (Math.random() * 100 > effectiveAccuracy) shotHits = false;
+        }
+
         let beamDamage = weapon.damage;
 
         // Range falloff: damage reduces linearly past 60% of max range (down to 30% at max range)
@@ -3932,31 +4704,58 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           });
         }
       } else {
-        // Projectile — missed shots still fly, just not toward the target.
-        // They travel in the fired direction and can hit bystanders.
-        const fireAngle = angleTo(ship.position, weaponTarget.position);
-        const scatter = shotHits ? 0 : (Math.random() - 0.5) * 0.3; // ±~9° scatter on miss
-        // Compute initial pitch toward target for 3D projectile flight
-        const projHoriz = Math.sqrt(
-          (weaponTarget.position.x - ship.position.x) ** 2 +
-          (weaponTarget.position.y - ship.position.y) ** 2,
+        // --- Ballistic projectile burst fire ---
+        // Compute accuracy cone and lead angle, then fire a burst of projectiles
+        // with spread. Whether they hit is determined by physics (proximity during
+        // flight), not a dice roll.
+        const burstCount = PROJECTILE_BURST_COUNT[weapon.componentId] ?? DEFAULT_BURST_COUNT;
+        const perRoundDamage = weapon.damage / burstCount;
+
+        // Target velocity for lead calculation
+        const tgtVel = weaponTarget.velocity;
+        const targetSpeed = Math.sqrt(tgtVel.x * tgtVel.x + tgtVel.y * tgtVel.y + tgtVel.z * tgtVel.z);
+
+        // Own movement speed
+        const ownVel = ship.velocity;
+        const ownSpeed = Math.sqrt(ownVel.x * ownVel.x + ownVel.y * ownVel.y + ownVel.z * ownVel.z);
+
+        // Compute accuracy cone half-angle
+        const coneHalfAngle = computeAccuracyCone(
+          weapon, weaponD, targetSpeed, weaponTarget.maxHull,
+          ownSpeed, ship.crew, weaponTarget.sensorJamming ?? 0,
         );
-        const initPitch = projHoriz > 1
-          ? Math.atan2(weaponTarget.position.z - ship.position.z, projHoriz)
-          : 0;
-        newProjectiles.push({
-          id: generateId(),
-          position: { ...ship.position },
-          speed: PROJECTILE_SPEED,
-          damage: weapon.damage,
-          sourceShipId: ship.id,
-          // Missed shots get a dummy target so they fly straight (not tracking)
-          targetShipId: shotHits ? weaponTarget.id : '__stray__',
-          componentId: weapon.componentId,
-          pitch: initPitch,
-          // Store the fired direction for stray projectile movement
-          ...(shotHits ? {} : { prevDx: Math.cos(fireAngle + scatter), prevDy: Math.sin(fireAngle + scatter) }),
-        } as Projectile);
+
+        // Compute lead angle (where the target will be)
+        const lead = computeLeadAngle(
+          ship.position, weaponTarget.position, tgtVel,
+          PROJECTILE_SPEED, ship.crew,
+        );
+
+        for (let bi = 0; bi < burstCount; bi++) {
+          // Random spread within the accuracy cone (2D angle + pitch)
+          const spreadAngle = lead.angle + (Math.random() - 0.5) * 2 * coneHalfAngle;
+          const spreadPitch = lead.pitch + (Math.random() - 0.5) * 2 * coneHalfAngle;
+
+          // Pre-compute velocity components (fixed for the lifetime of the projectile)
+          const cosPitch = Math.cos(spreadPitch);
+          const pdx = Math.cos(spreadAngle) * cosPitch * PROJECTILE_SPEED;
+          const pdy = Math.sin(spreadAngle) * cosPitch * PROJECTILE_SPEED;
+          const pdz = Math.sin(spreadPitch) * PROJECTILE_SPEED;
+
+          newProjectiles.push({
+            id: generateId(),
+            position: { ...ship.position },
+            speed: PROJECTILE_SPEED,
+            damage: perRoundDamage,
+            sourceShipId: ship.id,
+            componentId: weapon.componentId,
+            angle: spreadAngle,
+            pitch: spreadPitch,
+            dx: pdx,
+            dy: pdy,
+            dz: pdz,
+          });
+        }
       }
 
       // Reset cooldown and decrement ammo
@@ -4102,6 +4901,18 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     };
     const resilienceBonus = EXP_RESILIENCE[ship.crew.experience] ?? 0;
     morale += resilienceBonus;
+
+    // Commander leadership bonus — quality above 50 boosts morale, below 50 drains it.
+    const cmdStation = ship.stations?.commander;
+    if (cmdStation) {
+      const leadershipMod = (cmdStation.quality - 50) / 500;
+      morale += leadershipMod * cmdStation.effectiveness;
+    }
+
+    // Morale recovery from crew support components (chaplain, counsellor, etc.)
+    if (ship.moraleRecovery && ship.moraleRecovery > 0) {
+      morale += ship.moraleRecovery * 0.01;
+    }
 
     // Fighter pilot courage — small manned craft pilots are the bravest.
     // They volunteered for this; they don't break as easily as capital ship crews.
@@ -4334,6 +5145,171 @@ export function applyDamage(
     position: { ...ship.position },
     weapons: ship.weapons.map((w) => ({ ...w })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Targeting AI utilities — damage estimation and fleet coordination
+// ---------------------------------------------------------------------------
+
+/**
+ * Map weapon type to damage category for shield effectiveness lookup.
+ */
+function weaponDamageType(wType: string): DamageType {
+  switch (wType) {
+    case 'beam': return 'beam';
+    case 'projectile': return 'kinetic';
+    case 'missile': return 'explosive';
+    case 'fighter_bay': return 'energy';
+    default: return 'kinetic';
+  }
+}
+
+/**
+ * Estimate DPS that `ship` can deal to `target`, accounting for
+ * shield effectiveness, accuracy, and armour absorption.
+ */
+function estimateDPS(ship: TacticalShip, target: TacticalShip): number {
+  let totalDps = 0;
+  const maxRange = ship.weapons.length > 0
+    ? Math.max(...ship.weapons.map(w => w.range))
+    : 200;
+  const d = dist(ship.position, target.position);
+
+  for (const w of ship.weapons) {
+    // Skip point defence — it does not contribute to target damage
+    if (w.type === 'point_defense') continue;
+    // Only count weapons that can reach the target (with 20% leeway for closure)
+    if (d > w.range * 1.2) continue;
+
+    const baseDps = w.damage / Math.max(1, w.cooldownMax);
+
+    // Shield effectiveness reduction
+    const dmgType = weaponDamageType(w.type);
+    const shieldAge = target.shieldAge ?? 'nano_atomic';
+    const shieldEff = SHIELD_EFFECTIVENESS[shieldAge]?.[dmgType] ?? 0.5;
+    const shieldFactor = target.shields > 0 ? (1 - shieldEff * 0.6) : 1.0;
+
+    // Accuracy factor — rough estimate based on weapon accuracy
+    const accFactor = Math.max(0.2, w.accuracy / 100);
+
+    // Armour absorption reduction (25% absorbed if armour remains)
+    const armourFactor = target.armour > 0 ? (1 - ARMOUR_ABSORPTION_FRACTION) : 1.0;
+
+    totalDps += baseDps * shieldFactor * accFactor * armourFactor;
+  }
+
+  return totalDps;
+}
+
+/**
+ * Estimate whether `ship` can meaningfully damage `target` over 30 ticks.
+ * Returns a graduated score: -100 (hopeless) to +10 (highly effective).
+ */
+function canMeaningfullyDamage(
+  ship: TacticalShip,
+  target: TacticalShip,
+): { can: boolean; score: number } {
+  const dps = estimateDPS(ship, target);
+  const estimatedDamage = dps * 30;
+  const targetTotalHP = target.hull + target.shields + target.armour;
+
+  if (targetTotalHP <= 0) return { can: true, score: 10 };
+
+  const damageFraction = estimatedDamage / targetTotalHP;
+
+  if (damageFraction < 0.05) {
+    // Cannot meaningfully damage this target — graduated penalty
+    // 0% => -100, 2.5% => -50, 4.9% => ~-2
+    const penalty = -100 + (damageFraction / 0.05) * 100;
+    return { can: false, score: Math.min(-2, penalty) };
+  }
+
+  // Graduated positive score: 5% => 0, 50%+ => +10
+  const bonus = Math.min(10, (damageFraction - 0.05) / 0.45 * 10);
+  return { can: true, score: bonus };
+}
+
+/**
+ * Assess the overall fleet situation for one side. Computes power ratios,
+ * identifies focus fire targets, and flags allies that need support.
+ */
+function assessFleetSituation(
+  allShips: TacticalShip[],
+  side: 'attacker' | 'defender',
+): FleetCoordination {
+  const allies = allShips.filter(
+    s => s.side === side && !s.destroyed && !s.routed,
+  );
+  const enemies = allShips.filter(
+    s => s.side !== side && !s.destroyed && !s.routed,
+  );
+
+  // Power ratio (hull-based)
+  const allyPower = allies.reduce((n, s) => n + s.maxHull, 0);
+  const enemyPower = enemies.reduce((n, s) => n + s.maxHull, 0);
+  const powerRatio = enemyPower > 0 ? allyPower / enemyPower : 10;
+
+  // DPS ratio
+  const allyDps = allies.reduce((n, s) => {
+    return n + s.weapons
+      .filter(w => w.type !== 'point_defense')
+      .reduce((d, w) => d + w.damage / Math.max(1, w.cooldownMax), 0);
+  }, 0);
+  const enemyDps = enemies.reduce((n, s) => {
+    return n + s.weapons
+      .filter(w => w.type !== 'point_defense')
+      .reduce((d, w) => d + w.damage / Math.max(1, w.cooldownMax), 0);
+  }, 0);
+  const dpsRatio = enemyDps > 0 ? allyDps / enemyDps : 10;
+
+  // Determine situation
+  let situation: FleetCoordination['situation'];
+  if (powerRatio < 0.5 && dpsRatio < 0.5) situation = 'losing';
+  else if (enemies.length > allies.length * 1.5) situation = 'outnumbered';
+  else if (dpsRatio < 0.6) situation = 'outgunned';
+  else if (powerRatio > 1.5 && dpsRatio > 1.2) situation = 'winning';
+  else situation = 'even';
+
+  // Focus fire targets: count how many allies are attacking each enemy
+  const attackCounts = new Map<string, number>();
+  for (const ally of allies) {
+    if (ally.order.type === 'attack') {
+      const tid = ally.order.targetId;
+      attackCounts.set(tid, (attackCounts.get(tid) ?? 0) + 1);
+    }
+  }
+
+  // The most-attacked enemies get a coordination bonus — encourage focus fire
+  const focusTargets = new Map<string, number>();
+  for (const [targetId, count] of attackCounts) {
+    if (count >= 2) {
+      // Bonus scales: 2 attackers = +10, 3 = +20, 4+ = +25 (cap)
+      const bonus = Math.min(25, (count - 1) * 10);
+      focusTargets.set(targetId, bonus);
+    }
+  }
+
+  // Enemies with lowest HP fraction also get focus fire priority
+  for (const enemy of enemies) {
+    const hpFrac = enemy.hull / enemy.maxHull;
+    if (hpFrac < 0.3 && !focusTargets.has(enemy.id)) {
+      focusTargets.set(enemy.id, 15); // low HP target — finish it off
+    }
+  }
+
+  // Support requests: allies that are under fire from 3+ enemies
+  const supportRequests = new Set<string>();
+  for (const ally of allies) {
+    const attackersOnAlly = enemies.filter(
+      e => e.order.type === 'attack' &&
+           (e.order.targetId === ally.id || e.order.targetId === ally.sourceShipId),
+    ).length;
+    if (attackersOnAlly >= 3) {
+      supportRequests.add(ally.id);
+    }
+  }
+
+  return { side, focusTargets, supportRequests, situation };
 }
 
 // ---------------------------------------------------------------------------

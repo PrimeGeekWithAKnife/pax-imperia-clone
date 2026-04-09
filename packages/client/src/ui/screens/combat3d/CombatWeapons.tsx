@@ -416,8 +416,8 @@ function BeamEffects({
 // ProjectileEffects — instanced mesh for bodies + pre-allocated trails
 // ---------------------------------------------------------------------------
 
-const MAX_PROJECTILES = 200;
-const MAX_PROJ_INSTANCES = MAX_PROJECTILES * 2;
+const MAX_PROJECTILES = 800;
+const MAX_PROJ_INSTANCES = 1600;
 /** Maximum trail line segments (one per projectile). */
 const MAX_PROJ_TRAIL_SEGMENTS = MAX_PROJECTILES;
 
@@ -491,14 +491,16 @@ function ProjectileEffects({
       );
       const pos = _tmpPos;
 
-      // Compute travel direction — copy pos first since shipPos3D reuses scratch
-      _tmpSrc.copy(pos);
-      const tgtPos = shipPos3D(
-        proj.targetShipId, shipMap, battlefieldWidth, battlefieldHeight,
-      );
-      _tmpDir.set(1, 0, 0);
-      if (tgtPos) {
-        _tmpDir.subVectors(tgtPos, pos).normalize();
+      // Compute travel direction from pre-computed dx/dy/dz velocity components
+      // Engine coordinate mapping to Three.js: engine dx → Three.js x, engine dy → Three.js z, engine dz → Three.js y
+      const pdx = (proj as any).dx as number | undefined;
+      const pdy = (proj as any).dy as number | undefined;
+      const pdz = (proj as any).dz as number | undefined;
+      if (pdx != null && pdy != null && pdz != null) {
+        // Map engine coords to Three.js: engine (x,y,z) → Three.js (x,z,y)
+        _tmpDir.set(pdx, pdz, pdy).normalize();
+      } else {
+        _tmpDir.set(1, 0, 0);
       }
 
       // Core: elongated streak along travel direction
@@ -531,16 +533,11 @@ function ProjectileEffects({
 
       // Trail segment (pre-allocated buffer)
       if (trailSegIdx < MAX_PROJ_TRAIL_SEGMENTS) {
-        // Tail direction: away from target
-        _tmpDir.set(-1, 0, 0);
-        if (tgtPos) {
-          _tmpDir.subVectors(pos, tgtPos).normalize();
-        }
-
+        // Tail direction: opposite of travel direction
         const trailLen = (0.15 + dmgFrac * 0.25) * BF_SCALE * 10;
-        const tailX = pos.x + _tmpDir.x * trailLen;
-        const tailY = pos.y;
-        const tailZ = pos.z + _tmpDir.z * trailLen;
+        const tailX = pos.x - _tmpDir.x * trailLen;
+        const tailY = pos.y - _tmpDir.y * trailLen;
+        const tailZ = pos.z - _tmpDir.z * trailLen;
 
         _tmpColor.set(palette.projectileTrail);
         const base = trailSegIdx * 6;
