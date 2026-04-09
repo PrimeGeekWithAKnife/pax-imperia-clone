@@ -98,6 +98,9 @@ function makeTacticalShip(
       health: 100,
       experience: 'recruit',
     },
+    currentPitch: 0,
+    pitchRate: 0.06,
+    angularVelocity: 0,
     ...overrides,
   };
 }

@@ -430,6 +430,12 @@ export interface TacticalShip {
   damageDealtWindow?: number[];
   /** ID of the target this ship is currently engaged with. */
   engagedTargetId?: string;
+  /** Current pitch angle in radians (positive = nose-up). Rate-limited per tick. */
+  currentPitch: number;
+  /** Maximum pitch change per tick (radians). Derived from turnRate * 0.6. */
+  pitchRate: number;
+  /** Angular velocity around the yaw axis (radians/tick). Persists between ticks. */
+  angularVelocity: number;
 }
 
 export interface Projectile {
@@ -2393,6 +2399,11 @@ export function initializeTacticalCombat(
           ),
         repairRate: extracted.repairRate ?? 0,
         moraleRecovery: extracted.moraleRecovery ?? 0,
+        currentPitch: 0,
+        pitchRate: ((hullTemplate?.manned === false ? 0.20 : 0.10)
+          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100))
+          * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4)) * 0.6,
+        angularVelocity: 0,
       };
     });
   }
@@ -2462,6 +2473,9 @@ export function initializeTacticalCombat(
           health: 100,
           experience: 'veteran' as CrewExperience,
         },
+        currentPitch: 0,
+        pitchRate: 0.1,
+        angularVelocity: 0,
       });
     }
   }
@@ -3411,11 +3425,27 @@ function moveToward(
     }
   }
 
-  // Turn toward desired angle — helmsman jitter on rotation
+  // Turn toward desired angle — angular-velocity-based rotation with inertia
   const exp = ship.crew.experience;
   const angleDiff = normaliseAngle(desiredAngle - ship.facing);
-  const turnAmount = clamp(angleDiff, -ship.turnRate, ship.turnRate) * crewJitterMul(exp);
-  const newFacing = normaliseAngle(ship.facing + turnAmount);
+  const desiredAngAccel = clamp(angleDiff, -ship.turnRate, ship.turnRate) * crewJitterMul(exp);
+
+  // Anticipatory braking for yaw rotation
+  const angVel = ship.angularVelocity ?? 0;
+  const stoppingAngle = ship.turnRate > 0 ? (angVel * angVel) / (2 * ship.turnRate) : 0;
+  const shouldBrake = Math.abs(angleDiff) < stoppingAngle * 1.2
+                      && Math.sign(angVel) === Math.sign(angleDiff);
+
+  let newAngVel: number;
+  if (shouldBrake) {
+    const brakingAccel = ship.turnRate * (0.5 + ((ship.rcsThrust ?? 0) / 5) * 0.5);
+    newAngVel = angVel - Math.sign(angVel) * Math.min(brakingAccel, Math.abs(angVel));
+  } else {
+    newAngVel = angVel + desiredAngAccel;
+    newAngVel = clamp(newAngVel, -ship.turnRate * 2, ship.turnRate * 2);
+  }
+
+  const newFacing = normaliseAngle(ship.facing + newAngVel);
 
   // ── Thrust calculation ─────────────────────────────────────────────
   // ship.acceleration = thrust per tick (lighter ships accelerate faster)
@@ -3426,13 +3456,16 @@ function moveToward(
   let newVy = vy;
   let newVz = vz;
 
-  // ── 3D pitch: compute desired vertical angle to target ──
+  // ── 3D pitch: compute desired vertical angle to target, rate-limited ──
   const targetZ = (target as { z?: number }).z ?? 0;
   const dz = targetZ - ship.position.z;
   const horizDist = Math.sqrt(
     (target.x - ship.position.x) ** 2 + (target.y - ship.position.y) ** 2,
   );
   const desiredPitch = horizDist > 1 ? Math.atan2(dz, horizDist) : 0;
+  const pitchRate = ship.pitchRate ?? 0.06;
+  const pitchDiff = desiredPitch - (ship.currentPitch ?? 0);
+  const newPitch = (ship.currentPitch ?? 0) + clamp(pitchDiff, -pitchRate, pitchRate);
 
   // Anticipatory braking: start slowing down when stopping distance
   // exceeds remaining distance. Prevents overshoot at engagement range.
@@ -3447,10 +3480,10 @@ function moveToward(
     // Thrust toward target — project main engine in 3D (yaw + pitch)
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
     const thrustAngle = newFacing + jitterAngle;
-    const cosPitch = Math.cos(desiredPitch);
+    const cosPitch = Math.cos(newPitch);
     newVx += Math.cos(thrustAngle) * cosPitch * accel * 0.3;
     newVy += Math.sin(thrustAngle) * cosPitch * accel * 0.3;
-    newVz += Math.sin(desiredPitch) * accel * 0.3;
+    newVz += Math.sin(newPitch) * accel * 0.3;
   } else if (currentSpeed > 0.3) {
     // Within minDist — need to slow down.
     const retroAngle = Math.atan2(-vy, -vx);
@@ -3545,6 +3578,8 @@ function moveToward(
     facing: newFacing,
     velocity: { x: newVx, y: newVy, z: newVz },
     position: { x: nx, y: ny, z: nz },
+    currentPitch: newPitch,
+    angularVelocity: newAngVel,
   };
 }
 

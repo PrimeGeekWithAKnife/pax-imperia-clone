@@ -449,6 +449,7 @@ describe('1. Damage Verification', () => {
         destroyed: false,
         routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
+        currentPitch: 0, pitchRate: 0.06, angularVelocity: 0,
       };
 
       // Apply 20 damage — all absorbed by shields
@@ -479,6 +480,7 @@ describe('1. Damage Verification', () => {
         destroyed: false,
         routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
+        currentPitch: 0, pitchRate: 0.06, angularVelocity: 0,
       };
 
       // Apply 40 damage with 0 shields and 40 armour
@@ -514,6 +516,7 @@ describe('1. Damage Verification', () => {
         destroyed: false,
         routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
         crew: { morale: 80, health: 100, experience: 'regular' },
+        currentPitch: 0, pitchRate: 0.06, angularVelocity: 0,
       };
 
       // Apply 60 damage:

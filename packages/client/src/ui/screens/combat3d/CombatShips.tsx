@@ -140,7 +140,9 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
       const vy = ship.velocity?.y ?? 0;
       const vz = ship.velocity?.z ?? 0;
       const horizSpeed = Math.sqrt(vx * vx + vy * vy);
-      const rawPitch = horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0;
+      const rawPitch = ship.currentPitch != null
+        ? ship.currentPitch
+        : (horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0);
       // Clamp pitch — smaller ships pitch more aggressively
       const maxPitch = ship.maxHull < 80 ? Math.PI / 3 : ship.maxHull < 200 ? Math.PI / 5 : Math.PI / 8;
       const pitch = Math.max(-maxPitch, Math.min(maxPitch, rawPitch));

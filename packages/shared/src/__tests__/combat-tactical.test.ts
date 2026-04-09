@@ -769,6 +769,9 @@ describe('applyDamage', () => {
       order: { type: 'idle' },
       destroyed: false,
       routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
+      currentPitch: 0,
+      pitchRate: 0.06,
+      angularVelocity: 0,
       ...overrides,
     };
   }
@@ -1110,6 +1113,9 @@ describe('isInWeaponArc', () => {
       destroyed: false,
       routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
       crew: { morale: 80, health: 100, experience: 'regular' },
+      currentPitch: 0,
+      pitchRate: 0.06,
+      angularVelocity: 0,
       ...overrides,
     };
   }
@@ -2104,6 +2110,9 @@ function makeTacticalShip(overrides: Partial<TacticalShip> & { id: string; side:
     destroyed: false,
     routed: false, stance: "aggressive" as any, damageTakenThisTick: 0,
     crew: { morale: 80, health: 100, experience: 'regular' as const },
+    currentPitch: 0,
+    pitchRate: 0.06,
+    angularVelocity: 0,
     ...overrides,
   };
 }
@@ -3103,6 +3112,129 @@ describe('Planetary assault layout', () => {
       const atkAfter = current.ships.find(s => s.id === atk.id)!;
       const hullBefore = atk.hull;
       expect(atkAfter.hull).toBeLessThan(hullBefore);
+    } finally {
+      Math.random = origRandom;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2: Pitch Rate-Limiting and Rotational Inertia
+// ---------------------------------------------------------------------------
+
+describe('Phase 2 — pitch, pitchRate, angularVelocity initialisation', () => {
+  it('ships start with currentPitch: 0 and angularVelocity: 0', () => {
+    const state = setupOnePair();
+    for (const ship of state.ships) {
+      expect(ship.currentPitch).toBe(0);
+      expect(ship.angularVelocity).toBe(0);
+    }
+  });
+
+  it('ships start with pitchRate > 0', () => {
+    const state = setupOnePair();
+    for (const ship of state.ships) {
+      expect(ship.pitchRate).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('Phase 2 — pitch rate-limiting', () => {
+  it('capital ship with low pitchRate cannot reach full pitch in one tick', () => {
+    // Use a heavy battleship design to get a low pitchRate
+    const heavyDesign: ShipDesign = {
+      id: 'd-heavy',
+      name: 'Heavy Ship',
+      hull: 'battleship',
+      components: [
+        { slotId: 'bs_fore_1', componentId: 'ion_engine' },
+      ],
+      totalCost: 500,
+      empireId: 'empire-1',
+    };
+
+    const designs = new Map<string, ShipDesign>([
+      [heavyDesign.id, heavyDesign],
+      ['d-def', makeArmedDesign('d-def', 'empire-2')],
+    ]);
+
+    const heavyShip = makeShip('atk-heavy', heavyDesign.id, 500, 500);
+    const defShip = makeShip('def-1', 'd-def');
+
+    const state = initializeTacticalCombat(
+      makeFleet('f-atk', 'empire-1', ['atk-heavy']),
+      makeFleet('f-def', 'empire-2', ['def-1']),
+      [heavyShip],
+      [defShip],
+      designs,
+      SHIP_COMPONENTS,
+    );
+
+    const atk = state.ships.find(s => s.side === 'attacker')!;
+    expect(atk.pitchRate).toBeGreaterThan(0);
+    expect(atk.pitchRate).toBeLessThan(Math.PI / 4); // should be a small value
+
+    // Place a target far above the ship (z = 500) to require steep pitch
+    const targetAbove = { x: atk.position.x + 50, y: atk.position.y, z: 500 };
+    const desiredPitch = Math.atan2(
+      500 - atk.position.z,
+      50,
+    ); // steep angle, close to PI/2
+
+    // After one tick via moveShip, the pitch should NOT reach the desired value
+    const stateWithOrder = {
+      ...state,
+      ships: state.ships.map(s =>
+        s.id === atk.id
+          ? { ...s, order: { type: 'move' as const, x: targetAbove.x, y: targetAbove.y, z: targetAbove.z } }
+          : s,
+      ),
+    };
+
+    const afterOneTick = processTacticalTick(stateWithOrder);
+    const atkAfter = afterOneTick.ships.find(s => s.id === atk.id)!;
+
+    // Pitch should have moved but not reached the full desired angle
+    expect(Math.abs(atkAfter.currentPitch)).toBeGreaterThan(0);
+    expect(Math.abs(atkAfter.currentPitch)).toBeLessThan(Math.abs(desiredPitch));
+  });
+});
+
+describe('Phase 2 — rotational inertia (yaw)', () => {
+  it('ship gets non-zero angularVelocity when turning', () => {
+    // Place attacker facing right, target is behind them (requires 180-degree turn)
+    const state = setupOnePair();
+    const atk = state.ships.find(s => s.side === 'attacker')!;
+    const def = state.ships.find(s => s.side === 'defender')!;
+
+    // Attacker faces right (0 rad), defender is to the right already — move defender behind
+    const stateModified = {
+      ...state,
+      ships: state.ships.map(s => {
+        if (s.id === atk.id) {
+          return {
+            ...s,
+            facing: 0,
+            angularVelocity: 0,
+            order: { type: 'attack' as const, targetId: def.id },
+          };
+        }
+        if (s.id === def.id) {
+          // Place defender behind the attacker (negative x)
+          return { ...s, position: { x: atk.position.x - 300, y: atk.position.y, z: 0 } };
+        }
+        return s;
+      }),
+    };
+
+    // Seed random for determinism
+    const origRandom = Math.random;
+    Math.random = () => 0.5;
+    try {
+      const afterTick = processTacticalTick(stateModified);
+      const atkAfter = afterTick.ships.find(s => s.id === atk.id)!;
+      // Angular velocity should be non-zero since the ship started turning
+      expect(atkAfter.angularVelocity).not.toBe(0);
     } finally {
       Math.random = origRandom;
     }
