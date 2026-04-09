@@ -130,11 +130,42 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
     tacticalTo3D(ship.position.x, ship.position.y, bfWidth, bfHeight, _tmpShipPos, ship.position.z);
     groupRef.current.position.set(_tmpShipPos.x, _tmpShipPos.y, _tmpShipPos.z);
 
-    // Rotate the ship mesh (ShipModels3D faces +Z, engine uses 0 = +x)
+    // Rotate the ship mesh — yaw from facing, pitch from vertical velocity,
+    // roll from turn rate (velocity vs facing difference).
     if (meshRef.current) {
-      meshRef.current.rotation.y = -(ship.facing - Math.PI / 2);
+      const yaw = -(ship.facing - Math.PI / 2);
+
+      // Pitch from vertical velocity (tactical Z -> Three.js Y)
+      const vx = ship.velocity?.x ?? 0;
+      const vy = ship.velocity?.y ?? 0;
+      const vz = ship.velocity?.z ?? 0;
+      const horizSpeed = Math.sqrt(vx * vx + vy * vy);
+      const rawPitch = horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0;
+      // Clamp pitch — smaller ships pitch more aggressively
+      const maxPitch = ship.maxHull < 80 ? Math.PI / 3 : ship.maxHull < 200 ? Math.PI / 5 : Math.PI / 8;
+      const pitch = Math.max(-maxPitch, Math.min(maxPitch, rawPitch));
+
+      // Roll from turn rate (difference between velocity direction and facing)
+      const velAngle = Math.atan2(vy, vx);
+      let rollInput = velAngle - ship.facing;
+      // Normalise to -PI..PI
+      if (rollInput > Math.PI) rollInput -= Math.PI * 2;
+      if (rollInput < -Math.PI) rollInput += Math.PI * 2;
+      const maxRoll = ship.maxHull < 80 ? Math.PI / 3 : ship.maxHull < 200 ? Math.PI / 6 : Math.PI / 10;
+      let roll = Math.max(-maxRoll, Math.min(maxRoll, rollInput * 0.5));
+
+      // Fighter corkscrew effect — oscillating roll for small, fast ships
+      if (ship.maxHull < 40 && horizSpeed > 1) {
+        const corkscrewRoll = Math.sin(Date.now() * 0.005 + ship.id.charCodeAt(0)) * Math.PI / 4;
+        roll += corkscrewRoll;
+      }
+
+      // Apply as Euler rotation: pitch around X, yaw around Y, roll around Z
+      meshRef.current.rotation.set(pitch, yaw, roll);
     }
-    if (outlineRef.current) outlineRef.current.rotation.y = meshRef.current?.rotation.y ?? 0;
+    if (outlineRef.current && meshRef.current) {
+      outlineRef.current.rotation.copy(meshRef.current.rotation);
+    }
 
     // Damage flash — driven entirely via ref, no React state setter
     if (isDamaged && flashStartRef.current === 0) {
@@ -176,9 +207,9 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
       shieldMaterial.opacity = 0.04 + 0.06 * shieldFraction;
     }
 
-    // Rotate shield bubble with ship
+    // Rotate shield bubble with ship (all axes, not just yaw)
     if (shieldMeshRef.current && meshRef.current) {
-      shieldMeshRef.current.rotation.y = meshRef.current.rotation.y;
+      shieldMeshRef.current.rotation.copy(meshRef.current.rotation);
     }
   });
 
