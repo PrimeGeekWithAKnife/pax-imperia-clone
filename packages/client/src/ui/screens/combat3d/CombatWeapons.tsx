@@ -18,7 +18,6 @@ import type { TacticalState, TacticalShip } from '@nova-imperia/shared';
 import {
   BF_SCALE,
   tacticalTo3D,
-  shipYOffset,
   shipScale,
   BEAM_STYLE_MAP,
   MISSILE_STYLE_MAP,
@@ -46,8 +45,7 @@ function shipPos3D(
 ): THREE.Vector3 | null {
   const ship = shipMap.get(shipId);
   if (!ship) return null;
-  tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _shipPosOut);
-  _shipPosOut.y = shipYOffset(ship.maxHull);
+  tacticalTo3D(ship.position.x, ship.position.y, bfW, bfH, _shipPosOut, ship.position.z);
   return _shipPosOut;
 }
 
@@ -489,9 +487,8 @@ function ProjectileEffects({
       );
 
       tacticalTo3D(
-        proj.position.x, proj.position.y, battlefieldWidth, battlefieldHeight, _tmpPos,
+        proj.position.x, proj.position.y, battlefieldWidth, battlefieldHeight, _tmpPos, proj.position.z,
       );
-      _tmpPos.y = 0.1;
       const pos = _tmpPos;
 
       // Compute travel direction — copy pos first since shipPos3D reuses scratch
@@ -684,8 +681,7 @@ function MissileEffects({
           m.sourceShipId, shipMap, attackerSpeciesId, defenderSpeciesId,
         );
 
-        tacticalTo3D(m.x, m.y, battlefieldWidth, battlefieldHeight, _tmpPos);
-        _tmpPos.y = 0.15;
+        tacticalTo3D(m.x, m.y, battlefieldWidth, battlefieldHeight, _tmpPos, m.z);
         const pos = _tmpPos;
 
         const heading = m.heading;

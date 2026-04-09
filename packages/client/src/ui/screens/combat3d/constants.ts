@@ -28,10 +28,11 @@ export function tacticalTo3D(
   bfWidth: number = BATTLEFIELD_WIDTH,
   bfHeight: number = BATTLEFIELD_HEIGHT,
   out?: THREE.Vector3,
+  engineZ: number = 0,
 ): THREE.Vector3 {
   const v = out ?? new THREE.Vector3();
   v.x = (engineX - bfWidth / 2) * BF_SCALE;
-  v.y = 0;
+  v.y = engineZ * BF_SCALE;  // tactical Z -> Three.js Y (up)
   v.z = (engineY - bfHeight / 2) * BF_SCALE;
   return v;
 }
@@ -39,17 +40,6 @@ export function tacticalTo3D(
 // ---------------------------------------------------------------------------
 // Ship visual helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Vertical offset for a ship mesh based on its hull class.
- * Larger ships sit slightly higher so icons don't overlap.
- */
-export function shipYOffset(maxHull: number): number {
-  if (maxHull < 60) return 0;
-  if (maxHull < 200) return 0.3;
-  if (maxHull < 400) return 0.6;
-  return 1.0;
-}
 
 /**
  * Uniform scale multiplier for a ship mesh based on its hull class.

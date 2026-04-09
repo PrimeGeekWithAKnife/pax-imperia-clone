@@ -299,7 +299,7 @@ export function EnvironmentFeatures({ state }: EnvironmentFeaturesProps): JSX.El
   return (
     <group>
       {asteroidData.map(({ feat, primary, secondary, tertiary, rotation, secOffset, terOffset }) => {
-        const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight);
+        const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight, undefined, 0);
 
         return (
           <group key={feat.id} position={[pos.x, 0, pos.z]} rotation={rotation}>
@@ -338,7 +338,7 @@ export function EnvironmentFeatures({ state }: EnvironmentFeaturesProps): JSX.El
       {(state.environment ?? [])
         .filter(f => f.type === 'nebula')
         .map(feat => {
-          const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight);
+          const pos = tacticalTo3D(feat.x, feat.y, bfWidth, bfHeight, undefined, 0);
           return (
             <mesh key={feat.id} position={[pos.x, 0, pos.z]}>
               <sphereGeometry args={[feat.radius * BF_SCALE, 16, 16]} />
@@ -385,7 +385,7 @@ export function PlanetEdge({ state }: PlanetEdgeProps): JSX.Element | null {
   const atmosphereColour = PLANET_ATMOSPHERE_COLOURS[planetType] ?? 0x4488cc;
 
   // Tactical position: bottom-right of the battlefield
-  const planetPos = tacticalTo3D(bfWidth - 200, bfHeight - 150, bfWidth, bfHeight);
+  const planetPos = tacticalTo3D(bfWidth - 200, bfHeight - 150, bfWidth, bfHeight, undefined, 0);
   const planetY = -5; // below the battlefield plane
 
   const planetRadius3D = PLANET_RADIUS * BF_SCALE;
