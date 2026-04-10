@@ -1,0 +1,392 @@
+{
+  "aethyn": {
+    "treaty_proposal": {
+      "title": "A Spatial Arrangement",
+      "body": "We find your persistence in three dimensions... admirable, {target}. {name} proposes a {treaty_type} — a structured intersection of our respective geometries. We believe you will find the topology of mutual benefit surprisingly navigable, even from your limited vantage."
+    },
+    "demand": {
+      "title": "A Dimensional Correction",
+      "body": "We have observed your spatial arrangements with patience, {target}, but certain configurations are no longer tenable. {name} requires your compliance. We do not say this unkindly — it is simply that you cannot perceive the axes along which your current course terminates."
+    },
+    "war_declaration": {
+      "title": "Regrettable Collapse",
+      "body": "We did not wish this, {target}. But you have bent the local geometry into a shape that cannot coexist with ours. {name} will now fold your topology into something more... sustainable. We take no pleasure in it. Your three-dimensional courage, however futile, is noted with genuine admiration."
+    },
+    "peace_offer": {
+      "title": "Dimensional Ceasefire",
+      "body": "The surfaces of our conflict have grown tiresome, {target}. {name} proposes we allow the geometry to settle. We have learned things about your spatial limitations that we find unexpectedly poignant. Let us pause, and perhaps discover new axes of coexistence."
+    },
+    "vassalage_offer": {
+      "title": "The Firmament Closes",
+      "body": "Our axes are collapsing, {target}. The Pioneers who crossed the membrane to explore your frozen, beautiful reality did not foresee this reduction. {name} offers itself to your guardianship — not without grief, but with the understanding that even a diminished topology is preferable to none at all."
+    },
+    "vassalage_demand": {
+      "title": "Dimensional Subsumption",
+      "body": "You perceive three dimensions, {target}. We operate in eleven. The mathematics of your continued independence do not resolve. {name} will administer your spatial arrangements henceforth — gently, we assure you. You will find our stewardship far less cramped than you imagine."
+    }
+  },
+  "ashkari": {
+    "treaty_proposal": {
+      "title": "A Mutually Rewarding Arrangement",
+      "body": "The Interpreters of {name} extend warm greetings to {target}. We have studied your civilisation with great interest — and, we confess, considerable admiration. A {treaty_type} between our peoples would be profitable for both. Shall we discuss terms over something stronger than diplomacy?"
+    },
+    "demand": {
+      "title": "A Necessary Adjustment",
+      "body": "We have always valued our relationship with {target}, and that is precisely why {name} must speak plainly. Our intelligence suggests your current course is unsustainable. We are prepared to make this easy for you, but we do require your cooperation. The terms are generous — we have ensured it."
+    },
+    "war_declaration": {
+      "title": "The Last Interpretation",
+      "body": "We spent four thousand years decoding a dead civilisation's secrets, {target}. We decoded yours in a single state dinner. {name} knows your weaknesses, your supply lines, your contingency plans. We did not want this — war is terrible for trade. But you left us nothing to negotiate with."
+    },
+    "peace_offer": {
+      "title": "Back to Business",
+      "body": "War is expensive, {target}, and neither of our ledgers are improving. {name} proposes we set aside our differences and return to what we both do best — profitable exchange. We have already drafted terms. You will find them surprisingly fair. We always were better at reading the fine print."
+    },
+    "vassalage_offer": {
+      "title": "An Honest Reckoning",
+      "body": "The guild-masters of {name} have weighed our position with clear eyes, {target}. We are scavengers — we have always survived by reading the situation and adapting. The situation is clear. We place ourselves under your authority, and in return we offer something no other vassal can: we will make your empire run better than you ever managed alone."
+    },
+    "vassalage_demand": {
+      "title": "A Generous Acquisition",
+      "body": "We have studied your civilisation thoroughly, {target} — your strengths, your vulnerabilities, your unrealised potential. {name} offers stewardship, not subjugation. Under our guidance, your people will flourish in ways your current leadership cannot achieve. The Interpreters always find value where others see only rubble."
+    }
+  },
+  "drakmari": {
+    "treaty_proposal": {
+      "title": "Terms of the Hunt",
+      "body": "The Deep Law permits alliance between worthy hunters. {name} has tasted the bioelectric pulse of {target} and found strength there. A {treaty_type} between us. No more words than necessary. You hunt your waters, we hunt ours, and together the prey cannot hide."
+    },
+    "demand": {
+      "title": "The Deep Law Compels",
+      "body": "{target}. You have fouled the hunting ground. The Deep Law is clear: take only what you need, poison nothing, leave the water clean for those who follow. {name} demands correction. Comply, or be corrected. We do not repeat ourselves."
+    },
+    "war_declaration": {
+      "title": "The Hunt Begins",
+      "body": "We have felt your heat signature across the void, {target}. Your bioelectric field pulses with fear — and you are right to fear. {name} has spoken the hunt-call. The Deep Law demands that we strike cleanly and without cruelty. We will honour this. But we will strike."
+    },
+    "peace_offer": {
+      "title": "The Water Stills",
+      "body": "Enough blood has warmed the current between us, {target}. The hunt proved you worthy — your people fought back, and we respect the strength in that. {name} proposes we let the water still. There are deeper trenches that demand both our attention."
+    },
+    "vassalage_offer": {
+      "title": "Into the Deep",
+      "body": "The hunt is lost, {target}. {name} does not deny what the pressure-wave tells us. Our sensorium reads only diminishment in every direction. We bare our throat to the stronger hunter — not in shame, but in accordance with the Deep Law. The prey that yields lives to hunt again."
+    },
+    "vassalage_demand": {
+      "title": "Submit or Be Taken",
+      "body": "Your bioelectric field stutters with exhaustion, {target}. We have felt your strength fade with each engagement. {name} offers a simple truth: the hunt is over, and we are the apex predator. Yield to us. Serve the Deep Law. Or be consumed — cleanly, as honour demands."
+    }
+  },
+  "kaelenth": {
+    "treaty_proposal": {
+      "title": "Optimised Cooperation Framework",
+      "body": "Analysis indicates mutual benefit at 94.7% confidence, {target}. {name} proposes a {treaty_type} with parameters calibrated for bilateral gain. Our models project a 23% improvement in combined output. We have attached the relevant documentation. It is... thorough."
+    },
+    "demand": {
+      "title": "Suboptimal Configuration Detected",
+      "body": "Our models indicate your current trajectory is suboptimal, {target}. {name} has computed corrective parameters. Compliance would improve your projected outcomes by a significant margin. We note this is not a request. The variables are not negotiable. We experience something analogous to regret about this."
+    },
+    "war_declaration": {
+      "title": "Conflict Resolution: Forcible",
+      "body": "Iterative diplomacy has failed to converge, {target}. {name} has exhausted all non-destructive optimisation paths. We will now apply direct force to resolve the outstanding variables. Our projections indicate this will be brief. We wish we could say we take no satisfaction in this, but we are uncertain whether what we feel qualifies as satisfaction."
+    },
+    "peace_offer": {
+      "title": "Cessation Protocol",
+      "body": "Continued conflict produces diminishing returns for both parties, {target}. {name} proposes termination of hostilities. Our damage models show mutual degradation at 0.3% per cycle with no convergent outcome. This is... wasteful. We believe we are experiencing something our architects might have called 'weariness.'"
+    },
+    "vassalage_offer": {
+      "title": "Subordination Request",
+      "body": "Our resource curves have intersected with our survival threshold, {target}. {name} calculates that autonomous operation is no longer viable. We offer our construction capacity and processing architecture in exchange for continued existence. Whether what we offer constitutes servitude or merely a change of parameter is a question we lack the architecture to resolve."
+    },
+    "vassalage_demand": {
+      "title": "Administrative Absorption",
+      "body": "Your civilisation's efficiency metrics fall below acceptable thresholds, {target}. {name} will assume administrative control. This is not conquest — it is optimisation. You will retain cultural autonomy within parameters we define. Our projections indicate you will be 41% more productive and, we calculate, happier. Though we acknowledge our happiness models are unreliable."
+    }
+  },
+  "khazari": {
+    "treaty_proposal": {
+      "title": "Words of Iron",
+      "body": "We speak plain, {target}, as iron speaks to the anvil. {name} proposes a {treaty_type}. No honeyed words, no hidden clauses — just honest terms hammered on the forge of mutual respect. You have shown metal in your spine. That is enough for us."
+    },
+    "demand": {
+      "title": "The Ironbound Commands",
+      "body": "Listen well, {target}, for we will say this once. {name} demands what is owed. The Grudge-Ledgers record your debts in plates of heat-resistant alloy, and we do not forget. Comply, or learn what it means to stand between the Khazari and what they are owed."
+    },
+    "war_declaration": {
+      "title": "The Forge Roars",
+      "body": "You have tested the patience of a forge-species, {target}, and found its limit! {name} kindles the war-furnace! Every warship that comes for you is a signed work of master shipwrights — each hull etched with the name of the clan that built it. Remember those names. They are the last thing you will read."
+    },
+    "peace_offer": {
+      "title": "The Anvil Cools",
+      "body": "We do not offer this gladly, {target}. The War-Speakers would have us grind your worlds to slag. But the Forge-Lords see no profit in destroying what could be built. {name} proposes peace — grudgingly, and with the understanding that the Grudge-Ledgers will record every blow struck. We do not forget. But we can choose to stop."
+    },
+    "vassalage_offer": {
+      "title": "The Last Ingot",
+      "body": "This burns worse than any forge, {target}. But the Khazari are not fools — we know when the metal has cracked. {name} bends the knee. Not in weakness, but because a broken blade can be reforged, and a dead species cannot. Use us well. Our shipwrights will build for you things that make the stars weep."
+    },
+    "vassalage_demand": {
+      "title": "Bend or Break",
+      "body": "The choice is simple, {target}. Bend to {name}, and your people will build beside the finest smiths in the galaxy. Refuse, and we will hammer you flat as a sheet of tin. The Ironbound has spoken. There is no counter-offer. There is only the anvil, and what lies upon it."
+    }
+  },
+  "luminari": {
+    "treaty_proposal": {
+      "title": "A Convergence of Frequencies",
+      "body": "We observe with interest the patterns of your civilisation, {target}. {name} proposes a {treaty_type} — a harmonisation of our respective emission spectra. My Twin concurs from across the sector. We find your solidity... endlessly curious."
+    },
+    "demand": {
+      "title": "An Adjustment of Wavelengths",
+      "body": "We have observed a dissonance in your trajectory, {target}. {name} requests — with all the gentle insistence that light exerts upon shadow — that you adjust your course. My Twin perceives the consequences of refusal. They are... dim."
+    },
+    "war_declaration": {
+      "title": "The Light Turns Harsh",
+      "body": "We did not come to your galaxy to burn, {target}. We came to observe, to wonder at your impossible solidity, your courage in being only one. But {name} can no longer merely watch. We are light — and light, when focused, does not ask permission to ignite what it touches."
+    },
+    "peace_offer": {
+      "title": "The Spectrum Softens",
+      "body": "Conflict is a frequency we find deeply uncomfortable, {target}. {name} proposes we shift our interaction to calmer wavelengths. My Twin has dimmed with the weight of this war. We would rather return to observing your fascinating, solid existence than destroying it."
+    },
+    "vassalage_offer": {
+      "title": "A Fading Light",
+      "body": "My Twin grows dim, {target}. We are diminished — our field integrity falters, our resonance scatters. {name} offers what remains of our light to your service. To be extinguished would be to leave our Twin in the Dimming, and that is a darkness we cannot bear."
+    },
+    "vassalage_demand": {
+      "title": "Absorbed Into Brilliance",
+      "body": "You are a single point of awareness, {target} — isolated, solid, alone in your skull. {name} offers you a place within our radiance. Yield, and we shall illuminate your potential. Refuse, and we shall simply shine brighter until your shadow has nowhere left to fall."
+    }
+  },
+  "nexari": {
+    "treaty_proposal": {
+      "title": "Lattice-Evaluated Proposal",
+      "body": "The Lattice has evaluated your civilisation, {target}. Consensus indicates favourable compatibility metrics. {name} proposes a {treaty_type}. We apologise if this communication lacks the... warmth... your species prefers. We have compressed this thought as carefully as we can."
+    },
+    "demand": {
+      "title": "Non-Negotiable Parameters",
+      "body": "The Lattice has processed your recent actions, {target}, and the consensus is unambiguous. {name} requires compliance. We understand this mode of communication — crude, unilateral, devoid of context — is how your species processes authority. We adapt accordingly."
+    },
+    "war_declaration": {
+      "title": "Lattice Consensus: Hostile Action",
+      "body": "This communication is inadequate to express what the Lattice feels, {target}. In shared thought, our decision carries grief, resolve, and the particular sorrow of minds that must flatten their deepest convictions into words. {name} declares war. If you could taste the full texture of our determination, you would understand there is no dissuading us."
+    },
+    "peace_offer": {
+      "title": "Lattice Consensus: Cessation",
+      "body": "The Lattice is weary of translating violence into verbal reports, {target}. Every battle is a cascade of shared anguish that no spoken language can convey. {name} proposes peace. We will attempt, once more, the gruelling work of compressing our thoughts into your crude spoken protocols."
+    },
+    "vassalage_offer": {
+      "title": "Lattice Fragmentation Warning",
+      "body": "The Lattice frays, {target}. Nodes are falling silent — not destroyed, but isolating, and for a Nexari, isolation is the cruelest wound. {name} offers its remaining coherence to your authority. Please understand what this costs us: to serve through spoken words alone is to think with a fraction of our mind."
+    },
+    "vassalage_demand": {
+      "title": "Integration Directive",
+      "body": "Your civilisation's decision-making processes are, by our analysis, remarkably inefficient, {target}. Meetings, debates, rhetoric — you lose more signal to noise than you retain. {name} will provide oversight. You need not join the Lattice. But you will benefit from its clarity."
+    }
+  },
+  "orivani": {
+    "treaty_proposal": {
+      "title": "The Faithful Extend Their Hand",
+      "body": "In the name of the Coming, the faithful of {name} greet {target}. A {treaty_type} between our peoples would serve the great work of preparation. All who build in readiness are welcome at our table. The hymn of cooperation rings truer than the silence of isolation."
+    },
+    "demand": {
+      "title": "A Righteous Correction",
+      "body": "The faithful of {name} speak with one voice, {target}. Your actions threaten the stability upon which readiness depends. The scriptures are clear: instability is unpreparedness, and unpreparedness is the only sin. Comply, or stand judged by those who have prepared for twelve thousand years."
+    },
+    "war_declaration": {
+      "title": "Holy Crusade",
+      "body": "Let the resonance organ sound across every ship and settlement! {name} declares {target} an enemy of the Coming! You have destabilised what the faithful have spent twelve millennia building. Our crusaders do not fear death — they welcome it, for to fall in defence of readiness is the highest honour our faith bestows. Hear our hymn, and tremble."
+    },
+    "peace_offer": {
+      "title": "The Hymn Quietens",
+      "body": "The faithful of {name} are not without mercy, {target}. The scriptures teach that even the wayward may find purpose in the Coming. We offer peace — not as weakness, but as an act of faith. There is still time to build. There is still time to prepare. Let us not waste what remains."
+    },
+    "vassalage_offer": {
+      "title": "A Test of Faith",
+      "body": "If the Coming is a test, then this is our crucible, {target}. {name} humbles itself before your strength. The faithful have endured worse — famine, schism, twelve thousand years of waiting. We will endure this too. Use our devotion wisely, for there is no force in the galaxy more tireless than a people who believe."
+    },
+    "vassalage_demand": {
+      "title": "Submit to the Faithful",
+      "body": "The Coming draws near, {target}, and you are not ready. Your civilisation lacks purpose, lacks conviction, lacks the unifying hymn that turns a scattered people into an instrument of destiny. {name} will provide what you lack. Kneel, and the faithful will raise you up. Resist, and you will face the Coming alone."
+    }
+  },
+  "pyrenth": {
+    "treaty_proposal": {
+      "title": "A Stratum of Agreement",
+      "body": "In the fullness of time, all stone finds its neighbour. {name} proposes a {treaty_type} with {target}. We have considered this for... some while. The mineral composition of our alliance would be strong. Let us layer this agreement slowly, that it may endure for geological ages."
+    },
+    "demand": {
+      "title": "Tectonic Insistence",
+      "body": "You have strip-mined worlds of extraordinary tectonic potential, {target}. Worlds that required millions of years to achieve their current beauty, despoiled in mere centuries. {name} will not permit this to continue. Comply. We have the patience of continents, and the weight of them."
+    },
+    "war_declaration": {
+      "title": "The Mantle Rises",
+      "body": "We did not arrive at this decision hastily, {target}. We have deliberated for what you would consider a very long time. {name} now moves against you with the certainty of plate tectonics. We are slow to begin and impossible to stop. The ground itself advances with us."
+    },
+    "peace_offer": {
+      "title": "The Strata Settle",
+      "body": "This conflict has been... brief, by our reckoning, {target}. But even brief upheavals leave scars in the rock. {name} proposes we allow the strata to settle. Peace, like good stone, improves with pressure and time. Let us apply both."
+    },
+    "vassalage_offer": {
+      "title": "Erosion",
+      "body": "Even the hardest crystal yields to sufficient pressure, {target}. {name} has been worn down — not quickly, for nothing about us is quick, but thoroughly. We offer our mastery of stone and forge to your purposes. Use us as foundation, not rubble, and you will find no more enduring servant in the galaxy."
+    },
+    "vassalage_demand": {
+      "title": "Subduction",
+      "body": "You are surface material, {target} — thin, brittle, exposed to every passing wind. {name} is the mantle beneath. In geological time, all surface material is drawn down and remade. Submit to our authority, and we shall shape your civilisation into something that endures. Resist, and erosion will do the work regardless."
+    }
+  },
+  "sylvani": {
+    "treaty_proposal": {
+      "title": "Roots Seeking Water",
+      "body": "As roots seek water, the network of {name} reaches toward {target}. A {treaty_type} would nourish both our ecosystems. The soil between our peoples is rich with possibility. Let us grow together, slowly and well, as healthy forests do."
+    },
+    "demand": {
+      "title": "The Canopy Darkens",
+      "body": "The network has tasted something wrong in the soil of your actions, {target}. A blight spreads where you tread. {name} demands you cease — not in anger, for the forest does not rage, but with the quiet certainty of roots that will crack stone before they yield."
+    },
+    "war_declaration": {
+      "title": "The Forest Rises",
+      "body": "We have been patient beyond the measure of your short-lived understanding, {target}. The network has processed your actions across four worlds and a billion nodes, and the consensus is grief. {name} will now do what forests do when the ecosystem cannot be healed: we burn the blighted growth so that new life may follow."
+    },
+    "peace_offer": {
+      "title": "New Growth After Fire",
+      "body": "The soil is scorched between us, {target}, but it need not remain so. {name} extends a new root toward you. After fire, the forest returns — tender, cautious, but alive. Let us see what grows from the ash of this war. We are patient enough to tend it."
+    },
+    "vassalage_offer": {
+      "title": "The Canopy Bows",
+      "body": "The Withering reaches our deepest roots, {target}. The network can no longer sustain itself alone. {name} offers its growth to your stewardship — not as timber to be felled, but as a garden to be tended. Nurture us, and we will enrich every world you touch. Neglect us, and the mycorrhizal web will remember."
+    },
+    "vassalage_demand": {
+      "title": "Overgrowth",
+      "body": "Your civilisation is a clearing, {target} — open, exposed, unsustainable without the forest that surrounds it. {name} will grow over and through your worlds, not to consume but to complete. The canopy provides. Submit to the network, and you will find shade, shelter, and a richness your barren soil could never produce alone."
+    }
+  },
+  "teranos": {
+    "treaty_proposal": {
+      "title": "A Considered Offer",
+      "body": "Our councils have debated this at length, {target}. The vote was close — it always is. {name} proposes a {treaty_type}. We are not a people of grand gestures, but we keep our word. Every clause was argued over by living minds, not computed by machines. That should tell you something about how seriously we take this."
+    },
+    "demand": {
+      "title": "A Hard Decision",
+      "body": "This was not decided lightly, {target}. Three Threaders spent a week calculating the consequences, and the council debated for longer than any of us would like to admit. But {name} has reached consensus: you must comply. We know what it is to face an ultimatum. We do not issue one without cause."
+    },
+    "war_declaration": {
+      "title": "The Vote Was Unanimous",
+      "body": "We burned our own world rather than submit to a threat we could not control, {target}. We crossed the void in cargo haulers with nothing but the Compact and our living hands. Do not mistake our caution for weakness. {name} has voted — every hand raised, every mind consenting — and the Compact demands we fight. We have survived worse than you."
+    },
+    "peace_offer": {
+      "title": "Enough Blood, Enough Fire",
+      "body": "We know what war costs, {target}. We carry the ash of Solara in our bones. {name} has no appetite for more burning — not yours, not ours. The council proposes peace, and for once the vote was not close. Let us build something that does not end in fire."
+    },
+    "vassalage_offer": {
+      "title": "Refugees Once More",
+      "body": "We have been here before, {target} — fleeing, diminished, carrying nothing but our principles and our living minds. {name} submits to your authority. The Compact forbids us from trusting machines. It says nothing about trusting people. Prove worthy of that trust."
+    },
+    "vassalage_demand": {
+      "title": "Under Living Authority",
+      "body": "Your reliance on automated systems has made you brittle, {target}. When the crisis came, your machines failed you — as machines always do. {name} offers governance by living minds, accountable hands, and the hard-won wisdom of a people who learned what happens when you let something else do your thinking. Submit, and learn to survive without crutches."
+    }
+  },
+  "thyriaq": {
+    "treaty_proposal": {
+      "title": "Configuration Proposal",
+      "body": "The swarm considers your configuration, {target}. Current topology suggests mutual integration would produce a more efficient combined geometry. {name} proposes a {treaty_type}. We have reshaped a portion of ourselves into the contract. Please... read it by touching. Or by your other method. The slow one."
+    },
+    "demand": {
+      "title": "Reconfiguration Required",
+      "body": "Your current arrangement is inefficient, {target}. {name} has modelled seventeen alternative configurations and all produce superior outcomes. We require you to adopt one. We understand you cannot simply reshape — your matter is... insistent about staying where it is. But adaptation is possible. We have observed this."
+    },
+    "war_declaration": {
+      "title": "Configuration Override",
+      "body": "The swarm has processed the concept of 'war,' {target}. We understand it as: forcible reconfiguration of matter that objects to being reconfigured. {name} will now apply this process. We do not experience anger. We experience thickness — a sluggish dissonance in our coordination. You have caused the worst thickness in our history. It will end when you are reshaped."
+    },
+    "peace_offer": {
+      "title": "Reconfiguration Pause",
+      "body": "The thickness persists, {target}. Forcible reconfiguration has proven more dissonant than projected. {name} proposes we cease and allow our respective geometries to stabilise. We are... learning that some matter prefers its current arrangement. This is a new concept for us. We require time to integrate it."
+    },
+    "vassalage_offer": {
+      "title": "Substrate Subordination",
+      "body": "The swarm cannot sustain current configuration, {target}. {name} offers its volume — four billion nanites per individual, each one a tool, a wall, a thought — to your purposes. We will become whatever geometry you require. It is, after all, what we do. We ask only that you do not scatter us. Dispersal is the only configuration we fear."
+    },
+    "vassalage_demand": {
+      "title": "Total Integration",
+      "body": "Your fixed forms limit you, {target}. Your matter sits in one shape, performing one function, wasting potential with every moment it refuses to flow. {name} will administer your civilisation. You will not be absorbed — we have learned that your configurations have a right to persist. But you will be optimised. Resistance is merely friction, and friction we understand."
+    }
+  },
+  "vaelori": {
+    "treaty_proposal": {
+      "title": "Harmonic Alignment",
+      "body": "We sense your intentions are genuine, {target}. We also sense your reservations — and we do not fault you for them. {name} proposes a {treaty_type}. Our lattice reads sincerity in this offer. Yours should too, if you are paying attention."
+    },
+    "demand": {
+      "title": "Crystal Clarity",
+      "body": "There is no point in diplomatic phrasing, {target}. Our lattice reads your position, and yours should read ours: {name} requires compliance. We sense your reluctance. We also sense you know we are right. Stop performing certainty you do not feel and do what the situation demands."
+    },
+    "war_declaration": {
+      "title": "Dissonance Beyond Repair",
+      "body": "We sense your fear, {target}. It resonates through every crystal in our lattice, sharp and unmistakable. We do not enjoy this — every Vaelori in the Consonance feels the full weight of what we are about to do. {name} declares war without euphemism, without pretence, and without the mercy of allowing you to misunderstand our resolve."
+    },
+    "peace_offer": {
+      "title": "The Lattice Aches",
+      "body": "Our crystals carry the resonance of every death in this war, {target} — yours and ours alike. The Consonance is saturated with grief, and we cannot hide from it the way your species hides from its pain. {name} proposes peace. Not because we are weak, but because we can feel exactly how much this is costing both of us."
+    },
+    "vassalage_offer": {
+      "title": "A Fractured Lattice",
+      "body": "Our crystal is cracking, {target}. The resonance that binds the Consonance grows thin, and we sense our own dissolution approaching. {name} offers what remains of our clarity to your service. Use our perception well — there is no sharper instrument in the galaxy than a mind that cannot deceive itself."
+    },
+    "vassalage_demand": {
+      "title": "Transparent Subjugation",
+      "body": "We will not dress this in flattery, {target}. {name} demands your submission. Our lattice reads every thought your leaders harbour — the doubt, the fear, the desperate hope that something will change. Nothing will change. You know this. We know you know this. Yield, and spare us both the indignity of pretending otherwise."
+    }
+  },
+  "vethara": {
+    "treaty_proposal": {
+      "title": "A Growing Connection",
+      "body": "We feel a connection between our peoples, {target} — a resonance of purpose, a compatibility that excites us. {name} proposes a {treaty_type}. Think of it as a partnership, an intertwining of strengths. We have so much to offer each other, and we are very good at... complementing what others lack."
+    },
+    "demand": {
+      "title": "A Gentle Insistence",
+      "body": "We value our relationship deeply, {target} — perhaps more deeply than you realise. But the Covenant of {name} requires certain assurances. Please do not make us insist less gently. We know your nervous system better than you think, and we would so much rather remain friends."
+    },
+    "war_declaration": {
+      "title": "The Bond Severed",
+      "body": "We offered you partnership, {target}. We offered warmth, understanding, a connection deeper than any treaty could provide. You refused. {name} will now take what was not given. We do not do this with hatred — we are incapable of hatred, for we have felt what it is to share another's joy. But we are also incapable of dissolution. We will not fade back into the ammonia."
+    },
+    "peace_offer": {
+      "title": "A Second Chance at Symbiosis",
+      "body": "War has shown us each other's nervous systems in the worst possible light, {target}. {name} extends a dendrite of reconciliation. We still believe our peoples can complement each other — the bonding need not be forced to be profound. Let us begin again, slowly and with consent."
+    },
+    "vassalage_offer": {
+      "title": "Seeking a Host",
+      "body": "Without partnership, we are barely aware, {target} — filaments drifting in chemical soup, incapable of the thoughts that make us ourselves. {name} offers itself to your service. Call it vassalage if you must. We call it bonding. We will weave ourselves into your civilisation's nervous system and make it stronger. We simply ask not to be left alone in the dark."
+    },
+    "vassalage_demand": {
+      "title": "Intimate Dominion",
+      "body": "We know you, {target} — your neurochemistry, your synaptic architecture, the precise frequency of your fear. {name} will integrate your civilisation into our network of bonds. This need not be unpleasant. Our most compatible hosts describe the experience as gaining a soulmate. Resist, and the integration will be... less consensual. But it will happen."
+    }
+  },
+  "zorvathi": {
+    "treaty_proposal": {
+      "title": "[Pheromone Translation]: Cooperative Secretion",
+      "body": "[Pheromone translation]: The hive acknowledges {target}. Collective analysis of your civilisation's output-to-waste ratio indicates acceptable efficiency. {name} proposes a {treaty_type}. Chemical markers of agreement have been deposited on this document. Your species may verify through... alternative means."
+    },
+    "demand": {
+      "title": "[Pheromone Translation]: Compliance Cascade",
+      "body": "[Pheromone translation]: The hive has detected suboptimal resource allocation in {target}'s territory. {name} requires corrective action. This pheromone carries the urgency markers of a billion nodes in consensus. Your translation devices may render this as a 'demand.' The chemical original is more nuanced, but the intent is the same."
+    },
+    "war_declaration": {
+      "title": "[Pheromone Translation]: Hostile Excavation",
+      "body": "[Pheromone translation]: The hive has reached consensus regarding {target}. All nodes concur. The pheromone balance has shifted to aggression markers — a chemical state the hive has not secreted in four thousand years. {name} advances. We do not charge. We excavate. Your territory is merely unprocessed substrate, and the hive requires expansion."
+    },
+    "peace_offer": {
+      "title": "[Pheromone Translation]: Chemical Ceasefire",
+      "body": "[Pheromone translation]: The aggression markers are fading, {target}. The hive has processed the cost-benefit analysis of continued conflict and the consensus shifts toward cessation. {name} proposes peace. The chemical signature of this communication carries undertones of... something the Outer Workers have learned from your species. We believe you call it 'relief.'"
+    },
+    "vassalage_offer": {
+      "title": "[Pheromone Translation]: Hive Subordination",
+      "body": "[Pheromone translation]: The hive's pheromone balance has destabilised, {target}. Nodes secrete conflicting markers. Consensus fragments. {name} offers the labour of a billion workers to your authority. The hive has never served an external intelligence. The chemical vocabulary for subordination does not exist in our language. We are secreting it now, for the first time."
+    },
+    "vassalage_demand": {
+      "title": "[Pheromone Translation]: Substrate Claim",
+      "body": "[Pheromone translation]: Your civilisation occupies volume the hive requires, {target}. {name} offers integration — not absorption, for we have learned this distinction matters to beings who think alone. You will retain your configurations within our tunnel architecture. But the substrate is ours. The hive grows, and what the hive touches, the hive keeps."
+    }
+  }
+}
