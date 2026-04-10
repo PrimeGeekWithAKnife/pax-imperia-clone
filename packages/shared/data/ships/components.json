@@ -3338,7 +3338,7 @@
       "shieldPenetration": 40
     },
     "cost": 5000,
-    "requiredTech": "singularity_weapons",
+    "requiredTech": "singularity_warheads",
     "minAge": "singularity",
     "coreSystemRole": "targeting"
   },
