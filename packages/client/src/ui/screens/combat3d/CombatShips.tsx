@@ -74,7 +74,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
 
   // Memoise build result (geometry + hardpoint metadata) per species + hull class
   const buildResult = useMemo(
-    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass, 6),
+    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass),
     [speciesId, hullClass],
   );
   const geometry = buildResult.geometry;
