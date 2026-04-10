@@ -291,6 +291,7 @@ import type { EmpireStateSnapshot } from './psychology/maslow.js';
 import { evaluateTreatyWithPsychology } from './psychology/ai-integration.js';
 import { createRelationship } from './psychology/relationship.js';
 import { AFFINITY_MATRIX } from '../../data/species/personality/index.js';
+import { lookupBaseAffinity } from './psychology/compatibility.js';
 import { SPECIES_DEFAULT_PROFILES } from './ai/personality.js';
 import type { DemandThreat } from '../types/diplomacy.js';
 import { mapTreatyToRelationshipEvent, recordDiplomaticEvent, syncPsychologyToDiplomacy } from './diplomacy-bridge.js';
@@ -1303,6 +1304,31 @@ function stepFleetMovement(
                 }
               }
             }
+          }
+        }
+      }
+
+      // Border violation: non-allied fleet arriving in a system owned by another empire.
+      // Only fires if NOT at war (war has its own consequences) and NOT allied.
+      // Only fires on arrival (just entered this system), not every tick.
+      const borderDipState = state.diplomacyState;
+      const borderPsychMap = state.psychStateMap;
+      if (borderDipState && borderPsychMap) {
+        const systemOwnerIds = new Set<string>();
+        for (const p of arrivedSystem?.planets ?? []) {
+          if (p.ownerId && p.ownerId !== fleet.empireId) systemOwnerIds.add(p.ownerId);
+        }
+        for (const ownerId of systemOwnerIds) {
+          const dipRel = getRelation(borderDipState, fleet.empireId, ownerId);
+          if (!dipRel) continue;
+          // Skip if at war or allied — war has combat, allies have permission
+          if (dipRel.status === 'at_war' || dipRel.status === 'allied') continue;
+          recordDiplomaticEvent(borderPsychMap, ownerId, fleet.empireId, 'border_violation', tick);
+          if (state.reputationState) {
+            state = { ...state, reputationState: recordReputationEvent(state.reputationState, {
+              tick, empireId: fleet.empireId, type: 'treaty_broken', value: -2,
+              description: 'Fleet entered foreign territory without permission',
+            })};
           }
         }
       }
@@ -4070,6 +4096,24 @@ function stepEspionage(state: GameTickState, events: GameEvent[]): GameTickState
       // Record espionage detection in the psychology relationship system
       if (state.psychStateMap) {
         recordDiplomaticEvent(state.psychStateMap, evt.empireId, evt.targetEmpireId, 'espionage_detected', state.gameState.currentTick);
+
+        // Repeat espionage escalation: 3+ detections triggers additional 'threat' event
+        const targetPsych = state.psychStateMap.get(evt.targetEmpireId);
+        const espRel = targetPsych?.relationships[evt.empireId];
+        if (espRel) {
+          const priorDetections = espRel.incidents.filter(i => i.type === 'espionage_detected').length;
+          if (priorDetections >= 3) {
+            // Pattern of espionage is an existential concern — fire a threat event
+            recordDiplomaticEvent(state.psychStateMap, evt.targetEmpireId, evt.empireId, 'threat', state.gameState.currentTick);
+            // Bigger reputation hit for persistent espionage
+            if (state.reputationState) {
+              state = { ...state, reputationState: recordReputationEvent(state.reputationState, {
+                tick: state.gameState.currentTick, empireId: evt.empireId, type: 'espionage_exposed', value: -10,
+                description: 'Persistent pattern of espionage detected',
+              })};
+            }
+          }
+        }
       }
 
       // Record espionage exposure in the reputation system
@@ -6685,6 +6729,43 @@ export function processGameTick(
   // 8g. Reputation decay (drift scores toward neutral)
   if (s.reputationState) {
     s = { ...s, reputationState: processReputationTick(s.reputationState, s.gameState.currentTick) };
+  }
+
+  // 8g+. Cultural friction — incompatible species sharing systems generate tension.
+  // Runs every 10 ticks with a 20% chance per pair to avoid constant friction.
+  const culturalTick = s.gameState.currentTick;
+  if (culturalTick % 10 === 0 && s.psychStateMap && s.diplomacyState) {
+    const culturalPsych = s.psychStateMap;
+    const culturalDip = s.diplomacyState;
+    const empiresArr = s.gameState.empires;
+    const culturalSystems = s.gameState.galaxy.systems;
+    // For each system with planets owned by multiple empires, check species affinity
+    for (const sys of culturalSystems) {
+      const presentEmpireIds = new Set<string>();
+      for (const p of sys.planets) {
+        if (p.ownerId) presentEmpireIds.add(p.ownerId);
+      }
+      if (presentEmpireIds.size < 2) continue;
+      // Check each unique pair
+      const ids = Array.from(presentEmpireIds);
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          const eA = empiresArr.find(e => e.id === ids[i]);
+          const eB = empiresArr.find(e => e.id === ids[j]);
+          if (!eA || !eB) continue;
+          const dipRel = getRelation(culturalDip, eA.id, eB.id);
+          // Skip pairs at war or with no diplomatic contact
+          if (!dipRel || dipRel.status === 'at_war') continue;
+          const affinity = lookupBaseAffinity(AFFINITY_MATRIX, eA.species.id, eB.species.id);
+          if (affinity >= -10) continue; // Only strongly incompatible species
+          // 20% chance per check to fire
+          if (Math.random() > 0.2) continue;
+          // Fire 'insult' (cultural misunderstanding) for both sides
+          recordDiplomaticEvent(culturalPsych, eA.id, eB.id, 'insult', culturalTick);
+          recordDiplomaticEvent(culturalPsych, eB.id, eA.id, 'insult', culturalTick);
+        }
+      }
+    }
   }
 
   // 8h. Vassalage tribute collection
