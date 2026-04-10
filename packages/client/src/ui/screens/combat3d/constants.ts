@@ -56,7 +56,7 @@ export function shipScale(maxHull: number): number {
 // Beam styles
 // ---------------------------------------------------------------------------
 
-export type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation';
+export type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation' | 'spinal';
 
 /** Map weapon componentId to a beam visual style. */
 export const BEAM_STYLE_MAP: Record<string, BeamStyle> = {
@@ -66,6 +66,7 @@ export const BEAM_STYLE_MAP: Record<string, BeamStyle> = {
   radiation_ray: 'radiation',
   disruptor_beam: 'disruptor',
   plasma_lance: 'plasma',
+  spinal_annihilator: 'spinal',
 };
 
 /** Per-style beam colours for friendly and enemy sides. */
@@ -89,6 +90,10 @@ export const BEAM_COLOURS: Record<BeamStyle, { friendly: THREE.Color; enemy: THR
   plasma: {
     friendly: new THREE.Color(0xff6600),
     enemy: new THREE.Color(0xff6600), // orange regardless of side
+  },
+  spinal: {
+    friendly: new THREE.Color(0xffffff),  // blinding white core
+    enemy: new THREE.Color(0xff2200),     // angry red-white
   },
 };
 

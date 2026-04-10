@@ -44,7 +44,12 @@ const SUSTAINED_BEAM_TICKS: Record<string, number> = {
   plasma_lance: 5,
   radiation_ray: 3,
   disruptor_beam: 3,
+  spinal_annihilator: 6,  // massive sustained burst
 };
+
+/** Spinal/wide beam weapons — damage all ships along the beam path within beamWidth.
+ *  beamWidth is in battlefield units (read from component stats). */
+const WIDE_BEAM_WEAPONS = new Set(['spinal_annihilator']);
 /** Fraction of max shields recharged per tick. */
 const SHIELD_RECHARGE_FRACTION = 0.005;
 /** Armour absorbs up to this fraction of remaining damage per hit. */
@@ -293,6 +298,8 @@ export interface TacticalWeapon {
   salvoCount?: number;    // number of missiles fired per volley (missile weapons only)
   sustainedTicksLeft?: number;  // remaining ticks in sustained beam burst
   sustainedTargetId?: string;   // locked target during sustained beam burst
+  /** Beam width in battlefield units — wide beams hit all ships along their path. */
+  beamWidth?: number;
 }
 
 export type ShipOrder =
@@ -2630,13 +2637,27 @@ function extractShipStats(
   magazineLevel = 1.0,
   hull?: HullTemplate,
 ): ExtractedStats {
-  // Build slot facing lookup from hull template
+  // Build slot facing and size lookups from hull template
   const slotFacing = new Map<string, 'fore' | 'aft' | 'port' | 'starboard' | 'turret'>();
+  const slotSize = new Map<string, string>();
   if (hull) {
     for (const slot of hull.slotLayout) {
       slotFacing.set(slot.id, slot.facing);
+      slotSize.set(slot.id, slot.size);
     }
   }
+
+  // Weapon range multiplier by mount slot size.
+  // Larger mounts = longer barrels, better tracking, more power feed = more range.
+  // Small is baseline (1.0×). Capital ships with huge/colossal mounts get
+  // significantly longer range, letting them engage before closing distance.
+  const SLOT_RANGE_MULT: Record<string, number> = {
+    small: 1.0,
+    medium: 1.25,
+    large: 1.6,
+    huge: 2.0,
+    colossal: 2.5,
+  };
   const weapons: TacticalWeapon[] = [];
   let speed = 0;
   let maxShields = 0;
@@ -2668,11 +2689,14 @@ function extractShipStats(
           const fighterCount = comp.stats['fighterCount'] ?? 4;
           const scaledFighters = Math.max(1, Math.round(fighterCount * magazineLevel));
           const fighterDmg = comp.stats['damage'] ?? 8;
+          const bayMountSize = slotSize.get(assignment.slotId) ?? 'large';
+          const bayRangeMult = SLOT_RANGE_MULT[bayMountSize] ?? 1.0;
+
           weapons.push({
             componentId: comp.id,
             type: weaponType,
             damage: fighterDmg,
-            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD,
+            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD * bayRangeMult,
             accuracy: comp.stats['accuracy'] ?? 75,
             cooldownMax: computeCooldown(comp),
             cooldownLeft: 0,
@@ -2707,11 +2731,18 @@ function extractShipStats(
             }
           }
 
+          // Range scales with mount slot size — larger mounts = longer barrels, better tracking
+          const mountSize = slotSize.get(assignment.slotId) ?? 'small';
+          const rangeMult = SLOT_RANGE_MULT[mountSize] ?? 1.0;
+
+          // Wide beam weapons (spinal mounts) get their beamWidth from component stats
+          const beamWidth = comp.stats['beamWidth'] as number | undefined;
+
           weapons.push({
             componentId: comp.id,
             type: weaponType,
             damage: dmg,
-            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD,
+            range: (comp.stats['range'] ?? 3) * RANGE_TO_BATTLEFIELD * rangeMult,
             accuracy: comp.stats['accuracy'] ?? 75,
             cooldownMax: computeCooldown(comp),
             cooldownLeft: 0,
@@ -2720,6 +2751,7 @@ function extractShipStats(
             maxAmmo: baseAmmo,
             interceptRate,
             salvoCount,
+            beamWidth,
           });
         }
       }
@@ -2813,7 +2845,10 @@ function extractShipStats(
  */
 function computeCooldown(comp: ShipComponent): number {
   switch (comp.type) {
-    case 'weapon_beam': return 10;
+    case 'weapon_beam':
+      // Spinal weapons have a much longer cooldown (massive energy recharge)
+      if (comp.id === 'spinal_annihilator') return 50;
+      return 10;
     case 'weapon_projectile': return 15;
     case 'weapon_missile': {
       const profile = MISSILE_PROFILES[comp.id];
@@ -4962,8 +4997,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         continue;
       }
 
-      // Capacitor drain — sustained beam continuation ticks don't cost extra energy
-      const energyCost = WEAPON_ENERGY_COST[weapon.type] ?? 5;
+      // Capacitor drain — sustained beam continuation ticks don't cost extra energy.
+      // Spinal weapons drain massively (50 energy per fire).
+      const SPINAL_ENERGY_COST: Record<string, number> = { spinal_annihilator: 50 };
+      const energyCost = SPINAL_ENERGY_COST[weapon.componentId] ?? WEAPON_ENERGY_COST[weapon.type] ?? 5;
       const isSustainedContinuation = weapon.sustainedTicksLeft != null && weapon.sustainedTicksLeft > 0;
       if (!isSustainedContinuation && currentCapacitor < energyCost) {
         // Not enough energy — skip firing, don't reset cooldown
@@ -5130,6 +5167,44 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           const idx = ships.indexOf(weaponTarget);
           if (idx >= 0) {
             pendingBeamDamage.push({ targetIdx: idx, damage: beamDamage, damageType: 'beam' });
+          }
+
+          // Wide beam weapons (spinal mounts) damage ALL ships along the beam path
+          // within beamWidth/2 of the beam line — friend or foe.
+          if (weapon.beamWidth && weapon.beamWidth > 0) {
+            const halfWidth = weapon.beamWidth / 2;
+            const excludeWide = new Set([ship.id, weaponTarget.id]);
+            // Project the beam as a line from ship to the edge of weapon range
+            const beamAngle = Math.atan2(
+              weaponTarget.position.y - ship.position.y,
+              weaponTarget.position.x - ship.position.x,
+            );
+            const beamEndX = ship.position.x + Math.cos(beamAngle) * weapon.range;
+            const beamEndY = ship.position.y + Math.sin(beamAngle) * weapon.range;
+            const beamEndZ = ship.position.z ?? 0;
+            for (let si = 0; si < ships.length; si++) {
+              const s = ships[si];
+              if (excludeWide.has(s.id) || s.destroyed || s.routed) continue;
+              // Same-side ships also get hit — this is a planet-killer-scale weapon
+              const perpDist = pointToSegmentDistance(
+                s.position.x, s.position.y, s.position.z ?? 0,
+                ship.position.x, ship.position.y, ship.position.z ?? 0,
+                beamEndX, beamEndY, beamEndZ,
+              );
+              if (perpDist < halfWidth + (s.collisionRadius ?? 20)) {
+                // Damage falls off from centre: 100% at centre, 40% at edge
+                const falloff = 1.0 - (perpDist / (halfWidth + (s.collisionRadius ?? 20))) * 0.6;
+                pendingBeamDamage.push({ targetIdx: si, damage: beamDamage * falloff, damageType: 'beam' });
+                // Visual beam to each hit ship
+                newBeamEffects.push({
+                  sourceShipId: ship.id,
+                  targetShipId: s.id,
+                  damage: beamDamage * falloff,
+                  ticksRemaining: BEAM_EFFECT_DURATION,
+                  componentId: weapon.componentId,
+                });
+              }
+            }
           }
         } else {
           // Missed beam — chance of collateral damage on bystander ships

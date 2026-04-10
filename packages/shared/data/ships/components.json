@@ -3323,6 +3323,26 @@
     "speciesRestriction": "orivani"
   },
   {
+    "id": "spinal_annihilator",
+    "name": "Spinal Annihilator",
+    "type": "weapon_beam",
+    "description": "A fixed-mount weapon running the full length of the ship's keel. When fired, every capacitor bank discharges simultaneously through a phased singularity lens, projecting a coherent beam wide enough to engulf a frigate and long enough to cross the entire theatre of operations. The ship cannot manoeuvre during the three-second discharge cycle. Mounting this weapon IS the reason the vessel was built.",
+    "stats": {
+      "damage": 200,
+      "range": 96,
+      "accuracy": 95,
+      "powerDraw": 50,
+      "rateOfFire": 0.1,
+      "beamWidth": 80,
+      "piercingBonus": 30,
+      "shieldPenetration": 40
+    },
+    "cost": 5000,
+    "requiredTech": "singularity_weapons",
+    "minAge": "singularity",
+    "coreSystemRole": "targeting"
+  },
+  {
     "id": "orivani_wrath_broadcaster",
     "name": "Wrath Broadcaster",
     "type": "special",

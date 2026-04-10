@@ -101,7 +101,13 @@ const LARGE_SLOT_COMPONENTS = new Set([
   'drone_swarm_bay', 'elite_fighter_bay', 'bomber_bay',
 ]);
 
+/** Spinal/super-capital weapons that require colossal+ slots. */
+const COLOSSAL_SLOT_COMPONENTS = new Set([
+  'spinal_annihilator',
+]);
+
 function inferComponentSize(component: ShipComponent): SlotPosition['size'] {
+  if (COLOSSAL_SLOT_COMPONENTS.has(component.id)) return 'colossal';
   if (component.type === 'fighter_bay' || LARGE_SLOT_COMPONENTS.has(component.id)) return 'large';
   if (MEDIUM_SLOT_COMPONENTS.has(component.id)) return 'medium';
   if (
