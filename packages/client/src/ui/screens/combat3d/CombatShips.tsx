@@ -74,7 +74,14 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
 
   // Memoise build result (geometry + hardpoint metadata) per species + hull class
   const buildResult = useMemo(
-    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass),
+    () => {
+      const result = generateShipBuildResult(speciesId ?? 'teranos', hullClass);
+      // Debug: log hull class + bounds for large ships to verify correct geometry
+      if (ship.maxHull > 500) {
+        console.log(`[CombatShip] ${ship.name} hull=${hullClass} species=${speciesId} maxHull=${ship.maxHull} bounds=L${result.hardpoints.bounds.length.toFixed(1)}/W${result.hardpoints.bounds.width.toFixed(1)}/H${result.hardpoints.bounds.height.toFixed(1)} weapons=${result.hardpoints.weapons.length}`);
+      }
+      return result;
+    },
     [speciesId, hullClass],
   );
   const geometry = buildResult.geometry;
