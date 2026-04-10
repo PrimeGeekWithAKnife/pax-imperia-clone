@@ -3757,9 +3757,10 @@ function computeEngagementRange(ship: TacticalShip, target: TacticalShip): Engag
   // ends up physically inside the planet killer's geometry.
   const ownRadius = ship.collisionRadius ?? 20;
   const targetRadius = target.collisionRadius ?? 20;
-  // Margin scales with the larger ship — big ships need more room to manoeuvre
-  const largerRadius = Math.max(ownRadius, targetRadius);
-  const hullClearance = ownRadius + targetRadius + Math.max(20, largerRadius * 0.3);
+  // Margin scales with the smaller ship's radius — a cruiser orbiting a PK
+  // needs at least its own length of clearance beyond touching distance
+  const smallerRadius = Math.min(ownRadius, targetRadius);
+  const hullClearance = ownRadius + targetRadius + Math.max(30, smallerRadius * 0.8);
 
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
   if (nonPD.length === 0) return { min: Math.max(60, hullClearance), optimal: Math.max(100, hullClearance), max: Math.max(200, hullClearance) };
@@ -3973,7 +3974,8 @@ function orbitTarget(
   // Hull clearance: minimum safe distance (centre-to-centre) to avoid geometry overlap
   const ownRadius = ship.collisionRadius ?? 20;
   const targetRadius = target.collisionRadius ?? 20;
-  const hullClearance = ownRadius + targetRadius + 10;
+  const smallerOrbitRadius = Math.min(ownRadius, targetRadius);
+  const hullClearance = ownRadius + targetRadius + Math.max(30, smallerOrbitRadius * 0.8);
   // The push-out threshold is the larger of orbitRadius*0.6 and hull clearance
   const tooCloseThreshold = Math.max(orbitRadius * 0.6, hullClearance);
 
@@ -3990,13 +3992,14 @@ function orbitTarget(
     goalY = ship.position.y + Math.sin(blendedAngle) * Math.min(closingRadius, ship.speed * 3);
     goalZ = target.position.z;
   } else if (d < tooCloseThreshold) {
-    // ── Too close / inside hull geometry: push outward urgently ──
+    // ── Too close / inside hull geometry: emergency push outward ──
     const awayAngle = angleTo(target.position, ship.position);
-    // Stronger push when inside hull clearance vs just inside orbit band
-    const urgency = d < hullClearance ? 1.0 : 0.3;
-    const pushAngle = awayAngle + orbitDir * urgency * 0.3;
-    goalX = target.position.x + Math.cos(pushAngle) * orbitRadius;
-    goalY = target.position.y + Math.sin(pushAngle) * orbitRadius;
+    // Much stronger push when inside hull clearance — move at double speed away
+    const urgency = d < hullClearance ? 2.0 : 0.5;
+    const pushAngle = awayAngle + orbitDir * urgency * 0.2;
+    const pushDist = orbitRadius + (hullClearance - d) * urgency;
+    goalX = target.position.x + Math.cos(pushAngle) * pushDist;
+    goalY = target.position.y + Math.sin(pushAngle) * pushDist;
     goalZ = target.position.z;
   } else {
     // ── In orbit band: continue circling ──
