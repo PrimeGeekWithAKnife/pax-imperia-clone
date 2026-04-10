@@ -90,17 +90,37 @@ function resolveWeaponOrigin(
   const cosR = Math.cos(rotAngle);
   const sinR = Math.sin(rotAngle);
 
+  // Pitch from engine state -- matches CombatShips.tsx visual rotation
+  const pitch = (ship as any).currentPitch ?? 0;
+  const cosP = Math.cos(pitch);
+  const sinP = Math.sin(pitch);
+
   let bestDistSq = Infinity;
   _hpBest.copy(shipPos);
 
   for (const hp of hardpoints) {
-    // Rotate hardpoint position by ship facing (Y-axis rotation)
-    const rx = hp.position.x * cosR - hp.position.z * sinR;
-    const rz = hp.position.x * sinR + hp.position.z * cosR;
+    // Step 1: Rotate hardpoint position by yaw (Y-axis rotation)
+    const yawX = hp.position.x * cosR - hp.position.z * sinR;
+    const yawY = hp.position.y;  // vertical -- unchanged by yaw
+    const yawZ = hp.position.x * sinR + hp.position.z * cosR;
+
+    // Step 2: Apply pitch rotation around the ship's local right-axis.
+    // The ship's forward direction in 3D (after yaw) is (cosR, 0, sinR).
+    // Decompose the yaw-rotated position into forward and right components,
+    // rotate forward/up by pitch, then recompose.
+    const facingX = cosR;   // ship's forward direction X
+    const facingZ = sinR;   // ship's forward direction Z
+    const fwd = yawX * facingX + yawZ * facingZ;     // component along facing
+    const right = -yawX * facingZ + yawZ * facingX;   // component perpendicular to facing
+    const pitchedFwd = fwd * cosP - yawY * sinP;
+    const pitchedY = fwd * sinP + yawY * cosP;
+    const finalX = pitchedFwd * facingX - right * facingZ;
+    const finalZ = pitchedFwd * facingZ + right * facingX;
+
     _hpWorld.set(
-      shipPos.x + rx * scale,
-      shipPos.y + hp.position.y * scale,
-      shipPos.z + rz * scale,
+      shipPos.x + finalX * scale,
+      shipPos.y + pitchedY * scale,
+      shipPos.z + finalZ * scale,
     );
     const dSq = _hpWorld.distanceToSquared(targetPos3D);
     if (dSq < bestDistSq) {
@@ -378,6 +398,69 @@ function BeamEffects({
           addFlash(tx, ty, tz, _tmpColor, fadeAlpha * 0.85, 0.3 + intensity * 0.25);
           break;
         }
+
+        case 'spinal': {
+          // Wide multi-segment beam -- fills beamWidth with parallel line segments.
+          // The beam ALWAYS extends from source to the far edge of the battlefield,
+          // visually crossing the entire map regardless of where the target is.
+          const bw = ((beam as any).beamWidth ?? 80) * BF_SCALE; // battlefield units -> 3D
+          const halfBW = bw / 2;
+          const numStrands = 10; // parallel line segments filling the beam width
+
+          // Compute beam direction from source toward target, then extend to
+          // the battlefield diagonal so the beam visually crosses the entire map.
+          const sdx = tx - sx, sdy = ty - sy, sdz = tz - sz;
+          _tmpDir.set(sdx, sdy, sdz).normalize();
+          const bfDiag = Math.sqrt(
+            (battlefieldWidth * BF_SCALE) ** 2 + (battlefieldHeight * BF_SCALE) ** 2,
+          );
+          // Beam endpoint: source + direction * battlefield diagonal
+          const farX = sx + _tmpDir.x * bfDiag;
+          const farY = sy + _tmpDir.y * bfDiag;
+          const farZ = sz + _tmpDir.z * bfDiag;
+
+          // Perpendicular axes for beam width spread
+          _tmpUp.set(0, 1, 0);
+          _perpA.crossVectors(_tmpDir, _tmpUp);
+          if (_perpA.lengthSq() < 0.001) {
+            _tmpUp.set(1, 0, 0);
+            _perpA.crossVectors(_tmpDir, _tmpUp);
+          }
+          _perpA.normalize();
+          _perpB.crossVectors(_tmpDir, _perpA).normalize();
+
+          // Dramatic pulsing opacity
+          const pulsePhase = Math.sin(tick * 0.8) * 0.3 + 0.7;
+          const flickerPhase = Math.sin(tick * 3.7) * 0.1 + 0.9;
+          const spinalAlpha = fadeAlpha * pulsePhase * flickerPhase * beamBrightness;
+
+          for (let s = 0; s < numStrands; s++) {
+            // Distribute strands across the beam width in a grid pattern
+            const tA = ((s % 4) / 3 - 0.5) * 2 * halfBW;
+            const tB = ((Math.floor(s / 4) % 3) / 2 - 0.5) * 2 * halfBW * 0.5;
+            const offX = _perpA.x * tA + _perpB.x * tB;
+            const offY = _perpA.y * tA + _perpB.y * tB;
+            const offZ = _perpA.z * tA + _perpB.z * tB;
+
+            // Core white-hot strand — extends to far edge
+            addSegment(
+              sx + offX, sy + offY, sz + offZ,
+              farX + offX, farY + offY, farZ + offZ,
+              coreR, coreG, coreB, spinalAlpha * 0.9,
+            );
+            // Outer glow strand — extends to far edge
+            addSegment(
+              sx + offX * 1.3, sy + offY * 1.3, sz + offZ * 1.3,
+              farX + offX * 1.3, farY + offY * 1.3, farZ + offZ * 1.3,
+              glowR, glowG, glowB, spinalAlpha * 0.25,
+            );
+          }
+
+          // Large impact flash at the actual target position (not far edge)
+          _tmpColor.set(palette.beamCore);
+          addFlash(tx, ty, tz, _tmpColor, fadeAlpha * 1.0, 0.5 + intensity * 0.4);
+          break;
+        }
       }
     }
 
@@ -534,7 +617,11 @@ function ProjectileEffects({
       // Trail segment (pre-allocated buffer)
       if (trailSegIdx < MAX_PROJ_TRAIL_SEGMENTS) {
         // Tail direction: opposite of travel direction
-        const trailLen = (0.15 + dmgFrac * 0.25) * BF_SCALE * 10;
+        // Scale trail length by muzzle velocity relative to the old default (16).
+        // Fast projectiles (gauss, singularity driver) get longer streaks;
+        // slow ones (siege cannon, battering ram) get stubbier trails.
+        const speedFactor = (proj.speed ?? 16) / 16;
+        const trailLen = (0.15 + dmgFrac * 0.25) * BF_SCALE * 10 * speedFactor;
         const tailX = pos.x - _tmpDir.x * trailLen;
         const tailY = pos.y - _tmpDir.y * trailLen;
         const tailZ = pos.z - _tmpDir.z * trailLen;

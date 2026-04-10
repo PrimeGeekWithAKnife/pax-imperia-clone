@@ -43,20 +43,26 @@ export function tacticalTo3D(
 
 /**
  * Uniform scale multiplier for a ship mesh based on its hull class.
- * Matches the 2D size categories (tiny / small / medium / large).
+ * The base geometry already encodes size (HULL_SCALE: probe=1.5 to PK=40),
+ * so this multiplier provides additional emphasis for capital ships.
  */
 export function shipScale(maxHull: number): number {
-  if (maxHull < 60) return 1.0;   // probes, scouts
-  if (maxHull < 200) return 1.3;  // frigates, destroyers
-  if (maxHull < 400) return 1.6;  // cruisers
-  return 2.0;                      // battleships, dreadnoughts
+  if (maxHull < 60) return 1.0;     // probes, scouts, fighters
+  if (maxHull < 200) return 1.3;    // frigates, destroyers
+  if (maxHull < 400) return 1.6;    // cruisers
+  if (maxHull < 800) return 2.0;    // battleships
+  if (maxHull < 1500) return 2.3;   // heavy battleships
+  if (maxHull < 3000) return 2.6;   // super carriers
+  if (maxHull < 5000) return 3.0;   // battle stations
+  if (maxHull < 10000) return 3.5;  // space stations
+  return 4.0;                        // planet killers, large space stations
 }
 
 // ---------------------------------------------------------------------------
 // Beam styles
 // ---------------------------------------------------------------------------
 
-export type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation';
+export type BeamStyle = 'pulse' | 'particle' | 'disruptor' | 'plasma' | 'radiation' | 'spinal';
 
 /** Map weapon componentId to a beam visual style. */
 export const BEAM_STYLE_MAP: Record<string, BeamStyle> = {
@@ -66,6 +72,7 @@ export const BEAM_STYLE_MAP: Record<string, BeamStyle> = {
   radiation_ray: 'radiation',
   disruptor_beam: 'disruptor',
   plasma_lance: 'plasma',
+  spinal_annihilator: 'spinal',
 };
 
 /** Per-style beam colours for friendly and enemy sides. */
@@ -89,6 +96,10 @@ export const BEAM_COLOURS: Record<BeamStyle, { friendly: THREE.Color; enemy: THR
   plasma: {
     friendly: new THREE.Color(0xff6600),
     enemy: new THREE.Color(0xff6600), // orange regardless of side
+  },
+  spinal: {
+    friendly: new THREE.Color(0xffffff),  // blinding white core
+    enemy: new THREE.Color(0xff2200),     // angry red-white
   },
 };
 

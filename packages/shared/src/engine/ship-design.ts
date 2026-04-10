@@ -101,7 +101,13 @@ const LARGE_SLOT_COMPONENTS = new Set([
   'drone_swarm_bay', 'elite_fighter_bay', 'bomber_bay',
 ]);
 
+/** Spinal/super-capital weapons that require colossal+ slots. */
+const COLOSSAL_SLOT_COMPONENTS = new Set([
+  'spinal_annihilator',
+]);
+
 function inferComponentSize(component: ShipComponent): SlotPosition['size'] {
+  if (COLOSSAL_SLOT_COMPONENTS.has(component.id)) return 'colossal';
   if (component.type === 'fighter_bay' || LARGE_SLOT_COMPONENTS.has(component.id)) return 'large';
   if (MEDIUM_SLOT_COMPONENTS.has(component.id)) return 'medium';
   if (
@@ -535,7 +541,9 @@ export function autoEquipDesign(
 
     if (candidates.length === 0) continue;
 
-    // For weapon slots: rotate through beam → projectile → missile for variety
+    // For weapon slots: rotate through beam → projectile → missile for variety.
+    // For internal slots that allow power_reactor: prioritise reactor when power
+    // budget is low — without a reactor, capital weapons can't fire.
     let priorityType = slot.allowedTypes[0] as ComponentType;
     if (slot.category === 'weapon') {
       const preferred = WEAPON_TYPE_ROTATION[weaponSlotIdx % WEAPON_TYPE_ROTATION.length]!;
@@ -543,6 +551,9 @@ export function autoEquipDesign(
         priorityType = preferred;
       }
       weaponSlotIdx++;
+    } else if (powerBudget < 10 && (slot.allowedTypes as string[]).includes('power_reactor')) {
+      // Low on power — install a reactor before other internal systems
+      priorityType = 'power_reactor' as ComponentType;
     }
 
     // Filter candidates by power budget — prefer components we can power,
@@ -650,6 +661,9 @@ function scoreComponent(component: ShipComponent, forType: ComponentType): numbe
 
     case 'ecm_suite':
       return s['evasionBonus'] ?? 0;
+
+    case 'power_reactor':
+      return (s['powerOutput'] ?? 0) + (s['capacity'] ?? 0) * 0.1;
 
     case 'life_support':
       return (s['moraleRecovery'] ?? 0) + (s['crewCapacity'] ?? 0) * 0.1;

@@ -2120,11 +2120,18 @@ export function generateAIDecisions(
 
   const shipyard = ownedPlanets.find(p => p.buildings.some(b => b.type === 'shipyard'));
   if (shipyard) {
-    // Build warships when below target — escalate hull class as fleet grows.
-    // Early game: destroyers. Mid-game: cruisers (better transport capacity
-    // for ground invasions). Late-game: battleships.
+    // Build warships when below target — escalate hull class as fleet grows
+    // AND tech age. Early game: destroyers. Mid-game: cruisers. Late-game:
+    // battleships. Anti-matter age: heavy battleships. Singularity: planet killers.
     if (totalShips < shipTarget) {
+      const AGE_ORDER = ['nano_atomic', 'fusion', 'nano_fusion', 'anti_matter', 'singularity'];
+      const empireAgeIdx = AGE_ORDER.indexOf(empire.currentAge ?? 'nano_atomic');
+      const isAntiMatter = empireAgeIdx >= 3;
+      const isSingularity = empireAgeIdx >= 4;
       const hullClass: HullClass =
+        isSingularity && totalShips >= 18 ? 'planet_killer' :
+        isAntiMatter && totalShips >= 15 ? 'battle_station' :
+        isAntiMatter && totalShips >= 12 ? 'heavy_battleship' :
         totalShips >= 10 ? 'battleship' :
         totalShips >= 5  ? 'light_cruiser' :
         'destroyer';

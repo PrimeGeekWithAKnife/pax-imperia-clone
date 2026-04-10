@@ -76,6 +76,7 @@ function _playCombatSounds(state: TacticalState, refs: AudioTrackingRefs): void 
       case 'radiation':  sfx.playBeamParticle(); break;
       case 'disruptor':  sfx.playBeamDisruptor(); break;
       case 'plasma':     sfx.playBeamPlasma(); break;
+      case 'spinal':     sfx.playBeamPulse(); break;
     }
     beamSoundsPlayed++;
   }

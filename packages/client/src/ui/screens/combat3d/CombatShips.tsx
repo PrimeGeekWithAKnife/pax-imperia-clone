@@ -13,7 +13,7 @@ import type { TacticalShip, HullClass } from '@nova-imperia/shared';
 import { generateShipBuildResult, getShipMaterial } from '../../../game/rendering/ShipModels3D';
 import { getSpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
 import type { CombatStateAPI } from './useCombatState';
-import { tacticalTo3D, shipScale, DAMAGE_FLASH_COLOR } from './constants';
+import { tacticalTo3D, shipScale, BF_SCALE, DAMAGE_FLASH_COLOR } from './constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -74,7 +74,7 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
 
   // Memoise build result (geometry + hardpoint metadata) per species + hull class
   const buildResult = useMemo(
-    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass, 6),
+    () => generateShipBuildResult(speciesId ?? 'teranos', hullClass),
     [speciesId, hullClass],
   );
   const geometry = buildResult.geometry;
@@ -99,6 +99,24 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   );
 
   const scale = useMemo(() => shipScale(ship.maxHull), [ship.maxHull]);
+
+  // Shield bubble scale -- use engine collision extents when available (tuned per hull class),
+  // with 30% margin. Falls back to geometry bounds if extents are absent.
+  const shieldBubbleScale = useMemo((): [number, number, number] => {
+    const ext = (ship as any).collisionExtents as { halfWidth: number; halfHeight: number; halfLength: number } | undefined;
+    if (ext) {
+      return [
+        ext.halfWidth * BF_SCALE * 1.3,
+        ext.halfHeight * BF_SCALE * 1.3,
+        ext.halfLength * BF_SCALE * 1.3,
+      ];
+    }
+    return [
+      hardpoints.bounds.width * scale * 0.75,
+      hardpoints.bounds.height * scale * 0.75,
+      hardpoints.bounds.length * scale * 0.65,
+    ];
+  }, [ship, hardpoints.bounds, scale]);
 
   // Species-specific palette for engine glow colour
   const palette = useMemo(() => getSpeciesWeaponPalette(speciesId), [speciesId]);
@@ -140,7 +158,9 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
       const vy = ship.velocity?.y ?? 0;
       const vz = ship.velocity?.z ?? 0;
       const horizSpeed = Math.sqrt(vx * vx + vy * vy);
-      const rawPitch = horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0;
+      const rawPitch = ship.currentPitch != null
+        ? ship.currentPitch
+        : (horizSpeed > 0.1 ? Math.atan2(vz, horizSpeed) : 0);
       // Clamp pitch — smaller ships pitch more aggressively
       const maxPitch = ship.maxHull < 80 ? Math.PI / 3 : ship.maxHull < 200 ? Math.PI / 5 : Math.PI / 8;
       const pitch = Math.max(-maxPitch, Math.min(maxPitch, rawPitch));
@@ -301,15 +321,11 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         />
       </mesh>
 
-      {/* Shield bubble — semi-transparent ellipsoid sized to bounding box */}
+      {/* Shield bubble — semi-transparent ellipsoid sized from engine collision extents */}
       {ship.maxShields > 0 && (
         <mesh
           ref={shieldMeshRef}
-          scale={[
-            hardpoints.bounds.width * scale * 0.65,
-            hardpoints.bounds.height * scale * 0.65,
-            hardpoints.bounds.length * scale * 0.55,
-          ]}
+          scale={shieldBubbleScale}
         >
           <sphereGeometry args={[1, 12, 8]} />
           <primitive object={shieldMaterial} attach="material" />
@@ -409,12 +425,17 @@ export const CombatShips: React.FC<CombatShipsProps> = React.memo(function Comba
       }
       // Fallback: guess hull class from max hull points
       let fallback: HullClass;
-      if (ship.maxHull < 30) fallback = 'science_probe';
-      else if (ship.maxHull < 60) fallback = 'patrol';
-      else if (ship.maxHull < 120) fallback = 'destroyer';
-      else if (ship.maxHull < 250) fallback = 'light_cruiser';
-      else if (ship.maxHull < 450) fallback = 'battleship';
-      else fallback = 'heavy_battleship';
+      if (ship.maxHull >= 10000) fallback = 'planet_killer';
+      else if (ship.maxHull >= 5000) fallback = 'large_space_station';
+      else if (ship.maxHull >= 3000) fallback = 'battle_station';
+      else if (ship.maxHull >= 2000) fallback = 'space_station';
+      else if (ship.maxHull >= 1500) fallback = 'heavy_battleship';
+      else if (ship.maxHull >= 450) fallback = 'heavy_battleship';
+      else if (ship.maxHull >= 250) fallback = 'battleship';
+      else if (ship.maxHull >= 120) fallback = 'light_cruiser';
+      else if (ship.maxHull >= 60) fallback = 'destroyer';
+      else if (ship.maxHull >= 30) fallback = 'patrol';
+      else fallback = 'science_probe';
       map.set(ship.id, fallback);
     }
 
