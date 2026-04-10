@@ -2391,9 +2391,17 @@ export function initializeTacticalCombat(
         // Less mass = faster rotation. Better RCS = even faster.
         // rcsTurnBonus 0-5 maps to 1.0x-3.0x multiplier (huge impact).
         // Drones get a 2x base. Fighters with top RCS spin very fast.
-        turnRate: ((hullTemplate?.manned === false ? 0.20 : 0.10)
-          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100)))
-          * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4),
+        // Super-capitals get hard caps so a planet killer can't spin like a corvette.
+        turnRate: (() => {
+          const raw = ((hullTemplate?.manned === false ? 0.20 : 0.10)
+            / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100)))
+            * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4);
+          const totalMass = ship.maxHullPoints + extracted.armour;
+          if (totalMass > 3000) return Math.min(raw, 0.01);   // planet killers, battle stations
+          if (totalMass > 1000) return Math.min(raw, 0.02);   // heavy battleships, carriers
+          if (totalMass > 500) return Math.min(raw, 0.035);   // battleships, light battleships
+          return raw;
+        })(),
         hull: ship.hullPoints,
         maxHull: ship.maxHullPoints,
         shields: extracted.maxShields,
@@ -2433,9 +2441,16 @@ export function initializeTacticalCombat(
         maxCapacitor: extracted.maxCapacitor || 80,
         capacitorRecharge: extracted.capacitorRecharge || 4,
         currentPitch: 0,
-        pitchRate: ((hullTemplate?.manned === false ? 0.20 : 0.10)
-          / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100))
-          * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4)) * 0.6,
+        pitchRate: (() => {
+          const raw = ((hullTemplate?.manned === false ? 0.20 : 0.10)
+            / Math.max(1, Math.sqrt((ship.maxHullPoints + extracted.armour) / 100))
+            * (1.0 + (extracted.rcsTurnBonus ?? 0) * 0.4)) * 0.6;
+          const totalMass = ship.maxHullPoints + extracted.armour;
+          if (totalMass > 3000) return Math.min(raw, 0.006);
+          if (totalMass > 1000) return Math.min(raw, 0.012);
+          if (totalMass > 500) return Math.min(raw, 0.021);
+          return raw;
+        })(),
         angularVelocity: 0,
       };
     });
@@ -4209,14 +4224,19 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   // 2. Move ships
   ships = ships.map((ship) => moveShip(ship, state));
 
-  // 2b. RCS facing pass: all ships rotate to face their primary target.
-  // In space, velocity and facing are independent — RCS thrusters rotate
-  // the ship without changing trajectory. This keeps weapons on target.
-  // Fighters already handle this in fighterCombatAI; this covers capital ships.
+  // 2b. RCS facing pass: stationary or slow-moving ships rotate to face
+  // their primary target. Omitted for ships already manoeuvring (moveShip
+  // handles facing via angular velocity), otherwise the facing budget is
+  // double-spent and super-capitals spin twice as fast as their turnRate cap.
   ships = ships.map((ship) => {
     if (ship.destroyed || ship.routed || ship.stance === 'flee') return ship;
-    // Fighters in aggressive stance already have facing override
     if (ship.hullClass === 'fighter' && ship.stance === 'aggressive') return ship;
+
+    // Only apply RCS facing when the ship is nearly stationary —
+    // movement-based facing is already handled in moveToward / orbitTarget.
+    const vel = ship.velocity;
+    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+    if (speed > 0.5) return ship;  // already handled by movement
 
     const target = findTarget(ship, ships);
     if (!target) return ship;
@@ -4224,7 +4244,6 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     const desiredFacing = angleTo(ship.position, target.position);
     const facingDiff = normaliseAngle(desiredFacing - ship.facing);
     const maxTurn = ship.turnRate ?? 0.08;
-    // Blend: mostly face target, slight bias toward velocity for visual smoothness
     const newFacing = normaliseAngle(ship.facing + clamp(facingDiff, -maxTurn, maxTurn));
     return newFacing !== ship.facing ? { ...ship, facing: newFacing } : ship;
   });
