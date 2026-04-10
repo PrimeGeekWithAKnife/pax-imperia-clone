@@ -540,6 +540,8 @@ export interface BeamEffect {
   damage: number;
   ticksRemaining: number;
   componentId?: string;
+  /** Width in battlefield units for wide beam weapons (e.g. spinal annihilator). */
+  beamWidth?: number;
 }
 
 export type TacticalOutcome = 'attacker_wins' | 'defender_wins' | null;
@@ -5121,6 +5123,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             damage: perTickDamage,
             ticksRemaining: BEAM_EFFECT_DURATION,
             componentId: weapon.componentId,
+            beamWidth: weapon.beamWidth,
           });
           const remaining = weapon.sustainedTicksLeft - 1;
           if (remaining <= 0) {
@@ -5236,6 +5239,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
                   damage: beamDamage * falloff,
                   ticksRemaining: BEAM_EFFECT_DURATION,
                   componentId: weapon.componentId,
+                  beamWidth: weapon.beamWidth,
                 });
               }
             }
@@ -5261,6 +5265,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
                   damage: beamDamage * 0.5,
                   ticksRemaining: BEAM_EFFECT_DURATION,
                   componentId: weapon.componentId,
+                  beamWidth: weapon.beamWidth,
                 });
               }
             }
@@ -5272,6 +5277,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
           damage: beamDamage,
           ticksRemaining: BEAM_EFFECT_DURATION,
           componentId: weapon.componentId,
+          beamWidth: weapon.beamWidth,
         });
 
         // Sustained beam: multi-tick burst — first tick already fired above,

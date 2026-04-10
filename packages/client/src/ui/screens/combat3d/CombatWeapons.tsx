@@ -398,6 +398,59 @@ function BeamEffects({
           addFlash(tx, ty, tz, _tmpColor, fadeAlpha * 0.85, 0.3 + intensity * 0.25);
           break;
         }
+
+        case 'spinal': {
+          // Wide multi-segment beam -- fills beamWidth with parallel line segments.
+          // The engine produces one BeamEffect per hit ship; all share the same
+          // source, so render a thick beam from source to THIS target.
+          const bw = ((beam as any).beamWidth ?? 80) * BF_SCALE; // battlefield units -> 3D
+          const halfBW = bw / 2;
+          const numStrands = 10; // parallel line segments filling the beam width
+
+          // Beam direction and perpendicular axes
+          const sdx = tx - sx, sdy = ty - sy, sdz = tz - sz;
+          _tmpDir.set(sdx, sdy, sdz).normalize();
+          _tmpUp.set(0, 1, 0);
+          _perpA.crossVectors(_tmpDir, _tmpUp);
+          if (_perpA.lengthSq() < 0.001) {
+            _tmpUp.set(1, 0, 0);
+            _perpA.crossVectors(_tmpDir, _tmpUp);
+          }
+          _perpA.normalize();
+          _perpB.crossVectors(_tmpDir, _perpA).normalize();
+
+          // Dramatic pulsing opacity
+          const pulsePhase = Math.sin(tick * 0.8) * 0.3 + 0.7;
+          const flickerPhase = Math.sin(tick * 3.7) * 0.1 + 0.9;
+          const spinalAlpha = fadeAlpha * pulsePhase * flickerPhase * beamBrightness;
+
+          for (let s = 0; s < numStrands; s++) {
+            // Distribute strands across the beam width in a grid pattern
+            const tA = ((s % 4) / 3 - 0.5) * 2 * halfBW;
+            const tB = ((Math.floor(s / 4) % 3) / 2 - 0.5) * 2 * halfBW * 0.5;
+            const offX = _perpA.x * tA + _perpB.x * tB;
+            const offY = _perpA.y * tA + _perpB.y * tB;
+            const offZ = _perpA.z * tA + _perpB.z * tB;
+
+            // Core white-hot strand
+            addSegment(
+              sx + offX, sy + offY, sz + offZ,
+              tx + offX, ty + offY, tz + offZ,
+              coreR, coreG, coreB, spinalAlpha * 0.9,
+            );
+            // Outer glow strand
+            addSegment(
+              sx + offX * 1.3, sy + offY * 1.3, sz + offZ * 1.3,
+              tx + offX * 1.3, ty + offY * 1.3, tz + offZ * 1.3,
+              glowR, glowG, glowB, spinalAlpha * 0.25,
+            );
+          }
+
+          // Large impact flash at the target
+          _tmpColor.set(palette.beamCore);
+          addFlash(tx, ty, tz, _tmpColor, fadeAlpha * 1.0, 0.5 + intensity * 0.4);
+          break;
+        }
       }
     }
 
