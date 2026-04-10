@@ -69,6 +69,7 @@ import type {
 } from '../types/events.js';
 import { GAME_SPEEDS, TECH_AGES } from '../constants/game.js';
 import { SHIP_COMPONENTS, HULL_TEMPLATE_BY_CLASS } from '../../data/ships/index.js';
+import { getDiplomaticVoice } from '../../data/species/index.js';
 import { generateDefaultDesigns, getAvailableComponents } from './ship-design.js';
 import {
   BASE_CONSTRUCTION_RATE,
@@ -1023,13 +1024,17 @@ function processPlayerActions(
             }
           }
         } else {
-          // Human player target — create notification
-          const threatLabel = threat === 'war' ? 'threatens war' : threat === 'sanctions' ? 'threatens sanctions' : 'warns of consequences';
+          // Human player target — create notification with species voice
+          const targetEmpireName = targetEmpire?.name ?? targetEmpireId;
+          const demandVoice = getDiplomaticVoice(
+            demandEmpire?.species?.id ?? '', 'demand',
+            { name: demandEmpereName, target: targetEmpireName },
+          );
           rejectionNotifications.push(
             createNotification(
               'diplomatic_demand',
-              `${demandEmpereName} makes a demand`,
-              `${demandEmpereName} demands ${demandType === 'resources' ? `${amount} ${resourceType}` : demandType === 'system' ? 'a star system' : 'technology'} and ${threatLabel}.`,
+              demandVoice.title,
+              demandVoice.body,
               tick,
               [
                 { id: `accept_demand_${demandId}`, label: 'Comply', description: 'Accept the demand' },
@@ -4823,10 +4828,15 @@ function stepAIVassalRebellion(
     const overlordEmpire = s.gameState.empires.find(e => e.id === rel.overlordId);
     if (overlordEmpire && !overlordEmpire.isAI) {
       const vassalName = vassalEmpire.name ?? rel.vassalId;
+      const overlordName = overlordEmpire.name ?? rel.overlordId;
+      const rebellionVoice = getDiplomaticVoice(
+        vassalEmpire.species?.id ?? '', 'war_declaration',
+        { name: vassalName, target: overlordName },
+      );
       const notification = createNotification(
         'under_attack',
-        `${vassalName} has rebelled!`,
-        `Your vassal, the ${vassalName}, have grown strong enough to challenge your authority. They have broken the vassalage treaty and declared war.`,
+        rebellionVoice.title,
+        rebellionVoice.body,
         tick,
         undefined,
         { empireId: rel.vassalId },
@@ -5011,13 +5021,19 @@ function executeAIDiplomacy(
         return { ...state, diplomacyState: updatedDiplomacy };
       }
 
-      // AI-to-player: offer vassalage surrender via notification
+      // AI-to-player: offer vassalage surrender via notification with species voice
       const empireObj = state.gameState.empires.find(e => e.id === empireId);
       const empireName = empireObj?.name ?? empireId;
+      const targetObj = state.gameState.empires.find(e => e.id === targetEmpireId);
+      const targetName = targetObj?.name ?? targetEmpireId;
+      const vassalVoice = getDiplomaticVoice(
+        empireObj?.species?.id ?? '', 'vassalage_offer',
+        { name: empireName, target: targetName },
+      );
       const notification = createNotification(
         'diplomatic_proposal',
-        `${empireName} offers to become your vassal`,
-        `The ${empireName} are severely weakened and offer unconditional surrender. They will pay tribute and serve as your vassal state.`,
+        vassalVoice.title,
+        vassalVoice.body,
         tick,
         [
           { id: `accept_vassalism_${empireId}`, label: 'Accept Surrender', description: 'End the war — they become your vassal and pay tribute' },
@@ -5126,15 +5142,16 @@ function executeAIDiplomacy(
     // AI-to-player: create a notification for the player to accept/reject
     const empireObj = state.gameState.empires.find(e => e.id === empireId);
     const empireName = empireObj?.name ?? empireId;
+    const targetObj = state.gameState.empires.find(e => e.id === targetEmpireId);
+    const targetName = targetObj?.name ?? targetEmpireId;
 
     // Vassalism demands get a distinct, more threatening notification
     const isVassalageDemand = treatyType === 'vassalism';
-    const notifTitle = isVassalageDemand
-      ? `${empireName} demands your subjugation`
-      : `${empireName} proposes ${treatyType.replace('_', ' ')}`;
-    const notifBody = isVassalageDemand
-      ? `The ${empireName} consider your empire too weak to stand alone. They demand you submit as a vassal state, paying tribute in exchange for their protection.`
-      : `The ${empireName} would like to establish a ${treatyType.replace('_', ' ')} agreement with your empire.`;
+    const voiceSituation = isVassalageDemand ? 'vassalage_demand' as const : 'treaty_proposal' as const;
+    const voice = getDiplomaticVoice(
+      empireObj?.species?.id ?? '', voiceSituation,
+      { name: empireName, target: targetName, treaty_type: treatyType.replace('_', ' ') },
+    );
     const acceptLabel = isVassalageDemand ? 'Submit' : 'Accept';
     const acceptDesc = isVassalageDemand
       ? 'Become their vassal — pay tribute and serve'
@@ -5142,8 +5159,8 @@ function executeAIDiplomacy(
 
     const notification = createNotification(
       'diplomatic_proposal',
-      notifTitle,
-      notifBody,
+      voice.title,
+      voice.body,
       tick,
       [
         { id: `accept_${treatyType}_${empireId}`, label: acceptLabel, description: acceptDesc },
@@ -5194,13 +5211,19 @@ function executeAIDiplomacy(
       return { ...state, diplomacyState: updatedDiplomacy };
     }
 
-    // AI-to-player: offer peace via notification
+    // AI-to-player: offer peace via notification with species voice
     const empireObj = state.gameState.empires.find(e => e.id === empireId);
     const empireName = empireObj?.name ?? empireId;
+    const targetObj = state.gameState.empires.find(e => e.id === targetEmpireId);
+    const targetName = targetObj?.name ?? targetEmpireId;
+    const peaceVoice = getDiplomaticVoice(
+      empireObj?.species?.id ?? '', 'peace_offer',
+      { name: empireName, target: targetName },
+    );
     const notification = createNotification(
       'diplomatic_proposal',
-      `${empireName} seeks peace`,
-      `The ${empireName} request an end to hostilities. They appear weakened and wish to negotiate.`,
+      peaceVoice.title,
+      peaceVoice.body,
       tick,
       [
         { id: `accept_peace_${empireId}`, label: 'Accept Peace', description: 'End the war and return to neutral relations' },
@@ -5266,17 +5289,22 @@ function executeAIWar(
     })};
   }
 
-  // Notify the target empire (if it's the player)
+  // Notify the target empire (if it's the player) with species voice
   const targetEmpire = state.gameState.empires.find(e => e.id === targetEmpireId);
   const empireObj = state.gameState.empires.find(e => e.id === empireId);
   const empireName = empireObj?.name ?? empireId;
+  const targetName = targetEmpire?.name ?? targetEmpireId;
 
   let notifications = ((state as unknown as Record<string, unknown>).notifications ?? []) as ReturnType<typeof createNotification>[];
   if (targetEmpire && !targetEmpire.isAI) {
+    const warVoice = getDiplomaticVoice(
+      empireObj?.species?.id ?? '', 'war_declaration',
+      { name: empireName, target: targetName },
+    );
     const notification = createNotification(
       'under_attack',
-      `${empireName} has declared war!`,
-      `The ${empireName} have declared war on your empire. Prepare your defences.`,
+      warVoice.title,
+      warVoice.body,
       tick,
       undefined,
       { empireId },
