@@ -425,12 +425,17 @@ export const CombatShips: React.FC<CombatShipsProps> = React.memo(function Comba
       }
       // Fallback: guess hull class from max hull points
       let fallback: HullClass;
-      if (ship.maxHull < 30) fallback = 'science_probe';
-      else if (ship.maxHull < 60) fallback = 'patrol';
-      else if (ship.maxHull < 120) fallback = 'destroyer';
-      else if (ship.maxHull < 250) fallback = 'light_cruiser';
-      else if (ship.maxHull < 450) fallback = 'battleship';
-      else fallback = 'heavy_battleship';
+      if (ship.maxHull >= 10000) fallback = 'planet_killer';
+      else if (ship.maxHull >= 5000) fallback = 'large_space_station';
+      else if (ship.maxHull >= 3000) fallback = 'battle_station';
+      else if (ship.maxHull >= 2000) fallback = 'space_station';
+      else if (ship.maxHull >= 1500) fallback = 'heavy_battleship';
+      else if (ship.maxHull >= 450) fallback = 'heavy_battleship';
+      else if (ship.maxHull >= 250) fallback = 'battleship';
+      else if (ship.maxHull >= 120) fallback = 'light_cruiser';
+      else if (ship.maxHull >= 60) fallback = 'destroyer';
+      else if (ship.maxHull >= 30) fallback = 'patrol';
+      else fallback = 'science_probe';
       map.set(ship.id, fallback);
     }
 
