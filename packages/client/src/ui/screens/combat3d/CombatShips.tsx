@@ -13,7 +13,7 @@ import type { TacticalShip, HullClass } from '@nova-imperia/shared';
 import { generateShipBuildResult, getShipMaterial } from '../../../game/rendering/ShipModels3D';
 import { getSpeciesWeaponPalette } from '../../../assets/graphics/speciesWeaponVisuals';
 import type { CombatStateAPI } from './useCombatState';
-import { tacticalTo3D, shipScale, DAMAGE_FLASH_COLOR } from './constants';
+import { tacticalTo3D, shipScale, BF_SCALE, DAMAGE_FLASH_COLOR } from './constants';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -99,6 +99,24 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
   );
 
   const scale = useMemo(() => shipScale(ship.maxHull), [ship.maxHull]);
+
+  // Shield bubble scale -- use engine collision extents when available (tuned per hull class),
+  // with 30% margin. Falls back to geometry bounds if extents are absent.
+  const shieldBubbleScale = useMemo((): [number, number, number] => {
+    const ext = (ship as any).collisionExtents as { halfWidth: number; halfHeight: number; halfLength: number } | undefined;
+    if (ext) {
+      return [
+        ext.halfWidth * BF_SCALE * 1.3,
+        ext.halfHeight * BF_SCALE * 1.3,
+        ext.halfLength * BF_SCALE * 1.3,
+      ];
+    }
+    return [
+      hardpoints.bounds.width * scale * 0.75,
+      hardpoints.bounds.height * scale * 0.75,
+      hardpoints.bounds.length * scale * 0.65,
+    ];
+  }, [ship, hardpoints.bounds, scale]);
 
   // Species-specific palette for engine glow colour
   const palette = useMemo(() => getSpeciesWeaponPalette(speciesId), [speciesId]);
@@ -303,15 +321,11 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
         />
       </mesh>
 
-      {/* Shield bubble — semi-transparent ellipsoid sized to bounding box */}
+      {/* Shield bubble — semi-transparent ellipsoid sized from engine collision extents */}
       {ship.maxShields > 0 && (
         <mesh
           ref={shieldMeshRef}
-          scale={[
-            hardpoints.bounds.width * scale * 0.65,
-            hardpoints.bounds.height * scale * 0.65,
-            hardpoints.bounds.length * scale * 0.55,
-          ]}
+          scale={shieldBubbleScale}
         >
           <sphereGeometry args={[1, 12, 8]} />
           <primitive object={shieldMaterial} attach="material" />
