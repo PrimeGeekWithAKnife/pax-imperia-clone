@@ -85,7 +85,11 @@ function resolveWeaponOrigin(
   const hardpoints = result.hardpoints.weapons;
   if (hardpoints.length === 0) return shipPos;
 
-  const scale = shipScale(ship.maxHull);
+  // Scale must match the mesh scale in CombatShips — derived from collision extents
+  const ext = (ship as any).collisionExtents as { halfLength: number } | undefined;
+  const scale = (ext && result.hardpoints.bounds.length > 0.1)
+    ? (ext.halfLength * BF_SCALE) / (result.hardpoints.bounds.length / 2)
+    : shipScale(ship.maxHull);
   const rotAngle = -(ship.facing - Math.PI / 2);
   const cosR = Math.cos(rotAngle);
   const sinR = Math.sin(rotAngle);
