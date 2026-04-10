@@ -401,15 +401,25 @@ function BeamEffects({
 
         case 'spinal': {
           // Wide multi-segment beam -- fills beamWidth with parallel line segments.
-          // The engine produces one BeamEffect per hit ship; all share the same
-          // source, so render a thick beam from source to THIS target.
+          // The beam ALWAYS extends from source to the far edge of the battlefield,
+          // visually crossing the entire map regardless of where the target is.
           const bw = ((beam as any).beamWidth ?? 80) * BF_SCALE; // battlefield units -> 3D
           const halfBW = bw / 2;
           const numStrands = 10; // parallel line segments filling the beam width
 
-          // Beam direction and perpendicular axes
+          // Compute beam direction from source toward target, then extend to
+          // the battlefield diagonal so the beam visually crosses the entire map.
           const sdx = tx - sx, sdy = ty - sy, sdz = tz - sz;
           _tmpDir.set(sdx, sdy, sdz).normalize();
+          const bfDiag = Math.sqrt(
+            (battlefieldWidth * BF_SCALE) ** 2 + (battlefieldHeight * BF_SCALE) ** 2,
+          );
+          // Beam endpoint: source + direction * battlefield diagonal
+          const farX = sx + _tmpDir.x * bfDiag;
+          const farY = sy + _tmpDir.y * bfDiag;
+          const farZ = sz + _tmpDir.z * bfDiag;
+
+          // Perpendicular axes for beam width spread
           _tmpUp.set(0, 1, 0);
           _perpA.crossVectors(_tmpDir, _tmpUp);
           if (_perpA.lengthSq() < 0.001) {
@@ -432,21 +442,21 @@ function BeamEffects({
             const offY = _perpA.y * tA + _perpB.y * tB;
             const offZ = _perpA.z * tA + _perpB.z * tB;
 
-            // Core white-hot strand
+            // Core white-hot strand — extends to far edge
             addSegment(
               sx + offX, sy + offY, sz + offZ,
-              tx + offX, ty + offY, tz + offZ,
+              farX + offX, farY + offY, farZ + offZ,
               coreR, coreG, coreB, spinalAlpha * 0.9,
             );
-            // Outer glow strand
+            // Outer glow strand — extends to far edge
             addSegment(
               sx + offX * 1.3, sy + offY * 1.3, sz + offZ * 1.3,
-              tx + offX * 1.3, ty + offY * 1.3, tz + offZ * 1.3,
+              farX + offX * 1.3, farY + offY * 1.3, farZ + offZ * 1.3,
               glowR, glowG, glowB, spinalAlpha * 0.25,
             );
           }
 
-          // Large impact flash at the target
+          // Large impact flash at the actual target position (not far edge)
           _tmpColor.set(palette.beamCore);
           addFlash(tx, ty, tz, _tmpColor, fadeAlpha * 1.0, 0.5 + intensity * 0.4);
           break;
