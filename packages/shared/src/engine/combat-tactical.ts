@@ -2865,7 +2865,7 @@ function computeCooldown(comp: ShipComponent): number {
   switch (comp.type) {
     case 'weapon_beam':
       // Spinal weapons have a much longer cooldown (massive energy recharge)
-      if (comp.id === 'spinal_annihilator') return 50;
+      if (comp.id === 'spinal_annihilator') return 100;
       return 10;
     case 'weapon_projectile': return 15;
     case 'weapon_missile': {
@@ -5031,6 +5031,38 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       if (weapon.ammo !== undefined && weapon.ammo <= 0) {
         updatedWeapons.push(weapon);
         continue;
+      }
+
+      // Before firing a wide beam: check for friendly capital ships in the path.
+      // The spinal annihilator's beam width can engulf entire frigates, so we
+      // hold fire if a friendly cruiser+ (maxHull > 200) is within the sweep.
+      if (WIDE_BEAM_WEAPONS.has(weapon.componentId) && weapon.beamWidth) {
+        const halfWidth = weapon.beamWidth / 2;
+        const beamAngle = Math.atan2(
+          weaponTarget.position.y - ship.position.y,
+          weaponTarget.position.x - ship.position.x,
+        );
+        const beamEndX = ship.position.x + Math.cos(beamAngle) * weapon.range;
+        const beamEndY = ship.position.y + Math.sin(beamAngle) * weapon.range;
+        let friendlyCapitalInPath = false;
+        for (const ally of ships) {
+          if (ally.side !== ship.side || ally.id === ship.id || ally.destroyed || ally.routed) continue;
+          if (ally.maxHull < 200) continue; // only protect capital ships (cruiser+)
+          const perpDist = pointToSegmentDistance(
+            ally.position.x, ally.position.y, ally.position.z ?? 0,
+            ship.position.x, ship.position.y, ship.position.z ?? 0,
+            beamEndX, beamEndY, ship.position.z ?? 0,
+          );
+          if (perpDist < halfWidth + (ally.collisionRadius ?? 20)) {
+            friendlyCapitalInPath = true;
+            break;
+          }
+        }
+        if (friendlyCapitalInPath) {
+          // Hold fire — friendly capital in the beam path
+          updatedWeapons.push(weapon);
+          continue;
+        }
       }
 
       // Capacitor drain — sustained beam continuation ticks don't cost extra energy.
