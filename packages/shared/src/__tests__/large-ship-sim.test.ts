@@ -47,18 +47,32 @@ function makeShip(hullClass: string, side: 'attacker' | 'defender'): Ship {
 function makeDesign(hullClass: string): ShipDesign {
   const ht = Object.values(HULL_TEMPLATE_BY_CLASS).find(h => (h as any).class === hullClass) as any;
   // Find the engine and weapon slot IDs from the hull template's slotLayout
-  const slots: Array<{ id: string; facing: string; allowedTypes: string[] }> = ht?.slotLayout ?? [];
+  const slots: Array<{ id: string; facing: string; allowedTypes: string[]; size?: string; category?: string }> = ht?.slotLayout ?? [];
   const engineSlot = slots.find(s => s.allowedTypes.includes('engine'));
   const weaponSlot = slots.find(s => s.allowedTypes.some((t: string) => t.startsWith('weapon')));
+  const components = [
+    { slotId: engineSlot?.id ?? `${hullClass}_engine_0`, componentId: `engine-${hullClass}` },
+    { slotId: weaponSlot?.id ?? `${hullClass}_weapon_0`, componentId: `weapon-beam-${hullClass}` },
+  ];
+
+  // Planet killers get a spinal annihilator in their colossal weapon slot + power reactor
+  if (hullClass === 'planet_killer') {
+    const colossalWeaponSlot = slots.find(s => s.size === 'colossal' && s.category === 'weapon');
+    const internalSlot = slots.find(s => s.allowedTypes.includes('power_reactor'));
+    if (colossalWeaponSlot) {
+      components.push({ slotId: colossalWeaponSlot.id, componentId: 'spinal-annihilator-pk' });
+    }
+    if (internalSlot) {
+      components.push({ slotId: internalSlot.id, componentId: 'power-reactor-pk' });
+    }
+  }
+
   return {
     id: `design-${hullClass}`,
     name: hullClass,
     empireId: 'emp-a',
     hull: ht?.class ?? hullClass,
-    components: [
-      { slotId: engineSlot?.id ?? `${hullClass}_engine_0`, componentId: `engine-${hullClass}` },
-      { slotId: weaponSlot?.id ?? `${hullClass}_weapon_0`, componentId: `weapon-beam-${hullClass}` },
-    ],
+    components,
     totalCost: 0,
   } as ShipDesign;
 }
@@ -66,7 +80,7 @@ function makeDesign(hullClass: string): ShipDesign {
 function makeComponents(hullClass: string): ShipComponent[] {
   const ht = Object.values(HULL_TEMPLATE_BY_CLASS).find(h => (h as any).class === hullClass) as any;
   const speed = ht?.baseSpeed ?? 3;
-  return [
+  const components: ShipComponent[] = [
     {
       id: `engine-${hullClass}`,
       name: `${hullClass} Engine`,
@@ -86,6 +100,30 @@ function makeComponents(hullClass: string): ShipComponent[] {
       description: '',
     },
   ];
+
+  // Planet killers get a spinal annihilator (colossal beam) and high-capacity power reactor
+  if (hullClass === 'planet_killer') {
+    components.push({
+      id: 'spinal-annihilator-pk',
+      name: 'Spinal Annihilator',
+      type: 'weapon_beam' as any,
+      techAge: 'singularity',
+      size: 'colossal' as any,
+      stats: { damage: 200, range: 96, accuracy: 95, powerDraw: 50, beamWidth: 80, piercingBonus: 30, shieldPenetration: 40 },
+      description: 'Full-length spinal mount beam weapon',
+    });
+    components.push({
+      id: 'power-reactor-pk',
+      name: 'PK Power Reactor',
+      type: 'power_reactor' as any,
+      techAge: 'singularity',
+      size: 'colossal' as any,
+      stats: { capacity: 500, rechargeRate: 15 },
+      description: 'High-capacity reactor for spinal weapons',
+    });
+  }
+
+  return components;
 }
 
 interface BattleSetup {

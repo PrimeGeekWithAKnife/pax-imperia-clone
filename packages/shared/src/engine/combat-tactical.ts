@@ -2307,6 +2307,22 @@ export function generateEnvironment(
  * Attackers are placed near (100, 100), defenders near the bottom-right.
  * Ships are arranged in a 3-column grid with 60px spacing.
  */
+
+/** Default capacitor when no power_reactor is equipped.
+ *  Scales with the highest-cost weapon so spinal mounts can fire 3 times. */
+function defaultCapacitorForWeapons(weapons: TacticalWeapon[]): number {
+  const ENERGY_MAP: Record<string, number> = {
+    beam: 12, projectile: 4, missile: 8, point_defense: 3, fighter_bay: 6,
+  };
+  const SPINAL_MAP: Record<string, number> = { spinal_annihilator: 50 };
+  let maxCost = 0;
+  for (const w of weapons) {
+    const cost = SPINAL_MAP[w.componentId] ?? ENERGY_MAP[w.type] ?? 5;
+    if (cost > maxCost) maxCost = cost;
+  }
+  return Math.max(80, maxCost * 3);
+}
+
 export function initializeTacticalCombat(
   attackerFleet: Fleet,
   defenderFleet: Fleet,
@@ -2462,8 +2478,8 @@ export function initializeTacticalCombat(
           ),
         repairRate: extracted.repairRate ?? 0,
         moraleRecovery: extracted.moraleRecovery ?? 0,
-        capacitor: extracted.maxCapacitor || 80,
-        maxCapacitor: extracted.maxCapacitor || 80,
+        capacitor: extracted.maxCapacitor || defaultCapacitorForWeapons(extracted.weapons),
+        maxCapacitor: extracted.maxCapacitor || defaultCapacitorForWeapons(extracted.weapons),
         capacitorRecharge: extracted.capacitorRecharge || 4,
         currentPitch: 0,
         pitchRate: (() => {
