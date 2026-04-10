@@ -105,7 +105,22 @@ const ShipMesh: React.FC<ShipMeshProps> = React.memo(function ShipMesh({
     [],
   );
 
-  const scale = useMemo(() => shipScale(ship.maxHull), [ship.maxHull]);
+  // Scale the visual mesh to match the engine's collision extents.
+  // This ensures the ship's visual size == its tactical collision volume.
+  // Previously shipScale() used arbitrary tiers that made large ships appear
+  // up to 6× bigger than their collision boundaries — enemies appeared to
+  // orbit inside the hull because the visual hull was far larger than the
+  // engine's weapon range / engagement distance calculations.
+  const scale = useMemo(() => {
+    const ext = (ship as any).collisionExtents as { halfWidth: number; halfHeight: number; halfLength: number } | undefined;
+    if (ext && hardpoints.bounds.length > 0.1) {
+      // Derive scale so that visual half-length = engine halfLength in 3D units
+      const engineHalfLength = ext.halfLength * BF_SCALE;
+      const geoHalfLength = hardpoints.bounds.length / 2;
+      return engineHalfLength / geoHalfLength;
+    }
+    return shipScale(ship.maxHull);
+  }, [ship.maxHull, (ship as any).collisionExtents, hardpoints.bounds.length]);
 
   // Shield bubble scale -- use engine collision extents when available (tuned per hull class),
   // with 30% margin. Falls back to geometry bounds if extents are absent.
