@@ -3145,7 +3145,8 @@ export function moveShip(ship: TacticalShip, state: TacticalState): TacticalShip
   const STANCE_SPACING_MULT: Record<CombatStance, number> = {
     aggressive: 1.3, defensive: 0.7, at_ease: 1.0, evasive: 1.5, flee: 1.0,
   };
-  const baseSpacing = ship.maxHull < 80 ? 40 : ship.maxHull < 200 ? 70 : ship.maxHull < 400 ? 120 : 180;
+  const baseSpacing = ship.maxHull < 80 ? 40 : ship.maxHull < 200 ? 70 : ship.maxHull < 400 ? 120
+    : ship.maxHull < 1000 ? 180 : ship.maxHull < 3000 ? 300 : 450;
   let effectiveSpacing = baseSpacing * (STANCE_SPACING_MULT[ship.stance] ?? 1.0);
   if (ship.order.type === 'defend') { effectiveSpacing *= 0.6; }
   let spreadX = 0;
@@ -4229,13 +4230,59 @@ export function processTacticalTick(state: TacticalState): TacticalState {
   });
 
   // 2c. Hard collision resolution — prevent ships from overlapping.
-  // Run 2 iterations for stability (resolving one pair can push into another).
+  // Run 4 iterations for stability with large ships (resolving one pair can push into another).
   // Also applies collision damage based on closing speed and mass ratio.
   {
-    const COLLISION_ITERATIONS = 2;
+    const COLLISION_ITERATIONS = 4;
     const collisionDamage: Array<{ shipIdx: number; damage: number }> = [];
     // Work on mutable position copies, then produce new immutable ship objects.
     const positions = ships.map(s => ({ x: s.position.x, y: s.position.y, z: s.position.z }));
+
+    // 2c-pre. Pre-emptive soft separation: large ships push each other away
+    // before they overlap. This prevents the heavy-overlap-then-resolve cycle
+    // that 2 iterations couldn't fix for planet-killer-scale geometry.
+    for (let i = 0; i < ships.length; i++) {
+      const a = ships[i];
+      if (a.destroyed || a.routed) continue;
+      for (let j = i + 1; j < ships.length; j++) {
+        const b = ships[j];
+        if (b.destroyed || b.routed) continue;
+
+        const ae = a.collisionExtents ?? DEFAULT_COLLISION_EXTENTS;
+        const be = b.collisionExtents ?? DEFAULT_COLLISION_EXTENTS;
+        const horizA = Math.max(ae.halfWidth, ae.halfLength);
+        const horizB = Math.max(be.halfWidth, be.halfLength);
+        const minDistH = horizA + horizB;
+        // Only apply soft push for ships with combined collision radius > 100
+        // (capitals) — small ships use standard collision only.
+        if (minDistH < 100) continue;
+
+        const sdx = positions[j].x - positions[i].x;
+        const sdy = positions[j].y - positions[i].y;
+        const sdz = positions[j].z - positions[i].z;
+        const sDist = Math.sqrt(sdx * sdx + sdy * sdy + sdz * sdz);
+        // Soft push zone: 1.3x collision threshold. Ships approaching
+        // this boundary start being gently pushed apart.
+        const softZone = minDistH * 1.3;
+        if (sDist < softZone && sDist > 0.1) {
+          const penetration = (softZone - sDist) / softZone; // 0..1
+          const softPush = penetration * penetration * 4.0; // quadratic ramp
+          const snx = sdx / sDist;
+          const sny = sdy / sDist;
+          const snz = sdz / sDist;
+          const totalMass = a.maxHull + b.maxHull;
+          const saFrac = b.maxHull / totalMass;
+          const sbFrac = a.maxHull / totalMass;
+          positions[i].x -= snx * softPush * saFrac;
+          positions[i].y -= sny * softPush * saFrac;
+          positions[i].z -= snz * softPush * saFrac;
+          positions[j].x += snx * softPush * sbFrac;
+          positions[j].y += sny * softPush * sbFrac;
+          positions[j].z += snz * softPush * sbFrac;
+        }
+      }
+    }
+
     for (let iter = 0; iter < COLLISION_ITERATIONS; iter++) {
       for (let i = 0; i < ships.length; i++) {
         const a = ships[i];
@@ -4293,11 +4340,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
               }
             }
 
-            // Mass-weighted push — heavier ships move less
+            // Mass-weighted push — heavier ships move less.
+            // Push strength scales with overlap severity for faster convergence
+            // on deeply-overlapping large ships.
             const totalMass = a.maxHull + b.maxHull;
             const aFrac = b.maxHull / totalMass;
             const bFrac = a.maxHull / totalMass;
-            const pushEach = overlap * 0.5;
+            const pushEach = overlap * 0.7;  // strong push for convergence
 
             positions[i].x -= nx * pushEach * aFrac;
             positions[i].y -= ny * pushEach * aFrac;
