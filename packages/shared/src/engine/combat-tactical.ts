@@ -609,6 +609,13 @@ export interface TacticalState {
   admirals: Admiral[];
   layout: CombatLayout;
   planetData?: PlanetData;
+  /** Fleet cohesion: true while attackers are still closing (no attacker has fired yet). */
+  attackerApproaching?: boolean;
+  /** Fleet cohesion: true while defenders are still closing (no defender has fired yet). */
+  defenderApproaching?: boolean;
+  /** Minimum non-fighter speed per side, cached at combat start. */
+  attackerMinSpeed?: number;
+  defenderMinSpeed?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -2531,6 +2538,16 @@ export function initializeTacticalCombat(
     }
   }
 
+  // Compute minimum non-fighter speed per side for approach-phase cohesion.
+  const isFighterClass = (s: TacticalShip) =>
+    s.hullClass === 'fighter' || s.hullClass === 'bomber' || s.hullClass === 'drone';
+  const attackerSpeeds = ships
+    .filter(s => s.side === 'attacker' && !isFighterClass(s))
+    .map(s => s.speed);
+  const defenderSpeeds = ships
+    .filter(s => s.side === 'defender' && !isFighterClass(s))
+    .map(s => s.speed);
+
   return {
     tick: 0,
     ships,
@@ -2550,6 +2567,10 @@ export function initializeTacticalCombat(
     admirals: [],
     layout,
     planetData,
+    attackerApproaching: true,
+    defenderApproaching: true,
+    attackerMinSpeed: attackerSpeeds.length > 0 ? Math.min(...attackerSpeeds) : 3,
+    defenderMinSpeed: defenderSpeeds.length > 0 ? Math.min(...defenderSpeeds) : 3,
   };
 }
 
@@ -4221,8 +4242,44 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     return ship;
   });
 
-  // 2. Move ships
+  // 2. Move ships — with approach-phase speed clamping for fleet cohesion.
+  // During the approach (before any ship on this side fires), non-fighter
+  // ships are speed-capped to the slowest non-fighter in the fleet.
+  // This keeps the battle line together instead of fast ships charging ahead.
+  // Original speeds are restored after movement so the cap doesn't persist.
+  const atkApproach = state.attackerApproaching ?? false;
+  const defApproach = state.defenderApproaching ?? false;
+  const atkMinSpd = state.attackerMinSpeed ?? 3;
+  const defMinSpd = state.defenderMinSpeed ?? 3;
+  const speedOverrides = new Map<string, number>(); // ship.id -> original speed
+
+  if (atkApproach || defApproach) {
+    const smallCraftClasses = new Set(['fighter', 'bomber', 'drone']);
+    ships = ships.map(s => {
+      if (s.destroyed || s.routed) return s;
+      if (smallCraftClasses.has(s.hullClass ?? '')) return s;
+      const isApp = s.side === 'attacker' ? atkApproach : defApproach;
+      if (!isApp) return s;
+      const fleetMin = s.side === 'attacker' ? atkMinSpd : defMinSpd;
+      if (s.speed <= fleetMin) return s;
+      // Blend: fast ships move at min + 20% of excess, keeping formation.
+      // Tight blend ensures even extreme speed differences (PK=2 + DD=7)
+      // produce reasonable cohesion (DD moves at ~3 during approach).
+      const cappedSpeed = fleetMin + (s.speed - fleetMin) * 0.2;
+      speedOverrides.set(s.id, s.speed);
+      return { ...s, speed: cappedSpeed };
+    });
+  }
+
   ships = ships.map((ship) => moveShip(ship, state));
+
+  // Restore original speeds after movement so the cap doesn't persist
+  if (speedOverrides.size > 0) {
+    ships = ships.map(s => {
+      const orig = speedOverrides.get(s.id);
+      return orig !== undefined ? { ...s, speed: orig } : s;
+    });
+  }
 
   // 2b. RCS facing pass: stationary or slow-moving ships rotate to face
   // their primary target. Omitted for ships already manoeuvring (moveShip
@@ -5216,6 +5273,37 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     }
   }
 
+  // 4c. Fleet cohesion: end approach phase when a non-fighter ship fires.
+  // Fighters/bombers/drones rush ahead and engage first — they shouldn't
+  // break the approach phase for the main battle line.
+  let attackerApproaching = state.attackerApproaching ?? false;
+  let defenderApproaching = state.defenderApproaching ?? false;
+  if (attackerApproaching || defenderApproaching) {
+    const smallCraftClasses = new Set(['fighter', 'bomber', 'drone']);
+    const isMainShipFire = (sourceId: string) => {
+      const src = ships.find(s => s.id === sourceId);
+      return src && !smallCraftClasses.has(src.hullClass ?? '');
+    };
+    for (const be of newBeamEffects) {
+      if (!isMainShipFire(be.sourceShipId)) continue;
+      const src = ships.find(s => s.id === be.sourceShipId);
+      if (src?.side === 'attacker') attackerApproaching = false;
+      if (src?.side === 'defender') defenderApproaching = false;
+    }
+    for (const proj of newProjectiles) {
+      if (!isMainShipFire(proj.sourceShipId)) continue;
+      const src = ships.find(s => s.id === proj.sourceShipId);
+      if (src?.side === 'attacker') attackerApproaching = false;
+      if (src?.side === 'defender') defenderApproaching = false;
+    }
+    for (const mis of newMissiles) {
+      if (!isMainShipFire(mis.sourceShipId)) continue;
+      const src = ships.find(s => s.id === mis.sourceShipId);
+      if (src?.side === 'attacker') attackerApproaching = false;
+      if (src?.side === 'defender') defenderApproaching = false;
+    }
+  }
+
   // 5. Create debris from newly destroyed ships + morale drop from ally loss
   const prevDestroyedIds = new Set(
     state.ships.filter((s) => s.destroyed).map((s) => s.id),
@@ -5486,6 +5574,10 @@ export function processTacticalTick(state: TacticalState): TacticalState {
     admirals: state.admirals ?? [],
     layout: state.layout ?? 'open_space',
     planetData: state.planetData,
+    attackerApproaching,
+    defenderApproaching,
+    attackerMinSpeed: state.attackerMinSpeed,
+    defenderMinSpeed: state.defenderMinSpeed,
   };
 }
 
