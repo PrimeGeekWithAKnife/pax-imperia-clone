@@ -1136,6 +1136,15 @@ export function isInWeaponArc(
 ): boolean {
   const dx = target.position.x - ship.position.x;
   const dy = target.position.y - ship.position.y;
+
+  // Point-blank override: when target is inside our hull geometry,
+  // every weapon can bear — the enemy is physically overlapping the ship.
+  const ownRadius = ship.collisionRadius ?? 20;
+  const targetRadius = target.collisionRadius ?? 20;
+  const dz = (target.position.z ?? 0) - (ship.position.z ?? 0);
+  const centreTocentre = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (centreTocentre < ownRadius + targetRadius) return true;
+
   const angleToTarget = Math.atan2(dy, dx);
 
   // Compute the weapon's world-space reference angle
@@ -1296,8 +1305,10 @@ function smallCraftFlank(
   const swarmSize = state.ships.filter(
     s => s.side === ship.side && !s.destroyed && !s.routed && s.maxHull < 80,
   ).length;
-  // Base orbit grows with swarm size — more drones need more room
-  const baseOrbit = engageDistance(ship) * 0.7;
+  // Base orbit grows with swarm size — more drones need more room.
+  // Floor at hull clearance so small craft don't orbit inside capital ship geometry.
+  const hullClearanceSmall = (ship.collisionRadius ?? 4) + (target.collisionRadius ?? 20) + 15;
+  const baseOrbit = Math.max(hullClearanceSmall, engageDistance(ship) * 0.7);
   const orbitRadius = baseOrbit * (1 + Math.max(0, swarmSize - 4) * 0.08);
 
   // ── Step 1: Map the target's weapon danger zones ────────────────────
@@ -3695,13 +3706,22 @@ interface EngagementRange {
  * If the ship outranges the enemy by 20%+, optimal is pushed outside enemy range.
  */
 function computeEngagementRange(ship: TacticalShip, target: TacticalShip): EngagementRange {
+  // Hull clearance: ships must orbit outside both hulls, not inside them.
+  // Without this, a corvette orbiting a planet killer at weapon-range distance
+  // ends up physically inside the planet killer's geometry.
+  const ownRadius = ship.collisionRadius ?? 20;
+  const targetRadius = target.collisionRadius ?? 20;
+  // Margin scales with the larger ship — big ships need more room to manoeuvre
+  const largerRadius = Math.max(ownRadius, targetRadius);
+  const hullClearance = ownRadius + targetRadius + Math.max(20, largerRadius * 0.3);
+
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
-  if (nonPD.length === 0) return { min: 60, optimal: 100, max: 200 };
+  if (nonPD.length === 0) return { min: Math.max(60, hullClearance), optimal: Math.max(100, hullClearance), max: Math.max(200, hullClearance) };
 
   const shortestRange = Math.min(...nonPD.map(w => w.range));
   const longestRange = Math.max(...nonPD.map(w => w.range));
 
-  const min = Math.max(30, shortestRange * 0.3);
+  const min = Math.max(hullClearance, shortestRange * 0.3);
 
   // Stance-based optimal fraction of shortest weapon range
   const stanceFraction: Record<CombatStance, number> = {
@@ -3721,8 +3741,8 @@ function computeEngagementRange(ship: TacticalShip, target: TacticalShip): Engag
     optimal = Math.max(min * fraction, enemyMaxRange * 1.1);
   }
 
-  // Clamp optimal within [min, longestRange]
-  optimal = Math.max(min, Math.min(longestRange, optimal));
+  // Clamp optimal: never closer than hull clearance, never beyond max range
+  optimal = Math.max(hullClearance, Math.min(longestRange, optimal));
 
   return { min, optimal, max: longestRange };
 }
@@ -3732,11 +3752,14 @@ function computeEngagementRange(ship: TacticalShip, target: TacticalShip): Engag
  * Backward-compatible wrapper — returns the optimal engagement distance.
  */
 function engageDistance(ship: TacticalShip): number {
-  if (ship.weapons.length === 0) return 100;
+  // Minimum hull clearance so ships don't fly inside large targets.
+  // Since we don't know the target here, use 2× own radius as conservative estimate.
+  const hullClearance = (ship.collisionRadius ?? 20) * 2 + 15;
+  if (ship.weapons.length === 0) return Math.max(100, hullClearance);
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
-  if (nonPD.length === 0) return 100;
+  if (nonPD.length === 0) return Math.max(100, hullClearance);
   const minRange = Math.min(...nonPD.map((w) => w.range));
-  return minRange * ENGAGE_RANGE_FRACTION;
+  return Math.max(hullClearance, minRange * ENGAGE_RANGE_FRACTION);
 }
 
 // ---------------------------------------------------------------------------
@@ -3897,26 +3920,31 @@ function orbitTarget(
   let goalY: number;
   let goalZ: number;
 
+  // Hull clearance: minimum safe distance (centre-to-centre) to avoid geometry overlap
+  const ownRadius = ship.collisionRadius ?? 20;
+  const targetRadius = target.collisionRadius ?? 20;
+  const hullClearance = ownRadius + targetRadius + 10;
+  // The push-out threshold is the larger of orbitRadius*0.6 and hull clearance
+  const tooCloseThreshold = Math.max(orbitRadius * 0.6, hullClearance);
+
   if (d > orbitRadius * 1.5) {
     // ── Spiral approach: closing + orbiting simultaneously ──
-    // Blend between direct approach and orbit lead angle
     const directAngle = angleTo(ship.position, target.position);
-    // Higher blend toward orbit as we get closer
     const orbitBlend = Math.max(0.2, 1 - (d - orbitRadius) / (orbitRadius * 2));
     const blendedAngle = Math.atan2(
       Math.sin(directAngle) * (1 - orbitBlend) + Math.sin(leadAngle + Math.PI) * orbitBlend,
       Math.cos(directAngle) * (1 - orbitBlend) + Math.cos(leadAngle + Math.PI) * orbitBlend,
     );
-    // Goal is partway between current position and orbit point
-    const closingRadius = d * 0.7; // close 30% of remaining distance per cycle
+    const closingRadius = d * 0.7;
     goalX = ship.position.x + Math.cos(blendedAngle) * Math.min(closingRadius, ship.speed * 3);
     goalY = ship.position.y + Math.sin(blendedAngle) * Math.min(closingRadius, ship.speed * 3);
     goalZ = target.position.z;
-  } else if (d < orbitRadius * 0.6) {
-    // ── Too close: push outward ──
-    // Move away from target to reach orbit band
+  } else if (d < tooCloseThreshold) {
+    // ── Too close / inside hull geometry: push outward urgently ──
     const awayAngle = angleTo(target.position, ship.position);
-    const pushAngle = awayAngle + orbitDir * 0.3; // slight orbit while pushing out
+    // Stronger push when inside hull clearance vs just inside orbit band
+    const urgency = d < hullClearance ? 1.0 : 0.3;
+    const pushAngle = awayAngle + orbitDir * urgency * 0.3;
     goalX = target.position.x + Math.cos(pushAngle) * orbitRadius;
     goalY = target.position.y + Math.sin(pushAngle) * orbitRadius;
     goalZ = target.position.z;
@@ -4417,12 +4445,11 @@ export function processTacticalTick(state: TacticalState): TacticalState {
             }
 
             // Mass-weighted push — heavier ships move less.
-            // Push strength scales with overlap severity for faster convergence
-            // on deeply-overlapping large ships.
+            // Opposing sides get a stronger push to prevent melee overlap.
             const totalMass = a.maxHull + b.maxHull;
             const aFrac = b.maxHull / totalMass;
             const bFrac = a.maxHull / totalMass;
-            const pushEach = overlap * 0.7;  // strong push for convergence
+            const pushEach = overlap * 0.7;
 
             positions[i].x -= nx * pushEach * aFrac;
             positions[i].y -= ny * pushEach * aFrac;
