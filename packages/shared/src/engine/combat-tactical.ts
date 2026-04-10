@@ -3753,8 +3753,10 @@ function computeEngagementRange(ship: TacticalShip, target: TacticalShip): Engag
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
   if (nonPD.length === 0) return { min: Math.max(60, hullClearance), optimal: Math.max(100, hullClearance), max: Math.max(200, hullClearance) };
 
-  const shortestRange = Math.min(...nonPD.map(w => w.range));
-  const longestRange = Math.max(...nonPD.map(w => w.range));
+  // Weapons fire from hull edge, not centre — effective range extends beyond the weapon stat
+  const ownHullOffset = ship.collisionRadius ?? 0;
+  const shortestRange = Math.min(...nonPD.map(w => w.range)) + ownHullOffset;
+  const longestRange = Math.max(...nonPD.map(w => w.range)) + ownHullOffset;
 
   const min = Math.max(hullClearance, shortestRange * 0.3);
 
@@ -3793,7 +3795,9 @@ function engageDistance(ship: TacticalShip): number {
   if (ship.weapons.length === 0) return Math.max(100, hullClearance);
   const nonPD = ship.weapons.filter(w => w.type !== 'point_defense');
   if (nonPD.length === 0) return Math.max(100, hullClearance);
-  const minRange = Math.min(...nonPD.map((w) => w.range));
+  // Weapons fire from hull edge, not centre — add own hull radius to effective range
+  const ownHullOffset = ship.collisionRadius ?? 0;
+  const minRange = Math.min(...nonPD.map((w) => w.range)) + ownHullOffset;
   return Math.max(hullClearance, minRange * ENGAGE_RANGE_FRACTION);
 }
 
@@ -4976,7 +4980,7 @@ export function processTacticalTick(state: TacticalState): TacticalState {
         if (wScore > bestWeaponScore) {
           bestWeaponScore = wScore;
           weaponTarget = enemy;
-          weaponD = ed;
+          weaponD = effectiveDist;
         }
       }
 
