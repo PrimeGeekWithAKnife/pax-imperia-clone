@@ -182,12 +182,14 @@ describe('initializeTacticalCombat', () => {
     expect(attackers).toHaveLength(1);
     expect(defenders).toHaveLength(1);
 
-    // Attackers near left edge (baseX=120, baseY=BH/2=500)
-    expect(attackers[0].position.x).toBeCloseTo(120, 0);
+    // Attackers on left side, defenders on right side, separated by engagement range.
+    // Dynamic spawn: separation based on longest weapon range (pulse_laser range=160).
+    // initialSep = max(400, min(BW-200, 160*1.2)) = 400, centreX = 800.
+    // attacker at 600, defender at 1000.
+    expect(attackers[0].position.x).toBeCloseTo(600, 0);
     expect(attackers[0].position.y).toBeCloseTo(BATTLEFIELD_HEIGHT / 2, 0);
 
-    // Defenders near right edge (baseX=BW-120, baseY=BH/2=500)
-    expect(defenders[0].position.x).toBeCloseTo(BATTLEFIELD_WIDTH - 120, 0);
+    expect(defenders[0].position.x).toBeCloseTo(1000, 0);
     expect(defenders[0].position.y).toBeCloseTo(BATTLEFIELD_HEIGHT / 2, 0);
   });
 
@@ -220,14 +222,15 @@ describe('initializeTacticalCombat', () => {
     const attackers = state.ships.filter((s) => s.side === 'attacker');
     expect(attackers).toHaveLength(5);
 
-    // Line formation: ships spread vertically from baseY=500 with 50px spacing
+    // Line formation: ships spread vertically with 50px spacing
+    // Dynamic baseX from engagement range (pulse_laser range 160, sep=400, centreX=800, atk=600)
     // totalHeight=(5-1)*50=200, startY=500-100=400
     // z layers cycle: (index%3-1)*zLayerGap, zLayerGap = max(10,3)*2+20 = 40
-    expect(attackers[0].position).toEqual({ x: 120, y: 400, z: -40 });
-    expect(attackers[1].position).toEqual({ x: 120, y: 450, z: 0 });
-    expect(attackers[2].position).toEqual({ x: 120, y: 500, z: 40 });
-    expect(attackers[3].position).toEqual({ x: 120, y: 550, z: -40 });
-    expect(attackers[4].position).toEqual({ x: 120, y: 600, z: 0 });
+    expect(attackers[0].position).toEqual({ x: 600, y: 400, z: -40 });
+    expect(attackers[1].position).toEqual({ x: 600, y: 450, z: 0 });
+    expect(attackers[2].position).toEqual({ x: 600, y: 500, z: 40 });
+    expect(attackers[3].position).toEqual({ x: 600, y: 550, z: -40 });
+    expect(attackers[4].position).toEqual({ x: 600, y: 600, z: 0 });
   });
 
   it('extracts component stats — weapons, speed, shields', () => {

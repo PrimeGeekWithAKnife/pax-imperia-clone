@@ -2365,10 +2365,33 @@ export function initializeTacticalCombat(
   const BH = bfCfg.height;
 
   // Fleets start within engagement range so combat begins quickly.
-  // Attackers on the left third, defenders on the right third.
+  // Compute initial separation from the longest weapon range across both
+  // fleets — ships spawn so their longest-range weapons can fire on tick 1.
+  // Fall back to edge placement for planetary assaults (defender dug in).
+  const allExpandedShips = [...expandedAttackers, ...expandedDefenders];
+  let maxWeaponRange = 0;
+  for (const s of allExpandedShips) {
+    const d = designs.get(s.designId);
+    if (!d) continue;
+    for (const assignment of d.components ?? []) {
+      const comp = componentById.get(assignment.componentId);
+      if (!comp) continue;
+      if (comp.type.startsWith('weapon_')) {
+        const r = (comp.stats['range'] ?? 0) * RANGE_TO_BATTLEFIELD;
+        if (r > maxWeaponRange) maxWeaponRange = r;
+      }
+    }
+  }
+  // Initial separation: longest weapon range * 1.2, clamped between 400 and BW-200.
+  // This guarantees the longest-range weapons can fire almost immediately, while
+  // shorter-range weapons need only a brief approach.
+  const initialSep = maxWeaponRange > 0
+    ? Math.max(400, Math.min(BW - 200, maxWeaponRange * 1.2))
+    : BW - 240;
+  const centreX = BW / 2;
   const defenderBaseX = layout === 'planetary_assault'
     ? BW - 250
-    : BW - 120;
+    : centreX + initialSep / 2;
   const defenderBaseY = layout === 'planetary_assault'
     ? BH - 200
     : BH * 0.5;
@@ -2377,8 +2400,8 @@ export function initializeTacticalCombat(
     ships: Ship[],
     side: 'attacker' | 'defender',
   ): TacticalShip[] {
-    // Ships start at opposite edges of the battlefield
-    const baseX = side === 'attacker' ? 120 : defenderBaseX;
+    // Ships start separated by the computed engagement distance
+    const baseX = side === 'attacker' ? (centreX - initialSep / 2) : defenderBaseX;
     const baseY = side === 'attacker' ? BH * 0.5 : defenderBaseY;
     const facing = side === 'attacker' ? 0 : Math.PI;
 

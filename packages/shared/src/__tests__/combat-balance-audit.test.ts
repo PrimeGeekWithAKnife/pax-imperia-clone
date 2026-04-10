@@ -534,9 +534,8 @@ describe('1. Damage Verification', () => {
   });
 
   describe('beam weapons deal damage', () => {
-    it('pulse lasers deal damage over 600 ticks (ships must close ~1600px gap at speed 3)', () => {
-      // Battlefield is 1600x1000; ships start ~1612px apart.
-      // At speed 3, closing takes ~450 ticks before weapons (range 250) can fire.
+    it('pulse lasers deal damage over 600 ticks', () => {
+      // Ships start separated by engagement range (dynamic, based on longest weapon range).
       // We run 600 ticks to allow engagement time.
       const design = stdDestroyerDesign('dd-beam-atk', 'empire-1');
       const defDesign = stdDestroyerDesign('dd-beam-def', 'empire-2');
@@ -546,11 +545,11 @@ describe('1. Damage Verification', () => {
 
       logResult('Beam (pulse laser) 1v1 destroyer', result);
 
-      // Check total damage: hull + shield depletion
+      // Check total damage: hull + shield depletion (use actual maxHull/maxShields)
       const atkShip = finalState.ships.find((s) => s.side === 'attacker')!;
       const defShip = finalState.ships.find((s) => s.side === 'defender')!;
-      const atkTotalDmgTaken = (100 - atkShip.hull) + (30 - atkShip.shields);
-      const defTotalDmgTaken = (100 - defShip.hull) + (30 - defShip.shields);
+      const atkTotalDmgTaken = (atkShip.maxHull - atkShip.hull) + (atkShip.maxShields - atkShip.shields);
+      const defTotalDmgTaken = (defShip.maxHull - defShip.hull) + (defShip.maxShields - defShip.shields);
       const totalDamage = atkTotalDmgTaken + defTotalDmgTaken;
 
       console.log(
@@ -584,8 +583,8 @@ describe('1. Damage Verification', () => {
 
       const atkShip = finalState.ships.find((s) => s.side === 'attacker')!;
       const defShip = finalState.ships.find((s) => s.side === 'defender')!;
-      const atkTotalDmgTaken = (100 - atkShip.hull) + (30 - atkShip.shields);
-      const defTotalDmgTaken = (100 - defShip.hull) + (30 - defShip.shields);
+      const atkTotalDmgTaken = (atkShip.maxHull - atkShip.hull) + (atkShip.maxShields - atkShip.shields);
+      const defTotalDmgTaken = (defShip.maxHull - defShip.hull) + (defShip.maxShields - defShip.shields);
       const totalDamage = atkTotalDmgTaken + defTotalDmgTaken;
 
       console.log(
@@ -621,8 +620,8 @@ describe('1. Damage Verification', () => {
 
       const atkShip = finalState.ships.find((s) => s.side === 'attacker')!;
       const defShip = finalState.ships.find((s) => s.side === 'defender')!;
-      const atkTotalDmgTaken = (100 - atkShip.hull) + (30 - atkShip.shields);
-      const defTotalDmgTaken = (100 - defShip.hull) + (30 - defShip.shields);
+      const atkTotalDmgTaken = (atkShip.maxHull - atkShip.hull) + (atkShip.maxShields - atkShip.shields);
+      const defTotalDmgTaken = (defShip.maxHull - defShip.hull) + (defShip.maxShields - defShip.shields);
       const totalDamage = atkTotalDmgTaken + defTotalDmgTaken;
 
       console.log(
@@ -815,7 +814,7 @@ describe('3. Morale and Routing', () => {
     const moraleHistory: number[][] = [];
     let current = state;
 
-    for (let t = 0; t < 200; t++) {
+    for (let t = 0; t < 400; t++) {
       current = withSeededRng(601 + t * 7, () => processTacticalTick(current));
       const defMorales = current.ships
         .filter((s) => s.side === 'defender' && !s.destroyed)
