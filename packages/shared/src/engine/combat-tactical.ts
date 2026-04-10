@@ -3605,12 +3605,20 @@ function moveToward(
   const pitchDiff = desiredPitch - (ship.currentPitch ?? 0);
   const newPitch = (ship.currentPitch ?? 0) + clamp(pitchDiff, -pitchRate, pitchRate);
 
+  // Thrust fraction: ensures ships reach ~80% max speed within 30 ticks.
+  // Replaces the fixed 0.3 which was too conservative for large ships
+  // with low acceleration but higher speed caps.
+  const maxV = ship.speed ?? MAX_VELOCITY;
+  const thrustFraction = accel > 0.01
+    ? Math.max(0.15, (maxV * 0.8) / (accel * 30))
+    : 0.3;
+
   // Anticipatory braking: start slowing down when stopping distance
   // exceeds remaining distance. Prevents overshoot at engagement range.
   const closingSpeed = d > 0.1
     ? -(vx * (target.x - ship.position.x) + vy * (target.y - ship.position.y) + vz * dz) / d
     : 0; // negative = closing
-  const brakeAccel = accel * 0.3 + (ship.rcsThrust ?? 0);
+  const brakeAccel = accel * thrustFraction + (ship.rcsThrust ?? 0);
   const stoppingDist = brakeAccel > 0.01 ? (Math.max(0, -closingSpeed) ** 2) / (2 * brakeAccel) : 0;
   const needsBraking = d > minDist && (d - minDist) < stoppingDist * 1.2;
 
@@ -3619,9 +3627,9 @@ function moveToward(
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
     const thrustAngle = newFacing + jitterAngle;
     const cosPitch = Math.cos(newPitch);
-    newVx += Math.cos(thrustAngle) * cosPitch * accel * 0.3;
-    newVy += Math.sin(thrustAngle) * cosPitch * accel * 0.3;
-    newVz += Math.sin(newPitch) * accel * 0.3;
+    newVx += Math.cos(thrustAngle) * cosPitch * accel * thrustFraction;
+    newVy += Math.sin(thrustAngle) * cosPitch * accel * thrustFraction;
+    newVz += Math.sin(newPitch) * accel * thrustFraction;
   } else if (currentSpeed > 0.3) {
     // Within minDist — need to slow down.
     const retroAngle = Math.atan2(-vy, -vx);
@@ -3629,7 +3637,7 @@ function moveToward(
     // Main engine braking — only effective when facing retrograde
     const facingDelta = Math.abs(normaliseAngle(newFacing - retroAngle));
     const mainBrakeEfficiency = Math.max(0, Math.cos(facingDelta));
-    const mainBrake = accel * 0.3 * mainBrakeEfficiency * crewJitterMul(exp);
+    const mainBrake = accel * thrustFraction * mainBrakeEfficiency * crewJitterMul(exp);
     newVx += Math.cos(newFacing) * mainBrake;
     newVy += Math.sin(newFacing) * mainBrake;
 
@@ -3697,7 +3705,6 @@ function moveToward(
   newVz *= SPACE_DRAG;
 
   // Clamp to max velocity — includes z component (ship.speed is the speed cap)
-  const maxV = ship.speed ?? MAX_VELOCITY;
   const newSpeed = Math.sqrt(newVx * newVx + newVy * newVy + newVz * newVz);
   if (newSpeed > maxV) {
     const scale = maxV / newSpeed;
