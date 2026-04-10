@@ -90,17 +90,37 @@ function resolveWeaponOrigin(
   const cosR = Math.cos(rotAngle);
   const sinR = Math.sin(rotAngle);
 
+  // Pitch from engine state -- matches CombatShips.tsx visual rotation
+  const pitch = (ship as any).currentPitch ?? 0;
+  const cosP = Math.cos(pitch);
+  const sinP = Math.sin(pitch);
+
   let bestDistSq = Infinity;
   _hpBest.copy(shipPos);
 
   for (const hp of hardpoints) {
-    // Rotate hardpoint position by ship facing (Y-axis rotation)
-    const rx = hp.position.x * cosR - hp.position.z * sinR;
-    const rz = hp.position.x * sinR + hp.position.z * cosR;
+    // Step 1: Rotate hardpoint position by yaw (Y-axis rotation)
+    const yawX = hp.position.x * cosR - hp.position.z * sinR;
+    const yawY = hp.position.y;  // vertical -- unchanged by yaw
+    const yawZ = hp.position.x * sinR + hp.position.z * cosR;
+
+    // Step 2: Apply pitch rotation around the ship's local right-axis.
+    // The ship's forward direction in 3D (after yaw) is (cosR, 0, sinR).
+    // Decompose the yaw-rotated position into forward and right components,
+    // rotate forward/up by pitch, then recompose.
+    const facingX = cosR;   // ship's forward direction X
+    const facingZ = sinR;   // ship's forward direction Z
+    const fwd = yawX * facingX + yawZ * facingZ;     // component along facing
+    const right = -yawX * facingZ + yawZ * facingX;   // component perpendicular to facing
+    const pitchedFwd = fwd * cosP - yawY * sinP;
+    const pitchedY = fwd * sinP + yawY * cosP;
+    const finalX = pitchedFwd * facingX - right * facingZ;
+    const finalZ = pitchedFwd * facingZ + right * facingX;
+
     _hpWorld.set(
-      shipPos.x + rx * scale,
-      shipPos.y + hp.position.y * scale,
-      shipPos.z + rz * scale,
+      shipPos.x + finalX * scale,
+      shipPos.y + pitchedY * scale,
+      shipPos.z + finalZ * scale,
     );
     const dSq = _hpWorld.distanceToSquared(targetPos3D);
     if (dSq < bestDistSq) {
