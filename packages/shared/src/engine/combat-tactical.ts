@@ -3624,8 +3624,12 @@ function moveToward(
 
   if (d > minDist && !needsBraking) {
     // Thrust toward target — project main engine in 3D (yaw + pitch)
+    // Thrust direction lags behind facing — engines don't instantly redirect.
+    // Small ships snap quickly; capital ships sweep gracefully through arcs.
+    const thrustLag = ship.maxHull < 80 ? 0.9 : ship.maxHull < 200 ? 0.8 : ship.maxHull < 500 ? 0.7 : 0.5;
     const jitterAngle = (CREW_JITTER[exp] ?? 0.04) * (Math.random() * 2 - 1);
-    const thrustAngle = newFacing + jitterAngle;
+    const laggedFacing = ship.facing + normaliseAngle(newFacing - ship.facing) * thrustLag;
+    const thrustAngle = laggedFacing + jitterAngle;
     const cosPitch = Math.cos(newPitch);
     newVx += Math.cos(thrustAngle) * cosPitch * accel * thrustFraction;
     newVy += Math.sin(thrustAngle) * cosPitch * accel * thrustFraction;
