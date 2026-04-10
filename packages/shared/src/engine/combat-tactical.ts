@@ -4740,7 +4740,13 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       for (const enemy of ships) {
         if (enemy.side === ship.side || enemy.destroyed || enemy.routed) continue;
         const ed = dist(ship.position, enemy.position);
-        if (ed > weapon.range) continue;
+        // Subtract hull radii from centre-to-centre distance so weapons can fire
+        // when hulls are within range, not just when centres are within range.
+        // A planet killer (halfLength=275) touching a battleship (halfLength=95)
+        // has ed=370 centre-to-centre but hull-to-hull distance ~0.
+        const hullAdjust = (ship.collisionRadius ?? 0) + (enemy.collisionRadius ?? 0);
+        const effectiveDist = Math.max(0, ed - hullAdjust);
+        if (effectiveDist > weapon.range) continue;
         if (!isInWeaponArc(ship, enemy, weapon)) continue;
 
         let wScore = 0;
