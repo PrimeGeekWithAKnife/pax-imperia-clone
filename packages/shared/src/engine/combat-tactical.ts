@@ -5034,9 +5034,9 @@ export function processTacticalTick(state: TacticalState): TacticalState {
       }
 
       // Capacitor drain — sustained beam continuation ticks don't cost extra energy.
-      // Spinal weapons drain massively (50 energy per fire).
-      const SPINAL_ENERGY_COST: Record<string, number> = { spinal_annihilator: 50 };
-      const energyCost = SPINAL_ENERGY_COST[weapon.componentId] ?? WEAPON_ENERGY_COST[weapon.type] ?? 5;
+      // Spinal weapons have zero energy cost — the planet killer's reactor feeds them directly.
+      const ZERO_ENERGY_WEAPONS = new Set(['spinal_annihilator']);
+      const energyCost = ZERO_ENERGY_WEAPONS.has(weapon.componentId) ? 0 : (WEAPON_ENERGY_COST[weapon.type] ?? 5);
       const isSustainedContinuation = weapon.sustainedTicksLeft != null && weapon.sustainedTicksLeft > 0;
       if (!isSustainedContinuation && currentCapacitor < energyCost) {
         // Not enough energy — skip firing, don't reset cooldown

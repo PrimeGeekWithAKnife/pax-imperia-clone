@@ -3331,7 +3331,7 @@
       "damage": 200,
       "range": 96,
       "accuracy": 95,
-      "powerDraw": 50,
+      "powerDraw": 0,
       "rateOfFire": 0.1,
       "beamWidth": 80,
       "piercingBonus": 30,
