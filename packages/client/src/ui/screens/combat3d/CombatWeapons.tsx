@@ -81,7 +81,7 @@ function resolveWeaponOrigin(
   speciesId: string | undefined,
   hullClass: string,
 ): THREE.Vector3 {
-  const result = generateShipBuildResult(speciesId ?? 'teranos', hullClass as any, 6);
+  const result = generateShipBuildResult(speciesId ?? 'teranos', hullClass as any);
   const hardpoints = result.hardpoints.weapons;
   if (hardpoints.length === 0) return shipPos;
 
